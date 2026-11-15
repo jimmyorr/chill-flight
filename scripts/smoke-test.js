@@ -196,7 +196,13 @@ async function checkPage(browser, {path, fly, blackhole, presetSwitch}) {
   if (blackhole) {
     // Generous deadlines: a busy machine can be slow, but a real black
     // screen never paints at all.
-    await page.waitForSelector('#begin-btn', {visible: true, timeout: 60000});
+    await page.waitForFunction(
+      () => {
+        const el = document.getElementById('loading-overlay');
+        return el && getComputedStyle(el).display === 'none';
+      },
+      {timeout: 60000}
+    );
     // A screenshot needs a painted frame; if a render-blocking third-party
     // resource hangs, the page never paints (a black screen).
     const painted = await Promise.race([
@@ -207,7 +213,9 @@ async function checkPage(browser, {path, fly, blackhole, presetSwitch}) {
       new Promise((r) => setTimeout(() => r(false), 30000)),
     ]);
     if (!painted) failPage(tag, 'page never painted (black screen)');
-    await page.click('#begin-btn');
+    // Steer once to give the browser a user gesture so music playback starts
+    // and the stall guard falls back to the bundled track.
+    await page.keyboard.press('ArrowLeft');
     const fellBack = await Promise.race([
       bundledRequested,
       new Promise((r) => setTimeout(() => r(false), 25000)),
@@ -313,12 +321,17 @@ async function checkPage(browser, {path, fly, blackhole, presetSwitch}) {
     return;
   }
 
-  // Press START so the game loop, physics, and terrain generation all run.
+  // Wait for the loading screen to dismiss so flight begins.
   try {
-    await page.waitForSelector('#begin-btn', {visible: true, timeout: 30000});
-    await page.click('#begin-btn');
+    await page.waitForFunction(
+      () => {
+        const el = document.getElementById('loading-overlay');
+        return el && getComputedStyle(el).display === 'none';
+      },
+      {timeout: 60000}
+    );
   } catch (err) {
-    errors.push(`[${tag}] could not press START: ${err.message}`);
+    errors.push(`[${tag}] loading screen did not dismiss: ${err.message}`);
   }
   await new Promise((r) => setTimeout(r, FLIGHT_MS));
 
@@ -332,7 +345,7 @@ async function checkPage(browser, {path, fly, blackhole, presetSwitch}) {
   if (!state.canvas) {
     errors.push(`[${tag}] no <canvas> found: renderer never started`);
   }
-  if (state.paused) errors.push(`[${tag}] still paused after pressing START`);
+  if (state.paused) errors.push(`[${tag}] still paused after loading`);
   if (!state.workerMessages) {
     errors.push(`[${tag}] terrain workers never replied`);
   }

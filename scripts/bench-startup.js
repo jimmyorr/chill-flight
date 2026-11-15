@@ -57,10 +57,30 @@ async function run() {
   const query = `seed=20260928&xmas=off&preset=${process.env.PRESET || 'mid'}${process.env.QUERY ? `&${process.env.QUERY}` : ''}`;
   const t0 = Date.now();
   await page.goto(`${BASE}?${query}`, {waitUntil: 'load', timeout: 90000});
-  await page.waitForSelector('#begin-btn', {visible: true, timeout: 120000});
+  await page.evaluate(async () => {
+    const {renderer} = await window.gameModule('sky.js');
+    const {state} = await window.gameModule('state.js');
+    window.__resizes = 0;
+    const setSize = renderer.setSize.bind(renderer);
+    renderer.setSize = (...args) => {
+      window.__resizes++;
+      return setSize(...args);
+    };
+    const origDismiss = state.dismissLoadingScreen;
+    state.dismissLoadingScreen = (...args) => {
+      window.__programs = renderer.info.programs.length;
+      window.__resizes = 0;
+      const t = performance.now();
+      const res = origDismiss?.(...args);
+      window.__clickMs = performance.now() - t;
+      window.__startAt = performance.now();
+      return res;
+    };
+  });
+  await page.waitForFunction(() => window.__startAt !== undefined, {
+    timeout: 120000,
+  });
   const load = Date.now() - t0;
-  // A moment on the title screen, as a player would take
-  await sleep(2000);
 
   // Frame stats between two performance.now() times
   const frames = (from, to) =>
@@ -90,24 +110,13 @@ async function run() {
     );
   const now = () => page.evaluate(() => performance.now());
 
-  // START: time the click handler itself, then the frames after it. Also
-  // counts shaders compiled and canvas resizes from then on
-  await page.evaluate(async () => {
-    const {renderer} = await window.gameModule('sky.js');
-    window.__programs = renderer.info.programs.length;
-    window.__resizes = 0;
-    const setSize = renderer.setSize.bind(renderer);
-    renderer.setSize = (...args) => {
-      window.__resizes++;
-      return setSize(...args);
-    };
-  });
-  const startAt = await now();
-  const clickMs = await page.evaluate(() => {
-    const t = performance.now();
-    document.getElementById('begin-btn').click();
-    return performance.now() - t;
-  });
+  // START: time dismissLoadingScreen itself, then the frames in the first 6 s
+  // of flight (the intro camera swoop). Also counts shaders compiled and
+  // canvas resizes from then on
+  const {startAt, clickMs} = await page.evaluate(() => ({
+    startAt: window.__startAt,
+    clickMs: window.__clickMs,
+  }));
   await sleep(6000);
   const counts = () =>
     page.evaluate(async () => {

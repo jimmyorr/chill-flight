@@ -549,7 +549,6 @@ if (overlay && renderer) {
     'splash-progress-container'
   );
   const progressBar = document.getElementById('splash-progress-bar');
-  const btnContainer = document.getElementById('splash-btn-container');
   const loadingAttrEl = document.getElementById('loading-music-attribution');
 
   if (loadingAttrEl) {
@@ -679,42 +678,12 @@ if (overlay && renderer) {
     const onLoaded = () => {
       // Wait a tiny bit so the progress bar visually reaches 100%
       setTimeout(() => {
-        if (ChillFlightLogic.START_NOW) {
-          // ?start=1: straight into the flight, no intro
-          state.dismissLoadingScreen(true);
-        } else if (!musicEnabled) {
-          // Auto-skip
-          log.info('🎵 Music was paused last session. Auto-skipping.');
-          state.dismissLoadingScreen(false);
-        } else {
-          // Start cross-fade: fade out progress, fade in button simultaneously
-          const interactiveArea = document.getElementById(
-            'splash-interactive-area'
-          );
-          if (interactiveArea) interactiveArea.classList.add('crossfading');
-
-          progressContainer.classList.remove('visible');
-          progressContainer.classList.add('hidden');
-
-          if (btnContainer) {
-            btnContainer.classList.remove('hidden');
-            btnContainer.classList.add('visible');
-            if (beginBtn) {
-              // Focus after a short delay to allow transition to start
-              setTimeout(() => beginBtn.focus(), 100);
-            }
-          }
-        }
+        state.dismissLoadingScreen(ChillFlightLogic.START_NOW);
       }, 150);
     };
   } else {
     // Fallback if elements are missing
-    if (!musicEnabled || ChillFlightLogic.START_NOW) {
-      state.dismissLoadingScreen(true);
-    } else if (btnContainer) {
-      btnContainer.style.visibility = 'visible';
-      btnContainer.style.opacity = '1';
-    }
+    state.dismissLoadingScreen(true);
   }
 } else {
   state.dismissLoadingScreen = () => {};

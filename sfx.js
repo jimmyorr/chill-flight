@@ -459,6 +459,7 @@ function createFrogBuffer(context) {
 
 let suspendTimer = null;
 let wasActive = false;
+let hasFadedIn = false;
 let isBackgrounded = false;
 
 function isSfxActive() {
@@ -483,14 +484,21 @@ export function syncSfxState() {
   const now = audioCtx.currentTime;
 
   if (active) {
-    if (!wasActive) {
-      wasActive = true;
-      masterGain.gain.cancelScheduledValues(now);
-      masterGain.gain.setValueAtTime(masterGain.gain.value, now);
-      masterGain.gain.setTargetAtTime(masterVolume, now, 0.05);
-    }
     if (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted') {
       audioCtx.resume().catch(() => {});
+    }
+    if (audioCtx.state === 'running' && !wasActive) {
+      wasActive = true;
+      masterGain.gain.cancelScheduledValues(now);
+      if (!hasFadedIn && masterVolume > 0.001) {
+        hasFadedIn = true;
+        masterGain.gain.setValueAtTime(0.001, now);
+        masterGain.gain.exponentialRampToValueAtTime(masterVolume, now + 2.5);
+      } else {
+        hasFadedIn = true;
+        masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+        masterGain.gain.setTargetAtTime(masterVolume, now, 0.05);
+      }
     }
   } else {
     if (wasActive) {
@@ -589,14 +597,12 @@ export function initAudioContext() {
   try {
     audioCtx = new AudioContextClass();
 
-    // Master SFX Bus
-    const active = isSfxActive();
-    wasActive = active;
+    // Master SFX Bus: starts silent and fades in once the context is running
+    wasActive = false;
+    hasFadedIn = false;
     masterGain = audioCtx.createGain();
-    masterGain.gain.setValueAtTime(
-      active ? masterVolume : 0,
-      audioCtx.currentTime
-    );
+    masterGain.gain.value = 0;
+    masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
     masterGain.connect(audioCtx.destination);
 
     // --- Wind rush (Pink noise bandpass) ---
@@ -741,7 +747,7 @@ export function initAudioContext() {
   }
 
   audioCtx.addEventListener('statechange', () => {
-    if (audioCtx && audioCtx.state === 'running' && !isSfxActive()) {
+    if (audioCtx && audioCtx.state === 'running') {
       syncSfxState();
     }
   });
@@ -798,7 +804,8 @@ export function updateSfx() {
   if (!isInitialized || !audioCtx) return;
 
   const active = isSfxActive();
-  if (active !== wasActive) {
+  const runningActive = active && audioCtx.state === 'running';
+  if (runningActive !== wasActive) {
     syncSfxState();
   }
   if (!active) return;

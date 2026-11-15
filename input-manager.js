@@ -313,7 +313,11 @@ export class InputManager {
   handleKeyDown(e) {
     // 1. Loading / Splash screen override: pressing Enter / Space clicks begin button
     const overlay = document.getElementById('loading-overlay');
-    if (overlay && overlay.style.display !== 'none') {
+    if (
+      overlay &&
+      overlay.style.display !== 'none' &&
+      overlay.style.pointerEvents !== 'none'
+    ) {
       if (!e.metaKey && !e.ctrlKey && !e.altKey) {
         const btnContainer = document.getElementById('splash-btn-container');
         const beginBtn = document.getElementById('begin-btn');

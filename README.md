@@ -44,7 +44,7 @@ In-game radio features 314 CC BY 4.0 tracks across 31 records by Purrple Cat (`f
 
 Music plays at half volume, about where background music usually sits in a game (the tracks are mastered at streaming loudness), and drops lower while paused (`MUSIC_VOLUME` in `audio.js`). iOS ignores web audio volume, so on iPhone and iPad it plays at full volume.
 
-To start without sound (say, on a train), tap the speaker button under Start on the title screen. It turns off both music and sound effects, and the choice is saved: later visits skip the title screen and start silently. Either can be turned back on in settings.
+Once loading finishes, the game starts flying automatically. If the browser blocks audio autoplay on load, music and sound effects fade in on the first steering input.
 
 ## Sound effects
 
@@ -660,7 +660,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`mapZoom`** (or **`zoom`**): Fullscreen map zoom level, expressed either as a zoom multiplier relative to default 1.0 (e.g., `1.3`, `2.0`, `0.5`) or as an exact world radius in units (e.g., `5000`). When debug mode (`?debug`) is active, panning or zooming the map automatically updates these URL parameters to create reproducible, shareable map links.
 - **`x`, `y`, `z`**: Starting exact XYZ coordinates for the airplane, or for the free camera when no `camX`/`camY`/`camZ` are given (takes precedence over lat/long).
 - **`scale`**: Override the overall visual scaling factor (default `1.0`).
-- **`start`**: Set to `1` to skip the title screen and start flying as soon as the game loads.
+- **`start`**: Set to `1` to skip the intro camera transition and hide the loading screen immediately once the game loads.
 - **`ui`**: Set to `0` to hide all on-screen interface (HUD, buttons, menus and debug panels), for clean screenshots and recordings. The keyboard controls still work.
 - **`music`**: Set to `0` or `1` to turn music off or on for this visit, without changing the saved setting.
 - **`musicMode`**: Set to `album` (play sequentially by album) or `vibe` (match next track energy and BPM to how you fly) for this visit.
@@ -722,7 +722,7 @@ Runs ESLint, syntax checks, procedural terrain invariant tests, HTML script refe
 npm run test:browser
 ```
 
-Loads the game and the debug pages in headless Chrome against the running dev server (`npm run dev`). After pressing start, it flies and drives the controls through the keyboard (throttle, steering, camera, weather, minimap, pause menu), checking their effects in the HUD and debug panel. It fails on any JavaScript error, failed request, or unresponsive control, and checks that the terrain workers reply. It also simulates a network where every third-party host drops every packet (e.g. a subway) and checks that the page still paints and starts, and that music falls back to the bundled track.
+Loads the game and the debug pages in headless Chrome against the running dev server (`npm run dev`). Once loaded, it flies and drives the controls through the keyboard (throttle, steering, camera, weather, minimap, pause menu), checking their effects in the HUD and debug panel. It fails on any JavaScript error, failed request, or unresponsive control, and checks that the terrain workers reply. It also simulates a network where every third-party host drops every packet (e.g. a subway) and checks that the page still paints and starts, and that music falls back to the bundled track.
 
 ```bash
 npm run test:build

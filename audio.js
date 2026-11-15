@@ -467,7 +467,33 @@ export function setMusicEnabled(enabled, {save = true} = {}) {
   updateAudioPlayer(enabled);
 }
 
+let fadeTimer = null;
+let hasFadedInMusic = false;
+const UNLOCK_FADE_MS = 2500;
+const UNLOCK_FADE_STEP_MS = 30;
+
+function stopVolumeFade() {
+  if (fadeTimer !== null) {
+    clearInterval(fadeTimer);
+    fadeTimer = null;
+  }
+}
+
+function fadeInMusicVolume() {
+  stopVolumeFade();
+  hasFadedInMusic = true;
+  const start = performance.now();
+  purrpleCatAudio.volume = 0;
+  fadeTimer = setInterval(() => {
+    const t = Math.min(1, (performance.now() - start) / UNLOCK_FADE_MS);
+    const target = state.isPaused ? MUSIC_PAUSED_VOLUME : MUSIC_VOLUME;
+    purrpleCatAudio.volume = target * t * t;
+    if (t >= 1) stopVolumeFade();
+  }, UNLOCK_FADE_STEP_MS);
+}
+
 export function setMusicVolume(volume) {
+  stopVolumeFade();
   if (purrpleCatAudio) {
     purrpleCatAudio.volume = volume;
   }
@@ -538,32 +564,46 @@ purrpleCatAudio.addEventListener('error', () => {
 // or is turned off. One try isn't enough, since an event may not count as a
 // gesture (or the game started without any tap, e.g. with music off).
 let resumeArmed = false;
+let resumeInFlight = false;
 function armResumeOnInteraction() {
   if (resumeArmed) return;
   resumeArmed = true;
   const disarm = () => {
     resumeArmed = false;
+    resumeInFlight = false;
     for (const type of UNLOCK_EVENTS) {
       window.removeEventListener(type, resumeOnInteraction);
     }
   };
   const resumeOnInteraction = () => {
-    if (!musicEnabled || !purrpleCatAudio.paused) {
+    if (!musicEnabled) {
       disarm();
       return;
     }
+    if (resumeInFlight) return;
+    if (!purrpleCatAudio.paused) {
+      disarm();
+      return;
+    }
+    resumeInFlight = true;
     isMusicInternalAction = true;
     armStallGuard();
+    purrpleCatAudio.volume = 0;
     purrpleCatAudio
       .play()
       .then(() => {
         log.info('Audio resumed on interaction');
         isMusicInternalAction = false;
         disarm();
+        fadeInMusicVolume();
         updateMediaMetadata();
       })
       .catch((e) => {
+        resumeInFlight = false;
         isMusicInternalAction = false;
+        purrpleCatAudio.volume = state.isPaused
+          ? MUSIC_PAUSED_VOLUME
+          : MUSIC_VOLUME;
         clearTimeout(stallTimer);
         log.info('Still blocked:', e);
       });
@@ -588,14 +628,19 @@ export async function updateAudioPlayer(enabled) {
     }
     isMusicInternalAction = true;
     armStallGuard();
+    if (!hasFadedInMusic) purrpleCatAudio.volume = 0;
     purrpleCatAudio
       .play()
       .then(() => {
         isMusicInternalAction = false;
+        if (purrpleCatAudio.volume === 0) fadeInMusicVolume();
         updateMediaMetadata();
       })
       .catch((e) => {
         isMusicInternalAction = false;
+        purrpleCatAudio.volume = state.isPaused
+          ? MUSIC_PAUSED_VOLUME
+          : MUSIC_VOLUME;
         // Blocked autoplay isn't a stalled network; re-arm when we retry.
         clearTimeout(stallTimer);
         log.info('Audio play blocked:', e);
