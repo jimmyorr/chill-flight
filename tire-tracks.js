@@ -196,7 +196,7 @@ const trampleMaterial = new THREE.ShaderMaterial({
         return;
       }
       // Off the paving only (grass doesn't grow there): ruts, not rubber
-      vStrength = min(1.0, aInfo.z * 2.4) * (1.0 - age * age);
+      vStrength = min(1.0, aInfo.z * 4.2) * (1.0 - age * age);
       vSide = aInfo.w;
       gl_Position = projectionMatrix * viewMatrix * vec4(position, 1.0);
     }
@@ -386,7 +386,7 @@ function markNow(x, z, sinceTouchdown) {
   }
   // Off the paving the ruts are always there, cut deeper by a slide
   _tint.copy(s.snow ? SNOW_TINT : DIRT_TINT);
-  mark.strength = (s.snow ? 0.6 : 0.42) + 0.3 * Math.max(slide, landing);
+  mark.strength = (s.snow ? 0.6 : 0.24) + 0.45 * Math.max(slide, landing);
   mark.life = TRACK_LIFE;
   return mark;
 }
