@@ -1,5 +1,5 @@
-// The cloud deck seen from above (?aboveClouds, ABOVE_CLOUDS in
-// flight-physics-logic.js). The sky paints its clouds looking up, so above
+// The cloud deck seen from above (ABOVE_CLOUDS in flight-physics-logic.js,
+// off with ?aboveClouds=0). The sky paints its clouds looking up, so above
 // the deck they'd vanish; this is one big flat sheet at the deck's height
 // under the camera, drawing the same cumulus the sky shows from below (so
 // the gaps match), lit from above: sunny sides bright, shadow sides soft

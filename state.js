@@ -188,7 +188,7 @@ export const state = {
   // plane, and how thick the cloud base's mist is at the camera
   thinAir: 0,
   cloudBaseMist: 0,
-  // Flying through the cloud deck (?aboveClouds): how far inside it the
+  // Flying through the cloud deck (ABOVE_CLOUDS): how far inside it the
   // camera is, 0..1
   inCloud: 0,
   sunLightFactor: 0, // The direct sun: 0 below the horizon, 1 once it's up

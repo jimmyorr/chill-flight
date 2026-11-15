@@ -19,7 +19,9 @@ import {
 import {
   CEILING,
   ceilingClimbLimit,
+  ABOVE_CLOUDS_ROOM,
   flightCeiling,
+  underCloudsCeiling,
   pitchedTarget,
   sagClimbCap,
   thinAirAt,
@@ -151,10 +153,15 @@ check(
   const top = flightCeiling(3000);
   const climb = (75 * Math.PI) / 180;
   check(
-    'ceiling sits 100 under the clouds and follows them',
-    top === 2900 &&
-      flightCeiling(5000) === 4900 &&
-      flightCeiling(300) === CEILING.MIN
+    'the top of the sky is above the clouds and follows them',
+    top === 3000 + ABOVE_CLOUDS_ROOM &&
+      flightCeiling(5000) === 5000 + ABOVE_CLOUDS_ROOM
+  );
+  check(
+    'kept under the clouds (?aboveClouds=0, contrails), 100 under them',
+    underCloudsCeiling(3000) === 2900 &&
+      underCloudsCeiling(5000) === 4900 &&
+      underCloudsCeiling(300) === CEILING.MIN
   );
   check(
     'thin air: full climb well below, level just under the top, a sag at it',
