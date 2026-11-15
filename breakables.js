@@ -196,7 +196,14 @@ const SKIM_REACH = 1.7;
 const SKIM_FROM = 0.4;
 const SKIM_AGAIN = 2;
 // The search for skimmed trees reaches this much further (units)
-const SKIM_MARGIN = 14;
+const SKIM_MARGIN = 40;
+// A plane flying low over a tree (within WASH_REACH across, up to
+// WASH_ABOVE over its top) blows a few leaves off its crown, at most once
+// every WASH_AGAIN seconds, and only going faster than WASH_SPEED (kts)
+const WASH_REACH = 22;
+const WASH_ABOVE = 28;
+const WASH_AGAIN = 3;
+const WASH_SPEED = 40;
 const skimmedAt = new Map();
 const SNOW = new THREE.Color(0.96, 0.97, 1);
 const SPRAY = new THREE.Color(0.9, 0.95, 1);
@@ -1806,6 +1813,23 @@ function sweep(a, b, r, mine, buggy) {
             )
           ) {
             skimTree(group, index, i, b, ux, uz, kts);
+          } else if (
+            !buggy &&
+            !critter &&
+            kts > WASH_SPEED &&
+            propKind(group.userData, i) === BREAKABLE.TREE &&
+            sweptHit(
+              a,
+              b,
+              r,
+              index.cx[i],
+              index.cz[i],
+              WASH_REACH + index.radius[i],
+              index.top[i] - 2,
+              index.top[i] + WASH_ABOVE
+            )
+          ) {
+            skimTree(group, index, i, b, ux, uz, kts, true);
           }
         }
       }
@@ -1815,14 +1839,20 @@ function sweep(a, b, r, mine, buggy) {
 
 // Shakes leaves off a tree whose canopy the plane at `p` (heading along
 // (ux, uz)) brushed through, on the side it went by, at most once every
-// SKIM_AGAIN seconds per tree
-function skimTree(group, index, i, p, ux, uz, kts) {
+// SKIM_AGAIN seconds per tree. With `wash`, the plane only flew low over it:
+// a few leaves blow off the top.
+function skimTree(group, index, i, p, ux, uz, kts, wash = false) {
   const key = `${group.userData.chunkX},${group.userData.chunkZ}:${i}`;
   const now = performance.now() / 1000;
-  if (now - (skimmedAt.get(key) ?? -Infinity) < SKIM_AGAIN) return;
+  if (
+    now - (skimmedAt.get(key) ?? -Infinity) <
+    (wash ? WASH_AGAIN : SKIM_AGAIN)
+  ) {
+    return;
+  }
   if (skimmedAt.size > 256) {
     for (const [k, t] of skimmedAt) {
-      if (now - t > SKIM_AGAIN) skimmedAt.delete(k);
+      if (now - t > WASH_AGAIN) skimmedAt.delete(k);
     }
   }
   const canopyType = canopyOf(propParts(group, i));
@@ -1838,16 +1868,18 @@ function skimTree(group, index, i, p, ux, uz, kts) {
   const oz = p.z - cz;
   const d = Math.hypot(ox, oz);
   const k = d > canopy * 0.6 ? (canopy * 0.6) / d : 1;
-  const y = Math.min(top - 1, Math.max(base + (top - base) * 0.5, p.y));
+  const y = wash
+    ? top - 3
+    : Math.min(top - 1, Math.max(base + (top - base) * 0.5, p.y));
   leafBurst(
-    cx + ox * k,
+    cx + ox * k * (wash ? 0.5 : 1),
     y - 2,
-    cz + oz * k,
-    Math.max(2, canopy * 0.3),
+    cz + oz * k * (wash ? 0.5 : 1),
+    Math.max(2, canopy * (wash ? 0.4 : 0.3)),
     4,
     base,
     LEAF_PUFF,
-    12,
+    wash ? 3 + Math.floor(Math.random() * 4) : 12,
     leafShape(canopyType),
     leafSize(top - base),
     6,
