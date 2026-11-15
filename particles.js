@@ -861,6 +861,61 @@ export function trailSmoke(plane, last, speed, color) {
 
 // Wingtip vapour: thin white streaks off the wingtips while pulling hard
 // (loops, Immelmanns and sharp turns), fading in and out with the pull
+// Up in the cloud base's mist (#176, state.cloudBaseMist), ragged wisps
+// of cloud hang in the plane's path and stream past it, more the thicker
+// the mist: each a faint, stretched-out run of overlapping puffs a few
+// seconds ahead, in the mist's own colour (one round puff reads as a glow)
+const WISP_RATE = 3; // wisps per second in the thickest mist
+const WISP_AHEAD = [220, 480];
+const _wispColor = new THREE.Color();
+const _wispDir = new THREE.Vector3();
+let wispDue = 0;
+function cloudWisps(delta, speed) {
+  const mist = THREE.MathUtils.smoothstep(state.cloudBaseMist, 0.25, 1);
+  if (mist <= 0 || speed < 0.1) {
+    wispDue = 0;
+    return;
+  }
+  // The fog's colour, lifted toward white: lit cloud, grey under a storm
+  const light = uniforms.uLight.value.r;
+  _wispColor
+    .copy(scene.fog.color)
+    .lerp(WHITE, 0.35)
+    .multiplyScalar(1 / Math.max(light, 0.3));
+  wispDue += WISP_RATE * mist * delta;
+  for (; wispDue >= 1; wispDue--) {
+    const centre = planeGroup.localToWorld(
+      _q.set(
+        rand(-160, 160),
+        rand(-35, 55),
+        -rand(WISP_AHEAD[0], WISP_AHEAD[1])
+      )
+    );
+    // Strung out level, across a random heading
+    const a = rand(0, Math.PI);
+    _wispDir.set(Math.cos(a), 0, Math.sin(a));
+    const length = rand(60, 140);
+    const puffs = 5;
+    for (let k = 0; k < puffs; k++) {
+      const along = (k / (puffs - 1) - 0.5) * length;
+      _p.copy(centre).addScaledVector(_wispDir, along);
+      _p.y += rand(-6, 6);
+      // Thickest in the middle of the run
+      const body = 1 - Math.abs(k / (puffs - 1) - 0.5);
+      spawn(
+        _p,
+        {x: rand(-1.5, 1.5), y: rand(-0.3, 0.3), z: rand(-1.5, 1.5)},
+        0,
+        rand(4, 6),
+        rand(25, 40) * (0.6 + body * 0.6),
+        rand(55, 85) * (0.6 + body * 0.6),
+        _wispColor,
+        rand(0.05, 0.09) * mist * (0.5 + body)
+      );
+    }
+  }
+}
+
 function wingtipVapour(delta, speed) {
   const pull =
     state.isLooping || state.isDoingImmelmann ? 1 : state.sharpTurnAmount;
@@ -1247,6 +1302,7 @@ export function updateParticles(delta) {
     }
     if (!wheels && !onWater) wingtipVapour(delta, speed);
     else vapour = 0;
+    cloudWisps(delta, speed);
   }
   if (!state.isFreeCamera && !state.isCrashed && settleTime > 2) {
     const impact = THREE.MathUtils.clamp(
