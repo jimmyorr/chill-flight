@@ -82,6 +82,7 @@ import '../tire-tracks.js';
 import '../whales.js';
 import '../dolphins.js';
 import '../grass.js';
+import '../tree-wash.js';
 import '../fireflies.js';
 import '../beacons.js';
 import '../crash.js';

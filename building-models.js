@@ -213,7 +213,14 @@ const LANDMARKS = {
   trailer3: [rvTrailer, {colorway: 'woodland-brown'}, S, null],
   fireLookout: [fireLookout, {colorway: 'sun-bleached', height: 1.18}, S, null],
   waterTower: [waterTower, {colorway: 'turquoise'}, S, null],
-  windpump: [windpump, {colorway: 'weathered-pine'}, S, null],
+  // Tall 6-bay tower and wide wheel, drawn bigger than S so the rotor clears
+  // nearby trees and cacti (~42 units tall)
+  windpump: [
+    windpump,
+    {colorway: 'weathered-pine', towerHeight: 7.5, wheelSpan: 1.8},
+    4.4,
+    null,
+  ],
   dinoSkull0: [
     dinosaurSkull,
     {species: 'rex', colorway: 'bleached', climate: 'dry'},
