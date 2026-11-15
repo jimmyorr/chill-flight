@@ -92,11 +92,13 @@ export function updateAutopilot(delta) {
   const {x, y, z} = planeGroup.position;
   const waypoint = getWaypoint();
 
-  // A new waypoint ends any circling
+  // A new waypoint (or a flyby leg) ends any circling
   if (
     pilot.orbit &&
     waypoint &&
-    (waypoint.x !== pilot.orbit.x || waypoint.z !== pilot.orbit.z)
+    (waypoint.flyby ||
+      waypoint.x !== pilot.orbit.x ||
+      waypoint.z !== pilot.orbit.z)
   ) {
     pilot.orbit = null;
   }

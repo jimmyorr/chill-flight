@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import {scene} from './scene.js';
 import {skyUniforms} from './sky-uniforms.js';
 import {CLOUD_GLSL} from './constants.js';
+import {ART_POST} from './art-style.js';
 import {state} from './state.js';
 import {ABOVE_CLOUDS} from './flight-physics-logic.js';
 
@@ -96,6 +97,7 @@ const material = new THREE.ShaderMaterial({
   depthWrite: false,
   fog: false,
   side: THREE.DoubleSide,
+  forceSinglePass: true,
 });
 
 const geometry = new THREE.PlaneGeometry(RADIUS * 2, RADIUS * 2, 1, 1);
@@ -140,6 +142,19 @@ veil.frustumCulled = false;
 veil.renderOrder = 1000;
 veil.visible = false;
 if (ABOVE_CLOUDS) scene.add(veil);
+
+// With the art style's post pass, attenuate the target's alpha where the
+// cloud sheet or veil covers the view so ridge and plane ink don't bleed
+// through thick cloud, while gaps between clouds keep their ink
+if (ART_POST) {
+  for (const mat of [material, veilMaterial]) {
+    mat.blending = THREE.CustomBlending;
+    mat.blendSrc = THREE.SrcAlphaFactor;
+    mat.blendDst = THREE.OneMinusSrcAlphaFactor;
+    mat.blendSrcAlpha = THREE.ZeroFactor;
+    mat.blendDstAlpha = THREE.OneMinusSrcAlphaFactor;
+  }
+}
 
 export function updateCloudVeil(fogColor) {
   if (!ABOVE_CLOUDS) return;

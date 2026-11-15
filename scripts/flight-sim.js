@@ -96,8 +96,8 @@ export class FlightSimulator {
     );
   }
 
-  setWaypoint(x, z, y = null) {
-    this.waypoint = {x, z, y};
+  setWaypoint(x, z, y = null, flyby = false) {
+    this.waypoint = {x, z, y, flyby};
     this.pilot.orbit = null;
   }
 

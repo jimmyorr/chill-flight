@@ -1647,6 +1647,7 @@ const IN_CLOUD_FOG = 0.003;
 // (cloudsAlong in constants.js): the weather's overcast thickens the deck
 // and the day's mood adds its own cover
 function cloudBaseCover(overcast) {
+  if (!skyUniforms.uShowClouds.value) return 0;
   return (
     skyUniforms.uCloudTypes.value.x *
     THREE.MathUtils.smoothstep(
@@ -2035,13 +2036,14 @@ function updateEnvironmentLighting(delta, now) {
 
   // Above the deck (ABOVE_CLOUDS) the sky is clear whatever the weather
   // below
-  const aboveDeck = ABOVE_CLOUDS
-    ? THREE.MathUtils.smoothstep(
-        getCameraWorldPosition(_mistCamPos).y,
-        manualCloudHeight,
-        manualCloudHeight + 200
-      )
-    : 0;
+  const aboveDeck =
+    ABOVE_CLOUDS && skyUniforms.uShowClouds.value
+      ? THREE.MathUtils.smoothstep(
+          getCameraWorldPosition(_mistCamPos).y,
+          manualCloudHeight,
+          manualCloudHeight + 200
+        )
+      : 0;
   _finalSkyColor
     .copy(_uncloudedSkyColor)
     .lerp(_cloudyColor, overcast * (1 - aboveDeck));

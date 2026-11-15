@@ -100,7 +100,11 @@ function placeByName(name) {
 function pointToDestination() {
   const a = placeByName(destination(progress));
   if (a) {
-    setWaypoint(a.x, getElevation(a.x, a.z), a.z, {stay: true, name: a.name});
+    setWaypoint(a.x, getElevation(a.x, a.z), a.z, {
+      stay: true,
+      flyby: Boolean(sightAhead(progress)),
+      name: a.name,
+    });
   }
 }
 
@@ -155,6 +159,7 @@ export function cancelJob() {
 }
 
 updateHud();
+if (onJobWaypoint()) pointToDestination();
 // Earned before these achievements existed
 jobAchievements(progress);
 

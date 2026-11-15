@@ -25,6 +25,7 @@ import {
   destination,
   passSight,
   sightAhead,
+  sightRadius,
 } from '../jobs-logic.js';
 import {skyHeading} from '../autopilot-logic.js';
 import {FlightSimulator, AUTOPILOT} from './flight-sim.js';
@@ -448,6 +449,61 @@ function wrapAngle(a) {
   }
   console.log(
     '  Passed: Cross-country flight completes cross-world transit and transitions into orbit'
+  );
+}
+
+// 2e2. Sightseeing flyby on autopilot (enters < 700 m pass zones without orbiting early)
+{
+  ChillFlightLogic.WORLD_SEED = 20260101;
+  simplex.seed(20260101);
+  const lagoon = ChillFlightLogic.AIRPORTS.find(
+    (a) => a.name === 'Lagoon Field'
+  );
+  for (const sightName of ['Lighthouse', 'Rock Arch', 'Falls']) {
+    const sight =
+      sightName === 'Rock Arch'
+        ? {
+            name: 'Rock Arch',
+            x: 3000,
+            z: ChillFlightLogic.mulberry32(20260101)() * 10000 - 5000,
+          }
+        : LANDMARKS.find((l) => l.name === sightName);
+    const radius = sightRadius(sightName);
+    let passed = false;
+
+    const sim = new FlightSimulator({
+      worldSeed: 20260101,
+      x: lagoon.x,
+      y: 350,
+      z: lagoon.z,
+      speed: 1.0,
+      waypoint: {x: sight.x, z: sight.z, flyby: true},
+    });
+
+    const res = sim.runUntil({
+      maxDuration: 180,
+      onStep: (s) => {
+        if (
+          !passed &&
+          Math.hypot(s.position.x - sight.x, s.position.z - sight.z) <= radius
+        ) {
+          passed = true;
+          s.setWaypoint(lagoon.x, lagoon.z, null, false);
+        }
+      },
+      condition: (s) =>
+        passed && s.orbit && Math.abs(s.orbit.swept) >= Math.PI / 2,
+    });
+
+    if (res.crashed || !passed || !sim.orbit) {
+      console.error(
+        `FAIL: Autopilot sightseeing flyby failed for ${sightName} (radius=${radius}, passed=${passed}, crashed=${res.crashed}, orbit=${Boolean(sim.orbit)})`
+      );
+      process.exit(1);
+    }
+  }
+  console.log(
+    '  Passed: Autopilot flies inside narrow sightseeing pass zones (< 700 m) and returns to orbit home'
   );
 }
 

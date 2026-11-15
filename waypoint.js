@@ -24,8 +24,10 @@ const ARRIVE_DIST = 300;
 const EDGE_MARGIN = 36;
 const TOP_MARGIN = 96;
 
-// {x, y, z, stay, name}: y is the ground (or water) height there; stay
-// keeps it on arrival; name is the place's, if it's a landmark or airport
+// {x, y, z, stay, flyby, name}: y is the ground (or water) height there; stay
+// keeps it on arrival; flyby passes straight through instead of orbiting on
+// autopilot (sightseeing jobs); name is the place's, if it's a landmark or
+// airport
 let waypoint = null;
 let tourStop = null; // The same, for the autopilot's tour: not saved
 
@@ -58,8 +60,13 @@ export function getWaypoint() {
   return waypoint;
 }
 
-export function setWaypoint(x, y, z, {stay = false, name = null} = {}) {
-  waypoint = {x, y, z, stay, name};
+export function setWaypoint(
+  x,
+  y,
+  z,
+  {stay = false, flyby = false, name = null} = {}
+) {
+  waypoint = {x, y, z, stay, flyby, name};
   save();
   log.info(
     `[Waypoint] Set at ${name ? `${name}, ` : ''}X = ${x.toFixed(0)}, Z = ${z.toFixed(0)}`

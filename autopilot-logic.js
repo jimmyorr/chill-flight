@@ -140,6 +140,7 @@ export class AutopilotCore {
     return (
       !this.orbit &&
       !!target &&
+      !target.flyby &&
       Math.hypot(target.x - x, target.z - z) < A.ORBIT_RADIUS
     );
   }

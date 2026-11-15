@@ -172,6 +172,12 @@ const LEAF_PUFF = new THREE.Color();
 const PETAL_TREES = /^(cherryBlossom|magnolia)Leaves$/;
 const NEEDLE_TREES = /pine|spruce|cypress|joshua/i;
 const NO_LEAVES = /^(mushroomCap|crystal)/;
+// Swamp trees are single-part vertex-coloured meshes (terrain-chunks.js)
+const SWAMP_CANOPY = {
+  swampCypress: 0x3d5c2e,
+  swampCypressMoss: 0x485e38,
+  swampTupelo: 0x3b582c,
+};
 // Leaves are drawn bigger than life on a big tree, so they read from the
 // chase camera (units)
 function leafSize(height) {
@@ -243,6 +249,23 @@ function typeInfo(type) {
   }
   if (type === 'iceChunk') return {geo: iceChunkGeo, mat: icebergMat};
   return globalInstancer.types.get(type) || debrisTypes.get(type);
+}
+
+// Sets LEAF_PUFF to the canopy's colour and returns its part type, or null
+function canopyOf(parts) {
+  const leaves = parts.find((p) => typeInfo(p.type)?.useColor);
+  if (leaves) {
+    const c = leaves.data.colors;
+    const o = leaves.index * 3;
+    LEAF_PUFF.setRGB(c[o], c[o + 1], c[o + 2]);
+    return leaves.type;
+  }
+  const swamp = parts.find((p) => SWAMP_CANOPY[p.type]);
+  if (swamp) {
+    LEAF_PUFF.setHex(SWAMP_CANOPY[swamp.type]);
+    return swamp.type;
+  }
+  return null;
 }
 
 // A fallen streetlight's bulb, gone out
@@ -1080,12 +1103,9 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
   } else if (crystal) {
     propPuffs(x, base, z, 3, 2, dust, 6, 4, 2);
   } else {
-    const leaves = parts.find((p) => typeInfo(p.type)?.useColor);
-    if (leaves) {
-      const c = leaves.data.colors;
-      const o = leaves.index * 3;
-      LEAF_PUFF.setRGB(c[o], c[o + 1], c[o + 2]);
-      if (leaves.type === 'mushroomCap') {
+    const canopyType = canopyOf(parts);
+    if (canopyType) {
+      if (canopyType === 'mushroomCap') {
         propPuffs(
           x,
           base + height * 0.6,
@@ -1110,7 +1130,7 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
           base,
           LEAF_PUFF,
           Math.round(Math.min(35, 20 + height * 0.5)),
-          leafShape(leaves.type),
+          leafShape(canopyType),
           leafSize(height),
           6 + canopy * 0.3,
           dx,
@@ -1121,7 +1141,7 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
       // An alien mushroom lets go of its spores, glowing in its cap's
       // colour, and the player who knocked it over goes a bit trippy
       // (mushroom-trip.js), more so for the giants
-      if (leaves.type === 'mushroomCap') {
+      if (canopyType === 'mushroomCap') {
         sporeBurst(
           x,
           base + height * 0.55,
@@ -1805,14 +1825,9 @@ function skimTree(group, index, i, p, ux, uz, kts) {
       if (now - t > SKIM_AGAIN) skimmedAt.delete(k);
     }
   }
-  const leaves = propParts(group, i).find(
-    (part) => typeInfo(part.type)?.useColor
-  );
-  if (!leaves || NO_LEAVES.test(leaves.type)) return;
+  const canopyType = canopyOf(propParts(group, i));
+  if (!canopyType || NO_LEAVES.test(canopyType)) return;
   skimmedAt.set(key, now);
-  const c = leaves.data.colors;
-  const o = leaves.index * 3;
-  LEAF_PUFF.setRGB(c[o], c[o + 1], c[o + 2]);
   // Where the canopy's edge is nearest the plane
   const cx = index.cx[i];
   const cz = index.cz[i];
@@ -1833,7 +1848,7 @@ function skimTree(group, index, i, p, ux, uz, kts) {
     base,
     LEAF_PUFF,
     12,
-    leafShape(leaves.type),
+    leafShape(canopyType),
     leafSize(top - base),
     6,
     ux,

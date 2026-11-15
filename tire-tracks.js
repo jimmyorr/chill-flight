@@ -410,6 +410,7 @@ function tyreContact(model, wheels, side, across, back, out) {
 }
 
 let lastWheels = false;
+let lastPlaneType = null;
 let sinceTouchdown = Infinity;
 let settleTime = 0;
 
@@ -418,6 +419,11 @@ export function updateTireTracks(delta) {
   if (!ChillFlightLogic.TIRE_TRACKS || state.isPaused || delta <= 0) return;
   uniforms.uTime.value += delta;
   settleTime += delta;
+
+  if (activePlaneType !== lastPlaneType) {
+    lastPlaneType = activePlaneType;
+    for (const r of ribbons) r.valid = false;
+  }
 
   const model = state.airplaneModel;
   const wheels = isOnWheels() && !state.isOnWater;
@@ -451,7 +457,10 @@ export function updateTireTracks(delta) {
     const sliding = activePlaneType === 'buggy' ? state.buggySlide || 0 : 0;
     ribbons.forEach((r, i) => {
       const front = i >= 2;
-      if (front && spec.front === undefined) return;
+      if (front && spec.front === undefined) {
+        r.valid = false;
+        return;
+      }
       const back = front ? spec.front : spec.back;
       const side = i % 2 ? 1 : -1;
       const p = tyreContact(model, spec, side, 0, back, _contact);
@@ -465,7 +474,9 @@ export function updateTireTracks(delta) {
         travel = _dir.length();
       }
       const slip =
-        travel > 0.5 ? Math.abs(_dir.x * fz - _dir.z * fx) / travel : 0;
+        travel > 0.5
+          ? Math.min(1, Math.abs(_dir.x * fz - _dir.z * fx) / travel)
+          : 0;
       if (slip > 0.05) {
         const grip = Math.sqrt(1 - slip * slip);
         const half = (spec.width * grip + PATCH_LENGTH * slip) / 2;

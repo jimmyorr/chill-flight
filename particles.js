@@ -34,8 +34,9 @@ import {
 import {activePlaneType, planeGroup} from './airplane.js';
 import {isOnWheels} from './flight-physics.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
+import {simplex} from './noise.js';
 import {manualCloudHeight, precipitation} from './weather-manager.js';
-import {flightCeiling} from './flight-physics-logic.js';
+import {CEILING} from './flight-physics-logic.js';
 import {rushTrail} from './crystal-rush.js';
 
 // Room for four or more planes' smoke trails (~1,000 each), water spray, and
@@ -400,6 +401,7 @@ const _q = new THREE.Vector3();
 
 let lastWater = null;
 let lastWheels = null;
+let lastVehicle = null;
 let lastY = null;
 let fallRate = 0;
 // Where each wake line was last laid down to
@@ -985,13 +987,17 @@ function contrailAir(delta) {
   coldCheckTimer -= delta;
   if (coldCheckTimer <= 0) {
     coldCheckTimer = COLD_CHECK;
+    const {x, z} = planeGroup.position;
     coldAir = THREE.MathUtils.smoothstep(
-      ChillFlightLogic.snowFactorAt(planeGroup.position.z, 0),
+      ChillFlightLogic.snowFactorAt(
+        z,
+        ChillFlightLogic.snowNoiseShift(x, z, simplex)
+      ),
       COLD_START,
       COLD_FULL
     );
   }
-  const top = flightCeiling(manualCloudHeight);
+  const top = Math.max(CEILING.MIN, manualCloudHeight - CEILING.BELOW_CLOUDS);
   const high = THREE.MathUtils.smoothstep(
     planeGroup.position.y,
     top - CONTRAILS_BELOW_CEILING.START,
@@ -1011,6 +1017,9 @@ function contrails(delta) {
   if (!exhausts || contrail < 0.03) {
     for (const last of contrailLast) last.valid = false;
     return;
+  }
+  for (let i = exhausts.length; i < contrailLast.length; i++) {
+    contrailLast[i].valid = false;
   }
   const look = CONTRAILS[activePlaneType] ?? CONTRAILS.wisp;
   exhausts.forEach(([x, y, z], i) => {
@@ -1438,6 +1447,14 @@ export function updateParticles(delta) {
   const onWater = state.isOnWater;
   const wheels = isOnWheels();
   const speed = Math.max(0, state.flightSpeedMultiplier || 0);
+  if (activePlaneType !== lastVehicle) {
+    lastVehicle = activePlaneType;
+    smokeLast.valid = false;
+    skimLast.valid = false;
+    for (const last of lastStern) last.valid = false;
+    for (const last of vapourLast) last.valid = false;
+    for (const last of contrailLast) last.valid = false;
+  }
   // Ignore the spawn and teleports settling
   settleTime += delta;
   if (!state.isFreeCamera && !state.isCrashed) {
