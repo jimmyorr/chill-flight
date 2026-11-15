@@ -184,6 +184,10 @@ export const state = {
   moonY: 0,
   moonZ: 0,
   dayFactor: 0,
+  // Near the top of the sky (#176), both 0..1: how thin the air is at the
+  // plane, and how thick the cloud base's mist is at the camera
+  thinAir: 0,
+  cloudBaseMist: 0,
   sunLightFactor: 0, // The direct sun: 0 below the horizon, 1 once it's up
   worldClockNow: 0, // ms; the wall clock, or the debug virtual clock
   secondsInCycle: 0,
