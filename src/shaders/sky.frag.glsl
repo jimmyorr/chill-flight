@@ -245,6 +245,9 @@
             float horizonEdge = 0.25;
 #endif
             float alphaHorizon = smoothstep(shapeThreshold, shapeThreshold + horizonEdge, nHorizon) * vFade;
+            // Above the deck these far clouds are below eye level, not up in
+            // the sky (the deck itself shows from above)
+            alphaHorizon *= 1.0 - smoothstep(0.0, 300.0, -distToPlane);
             
             if (alphaHorizon > 0.0) {
                 float stormDimming = 1.0 - uCloudDensity * 0.6;

@@ -13,6 +13,7 @@ import {syncChunkBorders} from './debug-ui.js';
 import {arches} from './arches.js';
 import {archCeiling} from './arches-logic.js';
 import {
+  ABOVE_CLOUDS,
   CEILING,
   ceilingClimbLimit,
   flightCeiling,
@@ -159,6 +160,7 @@ import {ChillFlightLogic} from './chill-flight-logic.js';
 import {ART_CLOUDS} from './art-style.js';
 import {updateAirportLights} from './airports.js';
 import {updateTowerSlices} from './sky-uniforms.js';
+import {updateCloudDeck, updateCloudVeil} from './cloud-deck.js';
 import {simplex} from './noise.js';
 import {globalInstancer, processChunkQueue} from './terrain-chunks.js';
 import {FAR_RADIUS, updateFarTerrain} from './far-terrain.js';
@@ -1638,6 +1640,10 @@ const CLOUD_BASE_FOG = 0.0003;
 const _mistLit = new THREE.Color(0xdde3ea);
 const _mistColor = new THREE.Color();
 const _mistCamPos = new THREE.Vector3();
+// PROTOTYPE above-clouds fog
+const IN_CLOUD_FOG = 0.003;
+const CLOUD_FLOOR_FOG = 0.0007;
+const _cloudTop = new THREE.Color();
 
 // How much cumulus deck is overhead (0..1), as the sky draws it
 // (cloudsAlong in constants.js): the weather's overcast thickens the deck
@@ -2029,7 +2035,17 @@ function updateEnvironmentLighting(delta, now) {
 
   _cloudyColor.setHex(0x0a0c10).lerp(_stormColor, state.dayFactor);
 
-  _finalSkyColor.copy(_uncloudedSkyColor).lerp(_cloudyColor, overcast);
+  // PROTOTYPE: above the deck the sky is clear whatever the weather below
+  const aboveDeck = ABOVE_CLOUDS
+    ? THREE.MathUtils.smoothstep(
+        getCameraWorldPosition(_mistCamPos).y,
+        manualCloudHeight,
+        manualCloudHeight + 200
+      )
+    : 0;
+  _finalSkyColor
+    .copy(_uncloudedSkyColor)
+    .lerp(_cloudyColor, overcast * (1 - aboveDeck));
   _finalFogColor.copy(_uncloudedFogColor).lerp(_cloudyColor, overcast);
 
   // The cloud base (#176): under cloud, the last CEILING.THIN_AIR / 2
@@ -2038,15 +2054,36 @@ function updateEnvironmentLighting(delta, now) {
   // skies keep only the thin air (flight-physics-logic.js)
   const top = flightCeiling(manualCloudHeight);
   const camY = getCameraWorldPosition(_mistCamPos).y;
+  const deckY = manualCloudHeight;
+  const cover = cloudBaseCover(overcast);
   state.thinAir = thinAirAt(planeGroup.position.y, top);
   state.cloudBaseMist =
-    THREE.MathUtils.smoothstep(camY, top - CEILING.THIN_AIR / 2, top + 20) *
-    cloudBaseCover(overcast);
+    THREE.MathUtils.smoothstep(
+      camY,
+      deckY - CEILING.BELOW_CLOUDS - CEILING.THIN_AIR / 2,
+      deckY - CEILING.BELOW_CLOUDS + 20
+    ) * cover;
+  // PROTOTYPE: inside the deck a whiteout, and above it (fog mode) the
+  // fog is the cloud tops, hiding the ground
+  state.inCloud = 0;
+  state.cloudFloor = 0;
+  if (ABOVE_CLOUDS) {
+    state.inCloud =
+      (1 - THREE.MathUtils.smoothstep(Math.abs(camY - deckY), 40, 220)) * cover;
+    if (camY > deckY) {
+      state.cloudBaseMist = state.inCloud;
+      if (ABOVE_CLOUDS === 'fog') state.cloudFloor = cover;
+    }
+  }
   _mistColor
     .copy(_finalFogColor)
     .lerp(_cloudyColor, 0.5)
     .lerp(_mistLit, 0.35 * state.dayFactor);
-  _finalFogColor.lerp(_mistColor, state.cloudBaseMist);
+  _finalFogColor.lerp(_mistColor, Math.max(state.cloudBaseMist, state.inCloud));
+  if (state.cloudFloor > 0) {
+    _cloudTop.copy(_mistLit).multiplyScalar(0.25 + 0.8 * state.dayFactor);
+    _finalFogColor.lerp(_cloudTop, state.cloudFloor * (1 - state.inCloud));
+  }
   scene.fog.color.lerp(_finalFogColor, 1 - Math.pow(1 - 0.05, delta * 60));
 
   // Fog density follows the conditions: clear skies, morning fog, clouds,
@@ -2084,7 +2121,9 @@ function updateEnvironmentLighting(delta, now) {
   const effectiveFogDensity = Math.max(
     targetFogDensity,
     baseFogDensity + swampMist * 0.000085,
-    THREE.MathUtils.lerp(targetFogDensity, CLOUD_BASE_FOG, state.cloudBaseMist)
+    THREE.MathUtils.lerp(targetFogDensity, CLOUD_BASE_FOG, state.cloudBaseMist),
+    THREE.MathUtils.lerp(targetFogDensity, IN_CLOUD_FOG, state.inCloud),
+    THREE.MathUtils.lerp(targetFogDensity, CLOUD_FLOOR_FOG, state.cloudFloor)
   );
   scene.fog.density = THREE.MathUtils.lerp(
     scene.fog.density,
@@ -2135,6 +2174,8 @@ function updateEnvironmentLighting(delta, now) {
   }
   const _camWorld = getCameraWorldPosition();
   skyUniforms.uCameraPos.value.copy(_camWorld);
+  updateCloudDeck(_camWorld);
+  updateCloudVeil(scene.fog.color);
   // The anime towers stand on the far edge of the land and sea
   if (ART_CLOUDS) {
     const above = Math.max(0, _camWorld.y);
