@@ -168,8 +168,10 @@ const FLOE_NEAR = 25;
 const LEAF_PUFF = new THREE.Color();
 // What falls from a tree's canopy, by its leaves' type: blossom trees shed
 // petals and conifers needles; anything else with leaves sheds leaves
+// (mushroom caps and crystals have their own effects)
 const PETAL_TREES = /^(cherryBlossom|magnolia)Leaves$/;
 const NEEDLE_TREES = /pine|spruce|cypress|joshua/i;
+const NO_LEAVES = /^(mushroomCap|crystal)/;
 // Leaves are drawn bigger than life on a big tree, so they read from the
 // chase camera (units)
 function leafSize(height) {
@@ -180,6 +182,16 @@ function leafShape(type) {
   if (NEEDLE_TREES.test(type)) return NEEDLE;
   return LEAF;
 }
+// A plane brushing through a tree's canopy without hitting its trunk shakes
+// some leaves off: how much wider than the solid part the canopy reaches,
+// how low on the tree it starts (fraction of its height), and how long
+// before the same tree sheds again (s)
+const SKIM_REACH = 1.7;
+const SKIM_FROM = 0.4;
+const SKIM_AGAIN = 2;
+// The search for skimmed trees reaches this much further (units)
+const SKIM_MARGIN = 14;
+const skimmedAt = new Map();
 const SNOW = new THREE.Color(0.96, 0.97, 1);
 const SPRAY = new THREE.Color(0.9, 0.95, 1);
 const EMBERS = new THREE.Color(1, 0.55, 0.2);
@@ -1635,10 +1647,12 @@ function sweep(a, b, r, mine, buggy) {
   if (minY - getElevation(b.x, b.z) > HIGH_ABOVE_GROUND) return;
   const ux = dx / step;
   const uz = dz / step;
-  const x0 = Math.min(a.x, b.x) - r;
-  const x1 = Math.max(a.x, b.x) + r;
-  const z0 = Math.min(a.z, b.z) - r;
-  const z1 = Math.max(a.z, b.z) + r;
+  // A plane looks a little further, for canopies it brushes through
+  const reach = buggy ? r : r + SKIM_MARGIN;
+  const x0 = Math.min(a.x, b.x) - reach;
+  const x1 = Math.max(a.x, b.x) + reach;
+  const z0 = Math.min(a.z, b.z) - reach;
+  const z1 = Math.max(a.z, b.z) + reach;
   // A chunk's props can stand a little past its edge (a town's streets run
   // on), so neighbours close by are checked too
   const cx0 = Math.round((x0 - CHUNK_SPILL) / CHUNK_SIZE);
@@ -1756,11 +1770,76 @@ function sweep(a, b, r, mine, buggy) {
               mine,
               buggy
             );
+          } else if (
+            !buggy &&
+            !critter &&
+            propKind(group.userData, i) === BREAKABLE.TREE &&
+            sweptHit(
+              a,
+              b,
+              r,
+              index.cx[i],
+              index.cz[i],
+              index.radius[i] * SKIM_REACH,
+              index.base[i] + (index.top[i] - index.base[i]) * SKIM_FROM,
+              index.top[i]
+            )
+          ) {
+            skimTree(group, index, i, b, ux, uz, kts);
           }
         }
       }
     }
   }
+}
+
+// Shakes leaves off a tree whose canopy the plane at `p` (heading along
+// (ux, uz)) brushed through, on the side it went by, at most once every
+// SKIM_AGAIN seconds per tree
+function skimTree(group, index, i, p, ux, uz, kts) {
+  const key = `${group.userData.chunkX},${group.userData.chunkZ}:${i}`;
+  const now = performance.now() / 1000;
+  if (now - (skimmedAt.get(key) ?? -Infinity) < SKIM_AGAIN) return;
+  if (skimmedAt.size > 256) {
+    for (const [k, t] of skimmedAt) {
+      if (now - t > SKIM_AGAIN) skimmedAt.delete(k);
+    }
+  }
+  const leaves = propParts(group, i).find(
+    (part) => typeInfo(part.type)?.useColor
+  );
+  if (!leaves || NO_LEAVES.test(leaves.type)) return;
+  skimmedAt.set(key, now);
+  const c = leaves.data.colors;
+  const o = leaves.index * 3;
+  LEAF_PUFF.setRGB(c[o], c[o + 1], c[o + 2]);
+  // Where the canopy's edge is nearest the plane
+  const cx = index.cx[i];
+  const cz = index.cz[i];
+  const base = index.base[i];
+  const top = index.top[i];
+  const canopy = index.radius[i] / BREAK.TREE_REACH;
+  const ox = p.x - cx;
+  const oz = p.z - cz;
+  const d = Math.hypot(ox, oz);
+  const k = d > canopy * 0.6 ? (canopy * 0.6) / d : 1;
+  const y = Math.min(top - 1, Math.max(base + (top - base) * 0.5, p.y));
+  leafBurst(
+    cx + ox * k,
+    y - 2,
+    cz + oz * k,
+    Math.max(2, canopy * 0.3),
+    4,
+    base,
+    LEAF_PUFF,
+    12,
+    leafShape(leaves.type),
+    leafSize(top - base),
+    6,
+    ux,
+    uz,
+    Math.min(40, kts * 0.12)
+  );
 }
 
 function sweepVehicle(id, pos, buggy, mine) {
