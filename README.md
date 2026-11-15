@@ -766,6 +766,7 @@ npm run promo:video -- <target>       # the clips, then the edited video
 npm run promo:urls [-- shot ...]      # a dev server link to each shot, to adjust it
 STYLE=anime npm run promo:stills      # any of these in the anime art style, into promo/anime/
 npm run promo:evolution:sheet         # 44-era contact sheet from Day 1 (Feb 2026) to today
+npm run promo:evolution:thumb         # 1920x1080 split-screen YouTube thumbnail
 npm run promo:evolution               # full 3:19 evolution video in promo/chill-flight-evolution.mp4
 ```
 
@@ -778,7 +779,7 @@ npm run promo:video -- iphone-preview
 npm run promo:stills
 ```
 
-`npm run promo:evolution` (`node scripts/evolution.js video`) renders `promo/chill-flight-evolution.mp4` and its YouTube chapters sidecar (`promo/chill-flight-evolution.txt`): 44 chronological shots from `scripts/evolution-shots.js` spanning the February 25, 2026 single-file prototype (`88d428c4`), early git commits served from temporary `git archive` checkouts, hosted `chill-flight.pages.dev` release previews, and a temporary build of the current tree, each badged with its version or prototype date and set to Purrple Cat's "Going with the Flow". Pass shot IDs (`npm run promo:evolution:sheet -- 01-genesis 36-callback-today`) to scout or re-render individual eras, or `node scripts/evolution.js stitch` to re-edit existing clips in `promo/evolution/`.
+`npm run promo:evolution` (`node scripts/evolution.js video`) renders `promo/chill-flight-evolution.mp4`, its YouTube chapters sidecar (`promo/chill-flight-evolution.txt`), and its split-screen custom thumbnail (`promo/chill-flight-evolution-thumb.jpg`): 44 chronological shots from `scripts/evolution-shots.js` spanning the February 25, 2026 single-file prototype (`88d428c4`), early git commits served from temporary `git archive` checkouts, hosted `chill-flight.pages.dev` release previews, and a temporary build of the current tree, each badged with its version or prototype date and set to Purrple Cat's "Going with the Flow". Pass shot IDs (`npm run promo:evolution:sheet -- 01-genesis 36-callback-today`) to scout or re-render individual eras, `npm run promo:evolution:thumb -- --variant=falls` to render the alternate thumbnail preset, or `node scripts/evolution.js stitch` to re-edit existing clips in `promo/evolution/`.
 
 ### Model debug page
 

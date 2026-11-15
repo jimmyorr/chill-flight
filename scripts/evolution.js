@@ -7,9 +7,11 @@
 //                                                        in promo/evolution/sheet.jpg
 //   node scripts/evolution.js clips [shot ...] [--force] individual 1920x1080 clips
 //                                                        in promo/evolution/clip-*.mp4
+//   node scripts/evolution.js thumb [--variant=name]     1920x1080 YouTube thumbnail
+//                                                        in promo/chill-flight-evolution-thumb.jpg
 //   node scripts/evolution.js stitch                     cards + xfade/cut edit + music
 //                                                        into promo/chill-flight-evolution.mp4
-//   node scripts/evolution.js video [shot ...] [--force] clips, then stitch
+//   node scripts/evolution.js video [shot ...] [--force] clips, stitch, and thumb
 
 import {execFileSync, execSync} from 'node:child_process';
 import fs from 'node:fs';
@@ -19,11 +21,12 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {launch, requireGpu, serveDir} from './dev-browser.js';
 import {
-  EVOLUTION_ACTS,
+  EVOLUTION_CHAPTERS,
   EVOLUTION_END_CARD,
   EVOLUTION_FADE_SEC,
   EVOLUTION_MUSIC,
   EVOLUTION_SHOTS,
+  EVOLUTION_THUMBNAILS,
   EVOLUTION_TITLE_CARD,
 } from './evolution-shots.js';
 
@@ -51,15 +54,29 @@ const SHOT_TIMEOUT_MS = 90000;
 
 const USAGE =
   'Usage: node scripts/evolution.js sheet|clips|video [shot ...] [--force]\n' +
+  '       node scripts/evolution.js thumb [--variant=lighthouse|falls] [--out=path]\n' +
   '       node scripts/evolution.js stitch';
 
 const rawArgs = process.argv.slice(2);
 const FORCE = rawArgs.includes('--force');
+const variantArg = rawArgs
+  .find((a) => a.startsWith('--variant='))
+  ?.slice('--variant='.length);
+const outArg = rawArgs
+  .find((a) => a.startsWith('--out='))
+  ?.slice('--out='.length);
+const THUMB_VARIANT = variantArg || 'lighthouse';
 const positional = rawArgs.filter((a) => !a.startsWith('--'));
 const [mode, ...shotArgs] = positional;
 
-if (!['sheet', 'clips', 'stitch', 'video'].includes(mode)) {
+if (!['sheet', 'clips', 'thumb', 'stitch', 'video'].includes(mode)) {
   console.error(USAGE);
+  process.exit(1);
+}
+if (!EVOLUTION_THUMBNAILS[THUMB_VARIANT]) {
+  console.error(
+    `Unknown thumbnail variant "${THUMB_VARIANT}". Choices: ${Object.keys(EVOLUTION_THUMBNAILS).join(', ')}`
+  );
   process.exit(1);
 }
 
@@ -408,6 +425,124 @@ async function renderCardClip(browser, card, backgroundImg, outMp4) {
   fs.rmSync(pngPath, {force: true});
 }
 
+function thumbHtml(preset, leftImgPath, rightImgPath) {
+  const file = (rel) => 'file://' + path.join(ROOT, rel);
+  const font = (weight) =>
+    file(
+      `node_modules/@fontsource/inter/files/inter-latin-${weight}-normal.woff2`
+    );
+  const leftLabel = preset.left.labelVersion
+    ? `v${VERSION}`
+    : preset.left.label;
+  const rightLabel = preset.right.labelVersion
+    ? `v${VERSION}`
+    : preset.right.label;
+
+  return `<!doctype html><meta charset="utf-8"><style>
+    @font-face { font-family: Inter; font-weight: 500; src: url(${font(500)}); }
+    @font-face { font-family: Inter; font-weight: 700; src: url(${font(700)}); }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: ${WIDTH}px;
+      height: ${HEIGHT}px;
+      overflow: hidden;
+      background: #0b1120;
+      font-family: Inter, -apple-system, sans-serif;
+    }
+    .half {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+    .half.left {
+      clip-path: polygon(0 0, 52.5% 0, 47.5% 100%, 0 100%);
+    }
+    .half.right {
+      clip-path: polygon(52.5% 0, 100% 0, 100% 100%, 47.5% 100%);
+    }
+    .half img {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: ${WIDTH}px;
+      height: ${HEIGHT}px;
+      transform-origin: 0 0;
+      filter: contrast(1.04) saturate(1.06);
+    }
+    .divider {
+      position: absolute;
+      inset: 0;
+      width: ${WIDTH}px;
+      height: ${HEIGHT}px;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .pill {
+      position: absolute;
+      top: 40px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 14px 26px 16px;
+      border-radius: 18px;
+      background: rgba(15, 23, 42, 0.86);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1.5px solid rgba(255, 255, 255, 0.28);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.44);
+      color: #fff;
+    }
+    .pill.left {
+      left: 44px;
+      align-items: flex-start;
+    }
+    .pill.right {
+      right: 44px;
+      align-items: flex-end;
+      text-align: right;
+    }
+    .eyebrow {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      color: #7dd3fc;
+      line-height: 1.1;
+    }
+    .headline {
+      font-size: 42px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: #fff;
+      line-height: 1.05;
+    }
+  </style>
+  <div class="half left">
+    <img src="file://${leftImgPath}" alt="" style="transform: translate(${preset.left.tx}px, ${preset.left.ty}px) scale(${preset.left.scale});">
+  </div>
+  <div class="half right">
+    <img src="file://${rightImgPath}" alt="" style="transform: translate(${preset.right.tx}px, ${preset.right.ty}px) scale(${preset.right.scale});">
+  </div>
+  <svg class="divider" viewBox="0 0 ${WIDTH} ${HEIGHT}" preserveAspectRatio="none">
+    <defs>
+      <filter id="seam-shadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="rgba(0,0,0,0.65)"/>
+      </filter>
+    </defs>
+    <line x1="${WIDTH * 0.525}" y1="-12" x2="${WIDTH * 0.475}" y2="${HEIGHT + 12}"
+      stroke="#ffffff" stroke-width="6" filter="url(#seam-shadow)"/>
+  </svg>
+  <div class="pill left">
+    <div class="eyebrow">${preset.left.eyebrow}</div>
+    <div class="headline">${leftLabel}</div>
+  </div>
+  <div class="pill right">
+    <div class="eyebrow">${preset.right.eyebrow}</div>
+    <div class="headline">${rightLabel}</div>
+  </div>`;
+}
+
 function formatTimestamp(sec) {
   const total = Math.max(0, Math.floor(sec));
   const m = Math.floor(total / 60);
@@ -420,19 +555,20 @@ function writeMetadataSidecar(outMp4, chapterLines) {
   const body = [
     '=== YouTube ===',
     'Title:',
-    '9 months of building Chill Flight: from 493 lines to v1.2.10',
+    `9 months of building Chill Flight: from prototype to v${VERSION}`,
     '',
     'Description:',
-    'A chronological look back at 9 months and 2,360+ commits building Chill Flight - starting from the very first 493-line single-file prototype on February 25, 2026 through v1.2.10.',
+    `A chronological look back at 9 months of building Chill Flight, from the earliest prototype on February 25, 2026 to v${VERSION}.`,
     '',
-    'Play free in your browser (no install): https://chillflight.app',
+    'Browser (free, no install): https://chillflight.app',
     'iOS App Store: https://apps.apple.com/us/app/chill-flight/id6779847377',
+    'Android (early access): https://chillflight.app/about',
     'Release archive & playable versions: https://github.com/jimmyorr/chill-flight/blob/main/RELEASE_NOTES.md',
     '',
     'Chapters:',
     ...chapterLines,
     '',
-    `Music: "${EVOLUTION_MUSIC.title}" by ${EVOLUTION_MUSIC.artist} (https://purrplecat.com), licensed under CC BY-SA / freelofi.`,
+    `Music by ${EVOLUTION_MUSIC.artist} ("${EVOLUTION_MUSIC.title}", https://purrplecat.com, CC BY 4.0 / freelofi).`,
     '',
     'Have a chill flight.',
     '',
@@ -914,7 +1050,7 @@ async function runStitch(browser) {
     .join('');
   let lastLabel = '[v0]';
   let cumDuration = parts[0].seconds;
-  const actStartSec = new Map();
+  const shotStartSec = new Map();
 
   for (let i = 0; i < parts.length - 1; i++) {
     const nextPart = parts[i + 1];
@@ -922,8 +1058,8 @@ async function runStitch(browser) {
     const fade = isCut ? 0 : EVOLUTION_FADE_SEC;
     const nextStart = cumDuration - fade;
 
-    if (nextPart.shot && !actStartSec.has(nextPart.shot.act)) {
-      actStartSec.set(nextPart.shot.act, nextStart);
+    if (nextPart.shot) {
+      shotStartSec.set(nextPart.shot.id, nextStart);
     }
 
     const outLabel = `[x${i}]`;
@@ -966,14 +1102,87 @@ async function runStitch(browser) {
   ]);
   console.log(`${outMp4} (${cumDuration.toFixed(2)}s)`);
 
-  const chapterLines = ['0:00 Intro'];
-  for (const {act, title} of EVOLUTION_ACTS) {
-    const t = actStartSec.get(act);
+  const chapterLines = [];
+  for (const {shotId, title} of EVOLUTION_CHAPTERS) {
+    const t = shotId === null ? 0 : shotStartSec.get(shotId);
     if (t !== undefined) {
       chapterLines.push(`${formatTimestamp(t)} ${title}`);
     }
   }
   writeMetadataSidecar(outMp4, chapterLines);
+}
+
+async function captureThumbPlate(browser, side, outPng) {
+  const clipMp4 = path.join(EVO_DIR, `clip-${side.shotId}.mp4`);
+  if (!FORCE && fs.existsSync(clipMp4)) {
+    ffmpeg([
+      '-ss',
+      String(side.atSec),
+      '-i',
+      clipMp4,
+      '-frames:v',
+      '1',
+      outPng,
+    ]);
+    return;
+  }
+
+  const shot = shotsById.get(side.shotId);
+  if (!shot) {
+    throw new Error(`Unknown thumbnail shot "${side.shotId}"`);
+  }
+  console.log(`[thumb] Rendering plate ${shot.id} @ ${side.atSec}s ...`);
+  const page = await openEraShot(browser, shot);
+  await page.evaluate(() => document.getElementById('evo-badge')?.remove());
+  const frames = Math.round(side.atSec * FPS);
+  for (let i = 0; i < frames; i++) {
+    if (shot.timedActions) {
+      for (const act of shot.timedActions) {
+        if (Math.round(act.atSec * FPS) === i) {
+          await page.evaluate((code) => {
+            const fn = new Function(code);
+            fn();
+          }, act.code);
+        }
+      }
+    }
+    const forceFlash = Boolean(
+      shot.lightningFrames && shot.lightningFrames.includes(i)
+    );
+    await stepFrame30(page, forceFlash);
+  }
+  await page.screenshot({path: outPng, type: 'png'});
+  reportErrors(shot.id, page);
+  await page.close();
+}
+
+async function runThumb(browser) {
+  const preset = EVOLUTION_THUMBNAILS[THUMB_VARIANT];
+  const leftPng = path.join(tempRoot, `thumb-left-${THUMB_VARIANT}.png`);
+  const rightPng = path.join(tempRoot, `thumb-right-${THUMB_VARIANT}.png`);
+  const htmlPath = path.join(tempRoot, `thumb-${THUMB_VARIANT}.html`);
+  const outJpg = outArg
+    ? path.resolve(outArg)
+    : path.join(PROMO_DIR, 'chill-flight-evolution-thumb.jpg');
+
+  await captureThumbPlate(browser, preset.left, leftPng);
+  await captureThumbPlate(browser, preset.right, rightPng);
+
+  fs.mkdirSync(path.dirname(outJpg), {recursive: true});
+  fs.writeFileSync(htmlPath, thumbHtml(preset, leftPng, rightPng));
+
+  const page = await browser.newPage();
+  await page.setViewport({width: WIDTH, height: HEIGHT, deviceScaleFactor: 1});
+  await page.goto('file://' + htmlPath, {waitUntil: 'load'});
+  await page.evaluate(() => document.fonts.ready);
+  await page.screenshot({path: outJpg, type: 'jpeg', quality: 90});
+  if (fs.statSync(outJpg).size >= 2_000_000) {
+    await page.screenshot({path: outJpg, type: 'jpeg', quality: 82});
+  }
+  await page.close();
+
+  const kb = (fs.statSync(outJpg).size / 1024).toFixed(0);
+  console.log(`${outJpg} (${WIDTH}x${HEIGHT}, ${kb} KB, ${THUMB_VARIANT})`);
 }
 
 const browser = await launch({
@@ -989,11 +1198,15 @@ try {
     await runSheet(browser);
   } else if (mode === 'clips') {
     await runClips(browser);
+  } else if (mode === 'thumb') {
+    await runThumb(browser);
   } else if (mode === 'stitch') {
     await runStitch(browser);
+    await runThumb(browser);
   } else if (mode === 'video') {
     await runClips(browser);
     await runStitch(browser);
+    await runThumb(browser);
   }
 } finally {
   await browser.close();

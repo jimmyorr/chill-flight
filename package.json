@@ -78,6 +78,7 @@
     "promo:view": "node scripts/promo.js view",
     "promo:evolution": "node scripts/evolution.js video",
     "promo:evolution:sheet": "node scripts/evolution.js sheet",
+    "promo:evolution:thumb": "node scripts/evolution.js thumb",
     "test:season": "node scripts/test-season.js"
   },
   "dependencies": {

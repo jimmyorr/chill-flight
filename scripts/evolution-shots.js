@@ -1,6 +1,6 @@
 // Chronological shot list for scripts/evolution.js: 44 milestones from the
-// first 493-line cowneck prototype on February 25, 2026 (88d428c4) through
-// v1.2.10, paced to the full 3:19 (199.20 s) runtime of Purrple Cat's
+// earliest cowneck prototype on February 25, 2026 (88d428c4) through v1.2.10,
+// paced to the full 3:19 (199.20 s) runtime of Purrple Cat's
 // "Going with the Flow".
 //
 // World coordinates are reported in both in-game units (X, Z) and lat/long
@@ -29,6 +29,53 @@ export const EVOLUTION_END_CARD = {
   seconds: 5.0,
 };
 
+// Split-screen YouTube thumbnail presets (1920x1080, < 2 MB JPEG).
+// Each side transforms its 1920x1080 clip frame (origin 0,0) so the hero
+// subject sits centered in its half and any bottom-left clip badge stays
+// outside the viewport.
+export const EVOLUTION_THUMBNAILS = {
+  lighthouse: {
+    left: {
+      shotId: '04b-first-lighthouse',
+      atSec: 3.3,
+      eyebrow: 'FEB 2026',
+      label: 'Prototype',
+      scale: 1.28,
+      tx: -605,
+      ty: -105,
+    },
+    right: {
+      shotId: '31b-v126-latest-lighthouse',
+      atSec: 1.2,
+      eyebrow: 'NOV 2026',
+      labelVersion: true,
+      scale: 1.13,
+      tx: -45,
+      ty: -48,
+    },
+  },
+  falls: {
+    left: {
+      shotId: '35-callback-day1',
+      atSec: 3.2,
+      eyebrow: 'FEB 2026',
+      label: 'Prototype',
+      scale: 1.3,
+      tx: -585,
+      ty: -105,
+    },
+    right: {
+      shotId: '25-v100-airports-falls',
+      atSec: 1.6,
+      eyebrow: 'NOV 2026',
+      labelVersion: true,
+      scale: 1.08,
+      tx: 205,
+      ty: -45,
+    },
+  },
+};
+
 // Base epoch aligned to a 300,000 ms (5-minute) cycle boundary for builds
 // between Feb 27 and May 31, 2026 that derive timeOfDay from Date.now().
 // Adding phase * 300000 ms selects the time of day deterministically:
@@ -41,12 +88,31 @@ const MODERN_COMMON =
   'seed=20260101&start=1&music=0&hints=0&preset=ultra&timeSpeed=0' +
   '&clock=1790000000000&cloudTime=500&fps=0&adaptive=0&traffic=0&xmas=off';
 
-export const EVOLUTION_ACTS = [
-  {act: 1, title: 'First prototype & early biomes (Feb - Mar 2026)'},
-  {act: 2, title: 'Weather, shaders & shadows (Mar - Apr 2026)'},
-  {act: 3, title: 'Cinematic skies, islands & fleet (v0.8 - v0.9)'},
-  {act: 4, title: 'Airfields, jet, buggy & living world (v1.0 - v1.2.10)'},
-  {act: 5, title: 'Day 1 to today'},
+// YouTube chapters (each >= 10s so YouTube activates scrub-bar chapters;
+// shotId: null starts at 0:00 across the opening card + early prototypes).
+export const EVOLUTION_CHAPTERS = [
+  {shotId: null, title: 'Early prototypes (Feb - Apr 2026)'},
+  {
+    shotId: '12-v080-purrple-cat',
+    title: 'v0.8: Lofi soundtrack, volcano, minimap & 3D clouds',
+  },
+  {
+    shotId: '18-v090-rebuilt-models',
+    title: 'v0.9: Rebuilt models, pack-ice, highways & new aircraft',
+  },
+  {
+    shotId: '25-v100-airports-falls',
+    title: 'v1.0 & v1.1: Airfields, Twin Falls, anime style & canyon jet',
+  },
+  {
+    shotId: '28-v121-pyramids-desert',
+    title: 'v1.2: Pyramids, bot races, destructible towns & delivery jobs',
+  },
+  {
+    shotId: '32a-v128-swamp-bayou',
+    title: 'v1.2.8 - v1.2.10: Bayou, alien worlds, world map & storms',
+  },
+  {shotId: '35-callback-day1', title: 'Day 1 to today'},
 ];
 
 // Each shot entry:
