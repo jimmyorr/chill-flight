@@ -9,9 +9,10 @@
 //   7. short-20261110-weather-cut.mp4 - 12s teal biplane weather-effects match-cut (seed 20261110)
 //   8. short-20261111-jet-cut.mp4    - 12s coral swept-wing jet landmark match-cut (seed 20261111)
 //   9. short-20261112-aerobatic-cut.mp4 - 12s rose biplane loop, climbing roll & dive across 4 biomes (seed 20261112)
+//  10. short-20261114-bayou-cut.mp4  - 12s coral seaplane roll through 2 rock arches across 4 biomes (seed 20261114)
 //
 // Usage:
-//   node scripts/shorts.js [match-cut | daily-match-cut | seaplane-cut | weather-cut | jet-cut | aerobatic-cut | daily-postcard | wing-cam | landmark-cut | meta] [--preview]
+//   node scripts/shorts.js [match-cut | daily-match-cut | seaplane-cut | weather-cut | jet-cut | aerobatic-cut | bayou-cut | daily-postcard | wing-cam | landmark-cut | meta] [--preview]
 
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
@@ -1350,6 +1351,94 @@ async function renderAerobaticCutShort(browser, seed = 20261112) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Prototype 10: Bayou Oak + Dual Arch Threading Seaplane Match-Cut (Seed 20261114)
+// ---------------------------------------------------------------------------
+async function renderBayouArchCutShort(browser, seed = 20261114) {
+  const speedMult = 1.18;
+  await renderMatchCutClip(browser, {
+    id: 'bayou-cut',
+    banner: `Bayou & Arches Seaplane Match-Cut (Seed ${seed}: Coral Seaplane)`,
+    seed,
+    speedMult,
+    cam:
+      `plane=seaplane&livery=coral&smoke=1&speed=${speedMult}` +
+      '&camOffset=11,5,42&camLook=-2,1,-66',
+    moves: [
+      [0.0, 0, 0, 0],
+      [1.2, 24, 3, -5],
+      [2.3, -14, 6, -10],
+      [3.0, -64, 4, -10],
+      [4.5, -250, -2, -10],
+      [5.5, -360, 1, -12],
+      [6.0, -378, 2, -14],
+      [7.4, -342, -1, -14],
+      [8.4, -370, 2, -16],
+      [9.0, -346, 2, -16],
+      [10.2, -368, 1, -16],
+      [11.3, -360, 0, -16],
+      [12.0, -360, 0, -16],
+    ],
+    segments: [
+      {
+        label: 'Giant Swamp Oak · 1.7°S, 2.1°W',
+        tx: -10029,
+        ty: 118,
+        tz: 8727,
+        heading: 52,
+        extra: 'tod=0.285&cloudMood=fair',
+        startFrame: 0,
+        endFrame: 90,
+      },
+      {
+        label: 'Coral Sea Arch · 6.1°S, 3.0°E',
+        tx: 14977,
+        ty: 130,
+        tz: 30833,
+        heading: 40,
+        extra: 'tod=0.49&cloudMood=fair',
+        startFrame: 90,
+        endFrame: 180,
+      },
+      {
+        label: 'Mountain Gorge Bridge · 0.8°S, 8.8°W',
+        tx: -44057,
+        ty: 392,
+        tz: 3583,
+        heading: 149,
+        extra: 'tod=0.63&cloudMood=mackerel',
+        startFrame: 180,
+        endFrame: 270,
+      },
+      {
+        label: 'Headland Lighthouse · 0.6°S, 1.5°E',
+        tx: 8046,
+        ty: 147,
+        tz: 3185,
+        heading: 68,
+        extra: 'tod=0.765&headlight=1&cloudMood=busy',
+        startFrame: 270,
+        endFrame: 360,
+      },
+    ],
+    outBaseName: `short-${seed}-bayou-cut`,
+    trackSlug: 'purrple-cat-somewhere-new',
+    musicStart: 18,
+    meta: {
+      title: 'Seaplane roll through 2 rock arches across 4 biomes ✈️',
+      tiktokQuestion:
+        'Swamp oak, coral arch, gorge bridge, or sunset lighthouse?',
+      stops: [
+        '0:00 Giant Swamp Oak (1.7°S, 2.1°W)',
+        '0:03 Coral Sea Arch (6.1°S, 3.0°E)',
+        '0:06 Mountain Gorge Bridge (0.8°S, 8.8°W)',
+        '0:09 Headland Lighthouse (0.6°S, 1.5°E)',
+      ],
+      trackTitle: 'Somewhere New',
+    },
+  });
+}
+
 async function main() {
   fs.mkdirSync(OUT, {recursive: true});
   const cliArgs = process.argv.slice(2).filter((a) => !a.startsWith('--'));
@@ -1449,6 +1538,18 @@ async function main() {
       ],
       trackTitle: 'Beautiful Day',
     });
+    writeShortMetadata(path.join(OUT, 'short-20261114-bayou-cut.mp4'), {
+      title: 'Seaplane roll through 2 rock arches across 4 biomes ✈️',
+      tiktokQuestion:
+        'Swamp oak, coral arch, gorge bridge, or sunset lighthouse?',
+      stops: [
+        '0:00 Giant Swamp Oak (1.7°S, 2.1°W)',
+        '0:03 Coral Sea Arch (6.1°S, 3.0°E)',
+        '0:06 Mountain Gorge Bridge (0.8°S, 8.8°W)',
+        '0:09 Headland Lighthouse (0.6°S, 1.5°E)',
+      ],
+      trackTitle: 'Somewhere New',
+    });
     return;
   }
   const browser = await launch({
@@ -1481,6 +1582,9 @@ async function main() {
     }
     if (!filter || filter === 'aerobatic-cut') {
       await renderAerobaticCutShort(browser, 20261112);
+    }
+    if (!filter || filter === 'bayou-cut') {
+      await renderBayouArchCutShort(browser, 20261114);
     }
     if (!filter || filter === 'daily-postcard') {
       await renderDailyPostcardShort(browser, 20261108);
