@@ -99,6 +99,10 @@ const material = new THREE.ShaderMaterial({
     varying vec2 vUv;
     varying vec4 vColor;
     varying float vGlow;
+    // 0 a soft puff, 1 a leaf, 2 a petal, 3 a pine needle (crisp, lit)
+    varying float vShape;
+    // A leaf's back shows as it tumbles over (0 front, 1 back)
+    varying float vBack;
     ${WATER_SWELL_GLSL}
     void main() {
       float t = uTime - aLife.x;
@@ -108,11 +112,27 @@ const material = new THREE.ShaderMaterial({
         gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
         vColor = vec4(0.0);
         vGlow = 0.0;
+        vShape = 0.0;
+        vBack = 0.0;
         return;
       }
       float carried = (1.0 - exp(-uDrag * t)) / uDrag;
       vec3 p = aStart + aVel.xyz * carried;
-      p.y += 0.5 * aVel.w * t * t;
+      // A negative end size marks a leaf, petal or needle: it doesn't grow,
+      // and aVel.w is the speed it settles to falling at, as air catches it,
+      // rather than a gravity it keeps speeding up under
+      bool leaf = aLife.w < 0.0;
+      vShape = leaf ? -aLife.w : 0.0;
+      float phase = 0.0;
+      if (leaf) {
+        phase = fract(sin(dot(aStart, vec3(12.9898, 78.233, 37.719))) * 43758.5453) * 6.2832;
+        p.y += aVel.w * (t - carried);
+        // Swinging side to side as it falls, more once it's slowed
+        float sway = sin(t * (2.2 + phase * 0.25) + phase) * smoothstep(0.0, 0.8, t);
+        p.xz += vec2(cos(phase), sin(phase)) * sway * 1.4;
+      } else {
+        p.y += 0.5 * aVel.w * t * t;
+      }
       if (aLife.z >= 0.0) {
         // Drag pulls each puff's own speed toward the wind's, so it
         // drifts downwind along with the trees, grass, clouds and rain
@@ -121,8 +141,22 @@ const material = new THREE.ShaderMaterial({
         p += wind * (t - carried);
       }
       float grow = 1.0 - (1.0 - age) * (1.0 - age);
-      float size = mix(abs(aLife.z), aLife.w, grow);
-      if (aLife.z < 0.0) {
+      float size = leaf ? aLife.z : mix(abs(aLife.z), aLife.w, grow);
+      vBack = 0.0;
+      if (leaf) {
+        // Spinning in the view and tumbling over (narrowing as it turns
+        // edge on)
+        float spin = phase + t * (1.5 + phase * 0.35) * (phase > 3.1416 ? 1.0 : -1.0);
+        float tumble = cos(t * (3.0 + phase * 0.4) + phase * 2.0);
+        vBack = tumble < 0.0 ? 1.0 : 0.0;
+        vec2 q = position.xy * size;
+        q.x *= 0.25 + 0.75 * abs(tumble);
+        float c = cos(spin);
+        float s = sin(spin);
+        vec4 mv = viewMatrix * vec4(p, 1.0);
+        mv.xy += vec2(c * q.x - s * q.y, s * q.x + c * q.y);
+        gl_Position = projectionMatrix * mv;
+      } else if (aLife.z < 0.0) {
         // Flat on the water, riding the swell
         p.y += swell(p.xz, uWaterTime).x + 0.25;
         p.xz += position.xy * size;
@@ -135,10 +169,11 @@ const material = new THREE.ShaderMaterial({
       vUv = uv;
       // Negative alpha: glows, unaffected by the light
       vGlow = aColor.a < 0.0 ? 1.0 : 0.0;
+      // Leaves stay solid until they're nearly down, then fade
+      float fade = leaf ? 1.0 - smoothstep(0.75, 1.0, age) : pow(1.0 - age, 1.5);
       vColor = vec4(
         aColor.rgb,
-        abs(aColor.a) * smoothstep(0.0, 0.06 * min(aLife.y, 4.0), t) *
-          pow(1.0 - age, 1.5)
+        abs(aColor.a) * smoothstep(0.0, 0.06 * min(aLife.y, 4.0), t) * fade
       );
     }
   `,
@@ -147,7 +182,25 @@ const material = new THREE.ShaderMaterial({
     varying vec2 vUv;
     varying vec4 vColor;
     varying float vGlow;
+    varying float vShape;
+    varying float vBack;
     void main() {
+      if (vShape > 0.5) {
+        // A crisp leaf (pointed oval with a darker middle vein), a petal
+        // (rounder, notched at the tip) or a needle (thin)
+        vec2 q = (vUv - 0.5) * 2.0;
+        float halfWidth = vShape < 1.5
+          ? 0.55 * (1.0 - q.y * q.y)
+          : vShape < 2.5
+            ? 0.7 * sqrt(max(0.0, 1.0 - q.y * q.y))
+            : 0.16 * (1.0 - q.y * q.y);
+        if (abs(q.x) > halfWidth) discard;
+        if (vShape > 1.5 && vShape < 2.5 && q.y > 0.72 && abs(q.x) < 0.12) discard;
+        float vein = vShape < 1.5 ? 1.0 - 0.18 * (1.0 - smoothstep(0.0, 0.07, abs(q.x))) : 1.0;
+        vec3 c = vColor.rgb * vein * (vBack > 0.5 ? 0.78 : 1.0);
+        gl_FragColor = vec4(c * uLight, vColor.a);
+        return;
+      }
       float d = length(vUv - 0.5) * 2.0;
       float soft = 1.0 - d * d;
       if (soft <= 0.0) discard;
@@ -1211,6 +1264,64 @@ export function propPuffs(
       size * rand(1.2, 1.8),
       color,
       rand(0.35, 0.6)
+    );
+  }
+}
+
+// Leaves, petals or needles shaken off a tree (breakables.js): `count` of
+// them in `color` (give or take a shade), from within `spread` of (x, z) and
+// y up to y + height, popped out from the trunk at up to `pop` units/s and
+// carried along (dx, dz) at `push` units/s, then fluttering down to `ground`.
+// shape: 1 leaf, 2 petal, 3 pine needle.
+export const LEAF = 1;
+export const PETAL = 2;
+export const NEEDLE = 3;
+// How fast they settle to falling (units/s)
+const LEAF_FALL = 3.2;
+const _leafColor = new THREE.Color();
+const _leafVel = {x: 0, y: 0, z: 0};
+const LEAF_DARK = new THREE.Color(0, 0, 0);
+export function leafBurst(
+  x,
+  y,
+  z,
+  spread,
+  height,
+  ground,
+  color,
+  count,
+  shape = LEAF,
+  size = 1.1,
+  pop = 10,
+  dx = 0,
+  dz = 0,
+  push = 0
+) {
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = Math.sqrt(Math.random()) * spread;
+    _p.set(x + Math.cos(a) * r, y + rand(0, height), z + Math.sin(a) * r);
+    const out = pop * rand(0.3, 1);
+    const along = push * rand(0.2, 1);
+    _leafVel.x = Math.cos(a) * out + dx * along;
+    _leafVel.y = rand(0.2, 0.8) * pop;
+    _leafVel.z = Math.sin(a) * out + dz * along;
+    // Some a little darker, some a little sunnier
+    const shade = rand(-0.15, 0.2);
+    if (shade < 0) _leafColor.copy(color).lerp(LEAF_DARK, -shade);
+    else _leafColor.copy(color).lerp(WHITE, shade);
+    const fall = LEAF_FALL * rand(0.7, 1.3) * (shape === NEEDLE ? 1.6 : 1);
+    // Gone about as it reaches the ground
+    const life = Math.min(9, Math.max(1.5, (_p.y - ground) / fall + 1.2));
+    spawn(
+      _p,
+      _leafVel,
+      -fall,
+      life * rand(0.85, 1.1),
+      size * rand(0.7, 1.2),
+      -shape,
+      _leafColor,
+      1
     );
   }
 }

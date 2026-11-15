@@ -53,7 +53,14 @@ import {playShatter, playSmash} from './sfx-events.js';
 import {smashHaptic} from './haptics.js';
 import {recordPropCrashStrain} from './crash.js';
 import {slowBuggy} from './buggy.js';
-import {propPuffs, sporeBurst} from './particles.js';
+import {
+  LEAF,
+  NEEDLE,
+  PETAL,
+  leafBurst,
+  propPuffs,
+  sporeBurst,
+} from './particles.js';
 import {startTrip} from './mushroom-trip.js';
 import {startRush} from './crystal-rush.js';
 import {forEachPeerVehicle} from './multiplayer.js';
@@ -159,6 +166,20 @@ const FLOE_RADIUS = 15;
 const FLOE_NEAR = 25;
 
 const LEAF_PUFF = new THREE.Color();
+// What falls from a tree's canopy, by its leaves' type: blossom trees shed
+// petals and conifers needles; anything else with leaves sheds leaves
+const PETAL_TREES = /^(cherryBlossom|magnolia)Leaves$/;
+const NEEDLE_TREES = /pine|spruce|cypress|joshua/i;
+// Leaves are drawn bigger than life on a big tree, so they read from the
+// chase camera (units)
+function leafSize(height) {
+  return Math.min(2.6, Math.max(1.1, height * 0.055));
+}
+function leafShape(type) {
+  if (PETAL_TREES.test(type)) return PETAL;
+  if (NEEDLE_TREES.test(type)) return NEEDLE;
+  return LEAF;
+}
 const SNOW = new THREE.Color(0.96, 0.97, 1);
 const SPRAY = new THREE.Color(0.9, 0.95, 1);
 const EMBERS = new THREE.Color(1, 0.55, 0.2);
@@ -1019,7 +1040,22 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
     const o = parts[0].index * 3;
     LEAF_PUFF.setRGB(c[o], c[o + 1], c[o + 2]);
     const r = index.radius[i];
-    propPuffs(x, base + height * 0.5, z, r, height * 0.5, LEAF_PUFF, 8, 2.5, 2);
+    leafBurst(
+      x,
+      base + height * 0.4,
+      z,
+      r,
+      height * 0.6,
+      base,
+      LEAF_PUFF,
+      16,
+      LEAF,
+      0.8,
+      6,
+      dx,
+      dz,
+      Math.min(30, kts * 0.1)
+    );
   } else if (parts[0].type === 'hayBale') {
     propPuffs(x, base + 2, z, 3, 2.5, STRAW, 16, 3, 3);
   } else if (/^(fallenLog|stump|swampLog|swampStump)$/.test(parts[0].type)) {
@@ -1037,17 +1073,39 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
       const c = leaves.data.colors;
       const o = leaves.index * 3;
       LEAF_PUFF.setRGB(c[o], c[o + 1], c[o + 2]);
-      propPuffs(
-        x,
-        base + height * 0.6,
-        z,
-        index.radius[i],
-        height * 0.4,
-        LEAF_PUFF,
-        10,
-        3,
-        2
-      );
+      if (leaves.type === 'mushroomCap') {
+        propPuffs(
+          x,
+          base + height * 0.6,
+          z,
+          index.radius[i],
+          height * 0.4,
+          LEAF_PUFF,
+          10,
+          3,
+          2
+        );
+      } else {
+        // Crisp leaves (or petals, or needles) burst out of the canopy and
+        // flutter down, more off a bigger tree
+        const canopy = index.radius[i] / BREAK.TREE_REACH;
+        leafBurst(
+          x,
+          base + height * 0.55,
+          z,
+          canopy * 0.7,
+          height * 0.45,
+          base,
+          LEAF_PUFF,
+          Math.round(Math.min(35, 20 + height * 0.5)),
+          leafShape(leaves.type),
+          leafSize(height),
+          6 + canopy * 0.3,
+          dx,
+          dz,
+          Math.min(40, kts * 0.12)
+        );
+      }
       // An alien mushroom lets go of its spores, glowing in its cap's
       // colour, and the player who knocked it over goes a bit trippy
       // (mushroom-trip.js), more so for the giants
