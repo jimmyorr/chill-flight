@@ -56,9 +56,11 @@ const WHEELS = {
     front: BUGGY_AXLES.front,
   },
   seaplane: {width: 1.6, half: 5, back: 0},
-  twin: {width: 0.9, half: 5.8, back: 0},
-  jet: {width: 0.7, half: 2.4, back: 0},
-  biplane: {width: 0.6, half: 1.8, back: 0},
+  // Main wheels where the models put them (biplane.js, twin.js, jet.js;
+  // negative back is ahead of the middle)
+  twin: {width: 0.7, half: 5.8, back: -1.4},
+  jet: {width: 0.5, half: 1.6, back: -1.2},
+  biplane: {width: 0.6, half: 3.8, back: -4.6},
 };
 const DEFAULT_WHEELS = {width: 0.8, half: 2, back: 0};
 // How long a tyre's patch on the ground is (units): sliding sideways, it

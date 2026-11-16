@@ -294,8 +294,8 @@ function uploadSpawned() {
 const GEAR_HALF_TRACK = {
   seaplane: 5,
   twin: 5.8,
-  jet: 2.4,
-  biplane: 1.8,
+  jet: 1.6,
+  biplane: 3.8,
   buggy: 2.6,
 };
 // Where the pontoons end behind the plane's centre (units); the hovering
