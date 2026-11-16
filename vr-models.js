@@ -408,26 +408,31 @@ export function updateVRHandsInstancedMesh(mesh, hands) {
     const pkyProx = readJointVec(joints, 'pinky-finger-phalanx-proximal', _mid);
     if (wrist && idxProx && pkyProx) {
       _palmAcross.subVectors(pkyProx, idxProx);
-      const palmWidth = Math.max(0.055, _palmAcross.length() * 1.18);
-      _palmAcross.normalize();
-
+      const acrossLen = _palmAcross.length();
       // Knuckle bridge midpoint
       _pB.add(pkyProx).multiplyScalar(0.5);
       _dir.subVectors(_pB, wrist);
-      const palmLen = Math.max(0.05, _dir.length() * 1.08);
-      _dir.normalize();
+      const dirLen = _dir.length();
+      if (acrossLen > 1e-4 && dirLen > 1e-4) {
+        const palmWidth = Math.max(0.055, acrossLen * 1.18);
+        _palmAcross.divideScalar(acrossLen);
+        const palmLen = Math.max(0.05, dirLen * 1.08);
+        _dir.divideScalar(dirLen);
 
-      _palmNormal.crossVectors(_palmAcross, _dir).normalize();
-      _palmAcross.crossVectors(_dir, _palmNormal).normalize();
+        _palmNormal.crossVectors(_palmAcross, _dir).normalize();
+        _palmAcross.crossVectors(_dir, _palmNormal).normalize();
 
-      _rotMat.makeBasis(_palmAcross, _dir, _palmNormal);
-      _quat.setFromRotationMatrix(_rotMat);
-      _mid.lerpVectors(wrist, _pB, 0.46);
-      _scale.set(palmWidth * 0.54, palmLen, 0.014);
-      _instMat.compose(_mid, _quat, _scale);
-      mesh.setMatrixAt(baseIdx, _instMat);
-      mesh.setColorAt(baseIdx, _colPalm);
-      anyVisible = true;
+        _rotMat.makeBasis(_palmAcross, _dir, _palmNormal);
+        _quat.setFromRotationMatrix(_rotMat);
+        _mid.lerpVectors(wrist, _pB, 0.46);
+        _scale.set(palmWidth * 0.54, palmLen, 0.014);
+        _instMat.compose(_mid, _quat, _scale);
+        mesh.setMatrixAt(baseIdx, _instMat);
+        mesh.setColorAt(baseIdx, _colPalm);
+        anyVisible = true;
+      } else {
+        mesh.setMatrixAt(baseIdx, _hiddenMat);
+      }
     } else {
       mesh.setMatrixAt(baseIdx, _hiddenMat);
     }

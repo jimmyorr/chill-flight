@@ -1188,7 +1188,11 @@ function readSlotSideStates(controllers) {
       if (palmRef && palmRef.visible !== false) {
         entry.connected = true;
         entry.gripPos = palmRef.position;
-        entry.gripQuat = wrist?.quaternion || rayCtrl?.quaternion || null;
+        entry.gripQuat =
+          (wrist && wrist.visible !== false ? wrist.quaternion : null) ||
+          palmRef.quaternion ||
+          rayCtrl?.quaternion ||
+          null;
         entry.indexTipPos =
           idxTip && idxTip.visible !== false ? idxTip.position : null;
         entry.pinching = evaluateHandPinch(
@@ -1681,13 +1685,15 @@ function pollVRVirtualControls(delta, controllers, isPausedFrame = false) {
   const activeNormThrottle =
     out.throttleTarget !== null ? out.throttleTarget : currentNormThrottle;
 
+  const safeDelta =
+    Number.isFinite(delta) && delta > 0 ? Math.min(0.1, delta) : 0;
+
   if (vrStickModel) {
     _stickTargetPos.set(
       out.stickAnchorPos.x,
       out.stickAnchorPos.y,
       out.stickAnchorPos.z
     );
-    const safeDelta = Math.max(0, Math.min(0.1, delta || 0));
     const posEase = out.stickActive
       ? 1 - Math.exp(-safeDelta / 0.025)
       : 1 - Math.exp(-safeDelta / 0.14);
@@ -1759,8 +1765,8 @@ function pollVRVirtualControls(delta, controllers, isPausedFrame = false) {
       );
     }
     const thrEase = out.throttleHolder
-      ? 1 - Math.exp(-delta / 0.025)
-      : 1 - Math.exp(-delta / 0.14);
+      ? 1 - Math.exp(-safeDelta / 0.025)
+      : 1 - Math.exp(-safeDelta / 0.14);
     if (vrThrottleModel.position.lengthSq() === 0) {
       vrThrottleModel.position.copy(_throttleTargetPos);
     } else {

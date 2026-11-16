@@ -1222,7 +1222,11 @@ export class InputManager {
         const effX = suppressHorizontal ? 0 : scaledX;
         const effY = scaledY;
 
-        if (effX !== 0 || effY !== 0) {
+        if (
+          Number.isFinite(effX) &&
+          Number.isFinite(effY) &&
+          (effX !== 0 || effY !== 0)
+        ) {
           this.state.gamepad.x = effX;
           this.state.gamepad.y = effY;
           this.state.gamepad.steeringActive = true;
@@ -1504,6 +1508,7 @@ export class InputManager {
     return Boolean(
       isVRPresenting &&
       state.vrStickMode === 'sim' &&
+      state.planeType !== 'buggy' &&
       !state.airplaneModel?.isBuggy &&
       !state.isFreeCamera &&
       state.cameraMode !== 'cinematic'

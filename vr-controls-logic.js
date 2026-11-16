@@ -60,6 +60,7 @@ export function scaleThumbstickAxis(
   deadzone = STICK_DEADZONE,
   maxOut = STICK_SENSITIVITY
 ) {
+  if (!Number.isFinite(raw)) return 0;
   const abs = Math.abs(raw);
   if (abs < deadzone) return 0;
   const span = Math.max(1e-6, 1 - deadzone);
@@ -79,6 +80,7 @@ export function unscaleThumbstickForBuggy(
   deadzone = STICK_DEADZONE,
   maxOut = STICK_SENSITIVITY
 ) {
+  if (!Number.isFinite(scaled)) return 0;
   const abs = Math.abs(scaled);
   if (abs < deadzone) return 0;
   const span = Math.max(1e-6, maxOut - deadzone);
@@ -97,7 +99,46 @@ function isPressed(gp, index) {
 }
 
 function clamp(v, min, max) {
+  if (!Number.isFinite(v)) return 0 < min ? min : 0 > max ? max : 0;
   return v < min ? min : v > max ? max : v;
+}
+
+/**
+ * Copies `.x, .y, .z` explicitly through property accessors so both plain
+ * objects, `THREE.Vector3`, and WebXR `DOMPointReadOnly` (prototype getters)
+ * snapshot cleanly without losing coordinates to `{...spread}`.
+ */
+function copyVec3(p) {
+  if (!p) return null;
+  const x = p.x;
+  const y = p.y;
+  const z = p.z;
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+    return null;
+  }
+  return {x, y, z};
+}
+
+/**
+ * Copies `.x, .y, .z, .w` explicitly through property accessors. `THREE.Quaternion`
+ * and `DOMPointReadOnly` expose `x, y, z, w` as prototype getters backed by
+ * `_x, _y, _z, _w`, so object spread `{...q}` yields `x === undefined` -> `NaN`.
+ */
+function copyQuat(q) {
+  if (!q) return null;
+  const x = q.x;
+  const y = q.y;
+  const z = q.z;
+  const w = q.w;
+  if (
+    !Number.isFinite(x) ||
+    !Number.isFinite(y) ||
+    !Number.isFinite(z) ||
+    !Number.isFinite(w)
+  ) {
+    return null;
+  }
+  return {x, y, z, w};
 }
 
 function dist3(a, b) {
@@ -444,7 +485,10 @@ function quatMultiply(a, b) {
 }
 
 function quatNormalize(q) {
-  const len = Math.hypot(q.x, q.y, q.z, q.w) || 1;
+  const len = Math.hypot(q.x, q.y, q.z, q.w);
+  if (!Number.isFinite(len) || len < 1e-9) {
+    return {x: 0, y: 0, z: 0, w: 1};
+  }
   return {x: q.x / len, y: q.y / len, z: q.z / len, w: q.w / len};
 }
 
@@ -463,14 +507,12 @@ export function computeVRConsolePose(
   seatOrigin = {x: 0, y: 0, z: 0},
   seatYaw = 0
 ) {
+  const origin = copyVec3(seatOrigin) || {x: 0, y: 0, z: 0};
+  const yaw = Number.isFinite(seatYaw) ? seatYaw : 0;
   return {
-    stickHomePos: fromSeatSpaceVec(seatOrigin, VR_STICK_HOME_OFFSET, seatYaw),
-    throttleHomePos: fromSeatSpaceVec(
-      seatOrigin,
-      VR_THROTTLE_HOME_OFFSET,
-      seatYaw
-    ),
-    pausePillPos: fromSeatSpaceVec(seatOrigin, VR_PAUSE_PILL_OFFSET, seatYaw),
+    stickHomePos: fromSeatSpaceVec(origin, VR_STICK_HOME_OFFSET, yaw),
+    throttleHomePos: fromSeatSpaceVec(origin, VR_THROTTLE_HOME_OFFSET, yaw),
+    pausePillPos: fromSeatSpaceVec(origin, VR_PAUSE_PILL_OFFSET, yaw),
   };
 }
 
@@ -493,12 +535,18 @@ export function computeVirtualStickAxes({
   seatYaw = 0,
   isBuggy = false,
 }) {
+  const yaw = Number.isFinite(seatYaw) ? seatYaw : 0;
+  const sQuat = copyQuat(startQuat);
+  const cQuat = copyQuat(currentQuat);
+  const sPos = copyVec3(startPos);
+  const cPos = copyVec3(currentPos);
+
   let rollAngle = 0;
   let backAngle = 0;
 
-  if (startQuat && currentQuat) {
-    const q0 = toSeatSpaceQuat(startQuat, seatYaw);
-    const q1 = toSeatSpaceQuat(currentQuat, seatYaw);
+  if (sQuat && cQuat) {
+    const q0 = toSeatSpaceQuat(sQuat, yaw);
+    const q1 = toSeatSpaceQuat(cQuat, yaw);
     const q0Conj = {x: -q0.x, y: -q0.y, z: -q0.z, w: q0.w};
     const qd = quatNormalize(quatMultiply(q1, q0Conj));
 
@@ -514,12 +562,12 @@ export function computeVirtualStickAxes({
 
   let posRoll = 0;
   let posBack = 0;
-  if (startPos && currentPos) {
+  if (sPos && cPos) {
     const localDelta = toSeatSpaceVec(
-      currentPos.x - startPos.x,
-      currentPos.y - startPos.y,
-      currentPos.z - startPos.z,
-      seatYaw
+      cPos.x - sPos.x,
+      cPos.y - sPos.y,
+      cPos.z - sPos.z,
+      yaw
     );
     posRoll = clamp(localDelta.x / VIRTUAL_STICK_POS_SPAN, -0.75, 0.75);
     posBack = clamp(localDelta.z / VIRTUAL_STICK_POS_SPAN, -0.75, 0.75);
@@ -556,15 +604,19 @@ export function computeVirtualThrottle({
   seatYaw = 0,
   startThrottle = 0,
 }) {
-  if (!startPos || !currentPos) return clamp(startThrottle, 0, 1);
+  const base = Number.isFinite(startThrottle) ? startThrottle : 0;
+  const sPos = copyVec3(startPos);
+  const cPos = copyVec3(currentPos);
+  if (!sPos || !cPos) return clamp(base, 0, 1);
+  const yaw = Number.isFinite(seatYaw) ? seatYaw : 0;
   const localDelta = toSeatSpaceVec(
-    currentPos.x - startPos.x,
-    currentPos.y - startPos.y,
-    currentPos.z - startPos.z,
-    seatYaw
+    cPos.x - sPos.x,
+    cPos.y - sPos.y,
+    cPos.z - sPos.z,
+    yaw
   );
   const deltaThrottle = -localDelta.z / VIRTUAL_THROTTLE_SPAN;
-  return clamp(startThrottle + deltaThrottle, 0, 1);
+  return clamp(base + deltaThrottle, 0, 1);
 }
 
 export function isGripHeld(gp, wasHeld = false) {
@@ -703,13 +755,13 @@ export function createVRVirtualControlsTracker() {
       // 1. Release active stick or throttle if holder disconnected or let go
       if (stickHolder) {
         const h = hands[stickHolder];
-        if (!h?.connected || !h.grabbing || !h.gripPos) {
+        if (!h?.connected || !h.grabbing || !copyVec3(h.gripPos)) {
           releaseStick(haptics, Boolean(h && !h.isHand));
         }
       }
       if (throttleHolder) {
         const h = hands[throttleHolder];
-        if (!h?.connected || !h.grabbing || !h.gripPos) {
+        if (!h?.connected || !h.grabbing || !copyVec3(h.gripPos)) {
           releaseThrottle(haptics, Boolean(h && !h.isHand));
         }
       }
@@ -761,7 +813,8 @@ export function createVRVirtualControlsTracker() {
       // 3. Process fresh grabs on Stick and Throttle (right first for stick, left first for throttle)
       for (const side of ['right', 'left']) {
         const h = hands[side];
-        if (!h?.connected || !h.gripPos) {
+        const gripPos = copyVec3(h?.gripPos);
+        if (!h?.connected || !gripPos) {
           grabLatched[side] = false;
           prevGrabbing[side] = false;
           continue;
@@ -781,8 +834,8 @@ export function createVRVirtualControlsTracker() {
           continue;
         }
 
-        const dStick = dist3(h.gripPos, consolePose.stickHomePos);
-        const dThrottle = dist3(h.gripPos, consolePose.throttleHomePos);
+        const dStick = dist3(gripPos, consolePose.stickHomePos);
+        const dThrottle = dist3(gripPos, consolePose.throttleHomePos);
 
         if (!h.isHand) {
           // Physical controllers grab only when reached onto the virtual handle,
@@ -793,8 +846,8 @@ export function createVRVirtualControlsTracker() {
             dStick <= dThrottle
           ) {
             stickHolder = side;
-            stickStartPos = {...h.gripPos};
-            stickStartQuat = h.gripQuat ? {...h.gripQuat} : null;
+            stickStartPos = gripPos;
+            stickStartQuat = copyQuat(h.gripQuat);
             stickSmoothX = 0;
             stickSmoothY = 0;
             stickAtRim = false;
@@ -803,7 +856,7 @@ export function createVRVirtualControlsTracker() {
             haptics.push({side, intensity: 0.28, durationMs: 18});
           } else if (!throttleHolder && dThrottle <= CONTROLLER_GRAB_RADIUS) {
             throttleHolder = side;
-            throttleStartPos = {...h.gripPos};
+            throttleStartPos = gripPos;
             throttleStartVal = clamp(currentThrottle, 0, 1);
             throttleDetent = Math.round(throttleStartVal * 4);
             haptics.push({side, intensity: 0.24, durationMs: 16});
@@ -818,27 +871,27 @@ export function createVRVirtualControlsTracker() {
             dStick <= dThrottle
           ) {
             stickHolder = side;
-            stickStartPos = {...h.gripPos};
-            stickStartQuat = h.gripQuat ? {...h.gripQuat} : null;
+            stickStartPos = gripPos;
+            stickStartQuat = copyQuat(h.gripQuat);
             stickSmoothX = 0;
             stickSmoothY = 0;
             stickAtRim = false;
           } else if (!throttleHolder && dThrottle <= CONTROLLER_GRAB_RADIUS) {
             throttleHolder = side;
-            throttleStartPos = {...h.gripPos};
+            throttleStartPos = gripPos;
             throttleStartVal = clamp(currentThrottle, 0, 1);
             throttleDetent = Math.round(throttleStartVal * 4);
-          } else if (inSeatedComfortZone(h.gripPos, headPos)) {
+          } else if (inSeatedComfortZone(gripPos, headPos)) {
             if (side === 'right' && !stickHolder) {
               stickHolder = 'right';
-              stickStartPos = {...h.gripPos};
-              stickStartQuat = h.gripQuat ? {...h.gripQuat} : null;
+              stickStartPos = gripPos;
+              stickStartQuat = copyQuat(h.gripQuat);
               stickSmoothX = 0;
               stickSmoothY = 0;
               stickAtRim = false;
             } else if (side === 'left' && !throttleHolder) {
               throttleHolder = 'left';
-              throttleStartPos = {...h.gripPos};
+              throttleStartPos = gripPos;
               throttleStartVal = clamp(currentThrottle, 0, 1);
               throttleDetent = Math.round(throttleStartVal * 4);
             }
@@ -866,8 +919,12 @@ export function createVRVirtualControlsTracker() {
         });
         rawX = axes.rawX;
         rawY = axes.rawY;
+        const safeDelta =
+          Number.isFinite(delta) && delta > 0 ? Math.min(0.1, delta) : 0;
         const alpha =
-          delta > 0 ? 1 - Math.exp(-delta / VIRTUAL_STICK_SMOOTH_TAU) : 1;
+          safeDelta > 0
+            ? 1 - Math.exp(-safeDelta / VIRTUAL_STICK_SMOOTH_TAU)
+            : 1;
         stickSmoothX += (rawX - stickSmoothX) * alpha;
         stickSmoothY += (rawY - stickSmoothY) * alpha;
         x = scaleThumbstickAxis(stickSmoothX, STICK_DEADZONE);
@@ -1577,6 +1634,7 @@ export function simStickAxisResponse(
   deadzone = STICK_DEADZONE,
   maxOut = STICK_SENSITIVITY
 ) {
+  if (!Number.isFinite(scaled)) return 0;
   const abs = Math.abs(scaled);
   if (abs <= deadzone) return 0;
   const span = Math.max(1e-6, maxOut - deadzone);
@@ -1682,13 +1740,24 @@ export function stepVRSimStickAttitude(s, input) {
 
   const T = VR_SIM_STICK;
   const stepDt = Math.max(0, Math.min(0.1, Number.isFinite(dt) ? dt : 0));
+  const baseQuat = copyQuat(quat)
+    ? quatNormalize(quat)
+    : {x: 0, y: 0, z: 0, w: 1};
+  const maxRoll = Number.isFinite(handling?.rollRate) ? handling.rollRate : 2.8;
+  const agility = Number.isFinite(handling?.agility) ? handling.agility : 1;
+  const stallKts = Number.isFinite(handling?.stallKts) ? handling.stallKts : 0;
+  const levelKts = Number.isFinite(handling?.levelKts) ? handling.levelKts : 60;
+  const safeKts = Number.isFinite(kts) ? kts : 80;
+  const safeTurnScale = Number.isFinite(turnScale) ? turnScale : 1;
+
   const rollCmd = grounded ? 0 : clamp(roll, -1, 1);
   const pullCmd = clamp(pull, -1, 1);
+  const rudderCmd = grounded ? 0 : clamp(rudder, -1, 1);
   const rollHeld = Math.abs(rollCmd) > 1e-4;
   const pullHeld = Math.abs(pullCmd) > 1e-4;
-  const rudderHeld = Math.abs(rudder) > 1e-4;
+  const rudderHeld = Math.abs(rudderCmd) > 1e-4;
 
-  const att = attitudeOfQuat(quat);
+  const att = attitudeOfQuat(baseQuat);
   const bank = att.roll;
   const steep = Math.abs(att.pitch) > T.LOOP_FROM;
 
@@ -1701,7 +1770,6 @@ export function stepVRSimStickAttitude(s, input) {
   );
 
   // 1. Aileron roll rate & wings-level / inverted detent notch
-  const maxRoll = handling.rollRate;
   let notchedJustNow = false;
   if (rollHeld) {
     s.notch = null;
@@ -1738,10 +1806,8 @@ export function stepVRSimStickAttitude(s, input) {
 
   // 2. Elevator pull rate & aerodynamic pitch stability
   const authority =
-    handling.stallKts > 0
-      ? 0.35 + 0.65 * simSmoothstep(kts, handling.stallKts, handling.levelKts)
-      : 1;
-  const maxPull = T.PULL_RATE * handling.agility * authority;
+    stallKts > 0 ? 0.35 + 0.65 * simSmoothstep(safeKts, stallKts, levelKts) : 1;
+  const maxPull = T.PULL_RATE * agility * authority;
 
   if (steep && pullHeld && Math.abs(s.pullRate) > 0.3) {
     s.looping = true;
@@ -1773,7 +1839,11 @@ export function stepVRSimStickAttitude(s, input) {
     settle = trimRelax - bankGravityDrop;
   }
 
-  if (!(s.looping && att.upright < 0) && att.pitch > climbLimit) {
+  if (
+    !(s.looping && att.upright < 0) &&
+    Number.isFinite(climbLimit) &&
+    att.pitch > climbLimit
+  ) {
     settle -= (att.pitch - climbLimit) * T.LIMIT_RATE;
     if (att.upright > 0) wantPull = Math.min(wantPull, 0);
   }
@@ -1782,9 +1852,7 @@ export function stepVRSimStickAttitude(s, input) {
     (wantPull - s.pullRate) * (1 - Math.exp(-stepDt / T.PULL_EASE_SECONDS));
 
   // 3. Rudder yaw (from lap controller side-grips when airborne)
-  const wantYaw = grounded
-    ? 0
-    : clamp(rudder, -1, 1) * T.RUDDER_RATE * handling.agility;
+  const wantYaw = rudderCmd * T.RUDDER_RATE * agility;
   s.yawRate +=
     (wantYaw - s.yawRate) * (1 - Math.exp(-stepDt / T.ROLL_EASE_SECONDS));
 
@@ -1792,7 +1860,7 @@ export function stepVRSimStickAttitude(s, input) {
   const pitchRate = s.pullRate + settle * Math.cos(bank);
   const bodyYawRate = s.yawRate - settle * Math.sin(bank);
   let q = quatMultiply(
-    quat,
+    baseQuat,
     quatFromRotVec(
       pitchRate * stepDt,
       bodyYawRate * stepDt,
@@ -1807,8 +1875,8 @@ export function stepVRSimStickAttitude(s, input) {
       Math.sin(bank) *
       Math.max(0, Math.cos(bank)) *
       Math.cos(att.pitch) *
-      handling.agility *
-      turnScale;
+      agility *
+      safeTurnScale;
     q = quatMultiply(quatFromRotVec(0, bankTurn * stepDt, 0), q);
   }
   q = quatNormalize(q);

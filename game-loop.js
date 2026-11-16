@@ -1056,6 +1056,7 @@ function deliberateSteer() {
 const STICK_DEAD_ZONE = 0.15;
 const STICK_CURVE = 0.45; // share of the response that's cubic
 function stickResponse(v) {
+  if (!Number.isFinite(v)) return 0;
   const a = Math.abs(v);
   if (a < STICK_DEAD_ZONE) return 0;
   const u = Math.min(1, (a - STICK_DEAD_ZONE) / (1 - STICK_DEAD_ZONE));
@@ -1071,6 +1072,7 @@ function isVRSimStickFlying() {
   return Boolean(
     state.isVRPresenting &&
     state.vrStickMode === 'sim' &&
+    activePlaneType !== 'buggy' &&
     !state.airplaneModel?.isBuggy &&
     state.cameraMode !== 'cinematic'
   );
@@ -1171,7 +1173,14 @@ function flyVRSimStick(delta, inAirGripTurn) {
     dt: delta,
   });
 
-  q.set(out.quat.x, out.quat.y, out.quat.z, out.quat.w);
+  if (
+    Number.isFinite(out.quat.x) &&
+    Number.isFinite(out.quat.y) &&
+    Number.isFinite(out.quat.z) &&
+    Number.isFinite(out.quat.w)
+  ) {
+    q.set(out.quat.x, out.quat.y, out.quat.z, out.quat.w);
+  }
   state._nextYaw = planeGroup.rotation.y;
   state.targetPitch = planeGroup.rotation.x;
   state.targetRoll = planeGroup.rotation.z;

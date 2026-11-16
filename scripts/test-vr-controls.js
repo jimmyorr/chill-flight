@@ -7,6 +7,7 @@
  * maneuvers, face/grip button latches, hand-tracking safety, and 3D VR pause
  * menu hit-testing and cross-frame button debouncing.
  */
+import * as THREE from 'three';
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {
   STICK_DEADZONE,
@@ -1604,6 +1605,159 @@ function makeSession(leftOpts, rightOpts) {
       Number.isFinite(negSim.rollRate) &&
       Number.isFinite(negSim.pullRate),
     JSON.stringify({quat: negRes.quat, negSim})
+  );
+
+  // Regression check: real THREE.Quaternion & prototype-getter DOMPointReadOnly
+  // poses mutated in place across XR frames (previously `{...h.gripQuat}` dropped
+  // prototype getters `.x/.y/.z/.w`, poisoning stickStartQuat with undefined -> NaN
+  // and crashing updateSfx() with non-finite float TypeError)
+  const domPointProto = {
+    get x() {
+      return this._px;
+    },
+    get y() {
+      return this._py;
+    },
+    get z() {
+      return this._pz;
+    },
+  };
+  const makeLiveDOMPoint = (x, y, z) => {
+    const pt = Object.create(domPointProto);
+    pt._px = x;
+    pt._py = y;
+    pt._pz = z;
+    return pt;
+  };
+
+  const liveCtrlPos = new THREE.Vector3(
+    cPose.stickHomePos.x,
+    cPose.stickHomePos.y,
+    cPose.stickHomePos.z
+  );
+  const liveCtrlQuat = new THREE.Quaternion().setFromEuler(
+    new THREE.Euler(-0.18, 0.12, 0.05, 'YXZ')
+  );
+  const threeTracker = createVRVirtualControlsTracker();
+  const grabFrame = threeTracker.update({
+    right: {
+      connected: true,
+      isHand: false,
+      gripPos: liveCtrlPos,
+      gripQuat: liveCtrlQuat,
+      grabbing: true,
+    },
+    delta: 1 / 72,
+  });
+
+  // Mutate the SAME live THREE.Quaternion in place (matching WebXRController.update):
+  // pull stick back (+X rotation) and bank right (-Z rotation)
+  liveCtrlQuat.multiply(
+    new THREE.Quaternion().setFromEuler(new THREE.Euler(0.32, 0, -0.3, 'YXZ'))
+  );
+  let tiltedFrame = grabFrame;
+  const liveSimState = createVRSimStickState();
+  let livePlaneQuat = quatFromAttitude(0, 0, 0);
+  for (let i = 0; i < 18; i++) {
+    tiltedFrame = threeTracker.update({
+      right: {
+        connected: true,
+        isHand: false,
+        gripPos: liveCtrlPos,
+        gripQuat: liveCtrlQuat,
+        grabbing: true,
+      },
+      delta: 1 / 72,
+    });
+    livePlaneQuat = stepVRSimStickAttitude(liveSimState, {
+      quat: livePlaneQuat,
+      roll: simStickAxisResponse(tiltedFrame.x),
+      pull: simStickAxisResponse(tiltedFrame.y),
+      active: tiltedFrame.stickActive,
+      handling,
+      kts: 120,
+      dt: 1 / 72,
+    }).quat;
+  }
+  const liveAtt = attitudeOfQuat(livePlaneQuat);
+  check(
+    'grabbing virtual stick with live THREE.Quaternion snapshots getters cleanly without NaN and drives Sim stick',
+    grabFrame.stickActive &&
+      grabFrame.rawX === 0 &&
+      grabFrame.rawY === 0 &&
+      Number.isFinite(grabFrame.visualPitch) &&
+      Number.isFinite(grabFrame.visualRoll) &&
+      tiltedFrame.rawX > 0.4 &&
+      tiltedFrame.rawY > 0.4 &&
+      tiltedFrame.x > STICK_DEADZONE &&
+      tiltedFrame.y > STICK_DEADZONE &&
+      Number.isFinite(liveAtt.pitch) &&
+      Number.isFinite(liveAtt.roll) &&
+      liveAtt.pitch > 0.03 &&
+      liveAtt.roll < -0.05,
+    JSON.stringify({grabFrame, tiltedFrame, liveAtt})
+  );
+
+  // Bare-hand comfort-zone grab with prototype-getter DOMPointReadOnly + THREE.Quaternion
+  const handPos = makeLiveDOMPoint(0.22, -0.34, -0.32);
+  const handQuat = new THREE.Quaternion();
+  const handTracker = createVRVirtualControlsTracker();
+  const handGrab = handTracker.update({
+    right: {
+      connected: true,
+      isHand: true,
+      gripPos: handPos,
+      gripQuat: handQuat,
+      grabbing: true,
+    },
+    delta: 1 / 72,
+  });
+  handPos._px += 0.08;
+  handQuat.setFromEuler(new THREE.Euler(0.28, 0, -0.25, 'YXZ'));
+  const handTilt = handTracker.update({
+    right: {
+      connected: true,
+      isHand: true,
+      gripPos: handPos,
+      gripQuat: handQuat,
+      grabbing: true,
+    },
+    delta: 1 / 72,
+  });
+  check(
+    'bare-hand virtual stick grab with prototype-getter DOMPoint + THREE.Quaternion produces finite pitch/roll',
+    handGrab.stickActive &&
+      Number.isFinite(handGrab.rawX) &&
+      Number.isFinite(handGrab.rawY) &&
+      handTilt.rawX > 0.4 &&
+      handTilt.rawY > 0.4 &&
+      Number.isFinite(handTilt.x) &&
+      Number.isFinite(handTilt.y),
+    JSON.stringify({handGrab, handTilt})
+  );
+
+  // Defensive NaN boundary checks
+  const nanSimRes = stepVRSimStickAttitude(createVRSimStickState(), {
+    quat: {x: NaN, y: 0, z: 0, w: 1},
+    roll: NaN,
+    pull: NaN,
+    rudder: NaN,
+    handling: {topKts: 300},
+    kts: NaN,
+    climbLimit: NaN,
+    turnScale: NaN,
+    dt: NaN,
+  });
+  check(
+    'axis scalers and stepVRSimStickAttitude sanitize NaN inputs and partial handling objects cleanly',
+    scaleThumbstickAxis(NaN) === 0 &&
+      unscaleThumbstickForBuggy(NaN, 0.1) === 0 &&
+      simStickAxisResponse(NaN) === 0 &&
+      Number.isFinite(nanSimRes.quat.x) &&
+      Number.isFinite(nanSimRes.quat.y) &&
+      Number.isFinite(nanSimRes.quat.z) &&
+      Number.isFinite(nanSimRes.quat.w),
+    JSON.stringify(nanSimRes)
   );
 }
 
