@@ -374,9 +374,11 @@ function performFrame(timestamp) {
   // that render (the boot loading screen does)
   const bootOverlay =
     isBootLoadingScreen && getCachedElement('loading-overlay');
-  const rendersWhilePaused =
-    state.isVRPresenting ||
-    (bootOverlay && bootOverlay.style.display !== 'none');
+  const bootRenders =
+    bootOverlay &&
+    bootOverlay.style.display !== 'none' &&
+    !state.vrSplashSkipRender;
+  const rendersWhilePaused = state.isVRPresenting || bootRenders;
   if (
     performanceMonitor &&
     typeof performanceMonitor.update === 'function' &&
@@ -396,7 +398,8 @@ function performFrame(timestamp) {
     if (
       loadingOverlay &&
       loadingOverlay.style.display !== 'none' &&
-      !state.isIntroTransitionActive
+      !state.isIntroTransitionActive &&
+      !state.vrSplashSkipRender
     ) {
       // Intro orbit camera rendering
       if (!state.isFreeCamera) {
@@ -428,7 +431,8 @@ function performFrame(timestamp) {
       loadingOverlay &&
       loadingOverlay.style.display !== 'none' &&
       !state.isIntroTransitionActive &&
-      !state.isWarmingUp
+      !state.isWarmingUp &&
+      !state.vrSplashSkipRender
     ) {
       // As in flight (with the art style's outline pass), so its shaders
       // and render targets are ready before START

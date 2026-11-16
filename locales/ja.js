@@ -126,6 +126,7 @@ export default {
   'Chill Flight requires WebGL 2, which is unavailable or disabled in your browser. Please try enabling hardware acceleration or updating your browser.':
     'Chill Flight には WebGL 2 が必要ですが、お使いのブラウザでは使えないか無効になっています。ハードウェアアクセラレーションを有効にするか、ブラウザを更新してください。',
   Reload: '再読み込み',
+  'Enter VR': 'VR を開始',
   'Exit VR': 'VR を終了',
   PAUSED: '一時停止',
   'Take a breather or adjust your flight':

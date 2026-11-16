@@ -52,6 +52,14 @@ const initialFlightSpeed =
     ? Math.max(0, Math.min(10, startSpeed))
     : 1.0;
 
+const initialVRSplashSkipRender = Boolean(
+  ChillFlightLogic.VR_ONLY_PARAM !== false &&
+  typeof navigator !== 'undefined' &&
+  navigator.xr &&
+  (ChillFlightLogic.VR_ONLY_PARAM === true ||
+    ChillFlightLogic.isVRHeadsetUserAgent(navigator.userAgent || ''))
+);
+
 export const state = {
   // Graphics settings (graphics presets in debug-ui.js change these)
   SEGMENTS: 40,
@@ -179,6 +187,8 @@ export const state = {
 
   // Game session, flight, sky, and effects (game.js)
   isVRPresenting: false,
+  vrOnlyFlow: false,
+  vrSplashSkipRender: initialVRSplashSkipRender,
   vrStickMode: ChillFlightLogic.VR_STICK_PARAM || storedVRStickMode || 'chill',
   latScale: 5000,
   currentLatDeg: 0,

@@ -1338,15 +1338,17 @@ import {IMPERIAL, joinList, t} from './i18n.js';
   function closeFullscreenMap(options = {}) {
     if (!fsVisible) return;
 
-    const shouldEnterVR = Boolean(options?.enterVR);
+    const vrOnly = Boolean(state.vrOnlyFlow && !state.isVRPresenting);
+    const quiet = Boolean(options?.quiet);
+    const shouldEnterVR = !quiet && Boolean(options?.enterVR || vrOnly);
 
     suppressPauseClick(500);
 
     fsVisible = false;
-    trackScreen('flight');
+    trackScreen(vrOnly ? 'pause' : 'flight');
     setWarpPin(null);
     if (pauseOverlay) pauseOverlay.classList.remove('under-map');
-    if (state.isPaused) togglePause();
+    if (state.isPaused && !vrOnly && !quiet) togglePause();
     if (fsOverlay) {
       fsOverlay.style.display = 'none';
     }

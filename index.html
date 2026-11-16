@@ -685,15 +685,20 @@
                 <path d="M17 9.5l5 5M22 9.5l-5 5" />
               </svg>
             </button>
-            <a
-              id="splash-about-link"
-              href="https://chillflight.app/about"
-              onclick="
-                window.openExternalLink(this.href);
-                return false;
-              "
-              >About</a
-            >
+            <div class="splash-sub-links">
+              <button id="splash-settings-btn" type="button" hidden>
+                Settings
+              </button>
+              <a
+                id="splash-about-link"
+                href="https://chillflight.app/about"
+                onclick="
+                  window.openExternalLink(this.href);
+                  return false;
+                "
+                >About</a
+              >
+            </div>
           </div>
         </div>
         <div

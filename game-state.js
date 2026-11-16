@@ -38,6 +38,10 @@ export function clearInputState() {
 var pauseOverlay = document.getElementById('pause-overlay');
 
 export function togglePause() {
+  if (state.isPaused && state.vrOnlyFlow && !checkVRPresenting()) {
+    hooks.enterVR?.();
+    return;
+  }
   state.isPaused = !state.isPaused;
   syncSfxState();
   if (state.isPaused) {
@@ -129,6 +133,7 @@ export function isPauseClickSuppressed() {
 if (pauseOverlay) {
   pauseOverlay.addEventListener('click', (e) => {
     if (Date.now() < suppressPauseClickUntil) return;
+    if (state.isPaused && state.vrOnlyFlow && !checkVRPresenting()) return;
     if (e.target === pauseOverlay) {
       togglePause();
     }
@@ -146,5 +151,8 @@ if (cockpitUI) {
 }
 
 // Pause key, and pausing from modules that load earlier (see hooks.js)
-inputManager.onPauseToggle = () => togglePause();
+inputManager.onPauseToggle = () => {
+  if (state.isPaused && state.vrOnlyFlow && !checkVRPresenting()) return;
+  togglePause();
+};
 hooks.togglePause = togglePause;

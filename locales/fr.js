@@ -129,6 +129,7 @@ export default {
   'Chill Flight requires WebGL 2, which is unavailable or disabled in your browser. Please try enabling hardware acceleration or updating your browser.':
     "Chill Flight nécessite WebGL 2, indisponible ou désactivé dans ton navigateur. Essaie d'activer l'accélération matérielle ou de mettre à jour ton navigateur.",
   Reload: 'Recharger',
+  'Enter VR': 'Passer en VR',
   'Exit VR': 'Quitter la VR',
   PAUSED: 'PAUSE',
   'Take a breather or adjust your flight': 'Fais une pause ou ajuste ton vol',

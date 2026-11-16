@@ -231,6 +231,8 @@ export const ChillFlightLogic = {};
     _vrStickRaw && ['chill', 'sim'].includes(_vrStickRaw.trim().toLowerCase())
       ? _vrStickRaw.trim().toLowerCase()
       : null;
+  // ?vrOnly=0/1: override VR-only headset flow (defaults to true on VR headsets)
+  const VR_ONLY_PARAM = getSwitchParam('vrOnly');
   // ?perf=1: one-line FPS / draw call readout (perf-hud.js)
   const PERF_HUD = getSwitchParam('perf') === true;
   // Flying together (multiplayer.js): ?room= a room code to join (an invite
@@ -485,6 +487,16 @@ export const ChillFlightLogic = {};
   function isVRHeadsetUserAgent(ua) {
     if (typeof ua !== 'string' || !ua) return false;
     return /OculusBrowser|Quest|Pico|Wolvic|\bVR\b/i.test(ua);
+  }
+
+  function shouldEnforceVROnly({
+    ua = '',
+    xrSupported = false,
+    vrOnlyParam = VR_ONLY_PARAM,
+  } = {}) {
+    if (vrOnlyParam === false) return false;
+    if (vrOnlyParam === true) return Boolean(xrSupported);
+    return Boolean(xrSupported && isVRHeadsetUserAgent(ua));
   }
 
   function resolveControlScheme(storedScheme, ua) {
@@ -6839,11 +6851,13 @@ export const ChillFlightLogic = {};
   exports.TRAFFIC_PARAM = TRAFFIC_PARAM;
   exports.WEIGHTED_ROLL_PARAM = WEIGHTED_ROLL_PARAM;
   exports.VR_STICK_PARAM = VR_STICK_PARAM;
+  exports.VR_ONLY_PARAM = VR_ONLY_PARAM;
   exports.PERF_HUD = PERF_HUD;
   exports.ROOM_PARAM = ROOM_PARAM;
   exports.RELAY_PARAM = RELAY_PARAM;
   exports.GRAPHICS_PRESET = GRAPHICS_PRESET;
   exports.isVRHeadsetUserAgent = isVRHeadsetUserAgent;
+  exports.shouldEnforceVROnly = shouldEnforceVROnly;
   exports.resolveControlScheme = resolveControlScheme;
   exports.shouldInvertYAxis = shouldInvertYAxis;
   exports.chooseAutoGraphicsPreset = chooseAutoGraphicsPreset;

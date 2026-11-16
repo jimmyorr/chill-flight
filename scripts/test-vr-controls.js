@@ -13,6 +13,8 @@ import {
   STICK_DEADZONE,
   STICK_SENSITIVITY,
   VR_MAP_LAYOUT,
+  VR_STICK_HOME_OFFSET,
+  VR_THROTTLE_HOME_OFFSET,
   attitudeOfQuat,
   computeVRConsolePose,
   computeVirtualStickAxes,
@@ -1149,47 +1151,59 @@ function makeSession(leftOpts, rightOpts) {
     isBuggy: false,
   });
 
-  // Pull back 25 deg (+X rotation) from resting knee pose -> full +1 climb in plane, -1 brake in buggy
-  const pulledBackQuat = mulQ(axisAngleQuat(1, 0, 0, 0.45), restingKneeQuat);
-  const planePullBack = computeVirtualStickAxes({
-    startPos: {x: 0.2, y: -0.35, z: -0.32},
+  // Pull back ~36.5 deg (+X rotation) from resting knee pose -> full +1 climb in plane, -1 brake in buggy,
+  // while a casual 20 deg pull stays comfortably mid-range (~0.56) rather than saturating early
+  const gentlePullQuat = mulQ(axisAngleQuat(1, 0, 0, 0.35), restingKneeQuat);
+  const gentlePull = computeVirtualStickAxes({
+    startPos: {x: 0.2, y: -0.5, z: -0.34},
     startQuat: restingKneeQuat,
-    currentPos: {x: 0.2, y: -0.35, z: -0.32},
+    currentPos: {x: 0.2, y: -0.5, z: -0.34},
+    currentQuat: gentlePullQuat,
+    seatYaw: 0,
+    isBuggy: false,
+  });
+  const pulledBackQuat = mulQ(axisAngleQuat(1, 0, 0, 0.64), restingKneeQuat);
+  const planePullBack = computeVirtualStickAxes({
+    startPos: {x: 0.2, y: -0.5, z: -0.34},
+    startQuat: restingKneeQuat,
+    currentPos: {x: 0.2, y: -0.5, z: -0.34},
     currentQuat: pulledBackQuat,
     seatYaw: 0,
     isBuggy: false,
   });
   const buggyPullBack = computeVirtualStickAxes({
-    startPos: {x: 0.2, y: -0.35, z: -0.32},
+    startPos: {x: 0.2, y: -0.5, z: -0.34},
     startQuat: restingKneeQuat,
-    currentPos: {x: 0.2, y: -0.35, z: -0.32},
+    currentPos: {x: 0.2, y: -0.5, z: -0.34},
     currentQuat: pulledBackQuat,
     seatYaw: 0,
     isBuggy: true,
   });
 
-  // Bank right 25 deg (-Z rotation) -> full +1 right roll, while pure wrist yaw (+Y) produces 0 pitch/roll
-  const tiltedRightQuat = mulQ(axisAngleQuat(0, 0, -1, 0.45), restingKneeQuat);
+  // Bank right ~36.5 deg (-Z rotation) -> full +1 right roll, while pure wrist yaw (+Y) produces 0 pitch/roll
+  const tiltedRightQuat = mulQ(axisAngleQuat(0, 0, -1, 0.64), restingKneeQuat);
   const twistedYawQuat = mulQ(axisAngleQuat(0, 1, 0, 0.6), restingKneeQuat);
   const bankRight = computeVirtualStickAxes({
-    startPos: {x: 0.2, y: -0.35, z: -0.32},
+    startPos: {x: 0.2, y: -0.5, z: -0.34},
     startQuat: restingKneeQuat,
-    currentPos: {x: 0.2, y: -0.35, z: -0.32},
+    currentPos: {x: 0.2, y: -0.5, z: -0.34},
     currentQuat: tiltedRightQuat,
     seatYaw: 0,
   });
   const pureYaw = computeVirtualStickAxes({
-    startPos: {x: 0.2, y: -0.35, z: -0.32},
+    startPos: {x: 0.2, y: -0.5, z: -0.34},
     startQuat: restingKneeQuat,
-    currentPos: {x: 0.2, y: -0.35, z: -0.32},
+    currentPos: {x: 0.2, y: -0.5, z: -0.34},
     currentQuat: twistedYawQuat,
     seatYaw: 0,
   });
 
   check(
-    'computeVirtualStickAxes zeros arbitrary resting wrist angles, maps pull-back to climb (and buggy reverse), banks right cleanly, and ignores wrist yaw twist',
+    'computeVirtualStickAxes zeros arbitrary resting wrist angles, keeps casual 20 deg tilt gentle, maps full throw cleanly, and ignores wrist yaw twist',
     Math.abs(neutral.rawX) < 1e-6 &&
       Math.abs(neutral.rawY) < 1e-6 &&
+      gentlePull.rawY > 0.45 &&
+      gentlePull.rawY < 0.65 &&
       planePullBack.rawY > 0.98 &&
       Math.abs(planePullBack.rawX) < 1e-5 &&
       buggyPullBack.rawY < -0.98 &&
@@ -1197,7 +1211,14 @@ function makeSession(leftOpts, rightOpts) {
       Math.abs(bankRight.rawY) < 1e-5 &&
       Math.abs(pureYaw.rawX) < 1e-5 &&
       Math.abs(pureYaw.rawY) < 1e-5,
-    JSON.stringify({neutral, planePullBack, buggyPullBack, bankRight, pureYaw})
+    JSON.stringify({
+      neutral,
+      gentlePull,
+      planePullBack,
+      buggyPullBack,
+      bankRight,
+      pureYaw,
+    })
   );
 
   // Relative cruise-hold throttle
@@ -1370,7 +1391,7 @@ function makeSession(leftOpts, rightOpts) {
   const handling = {agility: 1, rollRate: 2.8, stallKts: 46, levelKts: 65};
   const sim = createVRSimStickState();
   let q = quatFromAttitude(0, 0, 0);
-  for (let i = 0; i < 24; i++) {
+  for (let i = 0; i < 36; i++) {
     q = stepVRSimStickAttitude(sim, {
       quat: q,
       roll: 0.75,
@@ -1381,8 +1402,8 @@ function makeSession(leftOpts, rightOpts) {
       dt: 1 / 60,
     }).quat;
   }
-  // Let rollRate ease to 0 over 0.4s, then verify bank stays locked for 5 full seconds while holding stick
-  for (let i = 0; i < 24; i++) {
+  // Let rollRate ease to 0 over 0.7s, then verify bank stays locked for 5 full seconds while holding stick
+  for (let i = 0; i < 42; i++) {
     q = stepVRSimStickAttitude(sim, {
       quat: q,
       roll: 0,
@@ -1461,10 +1482,10 @@ function makeSession(leftOpts, rightOpts) {
     })
   );
 
-  // Knife-edge (-90 deg bank) + elevator pull carves a tight horizontal right turn
+  // Knife-edge (-90 deg bank) + elevator pull carves a smooth horizontal right turn
   const turnSim = createVRSimStickState();
   let qTurn = quatFromAttitude(0, 0, -Math.PI / 2);
-  for (let i = 0; i < 45; i++) {
+  for (let i = 0; i < 65; i++) {
     qTurn = stepVRSimStickAttitude(turnSim, {
       quat: qTurn,
       roll: 0,
@@ -1486,7 +1507,7 @@ function makeSession(leftOpts, rightOpts) {
   const stuntSim = createVRSimStickState();
   let qStunt = quatFromAttitude(0, 0, 0);
   let didRoll = false;
-  for (let i = 0; i < 240; i++) {
+  for (let i = 0; i < 270; i++) {
     const res = stepVRSimStickAttitude(stuntSim, {
       quat: qStunt,
       roll: 1,
@@ -1502,7 +1523,7 @@ function makeSession(leftOpts, rightOpts) {
   qStunt = quatFromAttitude(0, 0, 0);
   let didLoop = false;
   let sawLooping = false;
-  for (let i = 0; i < 300; i++) {
+  for (let i = 0; i < 450; i++) {
     const res = stepVRSimStickAttitude(stuntSim, {
       quat: qStunt,
       roll: 0,
@@ -1653,12 +1674,12 @@ function makeSession(leftOpts, rightOpts) {
   // Mutate the SAME live THREE.Quaternion in place (matching WebXRController.update):
   // pull stick back (+X rotation) and bank right (-Z rotation)
   liveCtrlQuat.multiply(
-    new THREE.Quaternion().setFromEuler(new THREE.Euler(0.32, 0, -0.3, 'YXZ'))
+    new THREE.Quaternion().setFromEuler(new THREE.Euler(0.42, 0, -0.42, 'YXZ'))
   );
   let tiltedFrame = grabFrame;
   const liveSimState = createVRSimStickState();
   let livePlaneQuat = quatFromAttitude(0, 0, 0);
-  for (let i = 0; i < 18; i++) {
+  for (let i = 0; i < 28; i++) {
     tiltedFrame = threeTracker.update({
       right: {
         connected: true,
@@ -1712,8 +1733,8 @@ function makeSession(leftOpts, rightOpts) {
     },
     delta: 1 / 72,
   });
-  handPos._px += 0.08;
-  handQuat.setFromEuler(new THREE.Euler(0.28, 0, -0.25, 'YXZ'));
+  handPos._px += 0.1;
+  handQuat.setFromEuler(new THREE.Euler(0.38, 0, -0.36, 'YXZ'));
   const handTilt = handTracker.update({
     right: {
       connected: true,
@@ -1758,6 +1779,68 @@ function makeSession(leftOpts, rightOpts) {
       Number.isFinite(nanSimRes.quat.z) &&
       Number.isFinite(nanSimRes.quat.w),
     JSON.stringify(nanSimRes)
+  );
+
+  // Ergonomic console height, gentle near-center Sim stick response, and Quest VR-only gating
+  const smallTiltAxes = computeVirtualStickAxes({
+    startPos: {x: 0.19, y: -0.5, z: -0.34},
+    startQuat: {x: 0, y: 0, z: 0, w: 1},
+    currentPos: {x: 0.19, y: -0.5, z: -0.34},
+    currentQuat: {
+      x: 0,
+      y: 0,
+      z: -Math.sin((6 * Math.PI) / 180), // 12 deg wrist tilt
+      w: Math.cos((6 * Math.PI) / 180),
+    },
+  });
+  const smallScaled = scaleThumbstickAxis(smallTiltAxes.rawX, STICK_DEADZONE);
+  const smallSimCmd = simStickAxisResponse(smallScaled);
+  check(
+    'virtual stick sits at lap/armrest height (-0.5m) and 12 deg wrist tilt stays under 7% Sim stick rate',
+    VR_STICK_HOME_OFFSET.y === -0.5 &&
+      VR_THROTTLE_HOME_OFFSET.y === -0.52 &&
+      smallSimCmd > 0 &&
+      smallSimCmd < 0.07,
+    JSON.stringify({
+      VR_STICK_HOME_OFFSET,
+      VR_THROTTLE_HOME_OFFSET,
+      smallTiltAxes,
+      smallScaled,
+      smallSimCmd,
+    })
+  );
+
+  const questUA =
+    'Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 OculusBrowser/34.0';
+  const macUA =
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/128.0';
+  check(
+    'shouldEnforceVROnly enables VR-only flow on WebXR headsets while keeping desktop 2D and honoring ?vrOnly=0/1',
+    ChillFlightLogic.shouldEnforceVROnly({
+      ua: questUA,
+      xrSupported: true,
+      vrOnlyParam: null,
+    }) === true &&
+      ChillFlightLogic.shouldEnforceVROnly({
+        ua: questUA,
+        xrSupported: false,
+        vrOnlyParam: null,
+      }) === false &&
+      ChillFlightLogic.shouldEnforceVROnly({
+        ua: macUA,
+        xrSupported: true,
+        vrOnlyParam: null,
+      }) === false &&
+      ChillFlightLogic.shouldEnforceVROnly({
+        ua: questUA,
+        xrSupported: true,
+        vrOnlyParam: false,
+      }) === false &&
+      ChillFlightLogic.shouldEnforceVROnly({
+        ua: macUA,
+        xrSupported: true,
+        vrOnlyParam: true,
+      }) === true
   );
 }
 

@@ -29,8 +29,15 @@ import {
   trackFlightStart,
 } from './analytics.js';
 import {scene} from './scene.js';
-import {musicEnabled, setMusicEnabled} from './audio.js';
+import {renderFrame} from './outline-pass.js';
+import {
+  MUSIC_PAUSED_VOLUME,
+  musicEnabled,
+  setMusicEnabled,
+  setMusicVolume,
+} from './audio.js';
 import {initAudioContext, prebakeSfxBuffers, setSfxEnabled} from './sfx.js';
+import {updatePauseMenuMusicInfo} from './game-audio-integration.js';
 import {state} from './state.js';
 import {
   BASE_FLIGHT_SPEED,
@@ -569,7 +576,26 @@ if (overlay && renderer) {
 
   if (beginBtn) {
     beginBtn.addEventListener('click', () => {
+      if (state.vrOnlyFlow) {
+        hooks.enterVR?.();
+        return;
+      }
       state.dismissLoadingScreen(false);
+    });
+  }
+
+  const splashSettingsBtn = document.getElementById('splash-settings-btn');
+  if (splashSettingsBtn) {
+    splashSettingsBtn.addEventListener('click', () => {
+      overlay.style.display = 'none';
+      state.isPaused = true;
+      setMusicEnabled(startWithMusic);
+      if (mutedOnTitle) setSfxEnabled(false);
+      setMusicVolume(MUSIC_PAUSED_VOLUME);
+      initAudioContext();
+      updatePauseMenuMusicInfo();
+      const pauseOverlayEl = document.getElementById('pause-overlay');
+      if (pauseOverlayEl) pauseOverlayEl.style.display = 'flex';
     });
   }
 
@@ -678,6 +704,21 @@ if (overlay && renderer) {
     const onLoaded = () => {
       // Wait a tiny bit so the progress bar visually reaches 100%
       setTimeout(() => {
+        if (state.vrOnlyFlow && !ChillFlightLogic.START_NOW) {
+          // Draw a single static 2D backdrop frame for the paused menu, then
+          // wait at zero 2D GPU cost for the player to click Enter VR.
+          renderFrame(scene, camera);
+          const area = document.getElementById('splash-interactive-area');
+          if (area) area.classList.add('crossfading');
+          progressContainer.classList.remove('visible');
+          progressContainer.classList.add('hidden');
+          const btnContainer = document.getElementById('splash-btn-container');
+          if (btnContainer) {
+            btnContainer.classList.remove('hidden');
+            btnContainer.classList.add('visible');
+          }
+          return;
+        }
         state.dismissLoadingScreen(ChillFlightLogic.START_NOW);
       }, 150);
     };

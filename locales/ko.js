@@ -123,6 +123,7 @@ export default {
   'Chill Flight requires WebGL 2, which is unavailable or disabled in your browser. Please try enabling hardware acceleration or updating your browser.':
     'Chill Flight는 WebGL 2가 필요하지만 브라우저에서 사용할 수 없거나 꺼져 있습니다. 하드웨어 가속을 켜거나 브라우저를 업데이트해 보세요.',
   Reload: '다시 불러오기',
+  'Enter VR': 'VR 시작',
   'Exit VR': 'VR 종료',
   PAUSED: '일시정지',
   'Take a breather or adjust your flight': '잠시 쉬거나 비행을 조정하세요',

@@ -9,7 +9,9 @@ import {
   createVRThrottleModel,
   updateVRHandsInstancedMesh,
 } from './vr-models.js';
-import {handleMusicVisibility} from './audio.js';
+import {MUSIC_VOLUME, handleMusicVisibility, setMusicVolume} from './audio.js';
+import {initAudioContext, syncSfxState} from './sfx.js';
+import {renderFrame} from './outline-pass.js';
 import {
   _currentLookTarget,
   _idealCameraPos,
@@ -1910,9 +1912,24 @@ if (renderer && renderer.xr) {
       state.dismissLoadingScreen(true);
     } else if (state.isPaused) {
       state.isPaused = false;
-      const pauseOverlayEl = document.getElementById('pause-overlay');
-      if (pauseOverlayEl) pauseOverlayEl.style.display = 'none';
+      state.justResumed = true;
+      for (const id of [
+        'pause-overlay',
+        'achievements-overlay',
+        'people-overlay',
+        'help-overlay',
+      ]) {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      }
+      if (hooks.fullscreenMap?.isOpen()) {
+        hooks.fullscreenMap.close({quiet: true});
+      }
+      setMusicVolume(MUSIC_VOLUME);
+      syncSfxState();
+      initAudioContext();
       clearInputState();
+      hooks.onResume?.();
     }
   });
 
@@ -1947,6 +1964,18 @@ if (renderer && renderer.xr) {
     camera.lookAt(_currentLookTarget);
 
     closeVRPauseMenu();
+
+    if (state.vrOnlyFlow) {
+      // Paint one static frame at the current flight spot behind the 2D pause
+      // menu, then keep 2D paused so Quest never runs unpaused 2D flight.
+      renderFrame(scene, camera);
+      if (!state.isPaused) {
+        togglePause();
+      } else {
+        const pauseOverlayEl = document.getElementById('pause-overlay');
+        if (pauseOverlayEl) pauseOverlayEl.style.display = 'flex';
+      }
+    }
 
     if (vrBtnLabel) vrBtnLabel.textContent = 'VR';
     if (hudVrBtnLabel) hudVrBtnLabel.textContent = 'VR';

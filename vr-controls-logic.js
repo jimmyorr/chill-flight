@@ -20,19 +20,24 @@ export const HAND_PINCH_ENTER = 0.022;
 export const HAND_PINCH_EXIT = 0.032;
 export const HAND_FIST_ENTER_RATIO = 1.25;
 export const HAND_FIST_EXIT_RATIO = 1.42;
-export const CONTROLLER_GRAB_RADIUS = 0.16;
-export const VIRTUAL_STICK_MAX_TILT = 0.44; // ~25 deg wrist tilt for full throw
-export const VIRTUAL_STICK_POS_SPAN = 0.14; // 14 cm horizontal translation span
-export const VIRTUAL_STICK_VISUAL_MAX_RAD = 0.38;
-export const VIRTUAL_STICK_SMOOTH_TAU = 0.035;
+export const CONTROLLER_GRAB_RADIUS = 0.2;
+export const VIRTUAL_STICK_RAW_TRIM = 0.05;
+export const VIRTUAL_STICK_MAX_TILT = 0.62; // ~35.5 deg wrist tilt for full throw
+export const VIRTUAL_STICK_POS_SPAN = 0.22; // 22 cm horizontal translation span
+export const VIRTUAL_STICK_POS_WEIGHT = 0.35;
+export const VIRTUAL_STICK_VISUAL_MAX_RAD = 0.36;
+export const VIRTUAL_STICK_SMOOTH_TAU = 0.055;
 export const VIRTUAL_THROTTLE_SPAN = 0.14; // 14 cm idle-to-MAX travel
 export const PAUSE_PILL_TOUCH_ENTER = 0.045;
 export const PAUSE_PILL_TOUCH_EXIT = 0.065;
 
-// Seated console resting offsets in local seat-yaw space (meters from eyes)
-export const VR_STICK_HOME_OFFSET = {x: 0.2, y: -0.3, z: -0.36};
-export const VR_THROTTLE_HOME_OFFSET = {x: -0.2, y: -0.3, z: -0.36};
-export const VR_PAUSE_PILL_OFFSET = {x: 0.0, y: -0.32, z: -0.4};
+// Seated console resting offsets in local seat-yaw space (meters from eyes):
+// ~50 cm below eye level places the stick handle and throttle right at natural
+// resting hand height on a thigh or chair armrest (~61 cm down to the gimbal
+// base), well clear of the forward sightline.
+export const VR_STICK_HOME_OFFSET = {x: 0.19, y: -0.5, z: -0.34};
+export const VR_THROTTLE_HOME_OFFSET = {x: -0.19, y: -0.52, z: -0.34};
+export const VR_PAUSE_PILL_OFFSET = {x: 0.0, y: -0.5, z: -0.37};
 
 /**
  * Builds the WebXR `requestSession('immersive-vr', sessionInit)` options.
@@ -573,16 +578,26 @@ export function computeVirtualStickAxes({
     posBack = clamp(localDelta.z / VIRTUAL_STICK_POS_SPAN, -0.75, 0.75);
   }
 
-  const rawX = clamp(
-    rollAngle / VIRTUAL_STICK_MAX_TILT + posRoll * 0.55,
+  const unscaledX = clamp(
+    rollAngle / VIRTUAL_STICK_MAX_TILT + posRoll * VIRTUAL_STICK_POS_WEIGHT,
     -1,
     1
   );
-  const pullBack = clamp(
-    backAngle / VIRTUAL_STICK_MAX_TILT + posBack * 0.55,
+  const unscaledBack = clamp(
+    backAngle / VIRTUAL_STICK_MAX_TILT + posBack * VIRTUAL_STICK_POS_WEIGHT,
     -1,
     1
   );
+  const trimAxis = (v) => {
+    const a = Math.abs(v);
+    if (a <= VIRTUAL_STICK_RAW_TRIM) return 0;
+    return (
+      Math.sign(v) *
+      ((a - VIRTUAL_STICK_RAW_TRIM) / (1 - VIRTUAL_STICK_RAW_TRIM))
+    );
+  };
+  const rawX = trimAxis(unscaledX);
+  const pullBack = trimAxis(unscaledBack);
   const rawY = isBuggy ? -pullBack : pullBack;
 
   return {
@@ -1572,25 +1587,28 @@ export function createVRPauseInputLatch() {
 // pulling back pulls the nose toward the aircraft's roof (carving coordinated
 // banked turns or loops), and pushing forward pitches toward the belly.
 export const VR_SIM_STICK = {
-  CURVE: 0.5,
-  PULL_RATE: 1.65,
-  PUSH_SHARE: 0.65,
-  ROLL_EASE_SECONDS: 0.07,
-  PULL_EASE_SECONDS: 0.08,
+  // Strong cubic fine-control curve (0.28*u + 0.72*u^3) so small air-held hand
+  // motions trim gently while full throw still commands crisp rolls and loops.
+  CURVE: 0.72,
+  ROLL_SCALE: 0.58,
+  PULL_RATE: 1.05,
+  PUSH_SHARE: 0.6,
+  ROLL_EASE_SECONDS: 0.12,
+  PULL_EASE_SECONDS: 0.14,
   // Returning the stick to neutral within NOTCH of wings-level (or inverted)
   // settles cleanly onto that attitude over NOTCH_SECONDS without hunting.
-  NOTCH: (8 * Math.PI) / 180,
-  NOTCH_SECONDS: 0.28,
+  NOTCH: (12 * Math.PI) / 180,
+  NOTCH_SECONDS: 0.32,
   // Gentle longitudinal weathercock trim toward level cruise when elevator is
   // centered, slow enough that steady climbs and runway glides stay planted.
   RELAX: 0.35,
   // Subtle banked lift loss (0.5 * (1 - cos(bank))) tucks the nose slightly
   // in steep banks or inverted flight unless balanced with elevator pressure.
-  BANK_NOSE_DROP: 0.16,
+  BANK_NOSE_DROP: 0.14,
   // Coordinated horizontal turn component from tilted cruise wing lift.
   BANK_TURN: 0.35,
   // Optional rudder yaw rate (rad/s) from lap controller side grips.
-  RUDDER_RATE: 0.55,
+  RUDDER_RATE: 0.42,
   // Gentle trainer-wing dihedral recovery when hands are completely off all
   // controls for several seconds (never fires while holding the stick).
   RESCUE_SECONDS: 4.0,
@@ -1743,7 +1761,9 @@ export function stepVRSimStickAttitude(s, input) {
   const baseQuat = copyQuat(quat)
     ? quatNormalize(quat)
     : {x: 0, y: 0, z: 0, w: 1};
-  const maxRoll = Number.isFinite(handling?.rollRate) ? handling.rollRate : 2.8;
+  const maxRoll =
+    (Number.isFinite(handling?.rollRate) ? handling.rollRate : 2.8) *
+    T.ROLL_SCALE;
   const agility = Number.isFinite(handling?.agility) ? handling.agility : 1;
   const stallKts = Number.isFinite(handling?.stallKts) ? handling.stallKts : 0;
   const levelKts = Number.isFinite(handling?.levelKts) ? handling.levelKts : 60;

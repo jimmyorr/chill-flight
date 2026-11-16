@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
+import {t} from './i18n.js';
 import {
   _daySky,
   applyCustomSkyColors,
@@ -152,7 +153,35 @@ if (
       const isPhone =
         navigator.userAgentData?.mobile === true ||
         /Android|iPhone|iPad|Mobi/i.test(ua);
-      if (supported && (isHeadset || !isPhone)) {
+      const enforceVROnly = ChillFlightLogic.shouldEnforceVROnly({
+        ua,
+        xrSupported: supported,
+      });
+      state.vrOnlyFlow = enforceVROnly;
+      if (!enforceVROnly) {
+        state.vrSplashSkipRender = false;
+      }
+      if (enforceVROnly) {
+        const beginBtnEl = document.getElementById('begin-btn');
+        if (beginBtnEl) beginBtnEl.textContent = t('Enter VR');
+        const splashSettingsEl = document.getElementById('splash-settings-btn');
+        if (splashSettingsEl) splashSettingsEl.hidden = false;
+        const resumeBtnEl = document.getElementById('resume-btn');
+        if (resumeBtnEl) {
+          resumeBtnEl.textContent = t('Enter VR');
+          resumeBtnEl.classList.add('vr-enter-cta');
+        }
+        const mapResumeBtnEl = document.getElementById(
+          'fullscreen-map-resume-btn'
+        );
+        if (mapResumeBtnEl) {
+          mapResumeBtnEl.textContent = t('Enter VR');
+          mapResumeBtnEl.classList.add('vr-enter-cta');
+        }
+        if (vrBtn) vrBtn.style.display = 'none';
+        if (hudVrBtn) hudVrBtn.style.display = 'none';
+        if (mapVrBtn) mapVrBtn.style.display = 'none';
+      } else if (supported && (isHeadset || !isPhone)) {
         if (vrBtn) vrBtn.style.display = '';
         if (hudVrBtn) hudVrBtn.style.display = '';
         if (mapVrBtn) mapVrBtn.style.display = '';

@@ -1606,19 +1606,43 @@ input[type='number'].customization-input {
   display: none;
 }
 
-/* A quiet link under the title screen's controls, for anyone who wants to
-   know more before playing */
-#splash-about-link {
+/* A quiet link row under the title screen's controls, for anyone who wants to
+   open settings (in VR-only headset mode) or read more before playing */
+.splash-sub-links {
   margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+#splash-settings-btn,
+#splash-about-link {
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: inherit;
   font-size: 11px;
   letter-spacing: 1px;
   color: rgba(255, 255, 255, 0.45);
   text-decoration: none;
+  cursor: pointer;
 }
 
+#splash-settings-btn[hidden] {
+  display: none;
+}
+
+#splash-settings-btn:hover,
+#splash-settings-btn:focus-visible,
 #splash-about-link:hover,
 #splash-about-link:focus-visible {
   color: rgba(255, 255, 255, 0.8);
+}
+
+.btn.vr-enter-cta {
+  text-transform: uppercase;
+  letter-spacing: 3px;
 }
 
 #loading-music-attribution {
