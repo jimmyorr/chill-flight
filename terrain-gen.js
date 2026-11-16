@@ -261,6 +261,8 @@ const DESERT_STANDOUT = 0.1;
 // they were spread evenly, and the share drawn much bigger
 const ROCK_SCALE = 0.93;
 const ROCK_BIG_SHARE = 0.08;
+// Lone trees out in the open (copseAt): scale to keep their count
+const COPSE_SCALE = 1.95;
 // Hay bales: the share of the mown meadows among the fields that have them,
 // and the chance of a bale (or a pair) at each grid point of one
 const HAY_FIELD_CHANCE = 0.45;
@@ -2826,6 +2828,18 @@ export function generateChunkData({
       (0.3 + 1.4 * heap * heap)
     );
   };
+  // How many of the trees out in the open stand at grid point (ix, iz),
+  // about 1 on average: gathered in copses a hundred meters or so across
+  // and along the hollows that streams run down, with few lone trees
+  const copseAt = (ix, iz, h, worldX, worldZ) => {
+    const {around} = reliefAt(ix, iz);
+    const clamp01 = (v) => Math.max(0, Math.min(1, v));
+    const hollow = clamp01((around - h) / 10);
+    const copse = clamp01(
+      (simplex.noise2D(worldX * 0.008 + 311, worldZ * 0.008 - 71) - 0.3) / 0.4
+    );
+    return COPSE_SCALE * (0.08 + 3 * copse * copse) * (1 + 1.5 * hollow);
+  };
   const desertGrowth = (ix, iz, h, worldX, worldZ, slopeFactor) => {
     const {around, lowest} = reliefAt(ix, iz);
     const clamp01 = (v) => Math.max(0, Math.min(1, v));
@@ -3714,10 +3728,15 @@ export function generateChunkData({
               )
           )
         );
+        // Out in the open and at the thin edges of the woods: small copses
+        // and lines along the streams, not lone trees dotted evenly (not in
+        // the desert, which has its own groves)
+        const openCopse =
+          desertFactor > 0.5 ? 1 : copseAt(ix, iy, height, worldX, worldZ);
         treeChance =
           (isForest
-            ? (0.02 + 1.2 * woods * woods * woods) * clump
-            : 0.012 * openGround * (1 - farm)) *
+            ? (0.02 * openCopse + 1.2 * woods * woods * woods) * clump
+            : 0.012 * openGround * (1 - farm) * openCopse) *
           (1 - 0.85 * steep) *
           (1 + 0.5 * lowland) *
           // About three times the trees of the old even scatter (1.3 times on
