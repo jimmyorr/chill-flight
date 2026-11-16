@@ -3409,19 +3409,15 @@ function addWindSway(material, {bendStart, bendPerUnit}) {
 addWindSway(treeLeavesBaseMat, {bendStart: 4, bendPerUnit: 0.08});
 
 // A low plane's prop wash pushes treetops and bushes aside (tree-wash.js):
-// up to WASH_POINTS spots, where the plane is and where it was, each
-// (x, z, plane height, strength), fading as the trees spring back. Leaves
-// bend away from each spot, more the higher up the tree and the nearer the
-// plane, with a quick flutter. uWashOn is 0 when nothing's near.
-export const WASH_POINTS = 4;
-// How far the wash reaches across (units), and how high above a leaf the
-// plane can be and still stir it
-export const WASH_RADIUS = 38;
+// uWash is where it lands (x, z), the plane's height, and its strength (0
+// when nothing's near, which skips it all). Each crown leans away from that
+// spot as a whole, more the higher up the tree and the nearer the plane,
+// with a quick shiver. Trees further than WASH_RADIUS across bail out after
+// one distance check, so leaves far from the plane cost next to nothing.
+export const WASH_RADIUS = 45;
+// How high above a leaf the plane can be and still stir it (units)
 export const WASH_HEIGHT = 45;
-export const washUniforms = {
-  uWash: {value: Array.from({length: WASH_POINTS}, () => new THREE.Vector4())},
-  uWashOn: {value: 0},
-};
+export const washUniforms = {uWash: {value: new THREE.Vector4()}};
 function addPropWash(material, {bendStart, bendPerUnit, push}) {
   const base = material.onBeforeCompile;
   const key = material.customProgramCacheKey?.() || '';
@@ -3429,57 +3425,46 @@ function addPropWash(material, {bendStart, bendPerUnit, push}) {
     base(shader, renderer);
     shader.uniforms.uTime = animationUniforms.uTime;
     shader.uniforms.uWash = washUniforms.uWash;
-    shader.uniforms.uWashOn = washUniforms.uWashOn;
     const needsTime = !/uniform float uTime;/.test(shader.vertexShader);
     shader.vertexShader = shader.vertexShader.replace(
       '#include <common>',
       `#include <common>
-       uniform vec4 uWash[${WASH_POINTS}];
-       uniform float uWashOn;
+       uniform vec4 uWash;
        ${needsTime ? 'uniform float uTime;' : ''}`
     );
     shader.vertexShader = shader.vertexShader.replace(
       '#include <begin_vertex>',
       `#include <begin_vertex>
        #ifdef USE_INSTANCING
-       if (uWashOn > 0.5) {
-         mat3 washBasis = mat3(instanceMatrix);
-         vec3 washAt = washBasis * transformed + instanceMatrix[3].xyz;
-         // The whole crown leans one way: away from the wash, measured from
-         // the trunk (from each leaf, it would stretch the canopy apart)
-         vec2 washFrom = instanceMatrix[3].xz;
-         vec2 washPush = vec2(0.0);
-         float washed = 0.0;
-         for (int i = 0; i < ${WASH_POINTS}; i++) {
-           vec4 w = uWash[i];
-           if (w.w <= 0.0) continue;
-           vec2 dv = washFrom - w.xy;
-           float d = length(dv);
-           float above = w.z - washAt.y;
-           float s = w.w * (1.0 - smoothstep(${(WASH_RADIUS * 0.3).toFixed(1)}, ${WASH_RADIUS.toFixed(1)}, d))
+       if (uWash.w > 0.0) {
+         // Measured from the trunk, so the crown leans as one
+         vec2 washDv = instanceMatrix[3].xz - uWash.xy;
+         float washD2 = dot(washDv, washDv);
+         if (washD2 < ${(WASH_RADIUS * WASH_RADIUS).toFixed(1)}) {
+           mat3 washBasis = mat3(instanceMatrix);
+           float washY = dot(vec3(washBasis[0].y, washBasis[1].y, washBasis[2].y), transformed) + instanceMatrix[3].y;
+           float washD = sqrt(washD2);
+           float above = uWash.z - washY;
+           float s = uWash.w * (1.0 - smoothstep(${(WASH_RADIUS * 0.3).toFixed(1)}, ${WASH_RADIUS.toFixed(1)}, washD))
                          * (1.0 - smoothstep(${(WASH_HEIGHT * 0.4).toFixed(1)}, ${WASH_HEIGHT.toFixed(1)}, above))
                          * step(-20.0, above);
            // Right under the plane it's pressed down more than aside
-           washPush += dv / max(d, 10.0) * s;
-           washed += s;
+           vec2 washPush = washDv / max(washD, 10.0) * s;
+           float washPhase = dot(instanceMatrix[3].xz, vec2(0.031, 0.023));
+           washPush += vec2(-washPush.y, washPush.x) * sin(uTime * 13.0 + washPhase) * 0.3;
+           float washBend = max(transformed.y - ${bendStart.toFixed(1)}, 0.0) * ${(bendPerUnit * push).toFixed(4)}
+                          * (1.0 + 0.25 * sin(uTime * 9.0 + washPhase * 2.0));
+           vec3 washWorld = vec3(washPush.x, -0.3 * s, washPush.y) * washBend;
+           transformed += transpose(washBasis) * washWorld / max(dot(washBasis[0], washBasis[0]), 1e-4);
          }
-         washed = min(washed, 1.2);
-         float washPhase = dot(instanceMatrix[3].xz, vec2(0.031, 0.023));
-         vec2 washSide = vec2(-washPush.y, washPush.x);
-         washPush += washSide * sin(uTime * 13.0 + washPhase) * 0.3;
-         float washShake = 1.0 + 0.25 * sin(uTime * 9.0 + washPhase * 2.0);
-         float washBend = max(transformed.y - ${bendStart.toFixed(1)}, 0.0) * ${bendPerUnit.toFixed(4)} * ${push.toFixed(2)};
-         // Pushed aside and a little down, in this instance's space
-         vec3 washWorld = vec3(washPush.x, -0.3 * washed, washPush.y) * washBend * washShake;
-         transformed += transpose(washBasis) * washWorld / max(dot(washBasis[0], washBasis[0]), 1e-4);
        }
        #endif`
     );
   };
   material.customProgramCacheKey = () => key + 'propWash';
 }
-addPropWash(treeLeavesBaseMat, {bendStart: 4, bendPerUnit: 0.08, push: 2.0});
-addPropWash(bushBaseMat, {bendStart: 0, bendPerUnit: 0.25, push: 2.0});
+addPropWash(treeLeavesBaseMat, {bendStart: 4, bendPerUnit: 0.08, push: 3.2});
+addPropWash(bushBaseMat, {bendStart: 0, bendPerUnit: 0.25, push: 3.2});
 
 windmillBladesMat.onBeforeCompile = (shader) => {
   shader.uniforms.uTime = animationUniforms.uTime;

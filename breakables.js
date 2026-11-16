@@ -200,7 +200,7 @@ const SKIM_MARGIN = 40;
 // A plane flying low over a tree (within WASH_REACH across, up to
 // WASH_ABOVE over its top) blows a few leaves off its crown, at most once
 // every WASH_AGAIN seconds, and only going faster than WASH_SPEED (kts)
-const WASH_REACH = 22;
+const WASH_REACH = 30;
 const WASH_ABOVE = 28;
 const WASH_AGAIN = 3;
 const WASH_SPEED = 40;
@@ -1879,7 +1879,7 @@ function skimTree(group, index, i, p, ux, uz, kts, wash = false) {
     4,
     base,
     LEAF_PUFF,
-    wash ? 3 + Math.floor(Math.random() * 4) : 12,
+    wash ? 6 + Math.floor(Math.random() * 5) : 12,
     leafShape(canopyType),
     leafSize(top - base),
     6,
