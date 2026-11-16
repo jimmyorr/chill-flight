@@ -250,6 +250,13 @@ const PALM_MAX_DESERT = 0.3;
 const DESERT_SCRUB_PATCH = 0.035;
 const DESERT_SCRUB_LONE = 0.004;
 const DESERT_SCRUB_COLOR = 0x8f9a62;
+// Desert plants (cacti, Joshua trees, scrub) grow in clumps where water
+// gathers: along washes and hollows and near rivers and lakes, with the open
+// flats, mesa tops and ridges left mostly bare. How far out the ground is
+// compared (m), and the share of standouts drawn much bigger than the rest.
+const DESERT_WASH_NEAR = 120;
+const DESERT_WASH_FAR = 300;
+const DESERT_STANDOUT = 0.1;
 // Hay bales: the share of the mown meadows among the fields that have them,
 // and the chance of a bale (or a pair) at each grid point of one
 const HAY_FIELD_CHANCE = 0.45;
@@ -2748,6 +2755,61 @@ export function generateChunkData({
     const h1 = h01 + (h11 - h01) * tx;
     return h0 + (h1 - h0) * tz;
   };
+  // How much the desert grows at grid point (ix, iz): plants gather where
+  // water does, in washes and hollows (lower than the ground around) and
+  // near rivers and lakes, and thin out on the open flats and mesa tops and
+  // almost vanish on ridges, rims and steep slopes. Slow noise breaks it
+  // into groves. About 0.8 on average over the desert, so the desert keeps
+  // a little under the plants it had when they were spread evenly.
+  const washNear = Math.max(1, Math.round(DESERT_WASH_NEAR / gridSpacing));
+  const washFar = Math.max(2, Math.round(DESERT_WASH_FAR / gridSpacing));
+  const washDiag = Math.max(1, Math.round(washFar * 0.7));
+  // (Read inside the chunk only, clamped at its edge: getElevation past the
+  // edge for every desert point would slow chunk building by a third)
+  const gridHeightIn = (ix, iz) =>
+    heightGrid[
+      Math.max(0, Math.min(segments, iz)) * gridX1 +
+        Math.max(0, Math.min(segments, ix))
+    ];
+  const desertGrowth = (ix, iz, h, worldX, worldZ, slopeFactor) => {
+    const a = gridHeightIn(ix + washNear, iz);
+    const b = gridHeightIn(ix - washNear, iz);
+    const c = gridHeightIn(ix, iz + washNear);
+    const d = gridHeightIn(ix, iz - washNear);
+    const e = gridHeightIn(ix + washDiag, iz + washDiag);
+    const f = gridHeightIn(ix - washDiag, iz + washDiag);
+    const g = gridHeightIn(ix + washDiag, iz - washDiag);
+    const k = gridHeightIn(ix - washDiag, iz - washDiag);
+    const around = (a + b + c + d + e + f + g + k) * 0.125;
+    const lowest = Math.min(a, b, c, d, e, f, g, k);
+    const clamp01 = (v) => Math.max(0, Math.min(1, v));
+    const hollow = clamp01((around - h) / 10);
+    const ridge = clamp01((h - around) / 10);
+    const wet = Math.max(
+      // Water within a few hundred meters
+      clamp01((WATER_LEVEL + 4 - lowest) / 8),
+      // Low ground just above it
+      0.6 * clamp01(1 - (h - WATER_LEVEL - 5) / 30)
+    );
+    const moist = Math.max(hollow, wet);
+    // Groves a few hundred meters across, and within them small family
+    // groups some tens of meters across
+    const grove = clamp01(
+      0.5 + 1.1 * simplex.noise2D(worldX * 0.005 + 83, worldZ * 0.005 - 29)
+    );
+    const family = clamp01(
+      0.5 + 0.9 * simplex.noise2D(worldX * 0.022 - 41, worldZ * 0.022 + 7)
+    );
+    const steep = clamp01((slopeFactor - 0.25) / 0.35);
+    return (
+      (0.07 + 2.5 * moist) *
+      (0.1 + 2.0 * grove * grove) *
+      (0.2 + 1.6 * family * family) *
+      (1 - 0.9 * ridge) *
+      (1 - 0.8 * steep)
+    );
+  };
+
   // The height of the terrain mesh itself (each grid square is two flat
   // triangles split along the (0, 1)-(1, 0) diagonal, as PlaneGeometry does)
   const meshHeightAtLocal = (lx, lz) => {
@@ -3545,6 +3607,12 @@ export function generateChunkData({
       height > WATER_LEVEL + 2.0 &&
       height <= MOUNTAIN_LEVEL + 50;
 
+    // Desert plants: how much grows here, about 0.8 on average (desertGrowth)
+    const desertGrowthHere =
+      _enableObjects && desertFactor > 0.4 && !isAlienLand
+        ? desertGrowth(ix, iy, height, worldX, worldZ, slopeFactor)
+        : 1;
+
     // Spawning objects
     if (
       _enableObjects &&
@@ -3609,8 +3677,9 @@ export function generateChunkData({
           // About three times the trees of the old even scatter (1.3 times on
           // the low preset, for slower devices)
           (segments <= 20 ? 0.45 : 1.02) *
-          // The desert's trees are sparse: lone Joshua trees and snags, not a wood
-          (desertFactor > 0.5 ? 0.2 : 1) *
+          // The desert's trees are sparse: Joshua trees and snags in loose
+          // groves along the washes, not a wood
+          (desertFactor > 0.5 ? 0.2 * desertGrowthHere : 1) *
           treeFade *
           densityScale;
         treeCount =
@@ -3687,7 +3756,12 @@ export function generateChunkData({
               snowTreePositions.push(treeSpot);
             }
           } else if (desertFactor > 0.6) {
-            // Joshua trees, and the odd bare snag among them
+            // Joshua trees, and the odd bare snag among them. A few
+            // standouts tower over the rest.
+            if (
+              fieldHash(Math.round(jx), Math.round(jz), 613) < DESERT_STANDOUT
+            )
+              treeSpot.size *= 1.7;
             if (rng() < JOSHUA_SHARE) {
               joshuaTreePositions.push(treeSpot);
             } else {
@@ -4348,11 +4422,21 @@ export function generateChunkData({
       if (
         !isAlienLand &&
         desertFactor > 0.4 &&
-        rng() < 0.04 * densityScale &&
+        rng() < 0.04 * desertGrowthHere * densityScale &&
         height > WATER_LEVEL + 5 &&
         height < MOUNTAIN_LEVEL - 50
       ) {
-        cactusPositions.push({x: localX, y: height, z: localZ});
+        // Off the vertex grid, so a clump doesn't stand in rows
+        const gx = Math.round(worldX / gridSpacing);
+        const gz = Math.round(worldZ / gridSpacing);
+        const cx = localX + (fieldHash(gx, gz, 617) - 0.5) * gridSpacing * 0.9;
+        const cz = localZ + (fieldHash(gx, gz, 619) - 0.5) * gridSpacing * 0.9;
+        cactusPositions.push({
+          x: cx,
+          y: heightAtLocal(cx, cz),
+          z: cz,
+          standout: fieldHash(gx, gz, 621) < DESERT_STANDOUT,
+        });
       }
       if (
         !isAlienLand &&
@@ -4392,6 +4476,7 @@ export function generateChunkData({
           (simplex.noise2D(worldX * 0.004 + 19, worldZ * 0.004 - 53) > 0.1
             ? DESERT_SCRUB_PATCH
             : DESERT_SCRUB_LONE) *
+            Math.min(2, 0.4 + 0.75 * desertGrowthHere) *
             densityScale
       ) {
         // Desert scrub: low, dusty sage-green bushes in loose patches
@@ -6729,7 +6814,8 @@ export function generateChunkData({
 
   if (cactusPositions.length > 0) {
     cactusPositions.forEach((pos) => {
-      const scale = 0.8 + rng() * 0.6;
+      // Mostly modest, with a few big old saguaros standing out
+      const scale = pos.standout ? 1.8 + rng() * 0.7 : 0.75 + rng() * 0.45;
       composeMatrix(
         _matBuffer,
         0,
