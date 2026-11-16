@@ -73,7 +73,11 @@ export function togglePause() {
 
     setMusicVolume(MUSIC_VOLUME);
 
-    if (clock.update) clock.update(); // clear accumulated time so plane doesn't skip
+    // In WebXR, `performFrame` ticks `clock.update(xrTimestamp)` continuously
+    // while paused using the XRSession clock; calling `clock.update()` with no
+    // timestamp here would stamp `performance.now()` and create a large
+    // negative delta on the next XR frame.
+    if (clock.update && !checkVRPresenting()) clock.update();
     clearInputState(); // wipe any input that bled through from the pause overlay
     state.justResumed = true; // suppress the first animate frame's input application
     hooks.onResume?.();

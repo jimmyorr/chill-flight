@@ -1687,9 +1687,10 @@ function pollVRVirtualControls(delta, controllers, isPausedFrame = false) {
       out.stickAnchorPos.y,
       out.stickAnchorPos.z
     );
+    const safeDelta = Math.max(0, Math.min(0.1, delta || 0));
     const posEase = out.stickActive
-      ? 1 - Math.exp(-delta / 0.025)
-      : 1 - Math.exp(-delta / 0.14);
+      ? 1 - Math.exp(-safeDelta / 0.025)
+      : 1 - Math.exp(-safeDelta / 0.14);
     if (vrStickModel.position.lengthSq() === 0) {
       vrStickModel.position.copy(_stickTargetPos);
     } else {
@@ -1710,10 +1711,12 @@ function pollVRVirtualControls(delta, controllers, isPausedFrame = false) {
         -1,
         1
       );
-      targetRotX = (activePlaneType === 'buggy' ? -ny : ny) * 0.3;
+      // Pushing a physical thumbstick forward (ny > 0) tilts the 3D stick
+      // forward (-Z, negative X rotation), and pulling back tilts it back (+Z)
+      targetRotX = -ny * 0.3;
       targetRotZ = -nx * 0.3;
     }
-    const tiltEase = out.stickActive ? 1 : 1 - Math.exp(-delta / 0.08);
+    const tiltEase = out.stickActive ? 1 : 1 - Math.exp(-safeDelta / 0.08);
     vrStickModel.pivotGroup.rotation.x = THREE.MathUtils.lerp(
       vrStickModel.pivotGroup.rotation.x,
       targetRotX,

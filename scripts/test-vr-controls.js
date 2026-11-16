@@ -1582,6 +1582,29 @@ function makeSession(leftOpts, rightOpts) {
       centered2: centered2.haptics,
     })
   );
+
+  // Regression check: large negative dt (e.g. XRSession vs performance.now clock jump)
+  // never overflows Math.exp(-dt / tau) into Infinity or NaN
+  const negSim = createVRSimStickState();
+  const negRes = stepVRSimStickAttitude(negSim, {
+    quat: quatFromAttitude(0, 0.25, 0),
+    roll: 0,
+    pull: 0,
+    active: false,
+    handling,
+    kts: 120,
+    dt: -180,
+  });
+  check(
+    'stepVRSimStickAttitude clamps negative or huge dt cleanly with zero NaN quaternion output',
+    Number.isFinite(negRes.quat.x) &&
+      Number.isFinite(negRes.quat.y) &&
+      Number.isFinite(negRes.quat.z) &&
+      Number.isFinite(negRes.quat.w) &&
+      Number.isFinite(negSim.rollRate) &&
+      Number.isFinite(negSim.pullRate),
+    JSON.stringify({quat: negRes.quat, negSim})
+  );
 }
 
 if (failed) {

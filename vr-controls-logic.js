@@ -1681,6 +1681,7 @@ export function stepVRSimStickAttitude(s, input) {
   } = input;
 
   const T = VR_SIM_STICK;
+  const stepDt = Math.max(0, Math.min(0.1, Number.isFinite(dt) ? dt : 0));
   const rollCmd = grounded ? 0 : clamp(roll, -1, 1);
   const pullCmd = clamp(pull, -1, 1);
   const rollHeld = Math.abs(rollCmd) > 1e-4;
@@ -1692,7 +1693,7 @@ export function stepVRSimStickAttitude(s, input) {
   const steep = Math.abs(att.pitch) > T.LOOP_FROM;
 
   // Hands-off trainer dihedral recovery (paused whenever holding the stick)
-  s.idle = active || rollHeld || pullHeld || rudderHeld ? 0 : s.idle + dt;
+  s.idle = active || rollHeld || pullHeld || rudderHeld ? 0 : s.idle + stepDt;
   const rescue = simSmoothstep(
     s.idle,
     T.RESCUE_SECONDS,
@@ -1733,7 +1734,7 @@ export function stepVRSimStickAttitude(s, input) {
     }
   }
   s.rollRate +=
-    (wantRoll - s.rollRate) * (1 - Math.exp(-dt / T.ROLL_EASE_SECONDS));
+    (wantRoll - s.rollRate) * (1 - Math.exp(-stepDt / T.ROLL_EASE_SECONDS));
 
   // 2. Elevator pull rate & aerodynamic pitch stability
   const authority =
@@ -1778,21 +1779,25 @@ export function stepVRSimStickAttitude(s, input) {
   }
 
   s.pullRate +=
-    (wantPull - s.pullRate) * (1 - Math.exp(-dt / T.PULL_EASE_SECONDS));
+    (wantPull - s.pullRate) * (1 - Math.exp(-stepDt / T.PULL_EASE_SECONDS));
 
   // 3. Rudder yaw (from lap controller side-grips when airborne)
   const wantYaw = grounded
     ? 0
     : clamp(rudder, -1, 1) * T.RUDDER_RATE * handling.agility;
   s.yawRate +=
-    (wantYaw - s.yawRate) * (1 - Math.exp(-dt / T.ROLL_EASE_SECONDS));
+    (wantYaw - s.yawRate) * (1 - Math.exp(-stepDt / T.ROLL_EASE_SECONDS));
 
   // 4. Integrate body-space rates + world-horizon coordinated bank turn
   const pitchRate = s.pullRate + settle * Math.cos(bank);
   const bodyYawRate = s.yawRate - settle * Math.sin(bank);
   let q = quatMultiply(
     quat,
-    quatFromRotVec(pitchRate * dt, bodyYawRate * dt, s.rollRate * dt)
+    quatFromRotVec(
+      pitchRate * stepDt,
+      bodyYawRate * stepDt,
+      s.rollRate * stepDt
+    )
   );
 
   if (!grounded) {
@@ -1804,7 +1809,7 @@ export function stepVRSimStickAttitude(s, input) {
       Math.cos(att.pitch) *
       handling.agility *
       turnScale;
-    q = quatMultiply(quatFromRotVec(0, bankTurn * dt, 0), q);
+    q = quatMultiply(quatFromRotVec(0, bankTurn * stepDt, 0), q);
   }
   q = quatNormalize(q);
 
@@ -1813,14 +1818,14 @@ export function stepVRSimStickAttitude(s, input) {
     'rollTurned',
     'rollStill',
     s.rollRate,
-    dt
+    stepDt
   );
   const looped = accumulateFullTurn(
     s,
     'pullTurned',
     'pullStill',
     s.pullRate,
-    dt
+    stepDt
   );
 
   return {quat: q, rolled, looped, notched: notchedJustNow};

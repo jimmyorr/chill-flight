@@ -17,13 +17,19 @@ import {skyUniforms} from './sky-uniforms.js';
 import {state} from './state.js';
 
 // How bright the flare is overall: ?flare=2 doubles it, ?flare=0 turns it
-// off
+// off. Off on VR headsets even in 2D windows: mid-frame copyTexSubImage2D on
+// a multisampled mobile/Adreno backbuffer stalls tile rendering and fails
+// WebGL2 MSAA readbuffer rules (leaving a 16x16 test square on the sun).
 const flareParam = ChillFlightLogic.urlParams.get('flare');
 const FLARE_STRENGTH =
   flareParam !== null && flareParam !== '' && isFinite(flareParam)
     ? Number(flareParam)
     : 1;
-const enabled = FLARE_STRENGTH > 0;
+const isVRHeadset = Boolean(
+  typeof navigator !== 'undefined' &&
+  ChillFlightLogic.isVRHeadsetUserAgent?.(navigator.userAgent)
+);
+const enabled = FLARE_STRENGTH > 0 && !isVRHeadset;
 
 // The flare's pieces: where along the line from the sun (0) through the
 // middle of the screen (0.5) to the far side (1), size as a share of the
@@ -293,9 +299,17 @@ function createFlare() {
       return;
     }
 
-    // Test how much of the sun shows, then put the pixels back
+    // Test how much of the sun shows, then put the pixels back. Snap the
+    // quad's NDC center to the exact integer pixel box `_corner` so MSAA
+    // subsamples at the border never leak outside the restored 16x16 region.
+    const snappedX = ((_corner.x - _viewport.x + 8) / w) * 2 - 1;
+    const snappedY = ((_corner.y - _viewport.y + 8) / h) * 2 - 1;
     const testScale = testMaterial.uniforms.scale.value.set(16 / w, 16 / h);
-    testMaterial.uniforms.screenPosition.value.copy(_screen);
+    testMaterial.uniforms.screenPosition.value.set(
+      snappedX,
+      snappedY,
+      _screen.z
+    );
     renderer.copyFramebufferToTexture(tempMap, _corner);
     renderer.renderBufferDirect(
       camera,
@@ -308,7 +322,11 @@ function createFlare() {
     renderer.copyFramebufferToTexture(occlusionMap, _corner);
     restoreMaterial.uniforms.map.value = tempMap;
     restoreMaterial.uniforms.scale.value.copy(testScale);
-    restoreMaterial.uniforms.screenPosition.value.copy(_screen);
+    restoreMaterial.uniforms.screenPosition.value.set(
+      snappedX,
+      snappedY,
+      _screen.z
+    );
     renderer.renderBufferDirect(
       camera,
       null,

@@ -501,7 +501,7 @@ The game features automatic graphics preset detection that evaluates your device
 
 _Note: Full visual effects include real-time shadows, transparent water and clouds, and procedural sky clouds. The low preset disables these to minimize overdraw and maximize frame rate on lower-end devices._
 
-Looking toward the sun on mid and up (both art styles) adds a subtle lens flare: a faint warm halo and a few pale ghosts mirrored through the middle of the screen (`lens-flare.js`). Terrain, planes and clouds in front of the sun hide it, and it fades as the sun sets and toward the screen's edges. It is off on low and in VR. The `flare` URL parameter scales it (`flare=2` is twice as strong) or turns it off (`flare=0`).
+Looking toward the sun on mid and up (both art styles) adds a subtle lens flare: a faint warm halo and a few pale ghosts mirrored through the middle of the screen (`lens-flare.js`). Terrain, planes and clouds in front of the sun hide it, and it fades as the sun sets and toward the screen's edges. It is off on low and on VR headsets. The `flare` URL parameter scales it (`flare=2` is twice as strong) or turns it off (`flare=0`).
 
 ### Language
 

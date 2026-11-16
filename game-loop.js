@@ -326,9 +326,14 @@ function performFrame(timestamp) {
   }
 
   // --- FPS CAPPING ---
-  // In VR, the headset compositor manages native vsync (72/90/120Hz); bypass manual 60fps throttle
+  // On VR headsets (both in immersive WebXR and in 72/90/120Hz 2D headset
+  // windows), let the headset compositor manage native vsync; a 60fps cap
+  // drops every other 72Hz/90Hz vsync and cuts 2D headset framerate to 36/45fps
   state.isVRPresenting = renderer && renderer.xr && renderer.xr.isPresenting;
-  if (!state.isVRPresenting && state.maxFPS > 0) {
+  const bypassFpsCap =
+    state.isVRPresenting ||
+    (inputManager._isVRHeadset && ChillFlightLogic.MAX_FPS === null);
+  if (!bypassFpsCap && state.maxFPS > 0) {
     const timeSinceLastFrame = frameStartTime - state.lastFrameTime;
     if (timeSinceLastFrame < state.frameMinDelay - 1) {
       // 1ms buffer for vsync jitter
@@ -356,7 +361,10 @@ function performFrame(timestamp) {
   // forth whenever frames were uneven.)
   clock.update(typeof timestamp === 'number' ? timestamp : undefined);
   let rawDelta = clock.getDelta();
-  if (rawDelta > 0.1) rawDelta = 0.1; // Cap at 100ms to prevent logic blowouts
+  // Clamp negative deltas (e.g. switching between window.requestAnimationFrame
+  // and XRSession.requestAnimationFrame clocks) as well as >100ms stalls
+  if (!(rawDelta > 0)) rawDelta = 0;
+  else if (rawDelta > 0.1) rawDelta = 0.1;
   state.smoothedDelta = rawDelta;
 
   const delta = state.smoothedDelta;
@@ -1093,8 +1101,9 @@ function flyVRSimStick(delta, inAirGripTurn) {
 
   const hasStick = state.mouseControlActive && !state.isFreeCamera;
   const virtualHeld = inputManager.isHoldingVirtualStick();
+  const invertY = inputManager.shouldInvertYAxis();
   const roll = hasStick ? simStickAxisResponse(state.mouseX) : 0;
-  const rawPull = hasStick ? (virtualHeld ? state.mouseY : -state.mouseY) : 0;
+  const rawPull = hasStick ? (invertY ? -state.mouseY : state.mouseY) : 0;
   const pull = hasStick ? simStickAxisResponse(rawPull) : 0;
   const active = Boolean(
     virtualHeld || inputManager.state.gamepad.steeringActive
