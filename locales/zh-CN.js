@@ -129,7 +129,10 @@ export default {
   'Trigger or press A / Y': '扣扳机或按 A / Y',
   'Warp or set a waypoint in 2D': '在 2D 地图中传送或设航点',
   'Trigger or press B': '扣扳机或按 B',
-  'Point controller & pull trigger to select': '用手柄指向并扣动扳机来选择',
+  'Stick: steer (flick for stunts) · Triggers: throttle · Grips: roll':
+    '摇杆：转向（连拨做特技） · 扳机：油门 · 侧握键：横滚',
+  'A: camera · B: headlight · X: vehicle · Y: pause':
+    'A：视角 · B：大灯 · X：载具 · Y：暂停',
   'Double-tap center to exit zen': '双击屏幕中央退出禅模式',
   'Press <b>Z</b> to exit zen': '按 <b>Z</b> 退出禅模式',
   Flight: '飞行',

@@ -55,6 +55,25 @@ export const ARTWORK = {
     height: 1000,
     logo: true,
   },
+  // Meta Quest Browser New Tab Page / Horizon cover art: 2560x1440 (16:9) and
+  // 1440x1440 (1:1) 24-bit RGB PNGs rendered natively at 2x scale.
+  'meta-landscape': {
+    shot: 'islands-sunset',
+    width: 1280,
+    height: 720,
+    scale: 2,
+    logo: true,
+    png: true,
+  },
+  'meta-square': {
+    shot: 'islands-sunset',
+    width: 720,
+    height: 720,
+    scale: 2,
+    query: 'camOffset=72,-10,5',
+    logo: true,
+    png: true,
+  },
 };
 
 // Output targets: CSS size, pixel density (scale), touch device (mobile, for

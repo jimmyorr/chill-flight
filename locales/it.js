@@ -136,8 +136,10 @@ export default {
   'Trigger or press A / Y': 'Grilletto o premi A / Y',
   'Warp or set a waypoint in 2D': 'Teletrasportati o imposta una tappa in 2D',
   'Trigger or press B': 'Grilletto o premi B',
-  'Point controller & pull trigger to select':
-    'Punta il controller e premi il grilletto per selezionare',
+  'Stick: steer (flick for stunts) · Triggers: throttle · Grips: roll':
+    'Stick: vira (colpetti per acrobazie) · Grilletti: motore · Impugnature: tonneau',
+  'A: camera · B: headlight · X: vehicle · Y: pause':
+    'A: visuale · B: faro · X: veicolo · Y: pausa',
   'Double-tap center to exit zen':
     'Tocca due volte al centro per uscire dalla modalità zen',
   'Press <b>Z</b> to exit zen': 'Premi <b>Z</b> per uscire dalla modalità zen',

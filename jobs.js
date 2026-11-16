@@ -181,6 +181,10 @@ function airportAt(x, z) {
 
 function landedAt(a) {
   const result = land(progress, a.name, Math.random, PEOPLE, SIGHT_NAMES);
+  if (result.offer && state.isVRPresenting) {
+    visiting = null;
+    return;
+  }
   if (result.person) changeOutfit(result.person.name, result.outfit);
   if (result.toast) {
     Achievements.toast({emoji: '📦', ...result.toast});
@@ -205,7 +209,9 @@ function landedAt(a) {
   if (destination(progress)) pointToDestination();
   // Done: the job's waypoint is too
   else if (jobWaypoint) clearWaypoint();
-  if (result.dialog) openDialog(result.person, result.dialog);
+  if (result.dialog && !state.isVRPresenting) {
+    openDialog(result.person, result.dialog);
+  }
   log.info(`[Jobs] Landed at ${a.name}, next: ${destination(progress)}`);
 }
 
@@ -224,9 +230,15 @@ function checkSight(x, z) {
   log.info(`[Jobs] Passed ${name}, next: ${destination(progress)}`);
 }
 
-function update() {
-  requestAnimationFrame(update);
+let wasVRPresenting = false;
+
+export function updateJobs() {
   if (!planeGroup || state.isPaused) return;
+  if (state.isVRPresenting && !wasVRPresenting) {
+    closeDialog();
+    if (!progress.job) visiting = null;
+  }
+  wasVRPresenting = state.isVRPresenting;
   // The row stands in for the AUTOPILOT line too
   if (hudAuto && hudAuto.hidden === state.autopilotEnabled) {
     hudAuto.hidden = !state.autopilotEnabled;
@@ -236,7 +248,10 @@ function update() {
   const {x, z} = planeGroup.position;
   checkSight(x, z);
   const kts = BASE_FLIGHT_SPEED * Math.abs(state.flightSpeedMultiplier) * 60;
-  const stopped = isOnWheels() && kts <= STOPPED_KTS;
+  // Suppress unsolicited 2D NPC offers while in VR so stopping on a runway does
+  // not play invisible dialog blips; active jobs still advance and chime.
+  const suppressOfferInVR = state.isVRPresenting && !progress.job;
+  const stopped = !suppressOfferInVR && isOnWheels() && kts <= STOPPED_KTS;
   const away = visiting
     ? ChillFlightLogic.airportDistance(visiting, x, z)
     : Infinity;
@@ -248,5 +263,3 @@ function update() {
   }
   if (step.arrived) landedAt(step.arrived);
 }
-
-requestAnimationFrame(update);

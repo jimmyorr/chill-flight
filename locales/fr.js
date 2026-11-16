@@ -136,8 +136,10 @@ export default {
   'Trigger or press A / Y': 'Gâchette ou bouton A / Y',
   'Warp or set a waypoint in 2D': 'Téléporter ou placer un repère en 2D',
   'Trigger or press B': 'Gâchette ou bouton B',
-  'Point controller & pull trigger to select':
-    'Pointe la manette et appuie sur la gâchette pour choisir',
+  'Stick: steer (flick for stunts) · Triggers: throttle · Grips: roll':
+    'Stick : diriger (coups secs : figures) · Gâchettes : gaz · Poignées : tonneau',
+  'A: camera · B: headlight · X: vehicle · Y: pause':
+    'A : caméra · B : phare · X : véhicule · Y : pause',
   'Double-tap center to exit zen':
     'Touche deux fois le centre pour quitter le zen',
   'Press <b>Z</b> to exit zen': 'Appuie sur <b>Z</b> pour quitter le zen',

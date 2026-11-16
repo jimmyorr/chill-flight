@@ -130,8 +130,10 @@ export default {
   'Trigger or press A / Y': '트리거 또는 A / Y',
   'Warp or set a waypoint in 2D': '2D에서 순간이동 또는 경유지 설정',
   'Trigger or press B': '트리거 또는 B',
-  'Point controller & pull trigger to select':
-    '컨트롤러로 가리키고 트리거로 선택',
+  'Stick: steer (flick for stunts) · Triggers: throttle · Grips: roll':
+    '스틱: 조종(튕겨서 묘기) · 트리거: 출력 · 그립: 배럴 롤',
+  'A: camera · B: headlight · X: vehicle · Y: pause':
+    'A: 카메라 · B: 헤드라이트 · X: 탈것 · Y: 일시정지',
   'Double-tap center to exit zen': '화면 가운데를 두 번 탭하면 젠 모드 종료',
   'Press <b>Z</b> to exit zen': '<b>Z</b> 키로 젠 모드 종료',
   Flight: '비행',

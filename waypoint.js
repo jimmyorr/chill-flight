@@ -9,7 +9,8 @@
 import * as THREE from 'three';
 import {log} from './logger.js';
 import {planeGroup} from './airplane.js';
-import {camera} from './sky.js';
+import {scene} from './scene.js';
+import {camera, getCameraWorldPosition} from './sky.js';
 import {state} from './state.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {getElevation} from './terrain-geometry.js';
@@ -23,6 +24,10 @@ const ARRIVE_DIST = 300;
 // Keep the edge marker this far (px) inside the screen, and clear of the HUD
 const EDGE_MARGIN = 36;
 const TOP_MARGIN = 96;
+const VR_GOLD = 0xffc23d;
+// Clamp distant VR beacons inside FAR_RADIUS (27000) and camera.far (30000)
+// along the exact horizon bearing so cross-continent waypoints never clip.
+const MAX_VR_BEACON_DIST = 26000;
 
 // {x, y, z, stay, flyby, name}: y is the ground (or water) height there; stay
 // keeps it on arrival; flyby passes straight through instead of orbiting on
@@ -87,7 +92,98 @@ const distEl = document.getElementById('waypoint-distance');
 let lastDistText = null;
 
 const _v = new THREE.Vector3();
+const _vrCamPos = new THREE.Vector3();
 const _place = {sx: 0, sy: 0, angle: 0, onScreen: false};
+
+let vrMarker = null;
+let vrBeamMesh = null;
+let vrDiamondGroup = null;
+
+function ensureVRMarker() {
+  if (vrMarker) return;
+
+  const beamGeo = new THREE.CylinderGeometry(0.45, 1.0, 1, 6, 1, true);
+  beamGeo.translate(0, 0.5, 0);
+  const posAttr = beamGeo.attributes.position;
+  const colors = new Float32Array(posAttr.count * 4);
+  for (let i = 0; i < posAttr.count; i++) {
+    const fade = Math.max(0, 1 - posAttr.getY(i));
+    colors[i * 4] = 1.0;
+    colors[i * 4 + 1] = 0.76;
+    colors[i * 4 + 2] = 0.24;
+    colors[i * 4 + 3] = 0.42 * fade * fade;
+  }
+  beamGeo.setAttribute('color', new THREE.BufferAttribute(colors, 4));
+
+  const beamMat = new THREE.MeshBasicMaterial({
+    vertexColors: true,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    fog: false,
+  });
+  vrBeamMesh = new THREE.Mesh(beamGeo, beamMat);
+
+  const diamondGeo = new THREE.OctahedronGeometry(1, 0);
+  diamondGeo.scale(1, 1.4, 1);
+  const diamondMat = new THREE.MeshBasicMaterial({
+    color: VR_GOLD,
+    fog: false,
+  });
+  const diamondCore = new THREE.Mesh(diamondGeo, diamondMat);
+
+  const rimGeo = diamondGeo.clone();
+  rimGeo.scale(1.18, 1.18, 1.18);
+  const rimMat = new THREE.MeshBasicMaterial({
+    color: 0x2a1804,
+    transparent: true,
+    opacity: 0.7,
+    side: THREE.BackSide,
+    fog: false,
+  });
+  const diamondRim = new THREE.Mesh(rimGeo, rimMat);
+
+  vrDiamondGroup = new THREE.Group();
+  vrDiamondGroup.add(diamondRim);
+  vrDiamondGroup.add(diamondCore);
+
+  vrMarker = new THREE.Group();
+  vrMarker.name = 'vrWaypointMarker';
+  vrMarker.visible = false;
+  vrMarker.add(vrBeamMesh);
+  vrMarker.add(vrDiamondGroup);
+  scene.add(vrMarker);
+}
+
+function updateVRMarker(target) {
+  ensureVRMarker();
+  const camPos = getCameraWorldPosition(_vrCamPos);
+  const dx = target.x - camPos.x;
+  const dy = target.y - camPos.y;
+  const dz = target.z - camPos.z;
+  const camDist = Math.hypot(dx, dy, dz) || 1;
+
+  let renderDist = camDist;
+  if (camDist > MAX_VR_BEACON_DIST) {
+    const k = MAX_VR_BEACON_DIST / camDist;
+    vrMarker.position.set(
+      camPos.x + dx * k,
+      camPos.y + dy * k,
+      camPos.z + dz * k
+    );
+    renderDist = MAX_VR_BEACON_DIST;
+  } else {
+    vrMarker.position.set(target.x, target.y, target.z);
+  }
+
+  const s = Math.max(10, renderDist * 0.0085);
+  const nowS = performance.now() * 0.001;
+  vrDiamondGroup.scale.setScalar(s);
+  vrDiamondGroup.position.y = s * 3.2 + Math.sin(nowS * 2.0) * s * 0.2;
+  vrDiamondGroup.rotation.y = nowS * 0.9;
+  vrBeamMesh.scale.set(s * 0.25, Math.max(420, s * 22), s * 0.25);
+  vrMarker.visible = true;
+}
 
 /**
  * Where a marker for a world point goes on screen: over it when it's in
@@ -98,6 +194,7 @@ const _place = {sx: 0, sy: 0, angle: 0, onScreen: false};
 export function screenPlacement(x, y, z) {
   const w = window.innerWidth;
   const h = window.innerHeight;
+  camera.updateMatrixWorld();
   // Where it is relative to the camera (looking down -Z)
   _v.set(x, y, z).applyMatrix4(camera.matrixWorldInverse);
   const vx = _v.x;
@@ -164,12 +261,12 @@ export function formatDistance(units, imperial = IMPERIAL) {
   return `${Math.round(m / 1000)} km`;
 }
 
-function update() {
-  requestAnimationFrame(update);
+export function updateWaypoint() {
   if (!el) return;
   const target = waypoint || tourStop;
-  if (!target || !planeGroup || state.isVRPresenting) {
+  if (!target || !planeGroup) {
     el.hidden = true;
+    if (vrMarker) vrMarker.visible = false;
     return;
   }
 
@@ -183,8 +280,17 @@ function update() {
       playChime();
     }
     el.hidden = true;
+    if (vrMarker) vrMarker.visible = false;
     return;
   }
+
+  if (state.isVRPresenting) {
+    el.hidden = true;
+    updateVRMarker(target);
+    return;
+  }
+
+  if (vrMarker) vrMarker.visible = false;
 
   const {sx, sy, angle, onScreen} = screenPlacement(
     target.x,
@@ -203,5 +309,3 @@ function update() {
     if (distEl) distEl.textContent = distText;
   }
 }
-
-requestAnimationFrame(update);

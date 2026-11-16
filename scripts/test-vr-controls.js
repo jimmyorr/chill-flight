@@ -436,11 +436,11 @@ function makeSession(leftOpts, rightOpts) {
   const sessionInit = getVRSessionInit();
   const opt = sessionInit?.optionalFeatures || [];
   check(
-    'getVRSessionInit omits bounded-floor and local-floor so Quest defaults to stationary tracking',
+    'getVRSessionInit omits bounded-floor, local-floor, and hand-tracking so Quest defaults to stationary Touch-controller play',
     Array.isArray(opt) &&
       !opt.includes('bounded-floor') &&
       !opt.includes('local-floor') &&
-      opt.includes('hand-tracking'),
+      !opt.includes('hand-tracking'),
     JSON.stringify(sessionInit)
   );
 

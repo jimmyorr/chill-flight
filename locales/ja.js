@@ -134,8 +134,10 @@ export default {
   'Trigger or press A / Y': 'トリガー または A / Y',
   'Warp or set a waypoint in 2D': '2D でワープ・目的地を設定',
   'Trigger or press B': 'トリガー または B',
-  'Point controller & pull trigger to select':
-    'コントローラーを向けてトリガーで選択',
+  'Stick: steer (flick for stunts) · Triggers: throttle · Grips: roll':
+    'スティック：操縦（はじいてスタント） · トリガー：出力 · グリップ：ロール',
+  'A: camera · B: headlight · X: vehicle · Y: pause':
+    'A：カメラ · B：ライト · X：乗り物 · Y：一時停止',
   'Double-tap center to exit zen': '画面中央をダブルタップで禅モード終了',
   'Press <b>Z</b> to exit zen': '<b>Z</b> キーで禅モード終了',
   Flight: 'フライト',

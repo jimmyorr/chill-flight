@@ -290,11 +290,30 @@ function drawVRPauseMenu(hovered = -1) {
     '19px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.fillText(t('Trigger or press B'), 512, 542);
 
-  // Footer instructions
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+  // Compact in-flight controller legend
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(162, 574);
+  ctx.lineTo(862, 574);
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.52)';
   ctx.font =
-    '19px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  ctx.fillText(t('Point controller & pull trigger to select'), 512, 606);
+    '18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillText(
+    t('Stick: steer (flick for stunts) · Triggers: throttle · Grips: roll'),
+    512,
+    602,
+    880
+  );
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.42)';
+  ctx.fillText(
+    t('A: camera · B: headlight · X: vehicle · Y: pause'),
+    512,
+    628,
+    880
+  );
 
   ctx.restore();
   if (vrPauseTexture) vrPauseTexture.needsUpdate = true;

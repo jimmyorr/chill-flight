@@ -157,6 +157,8 @@ import {updateRush} from './crystal-rush.js';
 import {applyBumps, updateBumps} from './bumps.js';
 import {updateWallScrape} from './wall-scrape.js';
 import {updateCrash} from './crash.js';
+import {updateWaypoint} from './waypoint.js';
+import {updateJobs} from './jobs.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {ART_CLOUDS} from './art-style.js';
 import {updateAirportLights} from './airports.js';
@@ -625,6 +627,8 @@ function performFrame(timestamp) {
   planeGroup.updateMatrixWorld();
 
   updateFlightCamera(delta, nowTime);
+  updateJobs();
+  updateWaypoint();
   updateTraffic(delta);
   updateRoadTraffic(delta);
   updateBeacons();

@@ -137,8 +137,10 @@ export default {
   'Trigger or press A / Y': 'Abzug oder A / Y drücken',
   'Warp or set a waypoint in 2D': 'Teleportieren oder Wegpunkt in 2D setzen',
   'Trigger or press B': 'Abzug oder B drücken',
-  'Point controller & pull trigger to select':
-    'Controller ausrichten und Abzug ziehen zum Auswählen',
+  'Stick: steer (flick for stunts) · Triggers: throttle · Grips: roll':
+    'Stick: lenken (antippen für Stunts) · Abzüge: Schub · Griffe: Rolle',
+  'A: camera · B: headlight · X: vehicle · Y: pause':
+    'A: Kamera · B: Scheinwerfer · X: Fahrzeug · Y: Pause',
   'Double-tap center to exit zen':
     'Doppelt in die Mitte tippen, um Zen zu beenden',
   'Press <b>Z</b> to exit zen': '<b>Z</b> drücken, um Zen zu beenden',

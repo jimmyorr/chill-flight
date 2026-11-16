@@ -19,11 +19,13 @@ export const GRIP_ROLL_EXIT = 0.4;
  * Stationary `'local'` tracking is a built-in default feature of every
  * `'immersive-vr'` session and matches `renderer.xr.setReferenceSpaceType('local')`
  * in `sky.js`. Omitting `'bounded-floor'` and `'local-floor'` avoids triggering
- * Meta Quest / Horizon OS Roomscale vs. Stationary Guardian boundary prompts.
+ * Meta Quest / Horizon OS Roomscale vs. Stationary Guardian boundary prompts,
+ * and omitting `'hand-tracking'` ensures Horizon OS prompts for Touch
+ * controllers until hand-tracked flight and hand-mesh rendering are added.
  */
 export function getVRSessionInit() {
   return {
-    optionalFeatures: ['hand-tracking'],
+    optionalFeatures: [],
   };
 }
 
