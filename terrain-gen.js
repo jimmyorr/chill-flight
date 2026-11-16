@@ -257,6 +257,10 @@ const DESERT_SCRUB_COLOR = 0x8f9a62;
 const DESERT_WASH_NEAR = 120;
 const DESERT_WASH_FAR = 300;
 const DESERT_STANDOUT = 0.1;
+// Boulders (rockinessAt): scale to keep their count about what it was when
+// they were spread evenly, and the share drawn much bigger
+const ROCK_SCALE = 0.93;
+const ROCK_BIG_SHARE = 0.08;
 // Hay bales: the share of the mown meadows among the fields that have them,
 // and the chance of a bale (or a pair) at each grid point of one
 const HAY_FIELD_CHANCE = 0.45;
@@ -2783,7 +2787,10 @@ export function generateChunkData({
       Math.max(0, Math.min(segments, iz)) * gridX1 +
         Math.max(0, Math.min(segments, ix))
     ];
-  const desertGrowth = (ix, iz, h, worldX, worldZ, slopeFactor) => {
+  // The ground around grid point (ix, iz), 120-300 m out: its average,
+  // lowest and highest heights (into `relief`)
+  const relief = {around: 0, lowest: 0, highest: 0};
+  const reliefAt = (ix, iz) => {
     const a = gridHeightIn(ix + washNear, iz);
     const b = gridHeightIn(ix - washNear, iz);
     const c = gridHeightIn(ix, iz + washNear);
@@ -2792,8 +2799,35 @@ export function generateChunkData({
     const f = gridHeightIn(ix - washDiag, iz + washDiag);
     const g = gridHeightIn(ix + washDiag, iz - washDiag);
     const k = gridHeightIn(ix - washDiag, iz - washDiag);
-    const around = (a + b + c + d + e + f + g + k) * 0.125;
-    const lowest = Math.min(a, b, c, d, e, f, g, k);
+    relief.around = (a + b + c + d + e + f + g + k) * 0.125;
+    relief.lowest = Math.min(a, b, c, d, e, f, g, k);
+    relief.highest = Math.max(a, b, c, d, e, f, g, k);
+    return relief;
+  };
+  // How many boulders lie at grid point (ix, iz), about 1 on average: many
+  // on steep slopes, ridges and rims and in the scree under cliffs, few on
+  // flat ground, gathered in boulder fields and small heaps
+  const rockinessAt = (ix, iz, h, worldX, worldZ, slopeFactor) => {
+    const {around, highest} = reliefAt(ix, iz);
+    const clamp01 = (v) => Math.max(0, Math.min(1, v));
+    const steep = clamp01((slopeFactor - 0.15) / 0.45);
+    const ridge = clamp01((h - around) / 12);
+    const scree = clamp01((highest - h - 30) / 60);
+    const field = clamp01(
+      0.5 + 1.2 * simplex.noise2D(worldX * 0.006 - 97, worldZ * 0.006 + 13)
+    );
+    const heap = clamp01(
+      0.5 + 0.9 * simplex.noise2D(worldX * 0.03 + 211, worldZ * 0.03 - 5)
+    );
+    return (
+      ROCK_SCALE *
+      (0.1 + 1.6 * steep + 1.2 * ridge + 1.2 * scree) *
+      (0.1 + 2.0 * field * field) *
+      (0.3 + 1.4 * heap * heap)
+    );
+  };
+  const desertGrowth = (ix, iz, h, worldX, worldZ, slopeFactor) => {
+    const {around, lowest} = reliefAt(ix, iz);
     const clamp01 = (v) => Math.max(0, Math.min(1, v));
     const hollow = clamp01((around - h) / 10);
     const ridge = clamp01((h - around) / 10);
@@ -4422,13 +4456,27 @@ export function generateChunkData({
         }
       }
 
-      if (rng() < 0.015 * densityScale) {
-        if (snowFactor > 0.4)
-          snowRockPositions.push({x: localX, y: height, z: localZ});
-        else if (desertFactor > 0.4)
-          desertRockPositions.push({x: localX, y: height, z: localZ});
-        else if (swampFactor < 0.4)
-          rockPositions.push({x: localX, y: height, z: localZ});
+      // Boulders gather in fields on slopes and ridges and under cliffs,
+      // and only the odd one lies out on flat ground (rockinessAt)
+      if (
+        rng() <
+        0.015 *
+          rockinessAt(ix, iy, height, worldX, worldZ, slopeFactor) *
+          densityScale
+      ) {
+        const gx = Math.round(worldX / gridSpacing);
+        const gz = Math.round(worldZ / gridSpacing);
+        const rx = localX + (fieldHash(gx, gz, 1501) - 0.5) * gridSpacing * 0.9;
+        const rz = localZ + (fieldHash(gx, gz, 1503) - 0.5) * gridSpacing * 0.9;
+        const rock = {
+          x: rx,
+          y: heightAtLocal(rx, rz),
+          z: rz,
+          big: fieldHash(gx, gz, 1505) < ROCK_BIG_SHARE,
+        };
+        if (snowFactor > 0.4) snowRockPositions.push(rock);
+        else if (desertFactor > 0.4) desertRockPositions.push(rock);
+        else if (swampFactor < 0.4) rockPositions.push(rock);
       }
 
       if (
@@ -6800,9 +6848,10 @@ export function generateChunkData({
   rockVariations.forEach((variation) => {
     if (variation.pos.length > 0) {
       variation.pos.forEach((pos) => {
-        const sx = 0.5 + rng() * 2.0;
-        const sy = 0.5 + rng() * 2.0;
-        const sz = 0.5 + rng() * 2.0;
+        const big = pos.big ? 2.2 : 1;
+        const sx = (0.5 + rng() * 2.0) * big;
+        const sy = (0.5 + rng() * 2.0) * big;
+        const sz = (0.5 + rng() * 2.0) * big;
         composeMatrix(
           _matBuffer,
           0,
