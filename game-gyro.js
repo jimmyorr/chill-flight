@@ -1,10 +1,20 @@
 import * as THREE from 'three';
+import {ChillFlightLogic} from './chill-flight-logic.js';
 import {controlSchemeToggle, gyroSchemeBtn, gyroSensitivity} from './game.js';
 import {inputManager} from './game-input-bindings.js';
 import {state} from './state.js';
 import {t} from './i18n.js';
 
 function checkGyroSupport() {
+  // VR headset 2D browser windows steer with a spatial laser ray ('touch'
+  // screen-position mode) rather than a phone thumb joystick or screen tilt,
+  // so keep the mobile Touch / Joystick / Gyro selector hidden.
+  if (
+    typeof navigator !== 'undefined' &&
+    ChillFlightLogic.isVRHeadsetUserAgent(navigator.userAgent)
+  ) {
+    return;
+  }
   let supported = false;
   if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()) {
     supported = true;

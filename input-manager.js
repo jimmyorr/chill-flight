@@ -86,8 +86,10 @@ export class InputManager {
         throttlingDown: false,
         gripRoll: 0,
       },
-      controlScheme:
-        localStorage.getItem('chill_flight_control_scheme') || 'joystick',
+      controlScheme: ChillFlightLogic.resolveControlScheme(
+        localStorage.getItem('chill_flight_control_scheme'),
+        typeof navigator !== 'undefined' ? navigator.userAgent : ''
+      ),
       isPaused: false, // Updated every frame from game.js
       isFreeCamera: false, // Updated every frame from game.js
       isCinematic: false, // Updated every frame from game-loop.js
@@ -253,6 +255,15 @@ export class InputManager {
   releaseLostJoystick(e) {
     if (!this.state.joystick.active) return;
     const id = this.state.joystick.touchId;
+    for (let i = 0; i < e.touches.length; i++) {
+      if (e.touches[i].identifier === id) return;
+    }
+    this.releaseTouchSteering();
+  }
+
+  releaseLostTouch(e) {
+    if (this.state.touch.steeringId === null) return;
+    const id = this.state.touch.steeringId;
     for (let i = 0; i < e.touches.length; i++) {
       if (e.touches[i].identifier === id) return;
     }
@@ -911,6 +922,7 @@ export class InputManager {
         }
       }
     } else if (this.state.controlScheme === 'touch') {
+      this.releaseLostTouch(e);
       let steeringTouch = null;
       for (let i = 0; i < e.changedTouches.length; i++) {
         if (

@@ -197,13 +197,21 @@ export var _lastChunkUpdatePos = new THREE.Vector3(
 );
 
 // Control scheme state ('touch', 'joystick', or 'gyro')
-state.currentControlScheme =
-  localStorage.getItem('chill_flight_control_scheme') || 'joystick';
+const storedControlScheme = localStorage.getItem('chill_flight_control_scheme');
+const currentUserAgent =
+  typeof navigator !== 'undefined' ? navigator.userAgent : '';
+state.currentControlScheme = ChillFlightLogic.resolveControlScheme(
+  storedControlScheme,
+  currentUserAgent
+);
+inputManager.state.controlScheme = state.currentControlScheme;
 // A scheme the game no longer has (the advanced joystick, tried and taken
-// out in Nov 2026) is the joystick again
-if (!['touch', 'joystick', 'gyro'].includes(state.currentControlScheme)) {
-  state.currentControlScheme = 'joystick';
-  inputManager.state.controlScheme = 'joystick';
+// out in Nov 2026) is reset to joystick on non-headset devices
+if (
+  !ChillFlightLogic.isVRHeadsetUserAgent(currentUserAgent) &&
+  storedControlScheme !== null &&
+  !['touch', 'joystick', 'gyro'].includes(storedControlScheme)
+) {
   localStorage.setItem('chill_flight_control_scheme', 'joystick');
 }
 

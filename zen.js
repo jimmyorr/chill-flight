@@ -9,6 +9,7 @@ import {hooks} from './hooks.js';
 import {state} from './state.js';
 import {setTrafficEnabled} from './traffic.js';
 import {t} from './i18n.js';
+import {isTouch} from './tap-moves.js';
 
 const STORAGE_KEY = 'chill_flight_zen';
 // How long the HUD takes to fade, including its stagger (style.css)
@@ -25,8 +26,7 @@ let waiting = false;
 
 function showHint() {
   if (!hint) return;
-  const isTouch = window.matchMedia('(any-pointer: coarse)').matches;
-  hint.innerHTML = isTouch
+  hint.innerHTML = isTouch()
     ? t('Double-tap center to exit zen')
     : t('Press <b>Z</b> to exit zen');
   // Restart the animation

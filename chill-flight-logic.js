@@ -481,6 +481,23 @@ export const ChillFlightLogic = {};
     return /OculusBrowser|Quest|Pico|Wolvic|\bVR\b/i.test(ua);
   }
 
+  function resolveControlScheme(storedScheme, ua) {
+    // VR headset 2D browser windows use a 6DoF spatial laser ray (which
+    // reports pointerType: 'touch' and fires touchstart on trigger press),
+    // not a thumb on glass or phone screen tilt. Always use screen-position
+    // 'touch' steering on headsets so pulling the trigger banks toward the
+    // laser spot without spawning the 50 px virtual joystick puck.
+    if (isVRHeadsetUserAgent(ua)) return 'touch';
+    if (
+      storedScheme === 'touch' ||
+      storedScheme === 'joystick' ||
+      storedScheme === 'gyro'
+    ) {
+      return storedScheme;
+    }
+    return 'joystick';
+  }
+
   function chooseAutoGraphicsPreset({
     cores = 4,
     memory = null,
@@ -6803,6 +6820,7 @@ export const ChillFlightLogic = {};
   exports.RELAY_PARAM = RELAY_PARAM;
   exports.GRAPHICS_PRESET = GRAPHICS_PRESET;
   exports.isVRHeadsetUserAgent = isVRHeadsetUserAgent;
+  exports.resolveControlScheme = resolveControlScheme;
   exports.chooseAutoGraphicsPreset = chooseAutoGraphicsPreset;
   exports.MAX_FPS = MAX_FPS;
   exports.ZENITH_COLOR = ZENITH_COLOR;

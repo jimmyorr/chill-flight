@@ -466,6 +466,32 @@ function makeSession(leftOpts, rightOpts) {
       )
   );
 
+  const questUa =
+    'Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/35.2.0.9.61 Chrome/128.0.6613.162 VR Safari/537.36';
+  const picoUa =
+    'Mozilla/5.0 (Linux; Android 10; Pico 4) AppleWebKit/537.36 Chrome/112.0.0.0 VR Safari/537.36';
+  const iphoneUa =
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+  const macUa =
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+
+  check(
+    'resolveControlScheme forces screen-position touch on VR headsets regardless of saved joystick/gyro while preserving phone preferences',
+    ChillFlightLogic.resolveControlScheme(null, questUa) === 'touch' &&
+      ChillFlightLogic.resolveControlScheme('joystick', questUa) === 'touch' &&
+      ChillFlightLogic.resolveControlScheme('gyro', questUa) === 'touch' &&
+      ChillFlightLogic.resolveControlScheme('touch', questUa) === 'touch' &&
+      ChillFlightLogic.resolveControlScheme('joystick', picoUa) === 'touch' &&
+      ChillFlightLogic.resolveControlScheme(null, iphoneUa) === 'joystick' &&
+      ChillFlightLogic.resolveControlScheme('touch', iphoneUa) === 'touch' &&
+      ChillFlightLogic.resolveControlScheme('gyro', iphoneUa) === 'gyro' &&
+      ChillFlightLogic.resolveControlScheme('joystick', iphoneUa) ===
+        'joystick' &&
+      ChillFlightLogic.resolveControlScheme('retired-mode', iphoneUa) ===
+        'joystick' &&
+      ChillFlightLogic.resolveControlScheme(null, macUa) === 'joystick'
+  );
+
   check(
     'chooseAutoGraphicsPreset defaults Quest 2, 4-6 GB Android, modern iPads/iPhones, iOS Safari, and 4-core desktops to mid while keeping true low-end devices on low',
     ChillFlightLogic.chooseAutoGraphicsPreset({

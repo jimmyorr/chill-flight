@@ -10,6 +10,7 @@
 // taps (2 or 3), hold (the move needs the last tap held), achievement (the
 // one that already says it's been done, if any) and name().
 import {t} from './i18n.js';
+import {ChillFlightLogic} from './chill-flight-logic.js';
 
 export const MOVES = [
   {
@@ -150,10 +151,15 @@ export function howTo(move, {touch, invert}) {
   return t('Double-tap the bottom and hold');
 }
 
-// Touch screens (phones and tablets) use the screen edges
+// Touch screens (phones and tablets) and 2D VR headset laser rays use the
+// screen edges rather than keyboard arrow keys
 export const isTouch = () =>
   typeof window !== 'undefined' &&
-  window.matchMedia?.('(any-pointer: coarse)').matches;
+  Boolean(
+    window.matchMedia?.('(any-pointer: coarse)').matches ||
+    (typeof navigator !== 'undefined' &&
+      ChillFlightLogic.isVRHeadsetUserAgent(navigator.userAgent))
+  );
 
 // --- WHAT THE PLAYER HAS DONE ---
 const DONE_KEY = 'chill_flight_moves_done';
