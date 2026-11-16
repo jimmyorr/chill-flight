@@ -945,4 +945,10 @@ export default {
     '¡Calentita y esponjosa! Ahora huele a aventura.',
   "Warm yarn, warm heart. That's {done} for me!":
     'Lana caliente, corazón caliente. ¡Ya van {done} para mí!',
+  'Chill stick': 'Palanca suave',
+  'Sim stick': 'Palanca sim',
+  'Right hand: sim stick (roll and pull) · Left hand: throttle':
+    'Mano derecha: palanca sim (alabear y tirar) · Mano izquierda: acelerador',
+  'Sim stick: roll and pull · Triggers: throttle · Grips: rudder':
+    'Palanca sim: alabear y tirar · Gatillos: acelerador · Agarres: timón',
 };

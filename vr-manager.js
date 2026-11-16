@@ -188,7 +188,11 @@ function pulseXRInputSource(source, intensity = 0.2, durationMs = 15) {
   }
 }
 
-function pulseXRControllers(intensity = 0.2, durationMs = 15, side = null) {
+export function pulseXRControllers(
+  intensity = 0.2,
+  durationMs = 15,
+  side = null
+) {
   const session = getActiveXRSession();
   if (!isXRSessionVisible(session) || !session.inputSources) return;
   for (const source of session.inputSources) {
@@ -318,13 +322,20 @@ function drawVRPauseMenu(hovered = -1) {
     437
   );
 
-  // Quick-action pill row (y = 462..526): Camera (3), Vehicle (4), Lights (5)
+  // Quick-action pill row (y = 462..526): Camera (3), Vehicle (4), Lights (5), Stick mode (6)
   const lightsOn = Boolean(headlight && headlight.intensity > 0);
+  const simStickOn = state.vrStickMode === 'sim';
   const planeKey = PLANE_LABELS[activePlaneType] || 'Biplane';
   const pills = [
     {idx: 3, x: 162, label: t('Camera'), active: false},
-    {idx: 4, x: 401, label: t(planeKey), active: false},
-    {idx: 5, x: 640, label: t('Lights'), active: lightsOn},
+    {idx: 4, x: 340, label: t(planeKey), active: false},
+    {idx: 5, x: 518, label: t('Lights'), active: lightsOn},
+    {
+      idx: 6,
+      x: 696,
+      label: simStickOn ? t('Sim stick') : t('Chill stick'),
+      active: simStickOn,
+    },
   ];
 
   ctx.textBaseline = 'middle';
@@ -338,13 +349,13 @@ function drawVRPauseMenu(hovered = -1) {
     ctx.strokeStyle =
       isHov || pill.active ? '#e8c382' : 'rgba(255, 255, 255, 0.22)';
     ctx.lineWidth = 3;
-    drawRoundRect(ctx, pill.x, 462, 222, 64, 16);
+    drawRoundRect(ctx, pill.x, 462, 166, 64, 16);
     ctx.fill();
     ctx.stroke();
 
     ctx.fillStyle = pill.active ? '#e8c382' : '#ffffff';
-    ctx.font = `bold 24px ${UI_FONT_STACK}`;
-    ctx.fillText(pill.label, pill.x + 111, 494, 200);
+    ctx.font = `bold 22px ${UI_FONT_STACK}`;
+    ctx.fillText(pill.label, pill.x + 83, 494, 148);
   }
 
   // Compact in-flight controller / bare-hand legend
@@ -360,8 +371,12 @@ function drawVRPauseMenu(hovered = -1) {
   ctx.font = `17px ${UI_FONT_STACK}`;
   ctx.fillText(
     vrPauseHandMode
-      ? t('Right hand: flight stick · Left hand: throttle')
-      : t('Stick: steer · Triggers: throttle · Grips: turn / roll'),
+      ? simStickOn
+        ? t('Right hand: sim stick (roll and pull) · Left hand: throttle')
+        : t('Right hand: flight stick · Left hand: throttle')
+      : simStickOn
+        ? t('Sim stick: roll and pull · Triggers: throttle · Grips: rudder')
+        : t('Stick: steer · Triggers: throttle · Grips: turn / roll'),
     512,
     580,
     880
@@ -728,6 +743,15 @@ function executePauseMenuAction(action) {
     inputManager.onHeadlightToggle?.();
     pulseXRControllers(0.22, 16);
     drawVRPauseMenu(vrHoveredButton);
+  } else if (action === 'stickMode') {
+    state.vrStickMode = state.vrStickMode === 'sim' ? 'chill' : 'sim';
+    try {
+      localStorage.setItem('chill_flight_vr_stick_mode', state.vrStickMode);
+    } catch {
+      // Storage unavailable
+    }
+    pulseXRControllers(0.24, 18);
+    drawVRPauseMenu(vrHoveredButton);
   }
 }
 
@@ -944,7 +968,15 @@ function ensureXRControllers() {
       return;
     }
     const btn = hit.pauseBtn !== -1 ? hit.pauseBtn : vrHoveredButton;
-    const actionMap = ['resume', 'map', 'exit', 'camera', 'plane', 'headlight'];
+    const actionMap = [
+      'resume',
+      'map',
+      'exit',
+      'camera',
+      'plane',
+      'headlight',
+      'stickMode',
+    ];
     const act = actionMap[btn];
     if (act) executePauseMenuAction(act);
   };

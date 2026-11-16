@@ -225,6 +225,12 @@ export const ChillFlightLogic = {};
   const HINTS_PARAM = getSwitchParam('hints');
   // ?weightedRoll=0/1: the weighted roll off or on (game-loop.js)
   const WEIGHTED_ROLL_PARAM = getSwitchParam('weightedRoll');
+  // ?vrStick=chill or ?vrStick=sim: VR flight stick handling mode
+  const _vrStickRaw = getParam('vrStick', getParam('vrstick', null));
+  const VR_STICK_PARAM =
+    _vrStickRaw && ['chill', 'sim'].includes(_vrStickRaw.trim().toLowerCase())
+      ? _vrStickRaw.trim().toLowerCase()
+      : null;
   // ?perf=1: one-line FPS / draw call readout (perf-hud.js)
   const PERF_HUD = getSwitchParam('perf') === true;
   // Flying together (multiplayer.js): ?room= a room code to join (an invite
@@ -6832,6 +6838,7 @@ export const ChillFlightLogic = {};
   exports.ADAPTIVE_QUALITY = ADAPTIVE_QUALITY;
   exports.TRAFFIC_PARAM = TRAFFIC_PARAM;
   exports.WEIGHTED_ROLL_PARAM = WEIGHTED_ROLL_PARAM;
+  exports.VR_STICK_PARAM = VR_STICK_PARAM;
   exports.PERF_HUD = PERF_HUD;
   exports.ROOM_PARAM = ROOM_PARAM;
   exports.RELAY_PARAM = RELAY_PARAM;

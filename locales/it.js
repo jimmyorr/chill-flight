@@ -948,4 +948,10 @@ export default {
     "Calda e soffice! Adesso profuma d'avventura.",
   "Warm yarn, warm heart. That's {done} for me!":
     'Lana calda, cuore caldo. Fanno {done} per me!',
+  'Chill stick': 'Cloche relax',
+  'Sim stick': 'Cloche sim',
+  'Right hand: sim stick (roll and pull) · Left hand: throttle':
+    'Mano destra: cloche sim (rollio e cabra) · Mano sinistra: manetta',
+  'Sim stick: roll and pull · Triggers: throttle · Grips: rudder':
+    'Cloche sim: rollio e cabra · Grilletto: manetta · Impugnature: timone',
 };

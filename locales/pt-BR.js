@@ -942,4 +942,10 @@ export default {
     'Quentinha e fofinha! Agora tem cheiro de aventura.',
   "Warm yarn, warm heart. That's {done} for me!":
     'Lã quentinha, coração quentinho. Já são {done} para mim!',
+  'Chill stick': 'Manche leve',
+  'Sim stick': 'Manche sim',
+  'Right hand: sim stick (roll and pull) · Left hand: throttle':
+    'Mão direita: manche sim (rolar e puxar) · Mão esquerda: acelerador',
+  'Sim stick: roll and pull · Triggers: throttle · Grips: rudder':
+    'Manche sim: rolar e puxar · Gatilhos: acelerador · Empunhaduras: leme',
 };

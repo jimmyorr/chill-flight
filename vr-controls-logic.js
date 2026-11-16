@@ -588,6 +588,8 @@ export function createVRVirtualControlsTracker() {
   let stickSmoothX = 0;
   let stickSmoothY = 0;
   let stickAtRim = false;
+  let stickOutX = false;
+  let stickOutY = false;
 
   let throttleHolder = null; // 'left' | 'right' | null
   let throttleStartPos = null;
@@ -610,6 +612,8 @@ export function createVRVirtualControlsTracker() {
     stickSmoothX = 0;
     stickSmoothY = 0;
     stickAtRim = false;
+    stickOutX = false;
+    stickOutY = false;
   }
 
   function releaseThrottle(haptics, holderIsController) {
@@ -651,6 +655,8 @@ export function createVRVirtualControlsTracker() {
       stickSmoothX = 0;
       stickSmoothY = 0;
       stickAtRim = false;
+      stickOutX = false;
+      stickOutY = false;
       throttleHolder = null;
       throttleStartPos = null;
       throttleDetent = -1;
@@ -663,6 +669,8 @@ export function createVRVirtualControlsTracker() {
       stickSmoothX = 0;
       stickSmoothY = 0;
       stickAtRim = false;
+      stickOutX = false;
+      stickOutY = false;
       throttleHolder = null;
       throttleStartPos = null;
       throttleDetent = -1;
@@ -790,6 +798,8 @@ export function createVRVirtualControlsTracker() {
             stickSmoothX = 0;
             stickSmoothY = 0;
             stickAtRim = false;
+            stickOutX = false;
+            stickOutY = false;
             haptics.push({side, intensity: 0.28, durationMs: 18});
           } else if (!throttleHolder && dThrottle <= CONTROLLER_GRAB_RADIUS) {
             throttleHolder = side;
@@ -867,6 +877,22 @@ export function createVRVirtualControlsTracker() {
 
         const mag = Math.hypot(rawX, rawY);
         if (!h.isHand) {
+          let centeredPulse = false;
+          if (!stickOutX && Math.abs(rawX) >= 0.16) {
+            stickOutX = true;
+          } else if (stickOutX && Math.abs(rawX) < 0.07) {
+            stickOutX = false;
+            centeredPulse = true;
+          }
+          if (!stickOutY && Math.abs(rawY) >= 0.16) {
+            stickOutY = true;
+          } else if (stickOutY && Math.abs(rawY) < 0.07) {
+            stickOutY = false;
+            centeredPulse = true;
+          }
+          if (centeredPulse) {
+            haptics.push({side: stickHolder, intensity: 0.15, durationMs: 10});
+          }
           if (!stickAtRim && mag >= 0.92) {
             stickAtRim = true;
             haptics.push({side: stickHolder, intensity: 0.1, durationMs: 10});
@@ -1178,7 +1204,8 @@ export function createVRButtonTracker(gripWindowMs = STICK_FLICK_WINDOW_MS) {
 /**
  * Maps UV coordinates on the 1024x680 VR pause card mesh to button index:
  * 0 = Resume flight, 1 = Map (in-VR 3D world map), 2 = Exit VR,
- * 3 = Camera pill, 4 = Vehicle pill, 5 = Lights pill, -1 = outside.
+ * 3 = Camera pill, 4 = Vehicle pill, 5 = Lights pill, 6 = Stick mode pill,
+ * -1 = outside.
  */
 export function hitTestVRPauseMenuUV(u, v) {
   if (typeof u !== 'number' || typeof v !== 'number') return -1;
@@ -1189,9 +1216,10 @@ export function hitTestVRPauseMenuUV(u, v) {
     if (cy >= 272 && cy <= 354) return 1;
     if (cy >= 366 && cy <= 448) return 2;
     if (cy >= 462 && cy <= 526) {
-      if (cx <= 384) return 3;
-      if (cx >= 401 && cx <= 623) return 4;
-      if (cx >= 640) return 5;
+      if (cx <= 328) return 3;
+      if (cx >= 340 && cx <= 506) return 4;
+      if (cx >= 518 && cx <= 684) return 5;
+      if (cx >= 696) return 6;
     }
   }
   return -1;
@@ -1427,6 +1455,7 @@ export function createVRPauseInputLatch() {
         if (btn === 3) return 'camera';
         if (btn === 4) return 'plane';
         if (btn === 5) return 'headlight';
+        if (btn === 6) return 'stickMode';
       }
       if (freshExit) return 'exit';
       if (freshResume) return 'resume';
@@ -1478,4 +1507,321 @@ export function createVRPauseInputLatch() {
       rightGripLatched = false;
     },
   };
+}
+
+// --- VR SIM STICK FLIGHT MODEL ---
+// Rate-command ("sim stick" / Ultrawings style) aircraft attitude model for VR:
+// sideways stick controls roll rate (and holds the bank angle when centered),
+// pulling back pulls the nose toward the aircraft's roof (carving coordinated
+// banked turns or loops), and pushing forward pitches toward the belly.
+export const VR_SIM_STICK = {
+  CURVE: 0.5,
+  PULL_RATE: 1.65,
+  PUSH_SHARE: 0.65,
+  ROLL_EASE_SECONDS: 0.07,
+  PULL_EASE_SECONDS: 0.08,
+  // Returning the stick to neutral within NOTCH of wings-level (or inverted)
+  // settles cleanly onto that attitude over NOTCH_SECONDS without hunting.
+  NOTCH: (8 * Math.PI) / 180,
+  NOTCH_SECONDS: 0.28,
+  // Gentle longitudinal weathercock trim toward level cruise when elevator is
+  // centered, slow enough that steady climbs and runway glides stay planted.
+  RELAX: 0.35,
+  // Subtle banked lift loss (0.5 * (1 - cos(bank))) tucks the nose slightly
+  // in steep banks or inverted flight unless balanced with elevator pressure.
+  BANK_NOSE_DROP: 0.16,
+  // Coordinated horizontal turn component from tilted cruise wing lift.
+  BANK_TURN: 0.35,
+  // Optional rudder yaw rate (rad/s) from lap controller side grips.
+  RUDDER_RATE: 0.55,
+  // Gentle trainer-wing dihedral recovery when hands are completely off all
+  // controls for several seconds (never fires while holding the stick).
+  RESCUE_SECONDS: 4.0,
+  RESCUE_EASE_SECONDS: 1.8,
+  RESCUE_RATE: 0.85,
+  LOOP_FROM: (60 * Math.PI) / 180,
+  LOOP_TO: (45 * Math.PI) / 180,
+  LOOP_CARRY: 0.8,
+  LIMIT_RATE: 4.0,
+};
+
+const SIM_TAU = Math.PI * 2;
+
+function simWrapAngle(a) {
+  return a - SIM_TAU * Math.round(a / SIM_TAU);
+}
+
+function simSmoothstep(x, min, max) {
+  if (x <= min) return 0;
+  if (x >= max) return 1;
+  const t = (x - min) / (max - min);
+  return t * t * (3 - 2 * t);
+}
+
+function quatFromRotVec(rx, ry, rz) {
+  const angle = Math.hypot(rx, ry, rz);
+  if (angle < 1e-9) {
+    return {x: rx * 0.5, y: ry * 0.5, z: rz * 0.5, w: 1};
+  }
+  const s = Math.sin(angle * 0.5) / angle;
+  return {x: rx * s, y: ry * s, z: rz * s, w: Math.cos(angle * 0.5)};
+}
+
+/**
+ * Unscales a `scaleThumbstickAxis` output `[deadzone..maxOut]` cleanly back to
+ * `[-1..1]` with zero step jump at the deadzone edge and applies a cubic
+ * fine-control curve near neutral.
+ */
+export function simStickAxisResponse(
+  scaled,
+  deadzone = STICK_DEADZONE,
+  maxOut = STICK_SENSITIVITY
+) {
+  const abs = Math.abs(scaled);
+  if (abs <= deadzone) return 0;
+  const span = Math.max(1e-6, maxOut - deadzone);
+  const u = Math.min(1, (abs - deadzone) / span);
+  return (
+    Math.sign(scaled) *
+    ((1 - VR_SIM_STICK.CURVE) * u + VR_SIM_STICK.CURVE * u * u * u)
+  );
+}
+
+/**
+ * Extracts Three.js `'YXZ'` pitch, yaw, roll, and upright cosine (`+1` upright,
+ * `-1` inverted) from a unit quaternion `{x, y, z, w}`.
+ */
+export function attitudeOfQuat(q) {
+  const {x, y, z, w} = q;
+  const m13 = 2 * (x * z + w * y);
+  const m23 = 2 * (y * z - w * x);
+  const m33 = 1 - 2 * (x * x + y * y);
+  const m21 = 2 * (x * y + w * z);
+  const m22 = 1 - 2 * (x * x + z * z);
+  const pitch = Math.asin(-clamp(m23, -1, 1));
+  let yaw;
+  let roll;
+  if (Math.abs(m23) < 0.9999999) {
+    yaw = Math.atan2(m13, m33);
+    roll = Math.atan2(m21, m22);
+  } else {
+    yaw = Math.atan2(-2 * (x * z - w * y), 1 - 2 * (y * y + z * z));
+    roll = 0;
+  }
+  return {pitch, yaw, roll, upright: m22};
+}
+
+/**
+ * Builds a unit quaternion `{x, y, z, w}` from Three.js `'YXZ'` Euler angles.
+ */
+export function quatFromAttitude(pitch, yaw, roll) {
+  return quatNormalize(
+    quatMultiply(
+      quatMultiply(quatFromRotVec(0, yaw, 0), quatFromRotVec(pitch, 0, 0)),
+      quatFromRotVec(0, 0, roll)
+    )
+  );
+}
+
+export function createVRSimStickState() {
+  return {
+    rollRate: 0,
+    pullRate: 0,
+    yawRate: 0,
+    idle: 0,
+    notch: null,
+    rollWasHeld: false,
+    looping: false,
+    loopDir: 1,
+    rollTurned: 0,
+    pullTurned: 0,
+    rollStill: 0,
+    pullStill: 0,
+  };
+}
+
+function accumulateFullTurn(s, totalKey, stillKey, rate, dt) {
+  if (Math.abs(rate) < 0.3) {
+    s[stillKey] += dt;
+    if (s[stillKey] > 0.5) s[totalKey] = 0;
+    return false;
+  }
+  s[stillKey] = 0;
+  if (s[totalKey] !== 0 && Math.sign(s[totalKey]) !== Math.sign(rate)) {
+    s[totalKey] = 0;
+  }
+  s[totalKey] += rate * dt;
+  if (Math.abs(s[totalKey]) >= SIM_TAU) {
+    s[totalKey] = 0;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Advances one frame of rate-command VR sim-stick flight physics.
+ * - `roll` in `[-1..1]` (`+1` = right stick -> right wing down)
+ * - `pull` in `[-1..1]` (`+1` = pull back -> nose toward canopy; `-1` = push forward)
+ * - `rudder` in `[-1..1]` (`+1` = yaw left, `-1` = yaw right)
+ * - `active`: true while the player's hand holds the virtual stick or deflects a stick
+ */
+export function stepVRSimStickAttitude(s, input) {
+  const {
+    quat,
+    roll = 0,
+    pull = 0,
+    rudder = 0,
+    active = false,
+    handling = {agility: 1, rollRate: 2.8, stallKts: 0, levelKts: 60},
+    kts = 80,
+    climbLimit = Infinity,
+    turnScale = 1,
+    grounded = false,
+    dt = 1 / 60,
+  } = input;
+
+  const T = VR_SIM_STICK;
+  const rollCmd = grounded ? 0 : clamp(roll, -1, 1);
+  const pullCmd = clamp(pull, -1, 1);
+  const rollHeld = Math.abs(rollCmd) > 1e-4;
+  const pullHeld = Math.abs(pullCmd) > 1e-4;
+  const rudderHeld = Math.abs(rudder) > 1e-4;
+
+  const att = attitudeOfQuat(quat);
+  const bank = att.roll;
+  const steep = Math.abs(att.pitch) > T.LOOP_FROM;
+
+  // Hands-off trainer dihedral recovery (paused whenever holding the stick)
+  s.idle = active || rollHeld || pullHeld || rudderHeld ? 0 : s.idle + dt;
+  const rescue = simSmoothstep(
+    s.idle,
+    T.RESCUE_SECONDS,
+    T.RESCUE_SECONDS + T.RESCUE_EASE_SECONDS
+  );
+
+  // 1. Aileron roll rate & wings-level / inverted detent notch
+  const maxRoll = handling.rollRate;
+  let notchedJustNow = false;
+  if (rollHeld) {
+    s.notch = null;
+  } else if (s.rollWasHeld && !steep) {
+    for (const n of [0, Math.PI]) {
+      if (Math.abs(simWrapAngle(n - bank)) < T.NOTCH) {
+        s.notch = n;
+        notchedJustNow = true;
+        break;
+      }
+    }
+  }
+  s.rollWasHeld = rollHeld;
+
+  let wantRoll = -rollCmd * maxRoll;
+  if (!rollHeld) {
+    if (s.notch !== null) {
+      const d = simWrapAngle(s.notch - bank);
+      if (Math.abs(d) < 0.003 && Math.abs(s.rollRate) < 0.05) {
+        s.notch = null;
+      } else {
+        wantRoll = clamp(d / T.NOTCH_SECONDS, -maxRoll, maxRoll);
+      }
+    } else if (rescue > 0 || grounded) {
+      wantRoll = clamp(
+        simWrapAngle(-bank) * T.RESCUE_RATE * (grounded ? 4 : rescue),
+        -maxRoll,
+        maxRoll
+      );
+    }
+  }
+  s.rollRate +=
+    (wantRoll - s.rollRate) * (1 - Math.exp(-dt / T.ROLL_EASE_SECONDS));
+
+  // 2. Elevator pull rate & aerodynamic pitch stability
+  const authority =
+    handling.stallKts > 0
+      ? 0.35 + 0.65 * simSmoothstep(kts, handling.stallKts, handling.levelKts)
+      : 1;
+  const maxPull = T.PULL_RATE * handling.agility * authority;
+
+  if (steep && pullHeld && Math.abs(s.pullRate) > 0.3) {
+    s.looping = true;
+    s.loopDir = Math.sign(s.pullRate);
+  } else if (
+    s.looping &&
+    att.upright > 0.5 &&
+    Math.abs(att.pitch) < T.LOOP_TO
+  ) {
+    s.looping = false;
+  }
+
+  let wantPull =
+    pullCmd >= 0 ? pullCmd * maxPull : pullCmd * maxPull * T.PUSH_SHARE;
+
+  let settle = 0;
+  if (s.looping && !pullHeld && att.upright < 0) {
+    // Releasing stick while inverted over the top of a loop carries cleanly round
+    wantPull = s.loopDir * maxPull * T.LOOP_CARRY;
+  } else if (!s.looping) {
+    // Banked lift loss gently drops the nose toward earth unless supported by
+    // elevator back-pressure (or forward push when inverted)
+    const bankGravityDrop = grounded
+      ? 0
+      : T.BANK_NOSE_DROP * 0.5 * (1 - Math.cos(bank)) * Math.cos(att.pitch);
+    const trimRelax = pullHeld
+      ? 0
+      : -att.pitch * Math.max(T.RELAX, rescue * T.RESCUE_RATE);
+    settle = trimRelax - bankGravityDrop;
+  }
+
+  if (!(s.looping && att.upright < 0) && att.pitch > climbLimit) {
+    settle -= (att.pitch - climbLimit) * T.LIMIT_RATE;
+    if (att.upright > 0) wantPull = Math.min(wantPull, 0);
+  }
+
+  s.pullRate +=
+    (wantPull - s.pullRate) * (1 - Math.exp(-dt / T.PULL_EASE_SECONDS));
+
+  // 3. Rudder yaw (from lap controller side-grips when airborne)
+  const wantYaw = grounded
+    ? 0
+    : clamp(rudder, -1, 1) * T.RUDDER_RATE * handling.agility;
+  s.yawRate +=
+    (wantYaw - s.yawRate) * (1 - Math.exp(-dt / T.ROLL_EASE_SECONDS));
+
+  // 4. Integrate body-space rates + world-horizon coordinated bank turn
+  const pitchRate = s.pullRate + settle * Math.cos(bank);
+  const bodyYawRate = s.yawRate - settle * Math.sin(bank);
+  let q = quatMultiply(
+    quat,
+    quatFromRotVec(pitchRate * dt, bodyYawRate * dt, s.rollRate * dt)
+  );
+
+  if (!grounded) {
+    const bankTurn =
+      T.BANK_TURN *
+      2 *
+      Math.sin(bank) *
+      Math.max(0, Math.cos(bank)) *
+      Math.cos(att.pitch) *
+      handling.agility *
+      turnScale;
+    q = quatMultiply(quatFromRotVec(0, bankTurn * dt, 0), q);
+  }
+  q = quatNormalize(q);
+
+  const rolled = accumulateFullTurn(
+    s,
+    'rollTurned',
+    'rollStill',
+    s.rollRate,
+    dt
+  );
+  const looped = accumulateFullTurn(
+    s,
+    'pullTurned',
+    'pullStill',
+    s.pullRate,
+    dt
+  );
+
+  return {quat: q, rolled, looped, notched: notchedJustNow};
 }

@@ -892,4 +892,10 @@ export default {
     '暖烘烘、軟乎乎！現在聞起來像冒險的味道。',
   "Warm yarn, warm heart. That's {done} for me!":
     '暖暖的毛線，暖暖的心。你已經幫我跑了 {done}了！',
+  'Chill stick': '輕鬆搖桿',
+  'Sim stick': '擬真搖桿',
+  'Right hand: sim stick (roll and pull) · Left hand: throttle':
+    '右手：擬真搖桿（橫滾與拉桿） · 左手：油門',
+  'Sim stick: roll and pull · Triggers: throttle · Grips: rudder':
+    '擬真搖桿：橫滾與拉桿 · 扳機：油門 · 側握鍵：方向舵',
 };

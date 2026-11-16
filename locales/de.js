@@ -952,4 +952,10 @@ export default {
     'Mollig und flauschig! Sie riecht jetzt nach Abenteuer.',
   "Warm yarn, warm heart. That's {done} for me!":
     'Warme Wolle, warmes Herz. Das sind {done} für mich!',
+  'Chill stick': 'Lockerer Stick',
+  'Sim stick': 'Sim-Stick',
+  'Right hand: sim stick (roll and pull) · Left hand: throttle':
+    'Rechte Hand: Sim-Stick (rollen und ziehen) · Linke Hand: Schub',
+  'Sim stick: roll and pull · Triggers: throttle · Grips: rudder':
+    'Sim-Stick: rollen und ziehen · Trigger: Schub · Griffe: Ruder',
 };

@@ -952,4 +952,10 @@ export default {
     "Toute chaude et toute douce ! Elle sent l'aventure maintenant.",
   "Warm yarn, warm heart. That's {done} for me!":
     'Laine chaude, cœur chaud. Ça fait {done} pour moi !',
+  'Chill stick': 'Manche doux',
+  'Sim stick': 'Manche simu',
+  'Right hand: sim stick (roll and pull) · Left hand: throttle':
+    'Main droite : manche simu (roulis et tirer) · Main gauche : gaz',
+  'Sim stick: roll and pull · Triggers: throttle · Grips: rudder':
+    'Manche simu : roulis et tirer · Gâchettes : gaz · Poignées : gouvernail',
 };

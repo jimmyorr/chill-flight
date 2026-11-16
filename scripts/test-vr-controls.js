@@ -9,14 +9,17 @@
  */
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {
+  STICK_DEADZONE,
   STICK_SENSITIVITY,
   VR_MAP_LAYOUT,
+  attitudeOfQuat,
   computeVRConsolePose,
   computeVirtualStickAxes,
   computeVirtualThrottle,
   createStickFlickTracker,
   createVRButtonTracker,
   createVRPauseInputLatch,
+  createVRSimStickState,
   createVRVirtualControlsTracker,
   evaluateHandFist,
   evaluateHandGrab,
@@ -27,10 +30,13 @@ import {
   hitTestVRPauseMenuUV,
   isPalmFacingHead,
   isXRSessionVisible,
+  quatFromAttitude,
   readCombinedThumbstick,
   readVRMapPanStick,
   readXRTriggers,
   scaleThumbstickAxis,
+  simStickAxisResponse,
+  stepVRSimStickAttitude,
   unscaleThumbstickForBuggy,
   uvToVRMapViewportNorm,
 } from '../vr-controls-logic.js';
@@ -481,17 +487,18 @@ function makeSession(leftOpts, rightOpts) {
   );
 }
 
-// 7. Pause menu UV hit-testing (main buttons + quick-action pills)
+// 7. Pause menu UV hit-testing (main buttons + 4 quick-action pills)
 {
   check(
-    'UV hit-test maps Resume, Map, Exit VR, Camera, Vehicle, Lights pills, and card margins accurately',
+    'UV hit-test maps Resume, Map, Exit VR, Camera, Vehicle, Lights, Stick mode pills, and card margins accurately',
     hitTestVRPauseMenuUV(0.5, 1 - 219 / 680) === 0 &&
       hitTestVRPauseMenuUV(0.5, 1 - 313 / 680) === 1 &&
       hitTestVRPauseMenuUV(0.5, 1 - 407 / 680) === 2 &&
-      hitTestVRPauseMenuUV(273 / 1024, 1 - 494 / 680) === 3 &&
-      hitTestVRPauseMenuUV(512 / 1024, 1 - 494 / 680) === 4 &&
-      hitTestVRPauseMenuUV(751 / 1024, 1 - 494 / 680) === 5 &&
-      hitTestVRPauseMenuUV(392 / 1024, 1 - 494 / 680) === -1 &&
+      hitTestVRPauseMenuUV(245 / 1024, 1 - 494 / 680) === 3 &&
+      hitTestVRPauseMenuUV(423 / 1024, 1 - 494 / 680) === 4 &&
+      hitTestVRPauseMenuUV(601 / 1024, 1 - 494 / 680) === 5 &&
+      hitTestVRPauseMenuUV(779 / 1024, 1 - 494 / 680) === 6 &&
+      hitTestVRPauseMenuUV(334 / 1024, 1 - 494 / 680) === -1 &&
       hitTestVRPauseMenuUV(0.5, 1 - 120 / 680) === -1 &&
       hitTestVRPauseMenuUV(0.05, 1 - 219 / 680) === -1
   );
@@ -999,10 +1006,12 @@ function makeSession(leftOpts, rightOpts) {
   const unpinched = {...handExtracted, handPinch: false, rightHandPinch: false};
   pLatch.poll(unpinched, 3);
   check(
-    'fresh bare-hand pinch on quick-action pills fires camera, plane, and headlight',
+    'fresh bare-hand pinch on quick-action pills fires camera, plane, headlight, and stickMode',
     pLatch.poll(handExtracted, 3) === 'camera' &&
       (pLatch.poll(unpinched, 4), pLatch.poll(handExtracted, 4) === 'plane') &&
-      (pLatch.poll(unpinched, 5), pLatch.poll(handExtracted, 5) === 'headlight')
+      (pLatch.poll(unpinched, 5),
+      pLatch.poll(handExtracted, 5) === 'headlight') &&
+      (pLatch.poll(unpinched, 6), pLatch.poll(handExtracted, 6) === 'stickMode')
   );
 
   // Pinch & scale-invariant fist hysteresis
@@ -1341,6 +1350,237 @@ function makeSession(leftOpts, rightOpts) {
     'touching the in-flight pause pill with a bare fingertip triggers pause once and latches cleanly',
     poke1.pauseTriggered && !poke2.pauseTriggered,
     JSON.stringify({poke1, poke2})
+  );
+}
+
+// 14. VR Sim stick flight model (roll-and-pull attitude, bank hold, notches, loops, and center haptic detent)
+{
+  check(
+    'simStickAxisResponse unscales deadzone edge without step jump and reaches full +/-1 at rim',
+    simStickAxisResponse(0) === 0 &&
+      simStickAxisResponse(STICK_DEADZONE) === 0 &&
+      simStickAxisResponse(STICK_DEADZONE + 0.01) > 0 &&
+      simStickAxisResponse(STICK_DEADZONE + 0.01) < 0.03 &&
+      Math.abs(simStickAxisResponse(STICK_SENSITIVITY) - 1) < 1e-6 &&
+      Math.abs(simStickAxisResponse(-STICK_SENSITIVITY) - -1) < 1e-6
+  );
+
+  // Bank hold while holding centered stick vs. hands-off trainer dihedral recovery
+  const handling = {agility: 1, rollRate: 2.8, stallKts: 46, levelKts: 65};
+  const sim = createVRSimStickState();
+  let q = quatFromAttitude(0, 0, 0);
+  for (let i = 0; i < 24; i++) {
+    q = stepVRSimStickAttitude(sim, {
+      quat: q,
+      roll: 0.75,
+      pull: 0,
+      active: true,
+      handling,
+      kts: 120,
+      dt: 1 / 60,
+    }).quat;
+  }
+  // Let rollRate ease to 0 over 0.4s, then verify bank stays locked for 5 full seconds while holding stick
+  for (let i = 0; i < 24; i++) {
+    q = stepVRSimStickAttitude(sim, {
+      quat: q,
+      roll: 0,
+      pull: 0,
+      active: true,
+      handling,
+      kts: 120,
+      dt: 1 / 60,
+    }).quat;
+  }
+  const bankedAngle = attitudeOfQuat(q).roll; // negative = right wing down
+  for (let i = 0; i < 300; i++) {
+    q = stepVRSimStickAttitude(sim, {
+      quat: q,
+      roll: 0,
+      pull: 0,
+      active: true,
+      handling,
+      kts: 120,
+      dt: 1 / 60,
+    }).quat;
+  }
+  const heldBankAfter5s = attitudeOfQuat(q).roll;
+  // Now let go of all controls (`active: false`) for 8 seconds -> dihedral recovery eases bank back
+  for (let i = 0; i < 480; i++) {
+    q = stepVRSimStickAttitude(sim, {
+      quat: q,
+      roll: 0,
+      pull: 0,
+      active: false,
+      handling,
+      kts: 120,
+      dt: 1 / 60,
+    }).quat;
+  }
+  const recoveredBank = attitudeOfQuat(q).roll;
+  check(
+    'Sim stick banks right and holds bank rock-solid while gripping centered stick, then gently recovers when hands-off',
+    bankedAngle < -0.5 &&
+      Math.abs(heldBankAfter5s - bankedAngle) < 0.005 &&
+      Math.abs(recoveredBank) < 0.12,
+    JSON.stringify({bankedAngle, heldBankAfter5s, recoveredBank})
+  );
+
+  // Returning stick to neutral within 8 deg of wings-level snaps cleanly onto 0 deg notch
+  const notchSim = createVRSimStickState();
+  let qNotch = quatFromAttitude(0, 0, -0.09); // ~5.1 deg bank
+  notchSim.rollWasHeld = true;
+  const notchFirst = stepVRSimStickAttitude(notchSim, {
+    quat: qNotch,
+    roll: 0,
+    pull: 0,
+    active: true,
+    handling,
+    kts: 120,
+    dt: 1 / 60,
+  });
+  qNotch = notchFirst.quat;
+  for (let i = 0; i < 60; i++) {
+    qNotch = stepVRSimStickAttitude(notchSim, {
+      quat: qNotch,
+      roll: 0,
+      pull: 0,
+      active: true,
+      handling,
+      kts: 120,
+      dt: 1 / 60,
+    }).quat;
+  }
+  check(
+    'returning Sim stick to neutral near wings-level triggers haptic notch and settles to 0 deg',
+    notchFirst.notched && Math.abs(attitudeOfQuat(qNotch).roll) < 0.01,
+    JSON.stringify({
+      notched: notchFirst.notched,
+      finalRoll: attitudeOfQuat(qNotch).roll,
+    })
+  );
+
+  // Knife-edge (-90 deg bank) + elevator pull carves a tight horizontal right turn
+  const turnSim = createVRSimStickState();
+  let qTurn = quatFromAttitude(0, 0, -Math.PI / 2);
+  for (let i = 0; i < 45; i++) {
+    qTurn = stepVRSimStickAttitude(turnSim, {
+      quat: qTurn,
+      roll: 0,
+      pull: 0.85,
+      active: true,
+      handling,
+      kts: 140,
+      dt: 1 / 60,
+    }).quat;
+  }
+  const turnAtt = attitudeOfQuat(qTurn);
+  check(
+    'pulling back on Sim stick in a right knife-edge bank carves a horizontal right turn',
+    turnAtt.yaw < -0.6 && Math.abs(turnAtt.pitch) < 0.25,
+    JSON.stringify(turnAtt)
+  );
+
+  // Full sustained roll and full sustained pull complete manual 360 deg barrel rolls and loops
+  const stuntSim = createVRSimStickState();
+  let qStunt = quatFromAttitude(0, 0, 0);
+  let didRoll = false;
+  for (let i = 0; i < 240; i++) {
+    const res = stepVRSimStickAttitude(stuntSim, {
+      quat: qStunt,
+      roll: 1,
+      pull: 0,
+      active: true,
+      handling,
+      kts: 150,
+      dt: 1 / 60,
+    });
+    qStunt = res.quat;
+    if (res.rolled) didRoll = true;
+  }
+  qStunt = quatFromAttitude(0, 0, 0);
+  let didLoop = false;
+  let sawLooping = false;
+  for (let i = 0; i < 300; i++) {
+    const res = stepVRSimStickAttitude(stuntSim, {
+      quat: qStunt,
+      roll: 0,
+      pull: 1,
+      active: true,
+      handling,
+      kts: 150,
+      dt: 1 / 60,
+    });
+    qStunt = res.quat;
+    if (stuntSim.looping) sawLooping = true;
+    if (res.looped) didLoop = true;
+  }
+  check(
+    'sustained full Sim stick roll and pull complete 360 deg manual barrel rolls and vertical loops',
+    didRoll && sawLooping && didLoop,
+    JSON.stringify({didRoll, sawLooping, didLoop})
+  );
+
+  // Controller center-detent haptic tick fires once when returning virtual stick inside neutral
+  const cTracker = createVRVirtualControlsTracker();
+  const cPose = computeVRConsolePose({x: 0, y: 0, z: 0}, 0);
+  cTracker.update({
+    right: {
+      connected: true,
+      isHand: false,
+      gripPos: {...cPose.stickHomePos},
+      gripQuat: {x: 0, y: 0, z: 0, w: 1},
+      grabbing: true,
+    },
+    delta: 1 / 60,
+  });
+  // Deflect stick right (+20 deg roll around Z -> q = (0, 0, -sin(10 deg), cos(10 deg)))
+  const tiltQuat = {
+    x: 0,
+    y: 0,
+    z: -Math.sin((10 * Math.PI) / 180),
+    w: Math.cos((10 * Math.PI) / 180),
+  };
+  const deflected = cTracker.update({
+    right: {
+      connected: true,
+      isHand: false,
+      gripPos: {...cPose.stickHomePos},
+      gripQuat: tiltQuat,
+      grabbing: true,
+    },
+    delta: 1 / 60,
+  });
+  const centered1 = cTracker.update({
+    right: {
+      connected: true,
+      isHand: false,
+      gripPos: {...cPose.stickHomePos},
+      gripQuat: {x: 0, y: 0, z: 0, w: 1},
+      grabbing: true,
+    },
+    delta: 1 / 60,
+  });
+  const centered2 = cTracker.update({
+    right: {
+      connected: true,
+      isHand: false,
+      gripPos: {...cPose.stickHomePos},
+      gripQuat: {x: 0, y: 0, z: 0, w: 1},
+      grabbing: true,
+    },
+    delta: 1 / 60,
+  });
+  check(
+    'returning virtual stick from deflection into neutral fires a single crisp center-detent haptic tick',
+    deflected.haptics.length === 0 &&
+      centered1.haptics.length === 1 &&
+      centered2.haptics.length === 0,
+    JSON.stringify({
+      deflected: deflected.haptics,
+      centered1: centered1.haptics,
+      centered2: centered2.haptics,
+    })
   );
 }
 

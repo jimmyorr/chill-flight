@@ -1209,8 +1209,13 @@ export class InputManager {
           this._virtualStickActive = false;
         }
 
-        const flick = this.applyStickFlick(rawX, rawY);
+        const simStickOn = this.isVRSimStickActive();
+        const flick = simStickOn
+          ? (this.releaseStickFlick(),
+            {activeCount: 0, activeAction: null, started: null, released: null})
+          : this.applyStickFlick(rawX, rawY);
         const suppressHorizontal =
+          !simStickOn &&
           flick.activeCount === 3 &&
           (flick.activeAction === 'ArrowLeft' ||
             flick.activeAction === 'ArrowRight');
@@ -1486,6 +1491,23 @@ export class InputManager {
       }
     }
     return false;
+  }
+
+  isHoldingVirtualStick() {
+    return Boolean(this._virtualStickActive);
+  }
+
+  isVRSimStickActive() {
+    const isVRPresenting = Boolean(
+      renderer && renderer.xr && renderer.xr.isPresenting
+    );
+    return Boolean(
+      isVRPresenting &&
+      state.vrStickMode === 'sim' &&
+      !state.airplaneModel?.isBuggy &&
+      !state.isFreeCamera &&
+      state.cameraMode !== 'cinematic'
+    );
   }
 
   shouldInvertYAxis() {

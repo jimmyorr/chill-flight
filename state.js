@@ -5,8 +5,13 @@
 import {ChillFlightLogic} from './chill-flight-logic.js';
 
 let storedColor = null;
+let storedVRStickMode = null;
 try {
   storedColor = localStorage.getItem('chill_flight_color');
+  const rawVRStick = localStorage.getItem('chill_flight_vr_stick_mode');
+  if (rawVRStick === 'sim' || rawVRStick === 'chill') {
+    storedVRStickMode = rawVRStick;
+  }
   // Re-evaluate web browsers whose earlier v1 hardware auto-detect saved 'low'
   // (Quest 2, 4-6 GB Android phones, 4-core desktops) before sky.js creates the
   // WebGL context, unless the user manually chose a preset in Settings.
@@ -174,6 +179,7 @@ export const state = {
 
   // Game session, flight, sky, and effects (game.js)
   isVRPresenting: false,
+  vrStickMode: ChillFlightLogic.VR_STICK_PARAM || storedVRStickMode || 'chill',
   latScale: 5000,
   currentLatDeg: 0,
   currentLatRad: 0,

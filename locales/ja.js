@@ -926,4 +926,10 @@ export default {
     'ぽかぽかふわふわ！冒険のにおいがするようになった。',
   "Warm yarn, warm heart. That's {done} for me!":
     'あったかい毛糸に、あったかい心。これで{done}ね！',
+  'Chill stick': 'チル操縦桿',
+  'Sim stick': 'シム操縦桿',
+  'Right hand: sim stick (roll and pull) · Left hand: throttle':
+    '右手: シム操縦桿（ロールと引き起こし） · 左手: スロットル',
+  'Sim stick: roll and pull · Triggers: throttle · Grips: rudder':
+    'シム操縦桿: ロールと引き起こし · トリガー: スロットル · グリップ: ラダー',
 };

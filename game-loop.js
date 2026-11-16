@@ -119,7 +119,12 @@ import {
   snowParticles,
   updateWeather,
 } from './weather-manager.js';
-import {updateVRPauseInteraction} from './vr-manager.js';
+import {pulseXRControllers, updateVRPauseInteraction} from './vr-manager.js';
+import {
+  createVRSimStickState,
+  simStickAxisResponse,
+  stepVRSimStickAttitude,
+} from './vr-controls-logic.js';
 import {scene} from './scene.js';
 import {clearInputState} from './game-state.js';
 import {toggleAutopilot, updateThrottle} from './game-ui.js';
@@ -1049,6 +1054,127 @@ function stickResponse(v) {
   return Math.sign(v) * ((1 - STICK_CURVE) * u + STICK_CURVE * u * u * u);
 }
 
+const _vrSimStickState = createVRSimStickState();
+const _vrSimStickQuat = {x: 0, y: 0, z: 0, w: 1};
+const _vrSimLastPos = new THREE.Vector3(NaN, NaN, NaN);
+let vrSimStickWereFlying = false;
+
+function isVRSimStickFlying() {
+  return Boolean(
+    state.isVRPresenting &&
+    state.vrStickMode === 'sim' &&
+    !state.airplaneModel?.isBuggy &&
+    state.cameraMode !== 'cinematic'
+  );
+}
+
+function flyVRSimStick(delta, inAirGripTurn) {
+  if (
+    !vrSimStickWereFlying ||
+    planeGroup.position.distanceToSquared(_vrSimLastPos) > 10000
+  ) {
+    Object.assign(_vrSimStickState, createVRSimStickState());
+  }
+  _vrSimLastPos.copy(planeGroup.position);
+  vrSimStickWereFlying = true;
+
+  sharpTurnRamp = 0;
+  sharpTurnAmount = 0;
+  state.sharpTurnAmount = 0;
+  state.manualPitch = 0;
+  barrelRollDir = 0;
+  barrelRollRate = 0;
+  manualPitchVel = 0;
+  manualPitchActive = false;
+  lastPitchMode = 0;
+  loopActive = false;
+  loopRecovering = false;
+  rollRate = 0;
+
+  const hasStick = state.mouseControlActive && !state.isFreeCamera;
+  const virtualHeld = inputManager.isHoldingVirtualStick();
+  const roll = hasStick ? simStickAxisResponse(state.mouseX) : 0;
+  const rawPull = hasStick ? (virtualHeld ? state.mouseY : -state.mouseY) : 0;
+  const pull = hasStick ? simStickAxisResponse(rawPull) : 0;
+  const active = Boolean(
+    virtualHeld || inputManager.state.gamepad.steeringActive
+  );
+
+  // Taxi yaw when rolling slowly on ground or water
+  if (
+    (state.isOnGround || state.isOnWater) &&
+    state.flightSpeedMultiplier < 0.4 &&
+    !keys.Shift
+  ) {
+    const groundGripTurn = inputManager.state.gamepad.gripTurn || 0;
+    if (groundGripTurn !== 0) {
+      planeGroup.rotation.y += groundGripTurn * 1.5 * delta;
+    } else if (Math.abs(roll) > 0.05) {
+      planeGroup.rotation.y -= roll * 1.5 * delta;
+    }
+  }
+
+  const handling = planeHandling();
+  const kts = BASE_FLIGHT_SPEED * Math.abs(state.flightSpeedMultiplier) * 60;
+  ceilingCap = sagClimbCap(
+    ceilingCap,
+    ceilingClimbLimit(
+      planeGroup.position.y,
+      flightCeiling(manualCloudHeight),
+      MAX_CLIMB_ANGLE
+    ),
+    kts,
+    delta
+  );
+  const maxClimb = Math.min(
+    ceilingCap,
+    handling.stallKts > 0
+      ? THREE.MathUtils.lerp(
+          SLOW_CLIMB_ANGLE,
+          MAX_CLIMB_ANGLE,
+          THREE.MathUtils.smoothstep(kts, handling.stallKts, handling.levelKts)
+        )
+      : MAX_CLIMB_ANGLE
+  );
+  const turnScale = THREE.MathUtils.lerp(
+    1,
+    TURN_FAST_SCALE,
+    THREE.MathUtils.smoothstep(kts, TURN_FADE_FROM_KTS, TURN_FADE_TO_KTS)
+  );
+
+  const q = planeGroup.quaternion;
+  _vrSimStickQuat.x = q.x;
+  _vrSimStickQuat.y = q.y;
+  _vrSimStickQuat.z = q.z;
+  _vrSimStickQuat.w = q.w;
+
+  const out = stepVRSimStickAttitude(_vrSimStickState, {
+    quat: _vrSimStickQuat,
+    roll,
+    pull,
+    rudder: !keys.Shift ? inAirGripTurn : 0,
+    active,
+    handling,
+    kts,
+    climbLimit: maxClimb < MAX_CLIMB_ANGLE - 0.01 ? maxClimb : Infinity,
+    turnScale,
+    grounded: state.isOnGround || state.isOnWater,
+    dt: delta,
+  });
+
+  q.set(out.quat.x, out.quat.y, out.quat.z, out.quat.w);
+  state._nextYaw = planeGroup.rotation.y;
+  state.targetPitch = planeGroup.rotation.x;
+  state.targetRoll = planeGroup.rotation.z;
+  state.isLooping = _vrSimStickState.looping;
+  state.isDoingFullLoop = _vrSimStickState.looping;
+  state.isBarrelRolling = Math.abs(_vrSimStickState.rollRate) > 1.2;
+
+  if (out.notched) pulseXRControllers(0.14, 10);
+  if (out.rolled) Achievements.unlock('barrel_roll');
+  if (out.looped) Achievements.unlock('froot_loops');
+}
+
 function updatePhysicsAndControls(delta, nowTime) {
   // Spin the propeller: the engine drives it while the plane moves or the
   // throttle is open, and with the engine off it coasts down, catches on
@@ -1222,6 +1348,7 @@ function updatePhysicsAndControls(delta, nowTime) {
   // autopilot and the manual maneuvers below (see promo-script.js)
   const scripted = !state.isFreeCamera && state.scriptedFlight?.(nowTime);
   if (scripted) {
+    vrSimStickWereFlying = false;
     state.isDoingImmelmann = false;
     state.targetPitch = scripted.pitch;
     state.targetRoll = scripted.roll;
@@ -1247,13 +1374,23 @@ function updatePhysicsAndControls(delta, nowTime) {
     state.autopilotEnabled &&
     state.flightSpeedMultiplier > 0
   ) {
+    vrSimStickWereFlying = false;
     updateAutopilot(delta);
     manualPitchVel = 0;
     manualPitchActive = false;
     lastPitchMode = 0;
     loopActive = false;
     loopRecovering = false;
+  } else if (
+    !state.isFreeCamera &&
+    state.flightSpeedMultiplier > 0 &&
+    !state.isDoingImmelmann &&
+    isVRSimStickFlying()
+  ) {
+    flyVRSimStick(delta, inAirGripTurn);
+    return;
   } else if (!state.isFreeCamera && state.flightSpeedMultiplier > 0) {
+    vrSimStickWereFlying = false;
     if (state.isDoingImmelmann) {
       if (state.immelmannProgress === 0) {
         loopActive = false;
@@ -1504,6 +1641,7 @@ function updatePhysicsAndControls(delta, nowTime) {
       state.isDoingFullBarrelRoll = true;
     }
   } else {
+    vrSimStickWereFlying = false;
     barrelRollDir = 0;
     barrelRollRate = 0;
     manualPitchVel = 0;

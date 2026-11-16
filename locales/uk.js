@@ -941,4 +941,10 @@ export default {
     'Тепла й пухнаста! Тепер вона пахне пригодами.',
   "Warm yarn, warm heart. That's {done} for me!":
     'Тепла пряжа, тепле серце. Для мене це вже {done}!',
+  'Chill stick': 'Легкий штурвал',
+  'Sim stick': 'Сим-штурвал',
+  'Right hand: sim stick (roll and pull) · Left hand: throttle':
+    'Права рука: сим-штурвал (крен і тяга на себе) · Ліва рука: газ',
+  'Sim stick: roll and pull · Triggers: throttle · Grips: rudder':
+    'Сим-штурвал: крен і тяга на себе · Тригери: газ · Бокові хвати: кермо',
 };

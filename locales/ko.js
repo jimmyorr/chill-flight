@@ -914,4 +914,10 @@ export default {
     '따끈하고 폭신해! 이제 모험 냄새가 나.',
   "Warm yarn, warm heart. That's {done} for me!":
     '따뜻한 털실, 따뜻한 마음. 이걸로 {done}째야!',
+  'Chill stick': '칠 스틱',
+  'Sim stick': '심 스틱',
+  'Right hand: sim stick (roll and pull) · Left hand: throttle':
+    '오른손: 심 스틱(롤 및 당기기) · 왼손: 스로틀',
+  'Sim stick: roll and pull · Triggers: throttle · Grips: rudder':
+    '심 스틱: 롤 및 당기기 · 트리거: 스로틀 · 그립: 러더',
 };
