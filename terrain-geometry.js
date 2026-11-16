@@ -272,7 +272,6 @@ terrainMaterial.onBeforeCompile = (shader) => {
   shader.uniforms.uTopColor = terrainUniforms.uTopColor;
   shader.uniforms.uBottomColor = terrainUniforms.uBottomColor;
   shader.uniforms.uSnowExposure = terrainUniforms.uSnowExposure;
-  shader.uniforms.uOzone = terrainUniforms.uOzone;
 
   shader.vertexShader =
     `
@@ -501,7 +500,6 @@ waterMaterial.onBeforeCompile = function (shader) {
   shader.uniforms.uSunColor = waterUniforms.uSunColor;
   shader.uniforms.uTopColor = terrainUniforms.uTopColor;
   shader.uniforms.uBottomColor = terrainUniforms.uBottomColor;
-  shader.uniforms.uOzone = terrainUniforms.uOzone;
 
   // Add time uniform declaration to the top of the vertex shader
   shader.vertexShader =

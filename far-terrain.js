@@ -56,7 +56,6 @@ farMaterial.onBeforeCompile = (shader) => {
   shader.uniforms.uSunDirection = terrainUniforms.uSunDirection;
   shader.uniforms.uTopColor = terrainUniforms.uTopColor;
   shader.uniforms.uBottomColor = terrainUniforms.uBottomColor;
-  shader.uniforms.uOzone = terrainUniforms.uOzone;
   shader.uniforms.uFarRadius = farUniforms.uFarRadius;
   shader.uniforms.uFarWaterY = farUniforms.uFarWaterY;
 
