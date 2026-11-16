@@ -263,6 +263,21 @@ const ROCK_SCALE = 0.93;
 const ROCK_BIG_SHARE = 0.08;
 // Lone trees out in the open (copseAt): scale to keep their count
 const COPSE_SCALE = 1.95;
+// Bushes (bushinessAt): scale to keep their count
+const BUSH_SCALE = 2.9;
+
+// How many bushes grow here, about 1 on average: mostly along the edges of
+// the woods (`edge`: how far the woods' noise is past where they start,
+// negative outside them) and in thickets, few out in the fields or deep in
+// the woods
+function bushinessAt(edge, x, z) {
+  const clamp01 = (v) => Math.max(0, Math.min(1, v));
+  const woodEdge = clamp01(1 - Math.abs(edge) / 0.12);
+  const thicket = clamp01(
+    0.5 + 1.0 * simplex.noise2D(x * 0.012 + 401, z * 0.012 - 233)
+  );
+  return BUSH_SCALE * (0.15 + 3 * woodEdge) * (0.2 + 1.6 * thicket * thicket);
+}
 // Hay bales: the share of the mown meadows among the fields that have them,
 // and the chance of a bale (or a pair) at each grid point of one
 const HAY_FIELD_CHANCE = 0.45;
@@ -4537,12 +4552,20 @@ export function generateChunkData({
         snowFactor < 0.3 &&
         height > WATER_LEVEL + 3 &&
         height < MOUNTAIN_LEVEL - 100 &&
-        rng() < 0.08 * densityScale
+        rng() <
+          0.08 *
+            bushinessAt(forestNoise - 0.2 - 0.6 * farm, worldX, worldZ) *
+            densityScale
       ) {
+        // Off the vertex grid, so a thicket doesn't stand in rows
+        const gx = Math.round(worldX / gridSpacing);
+        const gz = Math.round(worldZ / gridSpacing);
+        const bx = localX + (fieldHash(gx, gz, 1511) - 0.5) * gridSpacing * 0.9;
+        const bz = localZ + (fieldHash(gx, gz, 1513) - 0.5) * gridSpacing * 0.9;
         bushPositions.push({
-          x: localX,
-          y: height,
-          z: localZ,
+          x: bx,
+          y: heightAtLocal(bx, bz),
+          z: bz,
           rotY: rng() * Math.PI * 2,
         });
       } else if (
