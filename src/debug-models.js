@@ -10,6 +10,7 @@ import '../biplane.js';
 import '../twin.js';
 import '../buggy-model.js';
 import '../airplane.js';
+import '../vr-models.js';
 import '../low-poly.js';
 import '../tree-models.js';
 import '../terrain-geometry.js';
@@ -69,6 +70,12 @@ import {
   planeWhiteMat,
   poseGear,
 } from '../airplane.js';
+import {
+  createVRControllerGripModel,
+  createVRFlightStickModel,
+  createVRHandPreviewModel,
+  createVRThrottleModel,
+} from '../vr-models.js';
 import {
   ModelAssembler,
   animationUniforms,
@@ -415,6 +422,9 @@ function viewModel(type, e, colorSeed = 0) {
     'birch',
     'broadleaf_oak',
     'oak',
+    'vr_stick',
+    'vr_throttle',
+    'vr_hand',
   ].includes(type);
 
   const lodToggle = document.getElementById('lod-toggle');
@@ -1425,6 +1435,40 @@ function viewModel(type, e, colorSeed = 0) {
         );
         break;
       }
+      case 'vr_stick': {
+        const liveryColors = ChillFlightLogic.PLANE_COLORS;
+        const c = liveryColors[colorSeed % liveryColors.length];
+        const accentMat = createMaterial({
+          color: c,
+          flatShading: true,
+          roughness: 0.45,
+        });
+        previewGroup.add(createVRFlightStickModel({accentMat}));
+        break;
+      }
+      case 'vr_throttle': {
+        const liveryColors = ChillFlightLogic.PLANE_COLORS;
+        const c = liveryColors[colorSeed % liveryColors.length];
+        const accentMat = createMaterial({
+          color: c,
+          flatShading: true,
+          roughness: 0.45,
+        });
+        const thr = createVRThrottleModel({accentMat});
+        thr.setThrottle(0.65, colorSeed % 2 === 1);
+        previewGroup.add(thr);
+        break;
+      }
+      case 'vr_hand': {
+        previewGroup.add(
+          createVRHandPreviewModel({pinching: colorSeed % 2 === 1})
+        );
+        break;
+      }
+      case 'vr_controller': {
+        previewGroup.add(createVRControllerGripModel());
+        break;
+      }
     }
   }
 
@@ -1464,10 +1508,27 @@ function viewModel(type, e, colorSeed = 0) {
   const bandTris = {near: 0, mid: 0, far: 0};
   previewGroup.traverse((child) => {
     if (child.isMesh) {
-      vertices += child.geometry.attributes.position.count;
-      const t = child.geometry.index
-        ? child.geometry.index.count / 3
-        : child.geometry.attributes.position.count / 3;
+      let mult = 1;
+      if (child.isInstancedMesh) {
+        let activeCount = 0;
+        const m = new THREE.Matrix4();
+        for (let i = 0; i < child.count; i++) {
+          child.getMatrixAt(i, m);
+          if (
+            m.elements[0] !== 0 ||
+            m.elements[5] !== 0 ||
+            m.elements[10] !== 0
+          ) {
+            activeCount++;
+          }
+        }
+        mult = activeCount || 1;
+      }
+      vertices += child.geometry.attributes.position.count * mult;
+      const t =
+        (child.geometry.index
+          ? child.geometry.index.count / 3
+          : child.geometry.attributes.position.count / 3) * mult;
       triangles += t;
       if (child.userData.lodBand) {
         bandTris[child.userData.lodBand] += t;

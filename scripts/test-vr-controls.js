@@ -11,13 +11,21 @@ import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {
   STICK_SENSITIVITY,
   VR_MAP_LAYOUT,
+  computeVRConsolePose,
+  computeVirtualStickAxes,
+  computeVirtualThrottle,
   createStickFlickTracker,
   createVRButtonTracker,
   createVRPauseInputLatch,
+  createVRVirtualControlsTracker,
+  evaluateHandFist,
+  evaluateHandGrab,
+  evaluateHandPinch,
   extractXRControllers,
   getVRSessionInit,
   hitTestVRMapUV,
   hitTestVRPauseMenuUV,
+  isPalmFacingHead,
   isXRSessionVisible,
   readCombinedThumbstick,
   readVRMapPanStick,
@@ -473,28 +481,32 @@ function makeSession(leftOpts, rightOpts) {
   );
 }
 
-// 7. Pause menu UV hit-testing
+// 7. Pause menu UV hit-testing (main buttons + quick-action pills)
 {
   check(
-    'UV hit-test maps Resume, Map, Exit VR buttons, and card margins accurately',
-    hitTestVRPauseMenuUV(0.5, 1 - 276 / 680) === 0 &&
-      hitTestVRPauseMenuUV(0.5, 1 - 392 / 680) === 1 &&
-      hitTestVRPauseMenuUV(0.5, 1 - 508 / 680) === 2 &&
-      hitTestVRPauseMenuUV(0.5, 1 - 150 / 680) === -1 &&
-      hitTestVRPauseMenuUV(0.05, 1 - 276 / 680) === -1
+    'UV hit-test maps Resume, Map, Exit VR, Camera, Vehicle, Lights pills, and card margins accurately',
+    hitTestVRPauseMenuUV(0.5, 1 - 219 / 680) === 0 &&
+      hitTestVRPauseMenuUV(0.5, 1 - 313 / 680) === 1 &&
+      hitTestVRPauseMenuUV(0.5, 1 - 407 / 680) === 2 &&
+      hitTestVRPauseMenuUV(273 / 1024, 1 - 494 / 680) === 3 &&
+      hitTestVRPauseMenuUV(512 / 1024, 1 - 494 / 680) === 4 &&
+      hitTestVRPauseMenuUV(751 / 1024, 1 - 494 / 680) === 5 &&
+      hitTestVRPauseMenuUV(392 / 1024, 1 - 494 / 680) === -1 &&
+      hitTestVRPauseMenuUV(0.5, 1 - 120 / 680) === -1 &&
+      hitTestVRPauseMenuUV(0.05, 1 - 219 / 680) === -1
   );
 }
 
-// 8. Stationary WebXR session init & VR headset user-agent preset detection
+// 8. Stationary WebXR session init with optional hand-tracking & VR headset user-agent preset detection
 {
   const sessionInit = getVRSessionInit();
   const opt = sessionInit?.optionalFeatures || [];
   check(
-    'getVRSessionInit omits bounded-floor, local-floor, and hand-tracking so Quest defaults to stationary Touch-controller play',
+    'getVRSessionInit omits bounded-floor and local-floor while enabling optional hand-tracking',
     Array.isArray(opt) &&
       !opt.includes('bounded-floor') &&
       !opt.includes('local-floor') &&
-      !opt.includes('hand-tracking'),
+      opt.includes('hand-tracking'),
     JSON.stringify(sessionInit)
   );
 
@@ -750,6 +762,15 @@ function makeSession(leftOpts, rightOpts) {
         invertYAxis: true,
         controlScheme: 'touch',
         isTouchInput: false,
+      }) &&
+      // 3D spatial virtual flight stick ignores 2D Invert y axis so pulling back always climbs
+      !ChillFlightLogic.shouldInvertYAxis({
+        invertYAxis: true,
+        isVRPresenting: true,
+        isVRHeadset: true,
+        controlScheme: 'touch',
+        gamepadActive: true,
+        virtualStickActive: true,
       })
   );
 }
@@ -924,6 +945,402 @@ function makeSession(leftOpts, rightOpts) {
       pauseWhileHoldingB === null &&
       freshExitOnPause === 'exit',
     JSON.stringify({backRes, pauseWhileHoldingB, freshExitOnPause})
+  );
+}
+
+// 12. Bare-hand synthetic gamepad isolation, pinch/fist detection, & palm-to-face guard
+{
+  const handPinchSession = {
+    inputSources: [
+      {
+        handedness: 'right',
+        hand: {},
+        gamepad: {
+          connected: true,
+          axes: [],
+          buttons: [{pressed: true, value: 1}],
+        },
+      },
+      {
+        handedness: 'left',
+        hand: {},
+        gamepad: {
+          connected: true,
+          axes: [],
+          buttons: [{pressed: false, value: 0}],
+        },
+      },
+    ],
+  };
+  const handExtracted = extractXRControllers(handPinchSession);
+  const handTriggers = readXRTriggers(handExtracted);
+  check(
+    'extractXRControllers isolates bare-hand synthetic gamepads from physical triggers while reporting hasHandInput and handPinch',
+    !handExtracted.hasXRGamepad &&
+      handExtracted.leftGp === null &&
+      handExtracted.rightGp === null &&
+      handExtracted.hasHandInput &&
+      handExtracted.rightHandPinch &&
+      !handExtracted.leftHandPinch &&
+      handExtracted.handPinch &&
+      handTriggers.rt === 0 &&
+      handTriggers.lt === 0,
+    JSON.stringify({handExtracted, handTriggers})
+  );
+
+  // Bare-hand pause latch supports handPinch and quick-action pills (3, 4, 5)
+  const pLatch = createVRPauseInputLatch();
+  pLatch.arm(handExtracted); // pinched on pause frame -> latched!
+  check(
+    'bare-hand pinch held across pause entry does not fire pause menu actions until released',
+    pLatch.poll(handExtracted, 0) === null &&
+      pLatch.poll(handExtracted, 3) === null
+  );
+  const unpinched = {...handExtracted, handPinch: false, rightHandPinch: false};
+  pLatch.poll(unpinched, 3);
+  check(
+    'fresh bare-hand pinch on quick-action pills fires camera, plane, and headlight',
+    pLatch.poll(handExtracted, 3) === 'camera' &&
+      (pLatch.poll(unpinched, 4), pLatch.poll(handExtracted, 4) === 'plane') &&
+      (pLatch.poll(unpinched, 5), pLatch.poll(handExtracted, 5) === 'headlight')
+  );
+
+  // Pinch & scale-invariant fist hysteresis
+  const makeHandJoints = ({
+    pinchDist = 0.06,
+    palmLen = 0.085,
+    curlRatio = 2.0,
+    palmTowardHead = false,
+    y = -0.32,
+  } = {}) => {
+    // Right hand: palmTowardHead puts fingers up (+Y), index at +X, pinky at -X
+    // so index x pinky points +Z toward head at (0,0,0) when wrist is at z=-0.35
+    if (palmTowardHead) {
+      return {
+        wrist: {position: {x: 0.1, y: -0.1, z: -0.35}, visible: true},
+        'index-finger-metacarpal': {
+          position: {x: 0.13, y: -0.02, z: -0.35},
+          visible: true,
+        },
+        'middle-finger-metacarpal': {
+          position: {x: 0.1, y: -0.015, z: -0.35},
+          visible: true,
+        },
+        'pinky-finger-metacarpal': {
+          position: {x: 0.07, y: -0.02, z: -0.35},
+          visible: true,
+        },
+        'thumb-tip': {position: {x: 0.14, y: 0.02, z: -0.35}, visible: true},
+        'index-finger-tip': {
+          position: {x: 0.14 + pinchDist, y: 0.02, z: -0.35},
+          visible: true,
+        },
+        'middle-finger-tip': {
+          position: {x: 0.1, y: -0.1 + palmLen * curlRatio, z: -0.35},
+          visible: true,
+        },
+        'ring-finger-tip': {
+          position: {x: 0.085, y: -0.1 + palmLen * curlRatio, z: -0.35},
+          visible: true,
+        },
+        'pinky-finger-tip': {
+          position: {x: 0.07, y: -0.1 + palmLen * curlRatio, z: -0.35},
+          visible: true,
+        },
+      };
+    }
+    return {
+      wrist: {position: {x: 0.2, y, z: -0.32}, visible: true},
+      'index-finger-metacarpal': {
+        position: {x: 0.17, y, z: -0.32 - palmLen},
+        visible: true,
+      },
+      'middle-finger-metacarpal': {
+        position: {x: 0.2, y, z: -0.32 - palmLen},
+        visible: true,
+      },
+      'pinky-finger-metacarpal': {
+        position: {x: 0.23, y, z: -0.32 - palmLen},
+        visible: true,
+      },
+      'thumb-tip': {position: {x: 0.16, y, z: -0.4}, visible: true},
+      'index-finger-tip': {
+        position: {x: 0.16 + pinchDist, y, z: -0.4},
+        visible: true,
+      },
+      'middle-finger-tip': {
+        position: {x: 0.2, y, z: -0.32 - palmLen * curlRatio},
+        visible: true,
+      },
+      'ring-finger-tip': {
+        position: {x: 0.215, y, z: -0.32 - palmLen * curlRatio},
+        visible: true,
+      },
+      'pinky-finger-tip': {
+        position: {x: 0.23, y, z: -0.32 - palmLen * curlRatio},
+        visible: true,
+      },
+    };
+  };
+
+  check(
+    'evaluateHandPinch and evaluateHandFist apply clean hysteresis across small and large hands',
+    !evaluateHandPinch(makeHandJoints({pinchDist: 0.04}), false) &&
+      evaluateHandPinch(makeHandJoints({pinchDist: 0.015}), false) &&
+      evaluateHandPinch(makeHandJoints({pinchDist: 0.028}), true) &&
+      !evaluateHandPinch(makeHandJoints({pinchDist: 0.036}), true) &&
+      !evaluateHandFist(
+        makeHandJoints({palmLen: 0.065, curlRatio: 1.9}),
+        false
+      ) &&
+      evaluateHandFist(
+        makeHandJoints({palmLen: 0.065, curlRatio: 1.05}),
+        false
+      ) &&
+      evaluateHandFist(makeHandJoints({palmLen: 0.1, curlRatio: 1.35}), true) &&
+      !evaluateHandFist(makeHandJoints({palmLen: 0.1, curlRatio: 1.5}), true)
+  );
+
+  const raisedPalm = makeHandJoints({pinchDist: 0.012, palmTowardHead: true});
+  const lapHand = makeHandJoints({pinchDist: 0.012, palmTowardHead: false});
+  check(
+    'isPalmFacingHead rejects raised system-menu palm pinches while allowing normal lap/armrest grabs',
+    isPalmFacingHead(raisedPalm, 'right', {x: 0, y: 0, z: 0}) &&
+      !evaluateHandGrab(raisedPalm, 'right', {x: 0, y: 0, z: 0}, false) &&
+      !isPalmFacingHead(lapHand, 'right', {x: 0, y: 0, z: 0}) &&
+      evaluateHandGrab(lapHand, 'right', {x: 0, y: 0, z: 0}, false)
+  );
+}
+
+// 13. Virtual flight stick tilt invariance, buggy polarity, cruise-hold throttle, & tracker state machine
+{
+  const axisAngleQuat = (ax, ay, az, rad) => {
+    const s = Math.sin(rad * 0.5);
+    return {x: ax * s, y: ay * s, z: az * s, w: Math.cos(rad * 0.5)};
+  };
+  const mulQ = (a, b) => ({
+    x: a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+    y: a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
+    z: a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
+    w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
+  });
+
+  // Arbitrary resting wrist pose on knee (pitched forward 40 deg & yawed 20 deg)
+  const restingKneeQuat = mulQ(
+    axisAngleQuat(0, 1, 0, 0.35),
+    axisAngleQuat(1, 0, 0, -0.7)
+  );
+  const neutral = computeVirtualStickAxes({
+    startPos: {x: 0.2, y: -0.35, z: -0.32},
+    startQuat: restingKneeQuat,
+    currentPos: {x: 0.2, y: -0.35, z: -0.32},
+    currentQuat: restingKneeQuat,
+    seatYaw: 0,
+    isBuggy: false,
+  });
+
+  // Pull back 25 deg (+X rotation) from resting knee pose -> full +1 climb in plane, -1 brake in buggy
+  const pulledBackQuat = mulQ(axisAngleQuat(1, 0, 0, 0.45), restingKneeQuat);
+  const planePullBack = computeVirtualStickAxes({
+    startPos: {x: 0.2, y: -0.35, z: -0.32},
+    startQuat: restingKneeQuat,
+    currentPos: {x: 0.2, y: -0.35, z: -0.32},
+    currentQuat: pulledBackQuat,
+    seatYaw: 0,
+    isBuggy: false,
+  });
+  const buggyPullBack = computeVirtualStickAxes({
+    startPos: {x: 0.2, y: -0.35, z: -0.32},
+    startQuat: restingKneeQuat,
+    currentPos: {x: 0.2, y: -0.35, z: -0.32},
+    currentQuat: pulledBackQuat,
+    seatYaw: 0,
+    isBuggy: true,
+  });
+
+  // Bank right 25 deg (-Z rotation) -> full +1 right roll, while pure wrist yaw (+Y) produces 0 pitch/roll
+  const tiltedRightQuat = mulQ(axisAngleQuat(0, 0, -1, 0.45), restingKneeQuat);
+  const twistedYawQuat = mulQ(axisAngleQuat(0, 1, 0, 0.6), restingKneeQuat);
+  const bankRight = computeVirtualStickAxes({
+    startPos: {x: 0.2, y: -0.35, z: -0.32},
+    startQuat: restingKneeQuat,
+    currentPos: {x: 0.2, y: -0.35, z: -0.32},
+    currentQuat: tiltedRightQuat,
+    seatYaw: 0,
+  });
+  const pureYaw = computeVirtualStickAxes({
+    startPos: {x: 0.2, y: -0.35, z: -0.32},
+    startQuat: restingKneeQuat,
+    currentPos: {x: 0.2, y: -0.35, z: -0.32},
+    currentQuat: twistedYawQuat,
+    seatYaw: 0,
+  });
+
+  check(
+    'computeVirtualStickAxes zeros arbitrary resting wrist angles, maps pull-back to climb (and buggy reverse), banks right cleanly, and ignores wrist yaw twist',
+    Math.abs(neutral.rawX) < 1e-6 &&
+      Math.abs(neutral.rawY) < 1e-6 &&
+      planePullBack.rawY > 0.98 &&
+      Math.abs(planePullBack.rawX) < 1e-5 &&
+      buggyPullBack.rawY < -0.98 &&
+      bankRight.rawX > 0.98 &&
+      Math.abs(bankRight.rawY) < 1e-5 &&
+      Math.abs(pureYaw.rawX) < 1e-5 &&
+      Math.abs(pureYaw.rawY) < 1e-5,
+    JSON.stringify({neutral, planePullBack, buggyPullBack, bankRight, pureYaw})
+  );
+
+  // Relative cruise-hold throttle
+  const tStart = computeVirtualThrottle({
+    startPos: {x: -0.2, y: -0.35, z: -0.3},
+    currentPos: {x: -0.2, y: -0.35, z: -0.3},
+    seatYaw: 0,
+    startThrottle: 0.6,
+  });
+  const tFwd = computeVirtualThrottle({
+    startPos: {x: -0.2, y: -0.35, z: -0.3},
+    currentPos: {x: -0.2, y: -0.35, z: -0.37}, // 7 cm forward = +50% -> clamped to 1.0
+    seatYaw: 0,
+    startThrottle: 0.6,
+  });
+  const tBack = computeVirtualThrottle({
+    startPos: {x: -0.2, y: -0.35, z: -0.3},
+    currentPos: {x: -0.2, y: -0.35, z: -0.23}, // 7 cm back = -50% -> 0.1
+    seatYaw: 0,
+    startThrottle: 0.6,
+  });
+  check(
+    'computeVirtualThrottle holds starting cruise throttle on grab and slides smoothly between 0 and 1',
+    Math.abs(tStart - 0.6) < 1e-6 &&
+      Math.abs(tFwd - 1.0) < 1e-6 &&
+      Math.abs(tBack - 0.1) < 1e-6,
+    `tStart=${tStart}, tFwd=${tFwd}, tBack=${tBack}`
+  );
+
+  // Full tracker: physical controller lap grip vs near-stick grab, bare-hand comfort grab, & pause latch
+  const tracker = createVRVirtualControlsTracker();
+  const pose = computeVRConsolePose({x: 0, y: 0, z: 0}, 0);
+
+  // Physical controller squeezed in lap (far from stickHomePos) -> does NOT grab stick or consume grip!
+  const lapCtrlOut = tracker.update({
+    right: {
+      connected: true,
+      isHand: false,
+      gripPos: {x: 0.3, y: -0.58, z: -0.1},
+      gripQuat: {x: 0, y: 0, z: 0, w: 1},
+      grabbing: true,
+    },
+    currentThrottle: 0.5,
+    delta: 1 / 60,
+  });
+  check(
+    'physical controller squeezing side grip in lap preserves sharp-turn / barrel-roll grip instead of grabbing stick',
+    !lapCtrlOut.stickActive && !lapCtrlOut.gripConsumedRight,
+    JSON.stringify(lapCtrlOut)
+  );
+
+  // Release lap grip, reach onto virtual stick, squeeze -> grabs stick, consumes right grip, pulses haptic!
+  tracker.update({
+    right: {
+      connected: true,
+      isHand: false,
+      gripPos: pose.stickHomePos,
+      gripQuat: {x: 0, y: 0, z: 0, w: 1},
+      grabbing: false,
+    },
+  });
+  const nearCtrlOut = tracker.update({
+    right: {
+      connected: true,
+      isHand: false,
+      gripPos: pose.stickHomePos,
+      gripQuat: {x: 0, y: 0, z: 0, w: 1},
+      grabbing: true,
+    },
+    delta: 1 / 60,
+  });
+  check(
+    'physical controller squeezing grip at virtual stick latches onto stick, suppresses side-grip turn, and pulses haptics',
+    nearCtrlOut.stickActive &&
+      nearCtrlOut.gripConsumedRight &&
+      nearCtrlOut.haptics.length === 1 &&
+      nearCtrlOut.haptics[0].side === 'right',
+    JSON.stringify(nearCtrlOut)
+  );
+
+  // Resume grab latch: pinch held from Resume button does not grab bare-hand stick until released
+  tracker.armGrabLatch(false, true, false, true);
+  const latchedFrame = tracker.update({
+    right: {
+      connected: true,
+      isHand: true,
+      gripPos: {x: 0.22, y: -0.4, z: -0.28},
+      gripQuat: restingKneeQuat,
+      grabbing: true,
+      pinching: true,
+    },
+    delta: 1 / 60,
+  });
+  // Release pinch, then pinch comfortably on knee -> centers stick at knee!
+  tracker.update({
+    right: {
+      connected: true,
+      isHand: true,
+      gripPos: {x: 0.22, y: -0.4, z: -0.28},
+      gripQuat: restingKneeQuat,
+      grabbing: false,
+      pinching: false,
+    },
+    delta: 1 / 60,
+  });
+  const kneeGrab = tracker.update({
+    right: {
+      connected: true,
+      isHand: true,
+      gripPos: {x: 0.22, y: -0.4, z: -0.28},
+      gripQuat: restingKneeQuat,
+      grabbing: true,
+      pinching: true,
+    },
+    delta: 1 / 60,
+  });
+  check(
+    'armGrabLatch blocks held resume pinches and allows bare-hand grab-anywhere centering on knee after release',
+    !latchedFrame.stickActive &&
+      kneeGrab.stickActive &&
+      Math.abs(kneeGrab.stickAnchorPos.x - 0.22) < 1e-6 &&
+      Math.abs(kneeGrab.stickAnchorPos.y - -0.4) < 1e-6,
+    JSON.stringify({latchedFrame, kneeGrab})
+  );
+
+  // Bare-hand direct fingertip poke on pause pill triggers pause once and debounces
+  tracker.reset();
+  const poke1 = tracker.update({
+    left: {
+      connected: true,
+      isHand: true,
+      gripPos: {x: -0.1, y: -0.32, z: -0.35},
+      indexTipPos: {...pose.pausePillPos},
+      grabbing: false,
+      pinching: false,
+    },
+    delta: 1 / 60,
+  });
+  const poke2 = tracker.update({
+    left: {
+      connected: true,
+      isHand: true,
+      gripPos: {x: -0.1, y: -0.32, z: -0.35},
+      indexTipPos: {...pose.pausePillPos},
+      grabbing: false,
+      pinching: false,
+    },
+    delta: 1 / 60,
+  });
+  check(
+    'touching the in-flight pause pill with a bare fingertip triggers pause once and latches cleanly',
+    poke1.pauseTriggered && !poke2.pauseTriggered,
+    JSON.stringify({poke1, poke2})
   );
 }
 

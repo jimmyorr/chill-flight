@@ -138,6 +138,12 @@ export default {
   'Stick: pan · Grips: zoom · Trigger: pick a spot':
     '스틱: 이동 · 그립: 줌 · 트리거: 위치 선택',
   'A / Y: resume · B: back': 'A / Y: 계속 · B: 뒤로',
+  Pause: '일시정지',
+  'Pinch to select': '꼬집어 선택',
+  'Right hand: flight stick · Left hand: throttle':
+    '오른손: 조종간 · 왼손: 출력',
+  'Tap or pinch pause below to open this menu':
+    '아래 일시정지를 탭하거나 꼬집어 메뉴 열기',
   'Double-tap center to exit zen': '화면 가운데를 두 번 탭하면 젠 모드 종료',
   'Press <b>Z</b> to exit zen': '<b>Z</b> 키로 젠 모드 종료',
   Flight: '비행',

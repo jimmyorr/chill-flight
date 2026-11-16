@@ -63,6 +63,7 @@ import '../analytics.js';
 import '../tap-moves.js';
 import '../achievements.js';
 import '../vr-controls-logic.js';
+import '../vr-models.js';
 import '../input-manager.js';
 import '../game-audio-integration.js';
 import '../weather-manager.js';

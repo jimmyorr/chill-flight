@@ -1,6 +1,14 @@
 import * as THREE from 'three';
 import {log} from './logger.js';
 import {camera, renderer} from './sky.js';
+import {activePlaneType, getMaxFlightSpeedMult, headlight} from './airplane.js';
+import {
+  createVRControllerGripModel,
+  createVRFlightStickModel,
+  createVRHandsInstancedMesh,
+  createVRThrottleModel,
+  updateVRHandsInstancedMesh,
+} from './vr-models.js';
 import {handleMusicVisibility} from './audio.js';
 import {
   _currentLookTarget,
@@ -10,19 +18,31 @@ import {
   vrBtn,
   vrBtnLabel,
 } from './game.js';
-import {cameraDolly, checkVRPresenting} from './game-input-bindings.js';
+import {
+  cameraDolly,
+  checkVRPresenting,
+  inputManager,
+} from './game-input-bindings.js';
 import {scene} from './scene.js';
 import {clearInputState, togglePause} from './game-state.js';
 import {state} from './state.js';
 import {hooks} from './hooks.js';
 import {t} from './i18n.js';
 import {
+  CONTROLLER_GRAB_RADIUS,
+  STICK_SENSITIVITY,
+  VIRTUAL_THROTTLE_SPAN,
   VR_MAP_LAYOUT,
+  computeVRConsolePose,
   createVRPauseInputLatch,
+  createVRVirtualControlsTracker,
+  evaluateHandGrab,
+  evaluateHandPinch,
   extractXRControllers,
   getVRSessionInit,
   hitTestVRMapUV,
   hitTestVRPauseMenuUV,
+  isGripHeld,
   isXRSessionVisible,
   readVRMapPanStick,
   uvToVRMapViewportNorm,
@@ -34,8 +54,19 @@ const MAP_MENU_SCALE = 1.2;
 const CANVAS_SCALE = 1.25;
 const LASER_DEFAULT_LENGTH = 3.0;
 const FRIEND_MAP_REFRESH_MS = 250;
+const PAUSE_PILL_WIDTH = 0.092;
+const PAUSE_PILL_HEIGHT = 0.052;
+const VR_CAMERA_NEAR = 0.08;
 const UI_FONT_STACK =
   '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+
+const PLANE_LABELS = {
+  biplane: 'Biplane',
+  seaplane: 'Seaplane',
+  twin: 'Twin',
+  jet: 'Jet',
+  buggy: 'Buggy',
+};
 
 let vrPauseMenu = null;
 let vrPauseMesh = null;
@@ -48,11 +79,41 @@ let vrHoveredButton = -1;
 let vrMapHovered = null;
 let vrMapLastSig = '';
 let vrMapLastDrawMs = 0;
+let vrPauseHandMode = false;
+
+let vrConsoleGroup = null;
+let vrStickModel = null;
+let vrThrottleModel = null;
+let vrPausePillMesh = null;
+let vrPausePillCanvas = null;
+let vrPausePillTexture = null;
+let vrPausePillHovered = false;
+let vrHandsMesh = null;
+
 let xrController0 = null;
 let xrController1 = null;
+let xrGrip0 = null;
+let xrGrip1 = null;
+let xrGripWand0 = null;
+let xrGripWand1 = null;
+let xrHand0 = null;
+let xrHand1 = null;
 let laser0 = null;
 let laser1 = null;
 let trackedXRSession = null;
+let savedCameraNear = 1;
+
+// Tracks live XRInputSource & select state per controller slot (0 and 1)
+const slotSources = [null, null];
+const slotSelectHeld = [false, false];
+const prevHandGrabState = {left: false, right: false};
+const prevHandPinchState = {left: false, right: false};
+const prevCtrlGripState = {left: false, right: false};
+
+// Seated head anchor in cameraDolly local space (horizon-level yaw)
+const seatOrigin = new THREE.Vector3(0, 0, 0);
+let seatYaw = 0;
+let seatAnchorValid = false;
 
 const _lastControllerHits = [
   {uv: null, pauseBtn: -1, mapTarget: null, handedness: null},
@@ -62,6 +123,16 @@ const _lastControllerHits = [
 const vrRaycaster = new THREE.Raycaster();
 const _vrRayMatrix = new THREE.Matrix4();
 const _vrPauseLatch = createVRPauseInputLatch();
+const _vrVirtualTracker = createVRVirtualControlsTracker();
+
+// Pre-allocated scratch math objects for per-frame VR updates
+const _headForward = new THREE.Vector3();
+const _stickTargetPos = new THREE.Vector3();
+const _throttleTargetPos = new THREE.Vector3();
+const _handVisualEntries = [
+  {visible: false, joints: null, active: false},
+  {visible: false, joints: null, active: false},
+];
 
 function getActiveXRSession() {
   return renderer && renderer.xr && renderer.xr.getSession
@@ -70,25 +141,59 @@ function getActiveXRSession() {
 }
 
 function readCurrentVRControllers() {
+  const session = getActiveXRSession();
   const gamepads =
     typeof navigator !== 'undefined' && navigator.getGamepads
       ? navigator.getGamepads()
       : [];
-  return extractXRControllers(getActiveXRSession(), gamepads);
+  const extracted = extractXRControllers(session, gamepads);
+  if (!isXRSessionVisible(session)) return extracted;
+
+  for (let i = 0; i < 2; i++) {
+    const src = slotSources[i] || session?.inputSources?.[i] || null;
+    if (!src?.hand) continue;
+    const handObj = i === 0 ? xrHand0 : xrHand1;
+    const side = src.handedness === 'left' ? 'left' : 'right';
+    const fallbackPinch =
+      slotSelectHeld[i] ||
+      Boolean(handObj?.inputState?.pinching) ||
+      Boolean(src.gamepad?.buttons?.[0]?.pressed);
+    const pinched = handObj?.visible
+      ? evaluateHandPinch(
+          handObj.joints,
+          prevHandPinchState[side],
+          fallbackPinch
+        )
+      : fallbackPinch;
+    if (side === 'left') {
+      extracted.leftHandPinch = Boolean(extracted.leftHandPinch || pinched);
+    } else {
+      extracted.rightHandPinch = Boolean(extracted.rightHandPinch || pinched);
+    }
+  }
+  extracted.handPinch = Boolean(
+    extracted.leftHandPinch || extracted.rightHandPinch
+  );
+  return extracted;
 }
 
-function pulseXRControllers(intensity = 0.2, durationMs = 15) {
+function pulseXRInputSource(source, intensity = 0.2, durationMs = 15) {
+  const actuator = source?.gamepad?.hapticActuators?.[0];
+  if (actuator && typeof actuator.pulse === 'function') {
+    try {
+      actuator.pulse(intensity, durationMs);
+    } catch {
+      // Ignore unsupported haptic actuator implementations
+    }
+  }
+}
+
+function pulseXRControllers(intensity = 0.2, durationMs = 15, side = null) {
   const session = getActiveXRSession();
   if (!isXRSessionVisible(session) || !session.inputSources) return;
   for (const source of session.inputSources) {
-    const actuator = source?.gamepad?.hapticActuators?.[0];
-    if (actuator && typeof actuator.pulse === 'function') {
-      try {
-        actuator.pulse(intensity, durationMs);
-      } catch {
-        // Ignore unsupported haptic actuator implementations
-      }
-    }
+    if (side && source?.handedness && source.handedness !== side) continue;
+    pulseXRInputSource(source, intensity, durationMs);
   }
 }
 
@@ -134,7 +239,7 @@ function drawVRPauseMenu(hovered = -1) {
   ctx.fillStyle = 'rgba(18, 22, 28, 0.94)';
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
   ctx.lineWidth = 4;
-  drawRoundRect(ctx, 40, 30, 944, 620, 36);
+  drawRoundRect(ctx, 40, 22, 944, 636, 36);
   ctx.fill();
   ctx.stroke();
 
@@ -142,90 +247,132 @@ function drawVRPauseMenu(hovered = -1) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = '#e8c382';
-  ctx.font = `bold 26px ${UI_FONT_STACK}`;
-  ctx.fillText('CHILL FLIGHT', 512, 92);
+  ctx.font = `bold 24px ${UI_FONT_STACK}`;
+  ctx.fillText('CHILL FLIGHT', 512, 70);
 
   ctx.fillStyle = '#ffffff';
-  ctx.font = `bold 50px ${UI_FONT_STACK}`;
-  ctx.fillText(t('PAUSED'), 512, 152);
+  ctx.font = `bold 46px ${UI_FONT_STACK}`;
+  ctx.fillText(t('PAUSED'), 512, 120);
 
   ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-  ctx.font = `21px ${UI_FONT_STACK}`;
-  ctx.fillText(t('Take a breather or adjust your flight'), 512, 192);
+  ctx.font = `19px ${UI_FONT_STACK}`;
+  ctx.fillText(t('Take a breather or adjust your flight'), 512, 154);
 
-  // Button 0: Resume flight
+  // Button 0: Resume flight (y = 178..260)
   const isResumeHover = hovered === 0;
   ctx.fillStyle = isResumeHover ? '#ffffff' : '#e8c382';
-  drawRoundRect(ctx, 162, 228, 700, 96, 22);
+  drawRoundRect(ctx, 162, 178, 700, 82, 20);
   ctx.fill();
 
   ctx.fillStyle = '#161616';
-  ctx.font = `bold 36px ${UI_FONT_STACK}`;
-  ctx.fillText(t('Resume flight'), 512, 282);
+  ctx.font = `bold 33px ${UI_FONT_STACK}`;
+  ctx.fillText(t('Resume flight'), 512, 224);
 
   ctx.fillStyle = 'rgba(22, 22, 22, 0.72)';
-  ctx.font = `19px ${UI_FONT_STACK}`;
-  ctx.fillText(t('Trigger or press A / Y'), 512, 310);
+  ctx.font = `17px ${UI_FONT_STACK}`;
+  ctx.fillText(
+    vrPauseHandMode ? t('Pinch to select') : t('Trigger or press A / Y'),
+    512,
+    249
+  );
 
-  // Button 1: Map (in-VR 3D world map)
+  // Button 1: Map (in-VR 3D world map, y = 272..354)
   const isMapHover = hovered === 1;
   ctx.fillStyle = isMapHover
     ? 'rgba(92, 168, 255, 0.28)'
     : 'rgba(255, 255, 255, 0.1)';
   ctx.strokeStyle = isMapHover ? '#7ab8ff' : 'rgba(255, 255, 255, 0.28)';
   ctx.lineWidth = 3;
-  drawRoundRect(ctx, 162, 344, 700, 96, 22);
+  drawRoundRect(ctx, 162, 272, 700, 82, 20);
   ctx.fill();
   ctx.stroke();
 
   ctx.fillStyle = '#ffffff';
-  ctx.font = `bold 35px ${UI_FONT_STACK}`;
-  ctx.fillText(t('Map'), 512, 398);
+  ctx.font = `bold 32px ${UI_FONT_STACK}`;
+  ctx.fillText(t('Map'), 512, 318);
 
   ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
-  ctx.font = `19px ${UI_FONT_STACK}`;
-  ctx.fillText(t('Warp or set a waypoint'), 512, 426);
+  ctx.font = `17px ${UI_FONT_STACK}`;
+  ctx.fillText(t('Warp or set a waypoint'), 512, 343);
 
-  // Button 2: Exit VR
+  // Button 2: Exit VR (y = 366..448)
   const isExitHover = hovered === 2;
   ctx.fillStyle = isExitHover
     ? 'rgba(235, 75, 75, 0.9)'
     : 'rgba(255, 255, 255, 0.06)';
   ctx.strokeStyle = isExitHover ? '#ff7777' : 'rgba(255, 255, 255, 0.22)';
   ctx.lineWidth = 3;
-  drawRoundRect(ctx, 162, 460, 700, 96, 22);
+  drawRoundRect(ctx, 162, 366, 700, 82, 20);
   ctx.fill();
   ctx.stroke();
 
   ctx.fillStyle = '#ffffff';
-  ctx.font = `bold 35px ${UI_FONT_STACK}`;
-  ctx.fillText(t('Exit VR'), 512, 514);
+  ctx.font = `bold 32px ${UI_FONT_STACK}`;
+  ctx.fillText(t('Exit VR'), 512, 412);
 
   ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-  ctx.font = `19px ${UI_FONT_STACK}`;
-  ctx.fillText(t('Trigger or press B'), 512, 542);
+  ctx.font = `17px ${UI_FONT_STACK}`;
+  ctx.fillText(
+    vrPauseHandMode ? t('Pinch to select') : t('Trigger or press B'),
+    512,
+    437
+  );
 
-  // Compact in-flight controller legend
+  // Quick-action pill row (y = 462..526): Camera (3), Vehicle (4), Lights (5)
+  const lightsOn = Boolean(headlight && headlight.intensity > 0);
+  const planeKey = PLANE_LABELS[activePlaneType] || 'Biplane';
+  const pills = [
+    {idx: 3, x: 162, label: t('Camera'), active: false},
+    {idx: 4, x: 401, label: t(planeKey), active: false},
+    {idx: 5, x: 640, label: t('Lights'), active: lightsOn},
+  ];
+
+  ctx.textBaseline = 'middle';
+  for (const pill of pills) {
+    const isHov = hovered === pill.idx;
+    ctx.fillStyle = isHov
+      ? 'rgba(232, 195, 130, 0.34)'
+      : pill.active
+        ? 'rgba(232, 195, 130, 0.2)'
+        : 'rgba(255, 255, 255, 0.08)';
+    ctx.strokeStyle =
+      isHov || pill.active ? '#e8c382' : 'rgba(255, 255, 255, 0.22)';
+    ctx.lineWidth = 3;
+    drawRoundRect(ctx, pill.x, 462, 222, 64, 16);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = pill.active ? '#e8c382' : '#ffffff';
+    ctx.font = `bold 24px ${UI_FONT_STACK}`;
+    ctx.fillText(pill.label, pill.x + 111, 494, 200);
+  }
+
+  // Compact in-flight controller / bare-hand legend
+  ctx.textBaseline = 'alphabetic';
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(162, 574);
-  ctx.lineTo(862, 574);
+  ctx.moveTo(162, 548);
+  ctx.lineTo(862, 548);
   ctx.stroke();
 
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.52)';
-  ctx.font = `18px ${UI_FONT_STACK}`;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.54)';
+  ctx.font = `17px ${UI_FONT_STACK}`;
   ctx.fillText(
-    t('Stick: steer · Triggers: throttle · Grips: turn / roll'),
+    vrPauseHandMode
+      ? t('Right hand: flight stick · Left hand: throttle')
+      : t('Stick: steer · Triggers: throttle · Grips: turn / roll'),
     512,
-    602,
+    580,
     880
   );
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.42)';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.44)';
   ctx.fillText(
-    t('A: camera · B: headlight · X: vehicle · Y: pause'),
+    vrPauseHandMode
+      ? t('Tap or pinch pause below to open this menu')
+      : t('A: camera · B: headlight · X: vehicle · Y: pause'),
     512,
-    628,
+    608,
     880
   );
 
@@ -413,14 +560,23 @@ function drawVRMapCard(hoveredTarget = null) {
     ctx.fillStyle = 'rgba(255, 255, 255, 0.66)';
     ctx.font = `19px ${UI_FONT_STACK}`;
     ctx.fillText(
-      t('Stick: pan · Grips: zoom · Trigger: pick a spot'),
+      vrPauseHandMode
+        ? t('Pinch to select')
+        : t('Stick: pan · Grips: zoom · Trigger: pick a spot'),
       512,
       619,
       920
     );
     ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
     ctx.font = `17px ${UI_FONT_STACK}`;
-    ctx.fillText(t('A / Y: resume · B: back'), 512, 644, 920);
+    ctx.fillText(
+      vrPauseHandMode
+        ? t('Warp or set a waypoint')
+        : t('A / Y: resume · B: back'),
+      512,
+      644,
+      920
+    );
   } else {
     const firstBtnX = info.hasPin
       ? info.canWarp
@@ -553,6 +709,28 @@ function returnToVRPauseCard() {
   drawVRPauseMenu(-1);
 }
 
+function executePauseMenuAction(action) {
+  if (action === 'resume') {
+    togglePause();
+  } else if (action === 'map') {
+    openMapFromVR();
+  } else if (action === 'exit') {
+    endVRSession();
+  } else if (action === 'camera') {
+    inputManager.onCameraToggle?.();
+    pulseXRControllers(0.22, 16);
+    drawVRPauseMenu(vrHoveredButton);
+  } else if (action === 'plane') {
+    inputManager.onPlaneToggle?.();
+    pulseXRControllers(0.22, 16);
+    drawVRPauseMenu(vrHoveredButton);
+  } else if (action === 'headlight') {
+    inputManager.onHeadlightToggle?.();
+    pulseXRControllers(0.22, 16);
+    drawVRPauseMenu(vrHoveredButton);
+  }
+}
+
 function executeVRMapAction(action, uv) {
   if (!action) return false;
   if (action === 'back') {
@@ -681,25 +859,52 @@ function placeLaserDot(dot, uv) {
   }
 }
 
-// Register controller slots on Three.js WebXRManager before setSession() runs:
-// WebXRManager ignores the initial inputsourceschange event for controllers
-// whose index has not yet been requested via renderer.xr.getController(i).
+function captureSeatAnchor() {
+  seatOrigin.copy(camera.position);
+  _headForward.set(0, 0, -1).applyQuaternion(camera.quaternion);
+  _headForward.y = 0;
+  if (_headForward.lengthSq() > 1e-4) {
+    _headForward.normalize();
+    seatYaw = Math.atan2(-_headForward.x, -_headForward.z);
+  } else {
+    seatYaw = 0;
+  }
+  seatAnchorValid = true;
+}
+
+// Register controller, grip, and hand slots on Three.js WebXRManager before
+// setSession() runs: WebXRManager ignores initial inputsourceschange events
+// for indices not yet requested.
 function ensureXRControllers() {
   if (!renderer || !renderer.xr || xrController0) return;
 
   xrController0 = renderer.xr.getController(0);
   xrController1 = renderer.xr.getController(1);
+  xrGrip0 = renderer.xr.getControllerGrip(0);
+  xrGrip1 = renderer.xr.getControllerGrip(1);
+  xrHand0 = renderer.xr.getHand(0);
+  xrHand1 = renderer.xr.getHand(1);
 
-  const trackHandedness = (ctrl) => {
+  const bindSlotEvents = (ctrl, idx) => {
     ctrl.addEventListener('connected', (e) => {
+      slotSources[idx] = e?.data || null;
+      slotSelectHeld[idx] = false;
       ctrl.userData.handedness = e?.data?.handedness || null;
     });
     ctrl.addEventListener('disconnected', () => {
+      slotSources[idx] = null;
+      slotSelectHeld[idx] = false;
       ctrl.userData.handedness = null;
     });
+    ctrl.addEventListener('selectstart', () => {
+      slotSelectHeld[idx] = true;
+    });
+    ctrl.addEventListener('selectend', () => {
+      slotSelectHeld[idx] = false;
+    });
   };
-  trackHandedness(xrController0);
-  trackHandedness(xrController1);
+  bindSlotEvents(xrController0, 0);
+  bindSlotEvents(xrController1, 1);
 
   laser0 = buildLaserPointer();
   xrController0.add(laser0);
@@ -707,13 +912,27 @@ function ensureXRControllers() {
   laser1 = buildLaserPointer();
   xrController1.add(laser1);
 
+  xrGripWand0 = createVRControllerGripModel();
+  xrGrip0.add(xrGripWand0);
+
+  xrGripWand1 = createVRControllerGripModel();
+  xrGrip1.add(xrGripWand1);
+
+  vrHandsMesh = createVRHandsInstancedMesh();
+  vrHandsMesh.visible = false;
+
   cameraDolly.add(xrController0);
   cameraDolly.add(xrController1);
+  cameraDolly.add(xrGrip0);
+  cameraDolly.add(xrGrip1);
+  cameraDolly.add(xrHand0);
+  cameraDolly.add(xrHand1);
+  cameraDolly.add(vrHandsMesh);
 
-  // Fallback select handler strictly for gamepad-less input sources (e.g. hand
-  // pinch on browsers that do not expose a synthetic gamepad button[0]).
+  // Fallback select handler strictly for gamepad-less input sources whose
+  // select pulse completes within a single frame.
   const onGamepadlessSelect = (event) => {
-    if (event?.data?.gamepad) return;
+    if (event?.data?.gamepad || event?.data?.hand) return;
     if (!state.isPaused || !checkVRPresenting()) return;
     if (!isXRSessionVisible(getActiveXRSession())) return;
     const idx = event?.target === xrController1 ? 1 : 0;
@@ -725,13 +944,9 @@ function ensureXRControllers() {
       return;
     }
     const btn = hit.pauseBtn !== -1 ? hit.pauseBtn : vrHoveredButton;
-    if (btn === 0) {
-      togglePause();
-    } else if (btn === 1) {
-      openMapFromVR();
-    } else if (btn === 2) {
-      endVRSession();
-    }
+    const actionMap = ['resume', 'map', 'exit', 'camera', 'plane', 'headlight'];
+    const act = actionMap[btn];
+    if (act) executePauseMenuAction(act);
   };
 
   xrController0.addEventListener('select', onGamepadlessSelect);
@@ -740,11 +955,79 @@ function ensureXRControllers() {
 
 ensureXRControllers();
 
+function drawVRPausePill(hovered = false) {
+  if (!vrPausePillCanvas) return;
+  const ctx = vrPausePillCanvas.getContext('2d');
+  ctx.clearRect(0, 0, 256, 144);
+
+  ctx.save();
+  ctx.fillStyle = hovered
+    ? 'rgba(232, 195, 130, 0.96)'
+    : 'rgba(20, 25, 33, 0.88)';
+  ctx.strokeStyle = hovered ? '#ffffff' : 'rgba(232, 195, 130, 0.55)';
+  ctx.lineWidth = 5;
+  drawRoundRect(ctx, 10, 10, 236, 124, 44);
+  ctx.fill();
+  ctx.stroke();
+
+  const fg = hovered ? '#161616' : '#e8c382';
+  ctx.fillStyle = fg;
+  drawRoundRect(ctx, 52, 48, 12, 48, 4);
+  ctx.fill();
+  drawRoundRect(ctx, 74, 48, 12, 48, 4);
+  ctx.fill();
+
+  ctx.fillStyle = hovered ? '#161616' : '#ffffff';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.font = `bold 32px ${UI_FONT_STACK}`;
+  ctx.fillText(t('Pause'), 102, 73, 130);
+  ctx.restore();
+
+  if (vrPausePillTexture) vrPausePillTexture.needsUpdate = true;
+}
+
+function initVRConsole() {
+  if (vrConsoleGroup) return;
+  ensureXRControllers();
+
+  vrConsoleGroup = new THREE.Group();
+  vrConsoleGroup.name = 'vrConsoleGroup';
+  vrConsoleGroup.visible = false;
+
+  vrStickModel = createVRFlightStickModel();
+  vrThrottleModel = createVRThrottleModel();
+
+  vrPausePillCanvas = document.createElement('canvas');
+  vrPausePillCanvas.width = 256;
+  vrPausePillCanvas.height = 144;
+  vrPausePillTexture = new THREE.CanvasTexture(vrPausePillCanvas);
+  vrPausePillTexture.minFilter = THREE.LinearFilter;
+  vrPausePillTexture.magFilter = THREE.LinearFilter;
+
+  const pillMat = new THREE.MeshBasicMaterial({
+    map: vrPausePillTexture,
+    transparent: true,
+  });
+  const pillGeo = new THREE.PlaneGeometry(PAUSE_PILL_WIDTH, PAUSE_PILL_HEIGHT);
+  vrPausePillMesh = new THREE.Mesh(pillGeo, pillMat);
+  vrPausePillMesh.name = 'vrPausePillMesh';
+  vrPausePillMesh.rotation.order = 'YXZ';
+
+  vrConsoleGroup.add(vrStickModel);
+  vrConsoleGroup.add(vrThrottleModel);
+  vrConsoleGroup.add(vrPausePillMesh);
+  cameraDolly.add(vrConsoleGroup);
+
+  drawVRPausePill(false);
+}
+
 async function enterVRSession() {
   if (!renderer || !renderer.xr || typeof navigator === 'undefined') return;
   if (!navigator.xr || renderer.xr.getSession()) return;
   try {
     ensureXRControllers();
+    initVRConsole();
     const session = await navigator.xr.requestSession(
       'immersive-vr',
       getVRSessionInit()
@@ -810,21 +1093,196 @@ function hideVROverlayVisuals() {
   if (laser1) laser1.visible = false;
 }
 
+function readSlotSideStates(controllers) {
+  const session = getActiveXRSession();
+  const sides = {
+    left: {
+      connected: false,
+      isHand: false,
+      gripPos: null,
+      gripQuat: null,
+      indexTipPos: null,
+      grabbing: false,
+      pinching: false,
+      hoveringPausePill: false,
+      rayCtrl: null,
+      laser: null,
+      wand: null,
+      source: null,
+    },
+    right: {
+      connected: false,
+      isHand: false,
+      gripPos: null,
+      gripQuat: null,
+      indexTipPos: null,
+      grabbing: false,
+      pinching: false,
+      hoveringPausePill: false,
+      rayCtrl: null,
+      laser: null,
+      wand: null,
+      source: null,
+    },
+  };
+
+  for (let i = 0; i < 2; i++) {
+    const src = slotSources[i] || session?.inputSources?.[i] || null;
+    if (!src) continue;
+    const side = src.handedness === 'left' ? 'left' : 'right';
+    const entry = sides[side];
+    const rayCtrl = i === 0 ? xrController0 : xrController1;
+    const gripObj = i === 0 ? xrGrip0 : xrGrip1;
+    const handObj = i === 0 ? xrHand0 : xrHand1;
+    const laser = i === 0 ? laser0 : laser1;
+    const wand = i === 0 ? xrGripWand0 : xrGripWand1;
+
+    entry.source = src;
+    entry.rayCtrl = rayCtrl;
+    entry.laser = laser;
+    entry.wand = wand;
+
+    if (src.hand) {
+      entry.isHand = true;
+      const joints = handObj?.visible ? handObj.joints : null;
+      const wrist = joints?.wrist;
+      const palmRef = joints?.['middle-finger-metacarpal'] || wrist;
+      const idxTip = joints?.['index-finger-tip'];
+      const fallbackSelect =
+        slotSelectHeld[i] ||
+        Boolean(handObj?.inputState?.pinching) ||
+        Boolean(src.gamepad?.buttons?.[0]?.pressed);
+
+      if (palmRef && palmRef.visible !== false) {
+        entry.connected = true;
+        entry.gripPos = palmRef.position;
+        entry.gripQuat = wrist?.quaternion || rayCtrl?.quaternion || null;
+        entry.indexTipPos =
+          idxTip && idxTip.visible !== false ? idxTip.position : null;
+        entry.pinching = evaluateHandPinch(
+          joints,
+          prevHandPinchState[side],
+          fallbackSelect
+        );
+        entry.grabbing = evaluateHandGrab(
+          joints,
+          side,
+          camera.position,
+          prevHandGrabState[side],
+          fallbackSelect
+        );
+      } else if (rayCtrl?.visible) {
+        entry.connected = true;
+        entry.gripPos = rayCtrl.position;
+        entry.gripQuat = rayCtrl.quaternion;
+        entry.pinching = fallbackSelect;
+        entry.grabbing = fallbackSelect;
+      }
+      prevHandPinchState[side] = entry.pinching;
+      prevHandGrabState[side] = entry.grabbing;
+    } else {
+      entry.isHand = false;
+      const gp =
+        side === 'left'
+          ? controllers?.leftGp
+          : controllers?.rightGp || src.gamepad;
+      const poseObj = gripObj?.visible
+        ? gripObj
+        : rayCtrl?.visible
+          ? rayCtrl
+          : null;
+      if (poseObj) {
+        entry.connected = true;
+        entry.gripPos = poseObj.position;
+        entry.gripQuat = poseObj.quaternion;
+        entry.grabbing = isGripHeld(gp, prevCtrlGripState[side]);
+        prevCtrlGripState[side] = entry.grabbing;
+      } else {
+        prevCtrlGripState[side] = false;
+      }
+    }
+  }
+
+  return sides;
+}
+
+function syncHandAndWandVisuals(
+  sides,
+  activeStickSide = null,
+  activeThrottleSide = null
+) {
+  if (!vrHandsMesh) return;
+  const session = getActiveXRSession();
+  const visible = isXRSessionVisible(session);
+
+  for (let i = 0; i < 2; i++) {
+    const handObj = i === 0 ? xrHand0 : xrHand1;
+    const wand = i === 0 ? xrGripWand0 : xrGripWand1;
+    const src = slotSources[i] || session?.inputSources?.[i] || null;
+    const side = src?.handedness === 'left' ? 'left' : 'right';
+    const sideInfo = sides ? sides[side] : null;
+
+    if (visible && handObj?.visible && src?.hand) {
+      _handVisualEntries[i].visible = true;
+      _handVisualEntries[i].joints = handObj.joints;
+      _handVisualEntries[i].active = Boolean(
+        sideInfo?.pinching ||
+        activeStickSide === side ||
+        activeThrottleSide === side
+      );
+      if (wand) wand.visible = false;
+    } else {
+      _handVisualEntries[i].visible = false;
+      _handVisualEntries[i].joints = null;
+      _handVisualEntries[i].active = false;
+      if (wand) {
+        wand.visible =
+          visible &&
+          !src?.hand &&
+          activeStickSide !== side &&
+          activeThrottleSide !== side;
+      }
+    }
+  }
+
+  updateVRHandsInstancedMesh(vrHandsMesh, _handVisualEntries);
+}
+
+function armVirtualControlsFromCurrentPose() {
+  const controllers = readCurrentVRControllers();
+  const sides = readSlotSideStates(controllers);
+  _vrVirtualTracker.armGrabLatch(
+    sides.left.grabbing,
+    sides.right.grabbing,
+    sides.left.pinching,
+    sides.right.pinching
+  );
+  return {controllers, sides};
+}
+
 export var openVRPauseMenu = function () {
   if (!vrPauseMenu) initVRPauseMenu();
   if (!vrPauseMenu) return;
 
-  // Latch any buttons still held from pausing or flying so they must be
-  // released before triggering a pause-menu action.
-  _vrPauseLatch.arm(readCurrentVRControllers());
+  // Latch any buttons or bare-hand pinches still held from pausing or flying so
+  // they must be released before triggering a pause-menu action.
+  const {controllers, sides} = armVirtualControlsFromCurrentPose();
+  _vrPauseLatch.arm(controllers);
+
+  if (vrConsoleGroup) vrConsoleGroup.visible = false;
 
   // While Horizon OS owns focus ('visible-blurred' universal menu or 'hidden'
   // unmounted headset), keep our 3D pause card and lasers hidden so they do
   // not overlap the system overlay; visibilitychange will reveal them on return.
   if (!isXRSessionVisible(getActiveXRSession())) {
     hideVROverlayVisuals();
+    syncHandAndWandVisuals(sides);
     return;
   }
+
+  vrPauseHandMode = Boolean(
+    controllers.hasHandInput && !controllers.hasXRGamepad
+  );
 
   // Position directly in front of the player's current head orientation
   vrPauseMenu.position.copy(camera.position);
@@ -865,6 +1323,9 @@ export var closeVRPauseMenu = function () {
   vrMapHovered = null;
   vrMapLastSig = '';
   _vrPauseLatch.reset();
+  // Latch any pinch or grip held on the Resume click so it doesn't immediately
+  // grab the virtual flight stick on the first resumed flight frame.
+  armVirtualControlsFromCurrentPose();
 };
 
 export var updateVRPauseInteraction = function (delta = 1 / 72) {
@@ -872,9 +1333,24 @@ export var updateVRPauseInteraction = function (delta = 1 / 72) {
     return;
   }
 
-  if (!isXRSessionVisible(getActiveXRSession())) {
+  const session = getActiveXRSession();
+  if (!isXRSessionVisible(session)) {
     hideVROverlayVisuals();
+    if (vrHandsMesh) vrHandsMesh.visible = false;
     return;
+  }
+
+  const controllers = readCurrentVRControllers();
+  const sides = readSlotSideStates(controllers);
+  syncHandAndWandVisuals(sides);
+
+  const nextHandMode = Boolean(
+    controllers.hasHandInput && !controllers.hasXRGamepad
+  );
+  let handModeChanged = false;
+  if (nextHandMode !== vrPauseHandMode) {
+    vrPauseHandMode = nextHandMode;
+    handModeChanged = true;
   }
 
   // Ensure controller and menu world matrices reflect this XR frame's pose
@@ -892,16 +1368,22 @@ export var updateVRPauseInteraction = function (delta = 1 / 72) {
 
   for (const [ctrl, laser, dot, idx] of slots) {
     const slotHit = _lastControllerHits[idx];
+    const fallbackSrc = slotSources[idx] || session?.inputSources?.[idx];
     slotHit.uv = null;
     slotHit.pauseBtn = -1;
     slotHit.mapTarget = null;
-    slotHit.handedness = ctrl?.userData?.handedness || null;
+    slotHit.handedness =
+      ctrl?.userData?.handedness || fallbackSrc?.handedness || null;
 
     if (!ctrl || !ctrl.visible) {
-      if (laser) setLaserLength(laser, LASER_DEFAULT_LENGTH);
+      if (laser) {
+        setLaserLength(laser, LASER_DEFAULT_LENGTH);
+        laser.visible = false;
+      }
       if (dot) dot.visible = false;
       continue;
     }
+    if (laser) laser.visible = true;
 
     _vrRayMatrix.identity().extractRotation(ctrl.matrixWorld);
     vrRaycaster.ray.origin.setFromMatrixPosition(ctrl.matrixWorld);
@@ -924,8 +1406,6 @@ export var updateVRPauseInteraction = function (delta = 1 / 72) {
     }
   }
 
-  const controllers = readCurrentVRControllers();
-
   if (!isMapMode) {
     let hovered = -1;
     const hoveredByHand = {left: -1, right: -1, any: -1};
@@ -940,21 +1420,18 @@ export var updateVRPauseInteraction = function (delta = 1 / 72) {
     }
     hoveredByHand.any = hovered;
 
-    if (hovered !== vrHoveredButton) {
+    if (hovered !== vrHoveredButton || handModeChanged) {
+      const changedHover = hovered !== vrHoveredButton;
       vrHoveredButton = hovered;
       drawVRPauseMenu(vrHoveredButton);
-      if (vrHoveredButton !== -1) {
+      if (changedHover && vrHoveredButton !== -1) {
         pulseXRControllers(0.2, 15);
       }
     }
 
     const action = _vrPauseLatch.poll(controllers, hoveredByHand);
-    if (action === 'resume') {
-      togglePause();
-    } else if (action === 'map') {
-      openMapFromVR();
-    } else if (action === 'exit') {
-      endVRSession();
+    if (action) {
+      executePauseMenuAction(action);
     }
     return;
   }
@@ -994,7 +1471,7 @@ export var updateVRPauseInteraction = function (delta = 1 / 72) {
     }
   }
 
-  let mapDirty = false;
+  let mapDirty = handModeChanged;
   if (hoveredBtnTarget !== vrMapHovered) {
     vrMapHovered = hoveredBtnTarget;
     mapDirty = true;
@@ -1050,11 +1527,253 @@ export var updateVRPauseInteraction = function (delta = 1 / 72) {
   }
 };
 
+function pollVRVirtualControls(delta, controllers, isPausedFrame = false) {
+  const session = getActiveXRSession();
+  if (!isXRSessionVisible(session)) {
+    if (vrConsoleGroup) vrConsoleGroup.visible = false;
+    if (vrHandsMesh) vrHandsMesh.visible = false;
+    if (laser0) laser0.visible = false;
+    if (laser1) laser1.visible = false;
+    _vrVirtualTracker.reset();
+    return null;
+  }
+
+  initVRConsole();
+
+  if (!seatAnchorValid) {
+    captureSeatAnchor();
+  }
+
+  const sides = readSlotSideStates(controllers);
+
+  if (isPausedFrame || state.isPaused) {
+    if (vrConsoleGroup) vrConsoleGroup.visible = false;
+    _vrVirtualTracker.armGrabLatch(
+      sides.left.grabbing,
+      sides.right.grabbing,
+      sides.left.pinching,
+      sides.right.pinching
+    );
+    syncHandAndWandVisuals(sides);
+    return null;
+  }
+
+  const headDrift = Math.hypot(
+    camera.position.x - seatOrigin.x,
+    camera.position.z - seatOrigin.z
+  );
+  if (headDrift > 0.45 && !sides.left.grabbing && !sides.right.grabbing) {
+    captureSeatAnchor();
+  }
+
+  const prePose = computeVRConsolePose(seatOrigin, seatYaw);
+  if (vrPausePillMesh) {
+    vrPausePillMesh.position.set(
+      prePose.pausePillPos.x,
+      prePose.pausePillPos.y,
+      prePose.pausePillPos.z
+    );
+    vrPausePillMesh.rotation.set(-0.62, seatYaw, 0, 'YXZ');
+    vrPausePillMesh.visible = Boolean(controllers?.hasHandInput);
+  }
+
+  let anyPillHover = false;
+  if (vrConsoleGroup) vrConsoleGroup.visible = true;
+  cameraDolly.updateMatrixWorld(true);
+
+  for (const side of ['left', 'right']) {
+    const h = sides[side];
+    if (!h.laser) continue;
+    if (
+      vrPausePillMesh?.visible &&
+      h.connected &&
+      h.isHand &&
+      h.rayCtrl?.visible
+    ) {
+      _vrRayMatrix.identity().extractRotation(h.rayCtrl.matrixWorld);
+      vrRaycaster.ray.origin.setFromMatrixPosition(h.rayCtrl.matrixWorld);
+      vrRaycaster.ray.direction.set(0, 0, -1).applyMatrix4(_vrRayMatrix);
+      const hits = vrRaycaster.intersectObject(vrPausePillMesh);
+      if (hits.length > 0 && hits[0].distance < 1.2) {
+        h.hoveringPausePill = true;
+        anyPillHover = true;
+        setLaserLength(h.laser, hits[0].distance);
+        h.laser.visible = true;
+      } else {
+        h.laser.visible = false;
+      }
+    } else {
+      h.laser.visible = false;
+    }
+  }
+
+  if (anyPillHover !== vrPausePillHovered) {
+    vrPausePillHovered = anyPillHover;
+    drawVRPausePill(vrPausePillHovered);
+  }
+
+  const maxSpeed = Math.max(0.01, getMaxFlightSpeedMult());
+  const currentNormThrottle = THREE.MathUtils.clamp(
+    state.targetFlightSpeed / maxSpeed,
+    0,
+    1
+  );
+
+  const prevThrottle = state.targetFlightSpeed;
+  const out = _vrVirtualTracker.update({
+    left: sides.left,
+    right: sides.right,
+    headPos: camera.position,
+    seatOrigin,
+    seatYaw,
+    currentThrottle: currentNormThrottle,
+    isBuggy: activePlaneType === 'buggy',
+    delta,
+  });
+
+  for (const pulse of out.haptics) {
+    const src = sides[pulse.side]?.source;
+    if (src && !src.hand) {
+      pulseXRInputSource(src, pulse.intensity, pulse.durationMs);
+    }
+  }
+
+  let throttlingUp = false;
+  if (out.throttleTarget !== null) {
+    const nextSpeed = out.throttleTarget * maxSpeed;
+    throttlingUp = nextSpeed > prevThrottle + 1e-4;
+    state.targetFlightSpeed = nextSpeed;
+    hooks.updateThrottle?.();
+  }
+
+  const activeNormThrottle =
+    out.throttleTarget !== null ? out.throttleTarget : currentNormThrottle;
+
+  if (vrStickModel) {
+    _stickTargetPos.set(
+      out.stickAnchorPos.x,
+      out.stickAnchorPos.y,
+      out.stickAnchorPos.z
+    );
+    const posEase = out.stickActive
+      ? 1 - Math.exp(-delta / 0.025)
+      : 1 - Math.exp(-delta / 0.14);
+    if (vrStickModel.position.lengthSq() === 0) {
+      vrStickModel.position.copy(_stickTargetPos);
+    } else {
+      vrStickModel.position.lerp(_stickTargetPos, posEase);
+    }
+    vrStickModel.rotation.y = seatYaw;
+
+    let targetRotX = out.visualPitch;
+    let targetRotZ = out.visualRoll;
+    if (!out.stickActive && inputManager.state.gamepad.steeringActive) {
+      const nx = THREE.MathUtils.clamp(
+        inputManager.state.gamepad.x / STICK_SENSITIVITY,
+        -1,
+        1
+      );
+      const ny = THREE.MathUtils.clamp(
+        inputManager.state.gamepad.y / STICK_SENSITIVITY,
+        -1,
+        1
+      );
+      targetRotX = (activePlaneType === 'buggy' ? -ny : ny) * 0.3;
+      targetRotZ = -nx * 0.3;
+    }
+    const tiltEase = out.stickActive ? 1 : 1 - Math.exp(-delta / 0.08);
+    vrStickModel.pivotGroup.rotation.x = THREE.MathUtils.lerp(
+      vrStickModel.pivotGroup.rotation.x,
+      targetRotX,
+      tiltEase
+    );
+    vrStickModel.pivotGroup.rotation.z = THREE.MathUtils.lerp(
+      vrStickModel.pivotGroup.rotation.z,
+      targetRotZ,
+      tiltEase
+    );
+
+    const nearCtrlStick =
+      !out.stickActive &&
+      ((sides.right.connected &&
+        !sides.right.isHand &&
+        sides.right.gripPos?.distanceTo(_stickTargetPos) <=
+          CONTROLLER_GRAB_RADIUS) ||
+        (sides.left.connected &&
+          !sides.left.isHand &&
+          sides.left.gripPos?.distanceTo(_stickTargetPos) <=
+            CONTROLLER_GRAB_RADIUS));
+    vrStickModel.setGrabbed(out.stickActive, nearCtrlStick);
+  }
+
+  if (vrThrottleModel) {
+    if (out.throttleHolder) {
+      const handleStartZ = (0.5 - out.throttleStartVal) * VIRTUAL_THROTTLE_SPAN;
+      const c = Math.cos(seatYaw);
+      const s = Math.sin(seatYaw);
+      _throttleTargetPos.set(
+        out.throttleAnchorPos.x - s * handleStartZ,
+        out.throttleAnchorPos.y,
+        out.throttleAnchorPos.z - c * handleStartZ
+      );
+    } else {
+      _throttleTargetPos.set(
+        out.consolePose.throttleHomePos.x,
+        out.consolePose.throttleHomePos.y,
+        out.consolePose.throttleHomePos.z
+      );
+    }
+    const thrEase = out.throttleHolder
+      ? 1 - Math.exp(-delta / 0.025)
+      : 1 - Math.exp(-delta / 0.14);
+    if (vrThrottleModel.position.lengthSq() === 0) {
+      vrThrottleModel.position.copy(_throttleTargetPos);
+    } else {
+      vrThrottleModel.position.lerp(_throttleTargetPos, thrEase);
+    }
+    vrThrottleModel.rotation.y = seatYaw;
+
+    const nearCtrlThr =
+      !out.throttleHolder &&
+      ((sides.left.connected &&
+        !sides.left.isHand &&
+        sides.left.gripPos?.distanceTo(_throttleTargetPos) <=
+          CONTROLLER_GRAB_RADIUS) ||
+        (sides.right.connected &&
+          !sides.right.isHand &&
+          sides.right.gripPos?.distanceTo(_throttleTargetPos) <=
+            CONTROLLER_GRAB_RADIUS));
+    vrThrottleModel.setThrottle(
+      activeNormThrottle,
+      Boolean(out.throttleHolder),
+      nearCtrlThr
+    );
+  }
+
+  syncHandAndWandVisuals(sides, out.stickHolder, out.throttleHolder);
+
+  return {
+    pauseTriggered: out.pauseTriggered,
+    stickActive: out.stickActive,
+    rawX: out.rawX,
+    rawY: out.rawY,
+    x: out.x,
+    y: out.y,
+    throttleTarget: out.throttleTarget,
+    throttlingUp,
+    gripConsumedLeft: out.gripConsumedLeft,
+    gripConsumedRight: out.gripConsumedRight,
+  };
+}
+
 function onXRVisibilityChange() {
   if (!trackedXRSession) return;
   handleMusicVisibility(trackedXRSession.visibilityState === 'hidden');
 
   if (!isXRSessionVisible(trackedXRSession)) {
+    _vrVirtualTracker.reset();
+    if (vrConsoleGroup) vrConsoleGroup.visible = false;
+    if (vrHandsMesh) vrHandsMesh.visible = false;
     if (!state.isPaused) {
       togglePause();
     }
@@ -1076,6 +1795,15 @@ if (hudVrBtn) {
 if (renderer && renderer.xr) {
   renderer.xr.addEventListener('sessionstart', () => {
     initVRPauseMenu();
+    initVRConsole();
+    seatAnchorValid = false;
+    _vrVirtualTracker.reset();
+
+    // Lower near clip plane in VR so hands and virtual stick/throttle within
+    // arm's reach (0.1 to 0.6 m) never clip; restored on sessionend.
+    savedCameraNear = camera.near;
+    camera.near = VR_CAMERA_NEAR;
+    camera.updateProjectionMatrix();
 
     // Keep VR camera in a horizon-stable forward view (birds-eye looks straight
     // down -Y and cinematic hijacks the thumbstick to orbit).
@@ -1158,9 +1886,20 @@ if (renderer && renderer.xr) {
       );
     }
     trackedXRSession = null;
+    slotSources[0] = null;
+    slotSources[1] = null;
+    slotSelectHeld[0] = false;
+    slotSelectHeld[1] = false;
+    seatAnchorValid = false;
+    _vrVirtualTracker.reset();
+    if (vrConsoleGroup) vrConsoleGroup.visible = false;
+    if (vrHandsMesh) vrHandsMesh.visible = false;
     handleMusicVisibility(false);
 
-    // Detach camera from dolly and restore to standard world camera
+    // Restore standard 2D near clip plane and detach camera from dolly
+    camera.near = savedCameraNear;
+    camera.updateProjectionMatrix();
+
     cameraDolly.remove(camera);
     scene.remove(cameraDolly);
     camera.position.copy(_idealCameraPos);
@@ -1176,3 +1915,4 @@ if (renderer && renderer.xr) {
 hooks.enterVR = enterVRSession;
 hooks.openVRPauseMenu = openVRPauseMenu;
 hooks.closeVRPauseMenu = closeVRPauseMenu;
+hooks.pollVRVirtualControls = pollVRVirtualControls;

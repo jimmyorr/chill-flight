@@ -505,8 +505,10 @@ export const ChillFlightLogic = {};
     controlScheme = 'joystick',
     isTouchInput = false,
     gamepadActive = false,
+    virtualStickActive = false,
   } = {}) {
     if (!invertYAxis) return false;
+    if (virtualStickActive) return false;
     if (isVRPresenting || gamepadActive) return true;
     if (isVRHeadset) return false;
     if (isTouchInput && controlScheme === 'touch') return false;

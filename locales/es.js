@@ -144,6 +144,12 @@ export default {
   'Stick: pan · Grips: zoom · Trigger: pick a spot':
     'Stick: mover · Agarres: zoom · Gatillo: elegir sitio',
   'A / Y: resume · B: back': 'A / Y: reanudar · B: atrás',
+  Pause: 'Pausa',
+  'Pinch to select': 'Pellizca para elegir',
+  'Right hand: flight stick · Left hand: throttle':
+    'Mano derecha: mando · Mano izquierda: potencia',
+  'Tap or pinch pause below to open this menu':
+    'Toca o pellizca pausa abajo para abrir este menú',
   'Double-tap center to exit zen':
     'Toca dos veces el centro para salir del modo zen',
   'Press <b>Z</b> to exit zen': 'Pulsa <b>Z</b> para salir del modo zen',

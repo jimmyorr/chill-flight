@@ -7,6 +7,7 @@ export const hooks = {
   enterVR: null, // vr-manager.js
   openVRPauseMenu: null, // vr-manager.js
   closeVRPauseMenu: null, // vr-manager.js
+  pollVRVirtualControls: null, // vr-manager.js: (delta, controllers) => object
   resetSteering: null, // game-ui.js
   onTrackChange: null, // game-audio-integration.js: (trackName) => void
   fullscreenMap: null, // minimap.js: {open, close, toggle, isOpen, syncUrlParams}

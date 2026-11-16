@@ -142,6 +142,12 @@ export default {
   'Stick: pan · Grips: zoom · Trigger: pick a spot':
     'Стік: рух · Хвати: масштаб · Курок: вибрати місце',
   'A / Y: resume · B: back': 'A / Y: у політ · B: назад',
+  Pause: 'Пауза',
+  'Pinch to select': 'Зведіть пальці для вибору',
+  'Right hand: flight stick · Left hand: throttle':
+    'Права рука: штурвал · Ліва рука: тяга',
+  'Tap or pinch pause below to open this menu':
+    'Торкніться або зведіть пальці на паузі внизу, щоб відкрити меню',
   'Double-tap center to exit zen':
     'Двічі торкнися центру, щоб вийти з дзен-режиму',
   'Press <b>Z</b> to exit zen': 'Натисни <b>Z</b>, щоб вийти з дзен-режиму',

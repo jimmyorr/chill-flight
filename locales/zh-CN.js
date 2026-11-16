@@ -137,6 +137,11 @@ export default {
   'Stick: pan · Grips: zoom · Trigger: pick a spot':
     '摇杆：平移 · 侧握键：缩放 · 扳机：选点',
   'A / Y: resume · B: back': 'A / Y：继续 · B：返回',
+  Pause: '暂停',
+  'Pinch to select': '捏合以选择',
+  'Right hand: flight stick · Left hand: throttle': '右手：操纵杆 · 左手：油门',
+  'Tap or pinch pause below to open this menu':
+    '轻触或捏合下方的暂停以打开此菜单',
   'Double-tap center to exit zen': '双击屏幕中央退出禅模式',
   'Press <b>Z</b> to exit zen': '按 <b>Z</b> 退出禅模式',
   Flight: '飞行',

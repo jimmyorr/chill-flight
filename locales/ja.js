@@ -142,6 +142,12 @@ export default {
   'Stick: pan · Grips: zoom · Trigger: pick a spot':
     'スティック：移動 · グリップ：ズーム · トリガー：地点を選択',
   'A / Y: resume · B: back': 'A / Y：再開 · B：戻る',
+  Pause: '一時停止',
+  'Pinch to select': 'ピンチして選択',
+  'Right hand: flight stick · Left hand: throttle':
+    '右手：操縦桿 · 左手：スロットル',
+  'Tap or pinch pause below to open this menu':
+    '下の一時停止をタップまたはピンチしてメニューを開く',
   'Double-tap center to exit zen': '画面中央をダブルタップで禅モード終了',
   'Press <b>Z</b> to exit zen': '<b>Z</b> キーで禅モード終了',
   Flight: 'フライト',

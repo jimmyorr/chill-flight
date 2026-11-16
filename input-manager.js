@@ -154,6 +154,7 @@ export class InputManager {
     this._lastGamepadButtons = [];
     this._stickFlickTracker = createStickFlickTracker();
     this._stickFlickActive = false;
+    this._virtualStickActive = false;
     this._gamepadDpadVertical = false;
     this._vrButtons = createVRButtonTracker();
 
@@ -587,6 +588,7 @@ export class InputManager {
     this.state.gamepad.gripRoll = 0;
     this._stickFlickTracker.reset();
     this._stickFlickActive = false;
+    this._virtualStickActive = false;
     this._gamepadDpadVertical = false;
     this.releaseTouchSteering();
     this._activeGestures = {};
@@ -1104,9 +1106,69 @@ export class InputManager {
       const session = renderer.xr.getSession ? renderer.xr.getSession() : null;
       const controllers = extractXRControllers(session, gamepads);
 
-      if (!controllers.hasXRGamepad && !controllers.standardGp) {
+      // 1. Physical pause toggle (Left Y or fallback Start): sync latches and
+      // return immediately so pause/resume presses never bleed into flight.
+      if (
+        (controllers.hasXRGamepad || controllers.standardGp) &&
+        this._vrButtons.pollPause(controllers)
+      ) {
+        this.releaseStickFlick();
+        this._vrButtons.syncFlightHeld(controllers);
+        this._virtualStickActive = false;
+        this.state.gamepad.gripTurn = 0;
+        this.state.gamepad.gripRoll = 0;
+        hooks.pollVRVirtualControls?.(delta, controllers, true);
+        if (this.onPauseToggle) this.onPauseToggle();
+        return;
+      }
+
+      // 2. While paused, vr-manager.js handles the 3D pause menu and keeps
+      // hand meshes visible; keep flight latches synced across resume.
+      if (this.state.isPaused || state.isPaused) {
+        this.releaseStickFlick();
+        this._vrButtons.syncFlightHeld(controllers);
+        this._virtualStickActive = false;
+        this.state.gamepad.steeringActive = false;
+        this.state.gamepad.x = 0;
+        this.state.gamepad.y = 0;
+        this.state.gamepad.throttlingUp = false;
+        this.state.gamepad.throttlingDown = false;
+        this.state.gamepad.gripTurn = 0;
+        this.state.gamepad.gripRoll = 0;
+        hooks.pollVRVirtualControls?.(delta, controllers, true);
+        return;
+      }
+
+      const vrVirtual = hooks.pollVRVirtualControls
+        ? hooks.pollVRVirtualControls(delta, controllers, false)
+        : null;
+
+      // Bare-hand in-flight pause pill (direct fingertip tap or pinch-laser)
+      if (vrVirtual?.pauseTriggered) {
+        this.releaseStickFlick();
+        this._vrButtons.syncFlightHeld(controllers);
+        this._virtualStickActive = false;
+        this.state.gamepad.steeringActive = false;
+        this.state.gamepad.x = 0;
+        this.state.gamepad.y = 0;
+        this.state.gamepad.throttlingUp = false;
+        this.state.gamepad.throttlingDown = false;
+        this.state.gamepad.gripTurn = 0;
+        this.state.gamepad.gripRoll = 0;
+        if (this.onPauseToggle) this.onPauseToggle();
+        return;
+      }
+
+      if (
+        !controllers.hasXRGamepad &&
+        !controllers.hasHandInput &&
+        !controllers.standardGp &&
+        !vrVirtual?.stickActive &&
+        vrVirtual?.throttleTarget === null
+      ) {
         this.releaseStickFlick();
         this._vrButtons.reset();
+        this._virtualStickActive = false;
         this._lastGamepadButtons = [];
         this.state.gamepad.steeringActive = false;
         this.state.gamepad.x = 0;
@@ -1118,44 +1180,42 @@ export class InputManager {
         return;
       }
 
-      if (controllers.hasXRGamepad) {
-        // 1. Pause toggle (Left Y or fallback Start): sync flight latches and
-        // return immediately so pause/resume presses never bleed into flight
-        // actions on the transition frame.
-        if (this._vrButtons.pollPause(controllers)) {
-          this.releaseStickFlick();
-          this._vrButtons.syncFlightHeld(controllers);
-          this.state.gamepad.gripTurn = 0;
-          this.state.gamepad.gripRoll = 0;
-          if (this.onPauseToggle) this.onPauseToggle();
-          return;
+      if (
+        controllers.hasXRGamepad ||
+        controllers.hasHandInput ||
+        vrVirtual?.stickActive ||
+        (vrVirtual && vrVirtual.throttleTarget !== null)
+      ) {
+        // 3. Steering: virtual flight stick when held, otherwise thumbsticks
+        let rawX = 0;
+        let rawY = 0;
+        let scaledX = 0;
+        let scaledY = 0;
+
+        if (vrVirtual?.stickActive) {
+          this._virtualStickActive = true;
+          rawX = vrVirtual.rawX;
+          rawY = vrVirtual.rawY;
+          scaledX = vrVirtual.x;
+          scaledY = vrVirtual.y;
+        } else if (controllers.hasXRGamepad || controllers.standardGp) {
+          this._virtualStickActive = false;
+          const stick = readCombinedThumbstick(controllers, STICK_DEADZONE);
+          rawX = stick.rawX;
+          rawY = stick.rawY;
+          scaledX = stick.x;
+          scaledY = stick.y;
+        } else {
+          this._virtualStickActive = false;
         }
 
-        // 2. While paused, vr-manager.js handles the 3D pause menu; keep
-        // flight latches synced so holding A across resume doesn't toggle cam.
-        if (this.state.isPaused || state.isPaused) {
-          this.releaseStickFlick();
-          this._vrButtons.syncFlightHeld(controllers);
-          this.state.gamepad.steeringActive = false;
-          this.state.gamepad.x = 0;
-          this.state.gamepad.y = 0;
-          this.state.gamepad.throttlingUp = false;
-          this.state.gamepad.throttlingDown = false;
-          this.state.gamepad.gripTurn = 0;
-          this.state.gamepad.gripRoll = 0;
-          return;
-        }
-
-        // 3. Either thumbstick steers (with +Y = stick forward/up) and
-        // supports double/triple-flick maneuvers.
-        const stick = readCombinedThumbstick(controllers, STICK_DEADZONE);
-        const flick = this.applyStickFlick(stick.rawX, stick.rawY);
+        const flick = this.applyStickFlick(rawX, rawY);
         const suppressHorizontal =
           flick.activeCount === 3 &&
           (flick.activeAction === 'ArrowLeft' ||
             flick.activeAction === 'ArrowRight');
-        const effX = suppressHorizontal ? 0 : stick.x;
-        const effY = stick.y;
+        const effX = suppressHorizontal ? 0 : scaledX;
+        const effY = scaledY;
 
         if (effX !== 0 || effY !== 0) {
           this.state.gamepad.x = effX;
@@ -1167,32 +1227,50 @@ export class InputManager {
           this.state.gamepad.steeringActive = false;
         }
 
-        // 4. Analog triggers: Right trigger accelerates, Left trigger slows.
-        const {rt, lt} = readXRTriggers(controllers);
-        this.state.gamepad.throttlingUp = rt > 0.1;
-        this.state.gamepad.throttlingDown = lt > 0.1;
-        if (this.onThrottleChange) {
-          if (rt > 0.1) this.onThrottleChange((0.2 + rt * 1.0) * delta);
-          if (lt > 0.1) this.onThrottleChange(-(0.2 + lt * 1.0) * delta);
+        // 4. Throttle: virtual cruise-hold slider when held, else triggers
+        if (vrVirtual && vrVirtual.throttleTarget !== null) {
+          this.state.gamepad.throttlingUp = Boolean(vrVirtual.throttlingUp);
+          this.state.gamepad.throttlingDown = false;
+        } else if (controllers.hasXRGamepad || controllers.standardGp) {
+          const {rt, lt} = readXRTriggers(controllers);
+          this.state.gamepad.throttlingUp = rt > 0.1;
+          this.state.gamepad.throttlingDown = lt > 0.1;
+          if (this.onThrottleChange) {
+            if (rt > 0.1) this.onThrottleChange((0.2 + rt * 1.0) * delta);
+            if (lt > 0.1) this.onThrottleChange(-(0.2 + lt * 1.0) * delta);
+          }
+        } else {
+          this.state.gamepad.throttlingUp = false;
+          this.state.gamepad.throttlingDown = false;
         }
 
-        // 5. Quest Touch face buttons and side grips (stick clicks left unset):
-        // Right A: cycle VR camera, Right B: headlight, Left X: switch vehicle,
-        // Left / Right side grips: single squeeze for sharp turn, double for roll.
-        const events = this._vrButtons.pollFlightButtons(
-          controllers,
-          performance.now()
-        );
-        this.state.gamepad.gripTurn = events.gripTurn;
-        this.state.gamepad.gripRoll = events.gripRoll;
-        if (events.camera && this.onCameraToggle) this.onCameraToggle();
-        if (events.headlight && this.onHeadlightToggle) {
-          this.onHeadlightToggle();
+        // 5. Quest Touch face buttons and side grips (suppressing side-grip
+        // turns/rolls on whichever controller is holding the virtual stick/throttle)
+        if (controllers.hasXRGamepad) {
+          const events = this._vrButtons.pollFlightButtons(
+            controllers,
+            performance.now(),
+            {
+              suppressLeftGrip: Boolean(vrVirtual?.gripConsumedLeft),
+              suppressRightGrip: Boolean(vrVirtual?.gripConsumedRight),
+            }
+          );
+          this.state.gamepad.gripTurn = events.gripTurn;
+          this.state.gamepad.gripRoll = events.gripRoll;
+          if (events.camera && this.onCameraToggle) this.onCameraToggle();
+          if (events.headlight && this.onHeadlightToggle) {
+            this.onHeadlightToggle();
+          }
+          if (events.plane && this.onPlaneToggle) this.onPlaneToggle();
+        } else {
+          this.state.gamepad.gripTurn = 0;
+          this.state.gamepad.gripRoll = 0;
         }
-        if (events.plane && this.onPlaneToggle) this.onPlaneToggle();
         return;
       }
     }
+
+    this._virtualStickActive = false;
 
     // Standard non-XR W3C Gamepad path
     this.state.gamepad.gripTurn = 0;
@@ -1429,6 +1507,7 @@ export class InputManager {
       controlScheme: state.currentControlScheme || this.state.controlScheme,
       isTouchInput,
       gamepadActive,
+      virtualStickActive: this._virtualStickActive,
     });
   }
 
