@@ -134,8 +134,8 @@ export default {
   'Trigger or press A / Y': 'Курок або кнопка A / Y',
   'Warp or set a waypoint in 2D': 'Телепорт або точка маршруту у 2D',
   'Trigger or press B': 'Курок або кнопка B',
-  'Stick: steer (flick for stunts) · Triggers: throttle · Grips: roll':
-    'Стік: кермо (ривки для трюків) · Курки: тяга · Хвати: бочка',
+  'Stick: steer · Triggers: throttle · Grips: turn / roll':
+    'Стік: кермо · Курки: тяга · Хвати: віраж / бочка',
   'A: camera · B: headlight · X: vehicle · Y: pause':
     'A: камера · B: фара · X: транспорт · Y: пауза',
   'Double-tap center to exit zen':

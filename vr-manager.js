@@ -302,7 +302,7 @@ function drawVRPauseMenu(hovered = -1) {
   ctx.font =
     '18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.fillText(
-    t('Stick: steer (flick for stunts) · Triggers: throttle · Grips: roll'),
+    t('Stick: steer · Triggers: throttle · Grips: turn / roll'),
     512,
     602,
     880

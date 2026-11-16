@@ -46,6 +46,7 @@ import {
   _lastChunkUpdatePos,
   cameraDolly,
   currentCinematicIndex,
+  inputManager,
   keys,
 } from './game-input-bindings.js';
 import {
@@ -227,10 +228,12 @@ export function updateFlightCamera(delta, nowTime) {
     const moveSpeed = (keys.Shift ? 1000 : 250) * delta;
     const rotateSpeedDrag = 0.005;
 
-    // Rotation from Drag (respecting invertYAxis)
+    // Rotation from Drag (respecting effective invertYAxis)
     camera.rotation.y += state.freeCamDeltaX * rotateSpeedDrag;
     camera.rotation.x +=
-      state.freeCamDeltaY * rotateSpeedDrag * (state.invertYAxis ? -1 : 1);
+      state.freeCamDeltaY *
+      rotateSpeedDrag *
+      (inputManager.shouldInvertYAxis() ? -1 : 1);
     camera.rotation.z = 0;
 
     state.freeCamDeltaX = 0;

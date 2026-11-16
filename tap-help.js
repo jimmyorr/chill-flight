@@ -20,6 +20,7 @@ import {togglePause} from './game-state.js';
 import {
   MOVES,
   howTo,
+  invertForMoves,
   isTouch,
   moveById,
   movesDone,
@@ -96,7 +97,7 @@ function ripplePoints(move) {
     move.vehicle === 'buggy'
       ? ChillFlightLogic.BUGGY_TOUCH_ZONES
       : {UP_ABOVE: 0.33, DOWN_BELOW: 0.66};
-  const place = placeOf(move, state.invertYAxis);
+  const place = placeOf(move, invertForMoves());
   if (place === 'side') {
     return [
       [0.12, 0.5],
@@ -161,9 +162,10 @@ function showHint(move, practice) {
   stopHint();
   current = {move, practice};
   const touch = isTouch();
+  const invert = invertForMoves();
   // A hint about the top of the screen sits lower, away from its ripples
-  const low = touch && placeOf(move, state.invertYAxis) === 'top';
-  showText([move.name(), howTo(move, {touch, invert: state.invertYAxis})], {
+  const low = touch && placeOf(move, invert) === 'top';
+  showText([move.name(), howTo(move, {touch, invert})], {
     practice,
     low,
   });
@@ -459,9 +461,10 @@ function renderZones() {
     top: [],
     bottom: [],
   };
+  const invert = invertForMoves();
   for (const move of MOVES) {
     if (move.vehicle !== helpVehicle) continue;
-    cells[placeOf(move, state.invertYAxis)].push(move);
+    cells[placeOf(move, invert)].push(move);
   }
   // Double-taps above triple-taps in every zone
   for (const list of Object.values(cells)) list.sort((a, b) => a.taps - b.taps);
@@ -489,6 +492,7 @@ function renderZones() {
 function renderList(vehicle = helpVehicle) {
   if (!listEl) return;
   const touch = isTouch();
+  const invert = invertForMoves();
   const here = vehicle === vehicleNow();
   listEl.replaceChildren(
     ...MOVES.filter((m) => m.vehicle === vehicle).map((move) => {
@@ -506,7 +510,7 @@ function renderList(vehicle = helpVehicle) {
       }
       const how = document.createElement('div');
       how.className = 'help-move-how';
-      how.textContent = howTo(move, {touch, invert: state.invertYAxis});
+      how.textContent = howTo(move, {touch, invert});
       text.append(name, how);
       row.appendChild(text);
       // Practice: back to flying with the hint up until it's done

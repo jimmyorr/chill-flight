@@ -524,8 +524,10 @@ function stepBuggy(dt) {
 
   // --- INPUT ---
   const shift = keys.Shift;
+  const gripTurn = !shift ? inputManager.state.gamepad.gripTurn || 0 : 0;
   let steerIn = -analogSteerAxis(state.mouseX);
-  if ((keys.ArrowLeft || keys.KeyA) && !shift) steerIn = 1;
+  if (gripTurn !== 0) steerIn = gripTurn;
+  else if ((keys.ArrowLeft || keys.KeyA) && !shift) steerIn = 1;
   else if ((keys.ArrowRight || keys.KeyD) && !shift) steerIn = -1;
 
   let joyY = analogThrottleAxis(state.mouseY);
@@ -557,6 +559,7 @@ function stepBuggy(dt) {
   hopFloatLeft = hopHeld ? hopFloatLeft - dt : 0;
   const hardBrake = held('ArrowDown');
   const slide =
+    gripTurn !== 0 ||
     held('ArrowLeft') ||
     held('ArrowRight') ||
     (hardBrake && Math.abs(steerIn) > 0.5);

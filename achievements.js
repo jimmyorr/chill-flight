@@ -4,8 +4,12 @@
 import {log} from './logger.js';
 import {IMPERIAL, t} from './i18n.js';
 import {trackAchievement} from './analytics.js';
-import {state} from './state.js';
-import {howTo, isTouch, moveForAchievement} from './tap-moves.js';
+import {
+  howTo,
+  invertForMoves,
+  isTouch,
+  moveForAchievement,
+} from './tap-moves.js';
 
 export const Achievements = (function () {
   // --- ACHIEVEMENT REGISTRY ---
@@ -438,7 +442,7 @@ export const Achievements = (function () {
           howEl.className = 'achievement-card-how';
           howEl.textContent = howTo(move, {
             touch: isTouch(),
-            invert: state.invertYAxis,
+            invert: invertForMoves(),
           });
           card.appendChild(howEl);
         }

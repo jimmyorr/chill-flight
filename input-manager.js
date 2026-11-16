@@ -84,6 +84,7 @@ export class InputManager {
         steeringActive: false,
         throttlingUp: false,
         throttlingDown: false,
+        gripTurn: 0,
         gripRoll: 0,
       },
       controlScheme: ChillFlightLogic.resolveControlScheme(
@@ -129,11 +130,15 @@ export class InputManager {
     // bank and 22° of pitch, with the dead zone the first ~10 px
     this.JOYSTICK_SENSITIVITY = 0.7167;
     this._windowJustFocused = false;
+    this._isVRHeadset =
+      typeof navigator !== 'undefined' &&
+      ChillFlightLogic.isVRHeadsetUserAgent(navigator.userAgent);
 
     // Mobile gesture tracking (for on-screen swipe/double-tap zones)
     this._activeGestures = {}; // Maps touch.identifier -> action
     this._lastFreeCamTouchX = 0;
     this._lastFreeCamTouchY = 0;
+    this._isTouchFreeCamDrag = false;
     // Touches on the view (not the UI): identifier -> {time, action}, the
     // zone it tapped
     this._viewTouches = {};
@@ -148,6 +153,8 @@ export class InputManager {
     this._gamepadPauseLatched = false;
     this._lastGamepadButtons = [];
     this._stickFlickTracker = createStickFlickTracker();
+    this._stickFlickActive = false;
+    this._gamepadDpadVertical = false;
     this._vrButtons = createVRButtonTracker();
 
     // Callbacks for high-level actions (hooked by game.js)
@@ -570,13 +577,17 @@ export class InputManager {
     this.state.mouse.x = 0;
     this.state.mouse.y = 0;
     this.state.freeCam.dragging = false;
+    this._isTouchFreeCamDrag = false;
     this.state.gamepad.steeringActive = false;
     this.state.gamepad.x = 0;
     this.state.gamepad.y = 0;
     this.state.gamepad.throttlingUp = false;
     this.state.gamepad.throttlingDown = false;
+    this.state.gamepad.gripTurn = 0;
     this.state.gamepad.gripRoll = 0;
     this._stickFlickTracker.reset();
+    this._stickFlickActive = false;
+    this._gamepadDpadVertical = false;
     this.releaseTouchSteering();
     this._activeGestures = {};
     this._viewTouches = {};
@@ -600,6 +611,7 @@ export class InputManager {
         !e.target.closest('#minimap-container')
       ) {
         this.state.freeCam.dragging = true;
+        this._isTouchFreeCamDrag = false;
       }
     } else if (this.state.isCinematic && !this.isOverUI(e.target)) {
       this.state.cinematicDrag.dragging = true;
@@ -608,6 +620,7 @@ export class InputManager {
 
   handleMouseUp() {
     this.state.freeCam.dragging = false;
+    this._isTouchFreeCamDrag = false;
     this.state.cinematicDrag.dragging = false;
   }
 
@@ -715,6 +728,7 @@ export class InputManager {
 
     if (this.state.isFreeCamera) {
       this.state.freeCam.dragging = true;
+      this._isTouchFreeCamDrag = true;
       this._lastFreeCamTouchX = e.changedTouches[0].clientX;
       this._lastFreeCamTouchY = e.changedTouches[0].clientY;
       return;
@@ -1018,10 +1032,12 @@ export class InputManager {
       this.state.mouse.x = 0;
       this.state.mouse.y = 0;
       this.state.freeCam.dragging = false;
+      this._isTouchFreeCamDrag = false;
     }
   }
 
   releaseStickFlick() {
+    this._stickFlickActive = false;
     const released = this._stickFlickTracker.reset();
     if (!released) return;
     const act = released.action;
@@ -1051,6 +1067,8 @@ export class InputManager {
         this.onKeyRelease(act, heldTime);
       }
     }
+
+    this._stickFlickActive = Boolean(flick.activeAction);
 
     if (flick.started) {
       const {action, count} = flick.started;
@@ -1082,6 +1100,7 @@ export class InputManager {
     const isVR = Boolean(renderer && renderer.xr && renderer.xr.isPresenting);
 
     if (isVR) {
+      this._gamepadDpadVertical = false;
       const session = renderer.xr.getSession ? renderer.xr.getSession() : null;
       const controllers = extractXRControllers(session, gamepads);
 
@@ -1094,6 +1113,7 @@ export class InputManager {
         this.state.gamepad.y = 0;
         this.state.gamepad.throttlingUp = false;
         this.state.gamepad.throttlingDown = false;
+        this.state.gamepad.gripTurn = 0;
         this.state.gamepad.gripRoll = 0;
         return;
       }
@@ -1105,6 +1125,7 @@ export class InputManager {
         if (this._vrButtons.pollPause(controllers)) {
           this.releaseStickFlick();
           this._vrButtons.syncFlightHeld(controllers);
+          this.state.gamepad.gripTurn = 0;
           this.state.gamepad.gripRoll = 0;
           if (this.onPauseToggle) this.onPauseToggle();
           return;
@@ -1120,6 +1141,7 @@ export class InputManager {
           this.state.gamepad.y = 0;
           this.state.gamepad.throttlingUp = false;
           this.state.gamepad.throttlingDown = false;
+          this.state.gamepad.gripTurn = 0;
           this.state.gamepad.gripRoll = 0;
           return;
         }
@@ -1156,8 +1178,12 @@ export class InputManager {
 
         // 5. Quest Touch face buttons and side grips (stick clicks left unset):
         // Right A: cycle VR camera, Right B: headlight, Left X: switch vehicle,
-        // Left / Right side grips: hold to barrel roll.
-        const events = this._vrButtons.pollFlightButtons(controllers);
+        // Left / Right side grips: single squeeze for sharp turn, double for roll.
+        const events = this._vrButtons.pollFlightButtons(
+          controllers,
+          performance.now()
+        );
+        this.state.gamepad.gripTurn = events.gripTurn;
         this.state.gamepad.gripRoll = events.gripRoll;
         if (events.camera && this.onCameraToggle) this.onCameraToggle();
         if (events.headlight && this.onHeadlightToggle) {
@@ -1169,6 +1195,7 @@ export class InputManager {
     }
 
     // Standard non-XR W3C Gamepad path
+    this.state.gamepad.gripTurn = 0;
     this.state.gamepad.gripRoll = 0;
     let gp = null;
     for (let i = 0; i < gamepads.length; i++) {
@@ -1180,6 +1207,7 @@ export class InputManager {
 
     if (!gp) {
       this.releaseStickFlick();
+      this._gamepadDpadVertical = false;
       this._lastGamepadButtons = [];
       this.state.gamepad.steeringActive = false;
       this.state.gamepad.x = 0;
@@ -1216,6 +1244,9 @@ export class InputManager {
     }
 
     // D-Pad: Map to Arrow keys
+    this._gamepadDpadVertical = Boolean(
+      gp.buttons?.[12]?.pressed || gp.buttons?.[13]?.pressed
+    );
     const dpadMap = [
       {btn: 12, key: 'ArrowUp'},
       {btn: 13, key: 'ArrowDown'},
@@ -1235,6 +1266,7 @@ export class InputManager {
 
     if (this.state.isPaused || state.isPaused) {
       this.releaseStickFlick();
+      this._gamepadDpadVertical = false;
       this.state.gamepad.steeringActive = false;
       this.state.gamepad.x = 0;
       this.state.gamepad.y = 0;
@@ -1367,6 +1399,37 @@ export class InputManager {
       this.state.joystick.active ||
       this.state.touch.steeringId !== null
     );
+  }
+
+  hasActiveTouchGesture() {
+    for (const k in this._activeGestures) {
+      if (Object.prototype.hasOwnProperty.call(this._activeGestures, k)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  shouldInvertYAxis() {
+    const isVRPresenting = Boolean(
+      renderer && renderer.xr && renderer.xr.isPresenting
+    );
+    const isTouchInput =
+      this.state.touch.steeringId !== null ||
+      this.hasActiveTouchGesture() ||
+      this._isTouchFreeCamDrag;
+    const gamepadActive =
+      this.state.gamepad.steeringActive ||
+      this._stickFlickActive ||
+      this._gamepadDpadVertical;
+    return ChillFlightLogic.shouldInvertYAxis({
+      invertYAxis: state.invertYAxis,
+      isVRPresenting,
+      isVRHeadset: this._isVRHeadset,
+      controlScheme: state.currentControlScheme || this.state.controlScheme,
+      isTouchInput,
+      gamepadActive,
+    });
   }
 
   /**

@@ -197,7 +197,7 @@ function makeSession(leftOpts, rightOpts) {
   check('1-button hand-tracking input source never throws', safe);
 }
 
-// 4. Flight face buttons (A=Camera, B=Headlight, X=Switch vehicle), side-grip barrel rolls, & unset stick clicks
+// 4. Flight face buttons (A=Camera, B=Headlight, X=Switch vehicle), side-grip sharp turns / barrel rolls, & unset stick clicks
 {
   const btns = createVRButtonTracker();
   const c1 = extractXRControllers(
@@ -211,17 +211,25 @@ function makeSession(leftOpts, rightOpts) {
     !btns.pollPause(c1)
   );
 
-  const e1 = btns.pollFlightButtons(c1);
+  const e1 = btns.pollFlightButtons(c1, 100);
   check(
     'Right A, Right B, and Left X fire camera, headlight, and plane once while both grips held cancel out',
-    e1.camera && e1.headlight && e1.plane && e1.gripRoll === 0,
+    e1.camera &&
+      e1.headlight &&
+      e1.plane &&
+      e1.gripTurn === 0 &&
+      e1.gripRoll === 0,
     JSON.stringify(e1)
   );
 
-  const e2 = btns.pollFlightButtons(c1);
+  const e2 = btns.pollFlightButtons(c1, 116);
   check(
     'held flight buttons stay edge-latched on subsequent frames',
-    !e2.camera && !e2.headlight && !e2.plane && e2.gripRoll === 0,
+    !e2.camera &&
+      !e2.headlight &&
+      !e2.plane &&
+      e2.gripTurn === 0 &&
+      e2.gripRoll === 0,
     JSON.stringify(e2)
   );
 
@@ -229,12 +237,13 @@ function makeSession(leftOpts, rightOpts) {
   const lightRest = extractXRControllers(
     makeSession({grip: 0.35}, {grip: 0.2})
   );
-  const eLight = btns.pollFlightButtons(lightRest);
+  const eLight = btns.pollFlightButtons(lightRest, 500);
   check(
-    'light finger contact on side grips does not trigger barrel roll or face actions',
+    'light finger contact on side grips does not trigger sharp turn, barrel roll, or face actions',
     !eLight.camera &&
       !eLight.headlight &&
       !eLight.plane &&
+      eLight.gripTurn === 0 &&
       eLight.gripRoll === 0,
     JSON.stringify(eLight)
   );
@@ -248,33 +257,70 @@ function makeSession(leftOpts, rightOpts) {
   const leftGripRelease = extractXRControllers(
     makeSession({grip: 0.2}, {grip: 0})
   );
-  const eLeft1 = btns.pollFlightButtons(leftGripSqueeze);
-  const eLeft2 = btns.pollFlightButtons(leftGripEase);
-  const eLeft3 = btns.pollFlightButtons(leftGripRelease);
+  const eLeft1 = btns.pollFlightButtons(leftGripSqueeze, 1000);
+  const eLeft2 = btns.pollFlightButtons(leftGripEase, 1100);
+  const eLeft3 = btns.pollFlightButtons(leftGripRelease, 1200);
   check(
-    'left side grip holds +1 barrel roll continuously with hysteresis until released',
-    eLeft1.gripRoll === 1 &&
+    'single left side-grip squeeze holds +1 sharp turn continuously with hysteresis until released',
+    eLeft1.gripTurn === 1 &&
+      eLeft1.gripRoll === 0 &&
       !eLeft1.camera &&
       !eLeft1.headlight &&
       !eLeft1.plane &&
-      eLeft2.gripRoll === 1 &&
+      eLeft2.gripTurn === 1 &&
+      eLeft2.gripRoll === 0 &&
+      eLeft3.gripTurn === 0 &&
       eLeft3.gripRoll === 0,
     JSON.stringify({eLeft1, eLeft2, eLeft3})
   );
 
+  // Double-squeeze within 450ms upgrades to barrel roll; re-squeeze after long hold returns to sharp turn
+  const eLeftRollStart = btns.pollFlightButtons(leftGripSqueeze, 1320);
+  const eLeftRollHold = btns.pollFlightButtons(leftGripEase, 2500);
+  const eLeftRollRel = btns.pollFlightButtons(leftGripRelease, 2600);
+  const eLeftTurnAgain = btns.pollFlightButtons(leftGripSqueeze, 2750);
+  check(
+    'double-squeezing left side grip holds +1 barrel roll and re-squeezing after a long roll returns to single-tap sharp turn',
+    eLeftRollStart.gripTurn === 0 &&
+      eLeftRollStart.gripRoll === 1 &&
+      eLeftRollHold.gripTurn === 0 &&
+      eLeftRollHold.gripRoll === 1 &&
+      eLeftRollRel.gripTurn === 0 &&
+      eLeftRollRel.gripRoll === 0 &&
+      eLeftTurnAgain.gripTurn === 1 &&
+      eLeftTurnAgain.gripRoll === 0,
+    JSON.stringify({
+      eLeftRollStart,
+      eLeftRollHold,
+      eLeftRollRel,
+      eLeftTurnAgain,
+    })
+  );
+
+  btns.reset();
   const rightGripSqueeze = extractXRControllers(
     makeSession({grip: 0}, {grip: 0.9})
   );
+  const rightGripRelease = extractXRControllers(
+    makeSession({grip: 0}, {grip: 0})
+  );
   const bothGrips = extractXRControllers(makeSession({grip: 0.9}, {grip: 0.9}));
-  const eRight1 = btns.pollFlightButtons(rightGripSqueeze);
-  const eBoth = btns.pollFlightButtons(bothGrips);
-  const eRightAgain = btns.pollFlightButtons(rightGripSqueeze);
+  const eRightTurn = btns.pollFlightButtons(rightGripSqueeze, 3000);
+  btns.pollFlightButtons(rightGripRelease, 3100);
+  const eRightRoll = btns.pollFlightButtons(rightGripSqueeze, 3220);
+  const eBoth = btns.pollFlightButtons(bothGrips, 3300);
+  const eRightAgain = btns.pollFlightButtons(rightGripSqueeze, 3400);
   check(
-    'right side grip holds -1 barrel roll and squeezing both grips cancels to 0 cleanly',
-    eRight1.gripRoll === -1 &&
+    'right side grip single-taps -1 sharp turn, double-taps -1 barrel roll, and squeezing both grips cancels to 0 cleanly',
+    eRightTurn.gripTurn === -1 &&
+      eRightTurn.gripRoll === 0 &&
+      eRightRoll.gripTurn === 0 &&
+      eRightRoll.gripRoll === -1 &&
+      eBoth.gripTurn === 0 &&
       eBoth.gripRoll === 0 &&
+      eRightAgain.gripTurn === 0 &&
       eRightAgain.gripRoll === -1,
-    JSON.stringify({eRight1, eBoth, eRightAgain})
+    JSON.stringify({eRightTurn, eRightRoll, eBoth, eRightAgain})
   );
 }
 
@@ -399,18 +445,22 @@ function makeSession(leftOpts, rightOpts) {
   );
   btns.syncFlightHeld(pressRightAWithGrip); // synced while paused
   const resumeAct = pauseLatch.poll(pressRightAWithGrip, -1);
-  const resumedFlightEvents = btns.pollFlightButtons(pressRightAWithGrip); // A and Grip still held on 1st resumed frame!
-  const releasedAfterResume = btns.pollFlightButtons(idle);
+  const resumedFlightEvents = btns.pollFlightButtons(pressRightAWithGrip, 4000); // A and Grip still held on 1st resumed frame!
+  const releasedAfterResume = btns.pollFlightButtons(idle, 4100);
   const freshGripAfterResume = btns.pollFlightButtons(
-    extractXRControllers(makeSession({grip: 0.95}, {}))
+    extractXRControllers(makeSession({grip: 0.95}, {})),
+    4200
   );
   check(
-    'pressing Right A while gripping controller resumes flight without toggling camera or barrel-rolling until grip is re-squeezed',
+    'pressing Right A while gripping controller resumes flight without toggling camera, sharp-turning, or barrel-rolling until grip is re-squeezed',
     resumeAct === 'resume' &&
       !resumedFlightEvents.camera &&
+      resumedFlightEvents.gripTurn === 0 &&
       resumedFlightEvents.gripRoll === 0 &&
+      releasedAfterResume.gripTurn === 0 &&
       releasedAfterResume.gripRoll === 0 &&
-      freshGripAfterResume.gripRoll === 1,
+      freshGripAfterResume.gripTurn === 1 &&
+      freshGripAfterResume.gripRoll === 0,
     JSON.stringify({
       resumedFlightEvents,
       releasedAfterResume,
@@ -611,6 +661,92 @@ function makeSession(leftOpts, rightOpts) {
       visibleCtrls.leftGp !== null &&
       visibleCtrls.rightGp !== null &&
       visibleCtrls.standardGp !== null
+  );
+}
+
+// 10. Invert y axis scoping (VR sticks & gamepads vs. 2D laser & Touch screen-position)
+{
+  check(
+    'shouldInvertYAxis always returns false when Invert y axis is disabled',
+    !ChillFlightLogic.shouldInvertYAxis({
+      invertYAxis: false,
+      isVRPresenting: true,
+      isVRHeadset: true,
+      controlScheme: 'touch',
+    }) &&
+      !ChillFlightLogic.shouldInvertYAxis({
+        invertYAxis: false,
+        controlScheme: 'joystick',
+        gamepadActive: true,
+      })
+  );
+
+  check(
+    'shouldInvertYAxis honors Invert y axis on VR physical sticks, W3C gamepads, desktop mouse/keys, Joystick, and Gyro while ignoring it on 2D VR headset laser rays and Touch screen-position mode',
+    // Immersive VR physical sticks honor Invert y axis even on Quest ('touch' scheme)
+    ChillFlightLogic.shouldInvertYAxis({
+      invertYAxis: true,
+      isVRPresenting: true,
+      isVRHeadset: true,
+      controlScheme: 'touch',
+    }) &&
+      // Bluetooth gamepad in a 2D Quest browser window or mobile Touch mode honors Invert y axis
+      ChillFlightLogic.shouldInvertYAxis({
+        invertYAxis: true,
+        isVRPresenting: false,
+        isVRHeadset: true,
+        controlScheme: 'touch',
+        gamepadActive: true,
+      }) &&
+      ChillFlightLogic.shouldInvertYAxis({
+        invertYAxis: true,
+        controlScheme: 'touch',
+        isTouchInput: true,
+        gamepadActive: true,
+      }) &&
+      // 2D VR headset laser ray (both trigger touch and hover mousemove) ignores Invert y axis
+      !ChillFlightLogic.shouldInvertYAxis({
+        invertYAxis: true,
+        isVRPresenting: false,
+        isVRHeadset: true,
+        controlScheme: 'touch',
+        isTouchInput: true,
+      }) &&
+      !ChillFlightLogic.shouldInvertYAxis({
+        invertYAxis: true,
+        isVRPresenting: false,
+        isVRHeadset: true,
+        controlScheme: 'touch',
+        isTouchInput: false,
+      }) &&
+      // Mobile/tablet Touch (screen-position) mode ignores Invert y axis
+      !ChillFlightLogic.shouldInvertYAxis({
+        invertYAxis: true,
+        controlScheme: 'touch',
+        isTouchInput: true,
+      }) &&
+      // Mobile/tablet Joystick and Gyro modes honor Invert y axis
+      ChillFlightLogic.shouldInvertYAxis({
+        invertYAxis: true,
+        controlScheme: 'joystick',
+        isTouchInput: true,
+      }) &&
+      ChillFlightLogic.shouldInvertYAxis({
+        invertYAxis: true,
+        controlScheme: 'gyro',
+        isTouchInput: true,
+      }) &&
+      // Desktop mouse and keyboard honor Invert y axis (even if controlScheme is 'touch' on a hybrid laptop)
+      ChillFlightLogic.shouldInvertYAxis({
+        invertYAxis: true,
+        controlScheme: 'joystick',
+        isTouchInput: false,
+      }) &&
+      ChillFlightLogic.shouldInvertYAxis({
+        invertYAxis: true,
+        controlScheme: 'touch',
+        isTouchInput: false,
+      })
   );
 }
 

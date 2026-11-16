@@ -136,8 +136,8 @@ export default {
   'Trigger or press A / Y': 'Gâchette ou bouton A / Y',
   'Warp or set a waypoint in 2D': 'Téléporter ou placer un repère en 2D',
   'Trigger or press B': 'Gâchette ou bouton B',
-  'Stick: steer (flick for stunts) · Triggers: throttle · Grips: roll':
-    'Stick : diriger (coups secs : figures) · Gâchettes : gaz · Poignées : tonneau',
+  'Stick: steer · Triggers: throttle · Grips: turn / roll':
+    'Stick : diriger · Gâchettes : gaz · Poignées : virage / tonneau',
   'A: camera · B: headlight · X: vehicle · Y: pause':
     'A : caméra · B : phare · X : véhicule · Y : pause',
   'Double-tap center to exit zen':

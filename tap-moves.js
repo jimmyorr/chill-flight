@@ -11,6 +11,7 @@
 // one that already says it's been done, if any) and name().
 import {t} from './i18n.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
+import {state} from './state.js';
 
 export const MOVES = [
   {
@@ -160,6 +161,19 @@ export const isTouch = () =>
     (typeof navigator !== 'undefined' &&
       ChillFlightLogic.isVRHeadsetUserAgent(navigator.userAgent))
   );
+
+// Direct screen-position controls (2D VR headset laser rays and Touch mode)
+// point directly at the top or bottom of the sky rather than pushing a stick,
+// so stunt zones and hints ignore Invert y axis there.
+export const invertForMoves = () =>
+  ChillFlightLogic.shouldInvertYAxis({
+    invertYAxis: state.invertYAxis,
+    isVRHeadset:
+      typeof navigator !== 'undefined' &&
+      ChillFlightLogic.isVRHeadsetUserAgent(navigator.userAgent),
+    controlScheme: state.currentControlScheme,
+    isTouchInput: isTouch(),
+  });
 
 // --- WHAT THE PLAYER HAS DONE ---
 const DONE_KEY = 'chill_flight_moves_done';

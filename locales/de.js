@@ -137,8 +137,8 @@ export default {
   'Trigger or press A / Y': 'Abzug oder A / Y drücken',
   'Warp or set a waypoint in 2D': 'Teleportieren oder Wegpunkt in 2D setzen',
   'Trigger or press B': 'Abzug oder B drücken',
-  'Stick: steer (flick for stunts) · Triggers: throttle · Grips: roll':
-    'Stick: lenken (antippen für Stunts) · Abzüge: Schub · Griffe: Rolle',
+  'Stick: steer · Triggers: throttle · Grips: turn / roll':
+    'Stick: lenken · Abzüge: Schub · Griffe: Wende / Rolle',
   'A: camera · B: headlight · X: vehicle · Y: pause':
     'A: Kamera · B: Scheinwerfer · X: Fahrzeug · Y: Pause',
   'Double-tap center to exit zen':

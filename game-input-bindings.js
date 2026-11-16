@@ -175,7 +175,7 @@ inputManager.onMenuToggle = () => {
 };
 inputManager.onTripleTap = (action) => {
   // Not mid-loop, and not on the ground (it would launch the plane)
-  const downAction = state.invertYAxis ? 'ArrowUp' : 'ArrowDown';
+  const downAction = inputManager.shouldInvertYAxis() ? 'ArrowUp' : 'ArrowDown';
   if (
     action === downAction &&
     !state.isDoingImmelmann &&

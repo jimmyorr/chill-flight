@@ -136,8 +136,8 @@ export default {
   'Trigger or press A / Y': 'Gatillo o pulsa A / Y',
   'Warp or set a waypoint in 2D': 'Teletransportarse o fijar ruta en 2D',
   'Trigger or press B': 'Gatillo o pulsa B',
-  'Stick: steer (flick for stunts) · Triggers: throttle · Grips: roll':
-    'Stick: girar (toques para acrobacias) · Gatillos: potencia · Agarres: tonel',
+  'Stick: steer · Triggers: throttle · Grips: turn / roll':
+    'Stick: girar · Gatillos: potencia · Agarres: viraje / tonel',
   'A: camera · B: headlight · X: vehicle · Y: pause':
     'A: cámara · B: faro · X: vehículo · Y: pausa',
   'Double-tap center to exit zen':

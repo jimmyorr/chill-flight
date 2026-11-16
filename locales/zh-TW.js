@@ -126,8 +126,8 @@ export default {
   'Trigger or press A / Y': '扣扳機或按 A / Y',
   'Warp or set a waypoint in 2D': '在 2D 地圖中傳送或設航點',
   'Trigger or press B': '扣扳機或按 B',
-  'Stick: steer (flick for stunts) · Triggers: throttle · Grips: roll':
-    '搖桿：轉向（連撥做特技） · 扳機：油門 · 側握鍵：橫滾',
+  'Stick: steer · Triggers: throttle · Grips: turn / roll':
+    '搖桿：轉向 · 扳機：油門 · 側握鍵：急轉 / 橫滾',
   'A: camera · B: headlight · X: vehicle · Y: pause':
     'A：視角 · B：大燈 · X：載具 · Y：暫停',
   'Double-tap center to exit zen': '雙擊螢幕中央退出禪模式',

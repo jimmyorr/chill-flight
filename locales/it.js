@@ -136,8 +136,8 @@ export default {
   'Trigger or press A / Y': 'Grilletto o premi A / Y',
   'Warp or set a waypoint in 2D': 'Teletrasportati o imposta una tappa in 2D',
   'Trigger or press B': 'Grilletto o premi B',
-  'Stick: steer (flick for stunts) · Triggers: throttle · Grips: roll':
-    'Stick: vira (colpetti per acrobazie) · Grilletti: motore · Impugnature: tonneau',
+  'Stick: steer · Triggers: throttle · Grips: turn / roll':
+    'Stick: vira · Grilletti: motore · Impugnature: virata / tonneau',
   'A: camera · B: headlight · X: vehicle · Y: pause':
     'A: visuale · B: faro · X: veicolo · Y: pausa',
   'Double-tap center to exit zen':

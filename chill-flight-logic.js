@@ -498,6 +498,21 @@ export const ChillFlightLogic = {};
     return 'joystick';
   }
 
+  function shouldInvertYAxis({
+    invertYAxis = false,
+    isVRPresenting = false,
+    isVRHeadset = false,
+    controlScheme = 'joystick',
+    isTouchInput = false,
+    gamepadActive = false,
+  } = {}) {
+    if (!invertYAxis) return false;
+    if (isVRPresenting || gamepadActive) return true;
+    if (isVRHeadset) return false;
+    if (isTouchInput && controlScheme === 'touch') return false;
+    return true;
+  }
+
   function chooseAutoGraphicsPreset({
     cores = 4,
     memory = null,
@@ -6821,6 +6836,7 @@ export const ChillFlightLogic = {};
   exports.GRAPHICS_PRESET = GRAPHICS_PRESET;
   exports.isVRHeadsetUserAgent = isVRHeadsetUserAgent;
   exports.resolveControlScheme = resolveControlScheme;
+  exports.shouldInvertYAxis = shouldInvertYAxis;
   exports.chooseAutoGraphicsPreset = chooseAutoGraphicsPreset;
   exports.MAX_FPS = MAX_FPS;
   exports.ZENITH_COLOR = ZENITH_COLOR;

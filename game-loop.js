@@ -450,7 +450,8 @@ function performFrame(timestamp) {
           keys.KeyW ||
           keys.KeyA ||
           keys.KeyS ||
-          keys.KeyD);
+          keys.KeyD ||
+          (inputManager.state.gamepad.gripTurn || 0) !== 0);
       if (steering || deliberateSteer()) toggleAutopilot();
       else updateDrivingAutopilot(delta);
     }
@@ -1084,21 +1085,18 @@ function updatePhysicsAndControls(delta, nowTime) {
   let effMouseX = steeringOn ? stickResponse(state.mouseX) : 0;
   let effMouseY = steeringOn ? stickResponse(state.mouseY) : 0;
 
-  // Logical inputs based on Y-axis inversion
-  const isUp =
-    (state.invertYAxis ? keys.ArrowDown : keys.ArrowUp) && !state.isFreeCamera;
+  // Logical inputs based on effective Y-axis inversion
+  const invertY = inputManager.shouldInvertYAxis();
+  const isUp = (invertY ? keys.ArrowDown : keys.ArrowUp) && !state.isFreeCamera;
   const isDown =
-    (state.invertYAxis ? keys.ArrowUp : keys.ArrowDown) && !state.isFreeCamera;
+    (invertY ? keys.ArrowUp : keys.ArrowDown) && !state.isFreeCamera;
   const dtUp =
-    (state.invertYAxis ? doubleTap.ArrowDown : doubleTap.ArrowUp) &&
-    !state.isFreeCamera;
+    (invertY ? doubleTap.ArrowDown : doubleTap.ArrowUp) && !state.isFreeCamera;
   const dtDown =
-    (state.invertYAxis ? doubleTap.ArrowUp : doubleTap.ArrowDown) &&
-    !state.isFreeCamera;
+    (invertY ? doubleTap.ArrowUp : doubleTap.ArrowDown) && !state.isFreeCamera;
   const ttUp =
-    (state.invertYAxis ? tripleTap.ArrowDown : tripleTap.ArrowUp) &&
-    !state.isFreeCamera;
-  const startUp = state.invertYAxis
+    (invertY ? tripleTap.ArrowDown : tripleTap.ArrowUp) && !state.isFreeCamera;
+  const startUp = invertY
     ? keyPressStartTime.ArrowDown
     : keyPressStartTime.ArrowUp;
 
@@ -1108,14 +1106,18 @@ function updatePhysicsAndControls(delta, nowTime) {
   const dtRight = doubleTap.ArrowRight && !state.isFreeCamera;
   const ttLeft = tripleTap.ArrowLeft && !state.isFreeCamera;
   const ttRight = tripleTap.ArrowRight && !state.isFreeCamera;
-  const inAirGripRoll =
-    !state.isFreeCamera && !state.isOnGround && !state.isOnWater
-      ? inputManager.state.gamepad.gripRoll || 0
-      : 0;
+  const inAirGrip =
+    !state.isFreeCamera && !state.isOnGround && !state.isOnWater;
+  const inAirGripTurn = inAirGrip
+    ? inputManager.state.gamepad.gripTurn || 0
+    : 0;
+  const inAirGripRoll = inAirGrip
+    ? inputManager.state.gamepad.gripRoll || 0
+    : 0;
 
-  // Auto-disable autopilot on manual steering input: arrow keys, VR grip roll,
-  // or the touch joystick, drag-steer or a gamepad stick pushed past the
-  // deadzone (deliberateSteer)
+  // Auto-disable autopilot on manual steering input: arrow keys, VR grip
+  // turn/roll, or the touch joystick, drag-steer or a gamepad stick pushed past
+  // the deadzone (deliberateSteer)
   if (
     state.autopilotEnabled &&
     !keys.Shift &&
@@ -1123,6 +1125,7 @@ function updatePhysicsAndControls(delta, nowTime) {
       isDown ||
       isLeft ||
       isRight ||
+      inAirGripTurn !== 0 ||
       inAirGripRoll !== 0 ||
       deliberateSteer())
   ) {
@@ -1135,7 +1138,7 @@ function updatePhysicsAndControls(delta, nowTime) {
     !state.isFreeCamera &&
     (state.flightSpeedMultiplier > 0 || Math.abs(state.targetFlightSpeed) > 0)
   ) {
-    let yMultiplier = state.invertYAxis ? -1 : 1;
+    let yMultiplier = invertY ? -1 : 1;
     state.targetPitch = effMouseY * maxPitch * yMultiplier;
     state.targetRoll = -effMouseX * (maxRoll * 1.25);
 
@@ -1168,7 +1171,8 @@ function updatePhysicsAndControls(delta, nowTime) {
 
     let sharpHeld = 0;
     if (!keys.Shift && !inAirGripRoll) {
-      if (isLeft && dtLeft) sharpHeld = 1;
+      if (inAirGripTurn !== 0) sharpHeld = inAirGripTurn;
+      else if (isLeft && dtLeft) sharpHeld = 1;
       else if (isRight && dtRight) sharpHeld = -1;
     }
     if (sharpHeld) sharpTurnDir = sharpHeld;
@@ -1414,7 +1418,7 @@ function updatePhysicsAndControls(delta, nowTime) {
             inputManager.state.gamepad.steeringActive;
           const effAnalogY = hasAnalogPitch ? effMouseY : 0;
           const pitchModulation =
-            effAnalogY * (maxPitch * 0.4) * (state.invertYAxis ? -1 : 1);
+            effAnalogY * (maxPitch * 0.4) * (invertY ? -1 : 1);
           if (pitchMode === 2) {
             targetAngle = STEEP_CLIMB_ANGLE + pitchModulation;
             maxSpeed = STEEP_PITCH_SPEED;
@@ -1517,9 +1521,12 @@ function updatePhysicsAndControls(delta, nowTime) {
     (state.isOnGround || state.isOnWater) &&
     state.flightSpeedMultiplier < 0.4
   ) {
-    if (isLeft && !keys.Shift) {
+    const groundGripTurn = !keys.Shift
+      ? inputManager.state.gamepad.gripTurn || 0
+      : 0;
+    if ((isLeft || groundGripTurn > 0) && !keys.Shift) {
       planeGroup.rotation.y += 1.5 * delta;
-    } else if (isRight && !keys.Shift) {
+    } else if ((isRight || groundGripTurn < 0) && !keys.Shift) {
       planeGroup.rotation.y -= 1.5 * delta;
     } else if (Math.abs(effMouseX) > 0.1 && !keys.Shift) {
       planeGroup.rotation.y -= effMouseX * 1.5 * delta;
