@@ -12,6 +12,16 @@
     uniform vec3 uCameraPos;
     varying vec3 vDirection;
 
+    // High cloud layers: their planes' heights over the cumulus deck's, and
+    // where view direction dir (h = dir.y > 0) meets the plane at height H,
+    // in the same units the deck's clouds use from the ground
+    const float CIRRUS_HEIGHT = 3.0;
+    const float MACKEREL_HEIGHT = 2.0;
+    vec2 highCloudUV(vec3 dir, float h, float H) {
+        float t = max(H - uCameraPos.y, 1.0) / h;
+        return (uCameraPos.xz + dir.xz * t) / H;
+    }
+
     void main() {
         vec3 dir = normalize(vDirection + vec3(0.0, offset, 0.0));
         float h = dir.y;
@@ -42,6 +52,11 @@
         }
 
         // --- PROCEDURAL CLOUDS: cirrus, mackerel sky and cumulus layers ---
+        // The cirrus and mackerel sky are high clouds, on their own planes
+        // well above the cumulus deck: from the ground they look the same,
+        // but climbing toward the deck they stay far off rather than
+        // swelling into huge straight streaks across the sky. Above the deck
+        // only the cumulus shows (below)
         float cloudHeight = uCloudHeight > 0.0 ? uCloudHeight : 3000.0;
         float distToPlane = cloudHeight - uCameraPos.y;
         
@@ -82,8 +97,9 @@
             // -- Layer 1: Cirrus streaks (highest, slowest) --
             // High clouds see the sun a little longer, so they keep their
             // sunset color after the lower ones have gone dark
-            if (uCloudTypes.y > 0.0) {
-                vec2 uvCirrus = (cloudUV + CLOUD_WIND * uTime * 0.012) * 2.0;
+            if (uCloudTypes.y > 0.0 && h > 0.0) {
+                vec2 uvCirrus = (highCloudUV(dir, h, cloudHeight * CIRRUS_HEIGHT)
+                                 + CLOUD_WIND * uTime * 0.012) * 2.0;
 #ifdef ANIME_SKY
                 vec2 animeCirrus = animeCirrusShape(uvCirrus);
                 // Paint, not haze: even a light cirrus day draws solid strokes
@@ -113,8 +129,9 @@
             }
 
             // -- Layer 2: Mackerel sky (rows of small puffs) --
-            if (uCloudTypes.z > 0.0) {
-                vec2 uvMackerel = (cloudUV + CLOUD_WIND * uTime * 0.02) * 4.5;
+            if (uCloudTypes.z > 0.0 && h > 0.0) {
+                vec2 uvMackerel = (highCloudUV(dir, h, cloudHeight * MACKEREL_HEIGHT)
+                                   + CLOUD_WIND * uTime * 0.02) * 4.5;
                 // Fine rows shimmer near the horizon, so they fade out sooner.
                 // A wide edge band: thin puffs are see-through at their edges
                 float shapeMackerel = mackerelShape(uvMackerel);
