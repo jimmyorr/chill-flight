@@ -441,6 +441,18 @@ function swampTreeFrom(spot, worldX, worldZ, gridSpacing, t) {
 // models are 600-900 triangles each, against tens for a pine, so the swamp
 // keeps about a third of them
 const SWAMP_TREE_THINNING = 0.65;
+// How thickly the swamp's trees stand at (x, z), about 1 on average: stands
+// a few hundred meters across (hammocks), and within them tighter groups,
+// with open marsh between
+function swampStandAt(x, z) {
+  const clamp01 = (v) => Math.max(0, Math.min(1, v));
+  const stand = clamp01(
+    (simplex.noise2D(x * 0.0025 - 131, z * 0.0025 + 57) + 0.1) / 0.4
+  );
+  const group = clamp01(0.5 + 0.9 * simplex.noise2D(x * 0.02 + 73, z * 0.02));
+  return SWAMP_STAND_SCALE * (0.03 + stand * stand) * (0.4 + group);
+}
+const SWAMP_STAND_SCALE = 2.4;
 
 export const ALIEN_PROPS_AT = 0.3;
 
@@ -7344,14 +7356,15 @@ export function generateChunkData({
   // Swamp trees, reeds, cattails, lily pads, logs, and stumps (no rolls here)
   for (const pos of swampTreePositions) {
     // Most of the swamp trees (from every path above) left out for frame
-    // rate (SWAMP_TREE_THINNING)
+    // rate (SWAMP_TREE_THINNING). Not evenly: the ones kept stand in
+    // hammocks and cypress stands, with open marsh between them, so the
+    // swamp doesn't read as an orchard.
+    const swx = worldOffsetX + pos.x;
+    const swz = worldOffsetZ + pos.z;
     if (
       pos.type !== 'swampGiantOak' &&
-      fieldHash(
-        Math.round(worldOffsetX + pos.x),
-        Math.round(worldOffsetZ + pos.z),
-        661
-      ) < SWAMP_TREE_THINNING
+      fieldHash(Math.round(swx), Math.round(swz), 661) >=
+        (1 - SWAMP_TREE_THINNING) * swampStandAt(swx, swz)
     ) {
       continue;
     }
