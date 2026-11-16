@@ -495,7 +495,7 @@ export function createVRButtonTracker(gripWindowMs = STICK_FLICK_WINDOW_MS) {
 
 /**
  * Maps UV coordinates on the 1024x680 VR pause card mesh to button index:
- * 0 = Resume flight, 1 = Map (exits VR to 2D map), 2 = Exit VR, -1 = outside.
+ * 0 = Resume flight, 1 = Map (in-VR 3D world map), 2 = Exit VR, -1 = outside.
  */
 export function hitTestVRPauseMenuUV(u, v) {
   if (typeof u !== 'number' || typeof v !== 'number') return -1;
@@ -510,60 +510,272 @@ export function hitTestVRPauseMenuUV(u, v) {
 }
 
 /**
- * State-wide button latch for the 3D VR pause menu.
- * Calling `arm(controllers)` when the menu opens latches any currently held
- * buttons (such as Trigger, Right B, or Left Y) so they cannot fire on the
- * pause frame.
+ * Logical 1024x680 coordinate layout shared by VR map card rendering and UV
+ * raycast hit-testing so drawn buttons and interactive bounds stay in sync.
+ */
+export const VR_MAP_LAYOUT = {
+  canvasW: 1024,
+  canvasH: 680,
+  card: {x: 24, y: 14, w: 976, h: 652, r: 30},
+  backBtn: {x: 36, y: 24, w: 176, h: 46, r: 14},
+  resumeBtn: {x: 752, y: 24, w: 236, h: 46, r: 14},
+  viewport: {x: 36, y: 78, w: 952, h: 508, r: 18},
+  zoomInBtn: {x: 924, y: 396, w: 52, h: 52, r: 14},
+  zoomOutBtn: {x: 924, y: 456, w: 52, h: 52, r: 14},
+  recenterBtn: {x: 924, y: 522, w: 52, h: 52, r: 14},
+  controlsGuard: {x: 916, y: 390, w: 72, h: 196},
+  waypointWithWarpBtn: {x: 526, y: 598, w: 200, h: 52, r: 14},
+  warpBtn: {x: 736, y: 598, w: 190, h: 52, r: 14},
+  waypointNoWarpBtn: {x: 716, y: 598, w: 210, h: 52, r: 14},
+  clearPinBtn: {x: 936, y: 598, w: 52, h: 52, r: 14},
+  clearWaypointBtn: {x: 768, y: 598, w: 220, h: 52, r: 14},
+};
+
+function pointInRect(cx, cy, rect) {
+  return (
+    cx >= rect.x &&
+    cx <= rect.x + rect.w &&
+    cy >= rect.y &&
+    cy <= rect.y + rect.h
+  );
+}
+
+/**
+ * Maps UV coordinates on the 1024x680 VR map card mesh to an interactive target:
+ * `'back'`, `'resume'`, `'zoomIn'`, `'zoomOut'`, `'recenter'`, `'viewport'`,
+ * `'warp'`, `'waypoint'`, `'clearPin'`, or `null`.
+ */
+export function hitTestVRMapUV(
+  u,
+  v,
+  {hasPin = false, hasWaypoint = false, canWarp = true} = {}
+) {
+  if (typeof u !== 'number' || typeof v !== 'number') return null;
+  const cx = u * VR_MAP_LAYOUT.canvasW;
+  const cy = (1.0 - v) * VR_MAP_LAYOUT.canvasH;
+
+  if (pointInRect(cx, cy, VR_MAP_LAYOUT.backBtn)) return 'back';
+  if (pointInRect(cx, cy, VR_MAP_LAYOUT.resumeBtn)) return 'resume';
+  if (pointInRect(cx, cy, VR_MAP_LAYOUT.zoomInBtn)) return 'zoomIn';
+  if (pointInRect(cx, cy, VR_MAP_LAYOUT.zoomOutBtn)) return 'zoomOut';
+  if (pointInRect(cx, cy, VR_MAP_LAYOUT.recenterBtn)) return 'recenter';
+  if (pointInRect(cx, cy, VR_MAP_LAYOUT.controlsGuard)) return null;
+  if (pointInRect(cx, cy, VR_MAP_LAYOUT.viewport)) return 'viewport';
+
+  if (hasPin) {
+    if (pointInRect(cx, cy, VR_MAP_LAYOUT.clearPinBtn)) return 'clearPin';
+    if (canWarp) {
+      if (pointInRect(cx, cy, VR_MAP_LAYOUT.warpBtn)) return 'warp';
+      if (pointInRect(cx, cy, VR_MAP_LAYOUT.waypointWithWarpBtn)) {
+        return 'waypoint';
+      }
+    } else if (pointInRect(cx, cy, VR_MAP_LAYOUT.waypointNoWarpBtn)) {
+      return 'waypoint';
+    }
+  } else if (
+    hasWaypoint &&
+    pointInRect(cx, cy, VR_MAP_LAYOUT.clearWaypointBtn)
+  ) {
+    return 'waypoint';
+  }
+
+  return null;
+}
+
+/**
+ * Converts card UV coordinates `[0..1]` into normalized map-viewport offsets
+ * `[-0.5..0.5]` relative to the center of `VR_MAP_LAYOUT.viewport`.
+ */
+export function uvToVRMapViewportNorm(u, v) {
+  const cx = u * VR_MAP_LAYOUT.canvasW;
+  const cy = (1.0 - v) * VR_MAP_LAYOUT.canvasH;
+  const vp = VR_MAP_LAYOUT.viewport;
+  return {
+    normX: (cx - vp.x) / vp.w - 0.5,
+    normY: (cy - vp.y) / vp.h - 0.5,
+  };
+}
+
+function shapeMapPanAxis(raw, deadzone) {
+  const abs = Math.abs(raw);
+  if (abs < deadzone) return 0;
+  const u = Math.min(1, (abs - deadzone) / Math.max(1e-6, 1 - deadzone));
+  return Math.sign(raw) * (0.35 * u + 0.65 * u * u);
+}
+
+/**
+ * Reads either VR thumbstick (or fallback standard gamepad stick) for smooth
+ * 2D world-map panning (`+x` = East, `+y` = North) with fine center precision.
+ */
+export function readVRMapPanStick(
+  {leftGp, rightGp, standardGp} = {},
+  deadzone = STICK_DEADZONE
+) {
+  const left = readXRThumbstick(leftGp);
+  const right = readXRThumbstick(rightGp);
+  const std = readStandardStick(standardGp);
+
+  let best = right;
+  let bestMag = Math.hypot(right.x, right.y);
+
+  const leftMag = Math.hypot(left.x, left.y);
+  if (leftMag > bestMag) {
+    best = left;
+    bestMag = leftMag;
+  }
+
+  const stdMag = Math.hypot(std.x, std.y);
+  if (stdMag > bestMag) {
+    best = std;
+  }
+
+  const x = shapeMapPanAxis(best.x, deadzone);
+  const y = shapeMapPanAxis(best.y, deadzone);
+  return {
+    x,
+    y,
+    active: x !== 0 || y !== 0,
+  };
+}
+
+const GRIP_MAP_DEADZONE = 0.2;
+
+function readMapGripZoom(gp, isLatched) {
+  const btn = gp?.buttons?.[1];
+  if (!btn) return {rawHeld: false, zoom: 0};
+  const val = buttonValue(btn);
+  const rawHeld = Boolean(btn.pressed) || val >= GRIP_MAP_DEADZONE;
+  if (!rawHeld || isLatched) return {rawHeld, zoom: 0};
+  const norm =
+    btn.pressed && val <= GRIP_MAP_DEADZONE
+      ? 1
+      : Math.min(1, (val - GRIP_MAP_DEADZONE) / (1 - GRIP_MAP_DEADZONE));
+  return {rawHeld: true, zoom: norm};
+}
+
+function resolveHandTarget(hoveredOrByHand, hand) {
+  if (
+    hoveredOrByHand &&
+    typeof hoveredOrByHand === 'object' &&
+    ('left' in hoveredOrByHand ||
+      'right' in hoveredOrByHand ||
+      'any' in hoveredOrByHand)
+  ) {
+    const specific = hoveredOrByHand[hand];
+    return specific !== undefined && specific !== null && specific !== -1
+      ? specific
+      : hoveredOrByHand.any;
+  }
+  return hoveredOrByHand;
+}
+
+/**
+ * State-wide button latch for the 3D VR pause and map cards.
+ * Calling `arm(controllers)` when a card opens latches any currently held
+ * buttons (such as Trigger, Right B, Right A, or Side Grips) so they must be
+ * released before firing an action on the new card.
  */
 export function createVRPauseInputLatch() {
-  let triggerLatched = false;
+  let leftTriggerLatched = false;
+  let rightTriggerLatched = false;
   let resumeLatched = false;
   let exitLatched = false;
+  let leftGripLatched = false;
+  let rightGripLatched = false;
 
-  function readStates({leftGp, rightGp, standardGp}) {
+  function readStates({leftGp, rightGp, standardGp} = {}) {
     return {
-      trigger: isPressed(leftGp, 0) || isPressed(rightGp, 0),
+      leftTrigger: isPressed(leftGp, 0),
+      rightTrigger: isPressed(rightGp, 0),
       resume:
         isPressed(rightGp, 4) || // Right A
         isPressed(standardGp, 0), // Standard Gamepad A
       exit:
         isPressed(rightGp, 5) || // Right B
         isPressed(standardGp, 1), // Standard Gamepad B
+      leftGrip: leftGp,
+      rightGrip: rightGp,
     };
   }
 
   return {
     arm(controllers) {
       const cur = readStates(controllers);
-      triggerLatched = cur.trigger;
+      leftTriggerLatched = cur.leftTrigger;
+      rightTriggerLatched = cur.rightTrigger;
       resumeLatched = cur.resume;
       exitLatched = cur.exit;
+      leftGripLatched = readMapGripZoom(cur.leftGrip, false).rawHeld;
+      rightGripLatched = readMapGripZoom(cur.rightGrip, false).rawHeld;
     },
 
     poll(controllers, hoveredButton) {
       const cur = readStates(controllers);
-      const freshTrigger = cur.trigger && !triggerLatched;
+      const freshRightTrigger = cur.rightTrigger && !rightTriggerLatched;
+      const freshLeftTrigger = cur.leftTrigger && !leftTriggerLatched;
       const freshResume = cur.resume && !resumeLatched;
       const freshExit = cur.exit && !exitLatched;
 
-      triggerLatched = cur.trigger;
+      leftTriggerLatched = cur.leftTrigger;
+      rightTriggerLatched = cur.rightTrigger;
       resumeLatched = cur.resume;
       exitLatched = cur.exit;
 
-      if (freshTrigger) {
-        if (hoveredButton === 0) return 'resume';
-        if (hoveredButton === 1) return 'map';
-        if (hoveredButton === 2) return 'exit';
+      if (freshRightTrigger || freshLeftTrigger) {
+        const hand = freshRightTrigger ? 'right' : 'left';
+        const btn = resolveHandTarget(hoveredButton, hand);
+        if (btn === 0) return 'resume';
+        if (btn === 1) return 'map';
+        if (btn === 2) return 'exit';
       }
       if (freshExit) return 'exit';
       if (freshResume) return 'resume';
       return null;
     },
 
+    pollMap(controllers, hoveredTarget) {
+      const cur = readStates(controllers);
+      const freshRightTrigger = cur.rightTrigger && !rightTriggerLatched;
+      const freshLeftTrigger = cur.leftTrigger && !leftTriggerLatched;
+      const freshResume = cur.resume && !resumeLatched;
+      const freshExit = cur.exit && !exitLatched;
+
+      leftTriggerLatched = cur.leftTrigger;
+      rightTriggerLatched = cur.rightTrigger;
+      resumeLatched = cur.resume;
+      exitLatched = cur.exit;
+
+      const leftG = readMapGripZoom(cur.leftGrip, leftGripLatched);
+      const rightG = readMapGripZoom(cur.rightGrip, rightGripLatched);
+      if (!leftG.rawHeld) leftGripLatched = false;
+      if (!rightG.rawHeld) rightGripLatched = false;
+      const gripZoom = rightG.zoom - leftG.zoom;
+
+      let action = null;
+      let hand = null;
+      if (freshRightTrigger || freshLeftTrigger) {
+        hand = freshRightTrigger ? 'right' : 'left';
+        const target = resolveHandTarget(hoveredTarget, hand);
+        if (target) {
+          action = target;
+        }
+      }
+      if (!action && freshExit) {
+        action = 'back';
+      } else if (!action && freshResume) {
+        action = 'resume';
+      }
+
+      return {action, hand, gripZoom};
+    },
+
     reset() {
-      triggerLatched = false;
+      leftTriggerLatched = false;
+      rightTriggerLatched = false;
       resumeLatched = false;
       exitLatched = false;
+      leftGripLatched = false;
+      rightGripLatched = false;
     },
   };
 }

@@ -153,6 +153,13 @@ let loopLock = 0;
 const _lastVehiclePos = new THREE.Vector3();
 const _seatCarry = new THREE.Vector3();
 
+export function syncCameraAfterTeleport() {
+  _followPrevValid = false;
+  if (planeGroup) {
+    _lastVehiclePos.copy(planeGroup.position);
+  }
+}
+
 const _forzaParams = ChillFlightLogic.urlParams;
 const _forzaAll =
   _forzaParams?.get('forza') === '1' || _forzaParams?.get('forza') === 'true';

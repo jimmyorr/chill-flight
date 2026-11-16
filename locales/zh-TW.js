@@ -124,12 +124,16 @@ export default {
   'Take a breather or adjust your flight': '休息一下，或調整你的飛行',
   'Resume flight': '繼續飛行',
   'Trigger or press A / Y': '扣扳機或按 A / Y',
-  'Warp or set a waypoint in 2D': '在 2D 地圖中傳送或設航點',
+  'Warp or set a waypoint': '傳送或設定航點',
   'Trigger or press B': '扣扳機或按 B',
   'Stick: steer · Triggers: throttle · Grips: turn / roll':
     '搖桿：轉向 · 扳機：油門 · 側握鍵：急轉 / 橫滾',
   'A: camera · B: headlight · X: vehicle · Y: pause':
     'A：視角 · B：大燈 · X：載具 · Y：暫停',
+  Back: '返回',
+  'Stick: pan · Grips: zoom · Trigger: pick a spot':
+    '搖桿：平移 · 側握鍵：縮放 · 扳機：選點',
+  'A / Y: resume · B: back': 'A / Y：繼續 · B：返回',
   'Double-tap center to exit zen': '雙擊螢幕中央退出禪模式',
   'Press <b>Z</b> to exit zen': '按 <b>Z</b> 退出禪模式',
   Flight: '飛行',

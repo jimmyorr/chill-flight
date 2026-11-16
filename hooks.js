@@ -10,6 +10,7 @@ export const hooks = {
   resetSteering: null, // game-ui.js
   onTrackChange: null, // game-audio-integration.js: (trackName) => void
   fullscreenMap: null, // minimap.js: {open, close, toggle, isOpen, syncUrlParams}
+  vrMap: null, // minimap.js: in-VR 3D world map controller
   minimap: null, // minimap.js: {toggle, isVisible}
   clearFarTerrain: null, // far-terrain.js: drops the distant terrain ring
   onResume: null, // zen.js: called when flight starts or the game unpauses

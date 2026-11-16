@@ -10,17 +10,21 @@
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {
   STICK_SENSITIVITY,
+  VR_MAP_LAYOUT,
   createStickFlickTracker,
   createVRButtonTracker,
   createVRPauseInputLatch,
   extractXRControllers,
   getVRSessionInit,
+  hitTestVRMapUV,
   hitTestVRPauseMenuUV,
   isXRSessionVisible,
   readCombinedThumbstick,
+  readVRMapPanStick,
   readXRTriggers,
   scaleThumbstickAxis,
   unscaleThumbstickForBuggy,
+  uvToVRMapViewportNorm,
 } from '../vr-controls-logic.js';
 
 console.log('Testing WebXR / Quest 2 VR controls...');
@@ -747,6 +751,179 @@ function makeSession(leftOpts, rightOpts) {
         controlScheme: 'touch',
         isTouchInput: false,
       })
+  );
+}
+
+// 11. In-VR 3D world map card UV hit-testing, viewport mapping, pan, and latches
+{
+  const toUV = (cx, cy) => [
+    cx / VR_MAP_LAYOUT.canvasW,
+    1 - cy / VR_MAP_LAYOUT.canvasH,
+  ];
+  const rectCenterUV = (r) => toUV(r.x + r.w / 2, r.y + r.h / 2);
+
+  const [backU, backV] = rectCenterUV(VR_MAP_LAYOUT.backBtn);
+  const [resU, resV] = rectCenterUV(VR_MAP_LAYOUT.resumeBtn);
+  const [zInU, zInV] = rectCenterUV(VR_MAP_LAYOUT.zoomInBtn);
+  const [zOutU, zOutV] = rectCenterUV(VR_MAP_LAYOUT.zoomOutBtn);
+  const [recU, recV] = rectCenterUV(VR_MAP_LAYOUT.recenterBtn);
+  const [vpU, vpV] = rectCenterUV(VR_MAP_LAYOUT.viewport);
+  // Gap pixel between Zoom In (y 396..448) and Zoom Out (y 456..508)
+  const [gapU, gapV] = toUV(950, 452);
+
+  check(
+    'hitTestVRMapUV resolves header, floating zoom/recenter buttons, guard zone, and map viewport',
+    hitTestVRMapUV(backU, backV) === 'back' &&
+      hitTestVRMapUV(resU, resV) === 'resume' &&
+      hitTestVRMapUV(zInU, zInV) === 'zoomIn' &&
+      hitTestVRMapUV(zOutU, zOutV) === 'zoomOut' &&
+      hitTestVRMapUV(recU, recV) === 'recenter' &&
+      hitTestVRMapUV(gapU, gapV) === null &&
+      hitTestVRMapUV(vpU, vpV) === 'viewport'
+  );
+
+  const [wpWarpU, wpWarpV] = rectCenterUV(VR_MAP_LAYOUT.waypointWithWarpBtn);
+  const [warpU, warpV] = rectCenterUV(VR_MAP_LAYOUT.warpBtn);
+  const [clearU, clearV] = rectCenterUV(VR_MAP_LAYOUT.clearPinBtn);
+  const [wpNoWarpU, wpNoWarpV] = rectCenterUV(VR_MAP_LAYOUT.waypointNoWarpBtn);
+  const [clearWpU, clearWpV] = rectCenterUV(VR_MAP_LAYOUT.clearWaypointBtn);
+
+  check(
+    'hitTestVRMapUV adapts bottom bar buttons for pin+warp, multiplayer pin-only, and active waypoint states',
+    hitTestVRMapUV(warpU, warpV, {hasPin: false, hasWaypoint: false}) ===
+      null &&
+      hitTestVRMapUV(wpWarpU, wpWarpV, {hasPin: true, canWarp: true}) ===
+        'waypoint' &&
+      hitTestVRMapUV(warpU, warpV, {hasPin: true, canWarp: true}) === 'warp' &&
+      hitTestVRMapUV(clearU, clearV, {hasPin: true, canWarp: true}) ===
+        'clearPin' &&
+      hitTestVRMapUV(warpU, warpV, {hasPin: true, canWarp: false}) !== 'warp' &&
+      hitTestVRMapUV(wpNoWarpU, wpNoWarpV, {hasPin: true, canWarp: false}) ===
+        'waypoint' &&
+      hitTestVRMapUV(clearWpU, clearWpV, {
+        hasPin: false,
+        hasWaypoint: true,
+      }) === 'waypoint'
+  );
+
+  const centerNorm = uvToVRMapViewportNorm(vpU, vpV);
+  const [tlU, tlV] = toUV(VR_MAP_LAYOUT.viewport.x, VR_MAP_LAYOUT.viewport.y);
+  const [brU, brV] = toUV(
+    VR_MAP_LAYOUT.viewport.x + VR_MAP_LAYOUT.viewport.w,
+    VR_MAP_LAYOUT.viewport.y + VR_MAP_LAYOUT.viewport.h
+  );
+  const tlNorm = uvToVRMapViewportNorm(tlU, tlV);
+  const brNorm = uvToVRMapViewportNorm(brU, brV);
+  check(
+    'uvToVRMapViewportNorm maps viewport center to (0, 0) and corners to (-0.5, -0.5) .. (+0.5, +0.5)',
+    Math.abs(centerNorm.normX) < 1e-9 &&
+      Math.abs(centerNorm.normY) < 1e-9 &&
+      Math.abs(tlNorm.normX - -0.5) < 1e-9 &&
+      Math.abs(tlNorm.normY - -0.5) < 1e-9 &&
+      Math.abs(brNorm.normX - 0.5) < 1e-9 &&
+      Math.abs(brNorm.normY - 0.5) < 1e-9
+  );
+
+  const panIdle = readVRMapPanStick(
+    extractXRControllers(
+      makeSession({axes: [0, 0, 0.08, -0.05]}, {axes: [0, 0, 0, 0]})
+    )
+  );
+  const panFull = readVRMapPanStick(
+    extractXRControllers(
+      makeSession({axes: [0, 0, 0, 0]}, {axes: [0, 0, 1.0, -1.0]})
+    )
+  );
+  check(
+    'readVRMapPanStick filters deadzone noise and maps full stick throw to (+/-1, +/-1)',
+    !panIdle.active &&
+      panIdle.x === 0 &&
+      panIdle.y === 0 &&
+      panFull.active &&
+      Math.abs(panFull.x - 1) < 1e-6 &&
+      Math.abs(panFull.y - 1) < 1e-6
+  );
+
+  // Latch transitions: Pause -> Map (Trigger & Grip held) -> per-hand click -> Back via B -> Pause (B still held)
+  const latch = createVRPauseInputLatch();
+  const enterMapHeld = extractXRControllers(
+    makeSession({grip: 0.9}, {trigger: 0.95})
+  );
+  latch.arm(enterMapHeld);
+
+  const firstMapPoll = latch.pollMap(enterMapHeld, {
+    left: 'viewport',
+    right: 'viewport',
+    any: 'viewport',
+  });
+  check(
+    'holding Trigger or Grip across Map open does not drop an accidental pin or zoom on frame 1',
+    firstMapPoll.action === null && firstMapPoll.gripZoom === 0,
+    JSON.stringify(firstMapPoll)
+  );
+
+  const neutral = extractXRControllers(makeSession({}, {}));
+  latch.pollMap(neutral, {left: 'viewport', right: 'zoomIn', any: 'zoomIn'});
+
+  const rightTriggerClick = extractXRControllers(
+    makeSession({}, {trigger: 0.95})
+  );
+  const rightRes = latch.pollMap(rightTriggerClick, {
+    left: 'viewport',
+    right: 'zoomIn',
+    any: 'viewport',
+  });
+  latch.pollMap(neutral, {left: 'viewport', right: 'zoomIn', any: 'zoomIn'});
+
+  const leftTriggerClick = extractXRControllers(
+    makeSession({trigger: 0.95}, {})
+  );
+  const leftRes = latch.pollMap(leftTriggerClick, {
+    left: 'viewport',
+    right: 'zoomIn',
+    any: 'zoomIn',
+  });
+  check(
+    'pollMap dispatches each hand trigger against that specific controller ray target',
+    rightRes.action === 'zoomIn' &&
+      rightRes.hand === 'right' &&
+      leftRes.action === 'viewport' &&
+      leftRes.hand === 'left',
+    JSON.stringify({rightRes, leftRes})
+  );
+
+  const rightGripZoom = latch.pollMap(
+    extractXRControllers(makeSession({}, {grip: 1.0})),
+    {left: null, right: null, any: null}
+  );
+  const leftGripZoom = latch.pollMap(
+    extractXRControllers(makeSession({grip: 1.0}, {})),
+    {left: null, right: null, any: null}
+  );
+  check(
+    'Right Grip zooms in (+1) and Left Grip zooms out (-1) once unlatched',
+    Math.abs(rightGripZoom.gripZoom - 1) < 1e-6 &&
+      Math.abs(leftGripZoom.gripZoom - -1) < 1e-6,
+    JSON.stringify({rightGripZoom, leftGripZoom})
+  );
+
+  const pressB = extractXRControllers(makeSession({}, {secondary: true}));
+  const backRes = latch.pollMap(pressB, {
+    left: 'viewport',
+    right: 'viewport',
+    any: 'viewport',
+  });
+  // Returning to the pause card arms the latch while B is still held:
+  latch.arm(pressB);
+  const pauseWhileHoldingB = latch.poll(pressB, -1);
+  latch.poll(neutral, -1);
+  const freshExitOnPause = latch.poll(pressB, -1);
+  check(
+    'pressing Right B on the Map card returns back without firing Exit VR until released and pressed again',
+    backRes.action === 'back' &&
+      pauseWhileHoldingB === null &&
+      freshExitOnPause === 'exit',
+    JSON.stringify({backRes, pauseWhileHoldingB, freshExitOnPause})
   );
 }
 

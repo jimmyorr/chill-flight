@@ -134,12 +134,16 @@ export default {
     'Prenditi una pausa o regola il tuo volo',
   'Resume flight': 'Riprendi il volo',
   'Trigger or press A / Y': 'Grilletto o premi A / Y',
-  'Warp or set a waypoint in 2D': 'Teletrasportati o imposta una tappa in 2D',
+  'Warp or set a waypoint': 'Teletrasportati o imposta una tappa',
   'Trigger or press B': 'Grilletto o premi B',
   'Stick: steer · Triggers: throttle · Grips: turn / roll':
     'Stick: vira · Grilletti: motore · Impugnature: virata / tonneau',
   'A: camera · B: headlight · X: vehicle · Y: pause':
     'A: visuale · B: faro · X: veicolo · Y: pausa',
+  Back: 'Indietro',
+  'Stick: pan · Grips: zoom · Trigger: pick a spot':
+    'Stick: sposta · Impugnature: zoom · Grilletto: scegli un punto',
+  'A / Y: resume · B: back': 'A / Y: riprendi · B: indietro',
   'Double-tap center to exit zen':
     'Tocca due volte al centro per uscire dalla modalità zen',
   'Press <b>Z</b> to exit zen': 'Premi <b>Z</b> per uscire dalla modalità zen',

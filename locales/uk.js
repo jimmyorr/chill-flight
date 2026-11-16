@@ -132,12 +132,16 @@ export default {
   'Take a breather or adjust your flight': 'Перепочинь або налаштуй свій політ',
   'Resume flight': 'Продовжити політ',
   'Trigger or press A / Y': 'Курок або кнопка A / Y',
-  'Warp or set a waypoint in 2D': 'Телепорт або точка маршруту у 2D',
+  'Warp or set a waypoint': 'Телепорт або точка маршруту',
   'Trigger or press B': 'Курок або кнопка B',
   'Stick: steer · Triggers: throttle · Grips: turn / roll':
     'Стік: кермо · Курки: тяга · Хвати: віраж / бочка',
   'A: camera · B: headlight · X: vehicle · Y: pause':
     'A: камера · B: фара · X: транспорт · Y: пауза',
+  Back: 'Назад',
+  'Stick: pan · Grips: zoom · Trigger: pick a spot':
+    'Стік: рух · Хвати: масштаб · Курок: вибрати місце',
+  'A / Y: resume · B: back': 'A / Y: у політ · B: назад',
   'Double-tap center to exit zen':
     'Двічі торкнися центру, щоб вийти з дзен-режиму',
   'Press <b>Z</b> to exit zen': 'Натисни <b>Z</b>, щоб вийти з дзен-режиму',

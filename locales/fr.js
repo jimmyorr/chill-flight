@@ -134,12 +134,16 @@ export default {
   'Take a breather or adjust your flight': 'Fais une pause ou ajuste ton vol',
   'Resume flight': 'Reprendre le vol',
   'Trigger or press A / Y': 'Gâchette ou bouton A / Y',
-  'Warp or set a waypoint in 2D': 'Téléporter ou placer un repère en 2D',
+  'Warp or set a waypoint': 'Téléporter ou placer un repère',
   'Trigger or press B': 'Gâchette ou bouton B',
   'Stick: steer · Triggers: throttle · Grips: turn / roll':
     'Stick : diriger · Gâchettes : gaz · Poignées : virage / tonneau',
   'A: camera · B: headlight · X: vehicle · Y: pause':
     'A : caméra · B : phare · X : véhicule · Y : pause',
+  Back: 'Retour',
+  'Stick: pan · Grips: zoom · Trigger: pick a spot':
+    'Stick : déplacer · Poignées : zoom · Gâchette : choisir un lieu',
+  'A / Y: resume · B: back': 'A / Y : reprendre · B : retour',
   'Double-tap center to exit zen':
     'Touche deux fois le centre pour quitter le zen',
   'Press <b>Z</b> to exit zen': 'Appuie sur <b>Z</b> pour quitter le zen',

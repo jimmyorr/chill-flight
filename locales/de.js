@@ -135,12 +135,16 @@ export default {
     'Atme kurz durch oder pass deinen Flug an',
   'Resume flight': 'Weiterfliegen',
   'Trigger or press A / Y': 'Abzug oder A / Y drücken',
-  'Warp or set a waypoint in 2D': 'Teleportieren oder Wegpunkt in 2D setzen',
+  'Warp or set a waypoint': 'Teleportieren oder Wegpunkt setzen',
   'Trigger or press B': 'Abzug oder B drücken',
   'Stick: steer · Triggers: throttle · Grips: turn / roll':
     'Stick: lenken · Abzüge: Schub · Griffe: Wende / Rolle',
   'A: camera · B: headlight · X: vehicle · Y: pause':
     'A: Kamera · B: Scheinwerfer · X: Fahrzeug · Y: Pause',
+  Back: 'Zurück',
+  'Stick: pan · Grips: zoom · Trigger: pick a spot':
+    'Stick: bewegen · Griffe: Zoom · Abzug: Ort wählen',
+  'A / Y: resume · B: back': 'A / Y: weiter · B: zurück',
   'Double-tap center to exit zen':
     'Doppelt in die Mitte tippen, um Zen zu beenden',
   'Press <b>Z</b> to exit zen': '<b>Z</b> drücken, um Zen zu beenden',

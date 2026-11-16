@@ -18,6 +18,7 @@ import {MapTiles, MAX_LEVEL, TILE_PX} from './map-tiles.js';
 import {updateChunks} from './terrain-chunks.js';
 import {cameraDolly} from './game-input-bindings.js';
 import {camera} from './sky.js';
+import {syncCameraAfterTeleport} from './flight-camera.js';
 import {
   _currentLookTarget,
   _virtualCameraPos,
@@ -615,16 +616,24 @@ import {IMPERIAL, joinList, t} from './i18n.js';
   // that is, so the view fills at once and sharpens as tiles arrive. Asks
   // for what's missing: a quick coarse level first, then the sharp tiles
   // from the middle out.
-  function drawMapTiles(vMinX, vMinZ, unitsPerPixel, screenW, screenH) {
-    const level = MapTiles.levelFor(unitsPerPixel);
+  function drawMapTiles(
+    targetCtx,
+    vMinX,
+    vMinZ,
+    unitsPerPixel,
+    screenW,
+    screenH,
+    pixelRatio = 1
+  ) {
+    const level = MapTiles.levelFor(unitsPerPixel / pixelRatio);
     const tileWorld = TILE_PX * MapTiles.upp(level);
     const centerX = vMinX + (screenW * unitsPerPixel) / 2;
     const centerZ = vMinZ + (screenH * unitsPerPixel) / 2;
     const coarse = Math.min(MAX_LEVEL, level + 2);
     const wanted = [];
     const coarseWanted = new Map();
-    fsCtx.imageSmoothingEnabled = true;
-    fsCtx.imageSmoothingQuality = 'low';
+    targetCtx.imageSmoothingEnabled = true;
+    targetCtx.imageSmoothingQuality = 'low';
     const tx0 = Math.floor(vMinX / tileWorld);
     const tz0 = Math.floor(vMinZ / tileWorld);
     const tx1 = Math.floor((vMinX + screenW * unitsPerPixel) / tileWorld);
@@ -640,7 +649,7 @@ import {IMPERIAL, joinList, t} from './i18n.js';
           Math.floor(((tz + 1) * tileWorld - vMinZ) / unitsPerPixel) - y;
         const tile = mapTiles.get(level, tx, tz);
         if (tile) {
-          fsCtx.drawImage(tile, x, y, w, h);
+          targetCtx.drawImage(tile, x, y, w, h);
           continue;
         }
         const top = Math.min(MAX_LEVEL, level + FALLBACK_LEVELS);
@@ -651,7 +660,7 @@ import {IMPERIAL, joinList, t} from './i18n.js';
           const parent = mapTiles.get(up, atx, atz);
           if (parent) {
             const sub = TILE_PX / k;
-            fsCtx.drawImage(
+            targetCtx.drawImage(
               parent,
               (tx - atx * k) * sub,
               (tz - atz * k) * sub,
@@ -735,30 +744,39 @@ import {IMPERIAL, joinList, t} from './i18n.js';
   }
   hooks.warmMap = warmMapView;
 
-  function renderFullscreenMap() {
-    if (!fsVisible || !fsCtx) return;
-
-    resizeFsCanvas();
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const screenW = window.innerWidth;
-    const screenH = window.innerHeight;
+  function drawWorldMapViewport(
+    targetCtx,
+    screenW,
+    screenH,
+    centerX,
+    centerZ,
+    currentRadius,
+    activePin,
+    {uiScale = 1, lonLabelTop = 72, pixelRatio = 1, animatePulse = true} = {}
+  ) {
     const minDim = Math.min(screenW, screenH);
-    const worldUnitsPerPixel = (fsViewRadius * 2) / minDim;
+    const worldUnitsPerPixel = (currentRadius * 2) / minDim;
 
     const visibleWorldW = screenW * worldUnitsPerPixel;
     const visibleWorldH = screenH * worldUnitsPerPixel;
-    const vMinX = fsViewCenterX - visibleWorldW / 2;
-    const vMinZ = fsViewCenterZ - visibleWorldH / 2;
+    const vMinX = centerX - visibleWorldW / 2;
+    const vMinZ = centerZ - visibleWorldH / 2;
 
-    fsCtx.save();
-    fsCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    fsCtx.fillStyle = '#090e17';
-    fsCtx.fillRect(0, 0, screenW, screenH);
+    targetCtx.fillStyle = '#090e17';
+    targetCtx.fillRect(0, 0, screenW, screenH);
 
     // 1. The map itself, from cached tiles (map-tiles.js): coarser levels
     // first, then the sharp level over them, so the view fills in at once
     // and sharpens as tiles arrive
-    drawMapTiles(vMinX, vMinZ, worldUnitsPerPixel, screenW, screenH);
+    drawMapTiles(
+      targetCtx,
+      vMinX,
+      vMinZ,
+      worldUnitsPerPixel,
+      screenW,
+      screenH,
+      pixelRatio
+    );
 
     // 2. Coordinate Grid Lines & Lat/Long Labels with Dynamic Step Scaling
     const LAT_SCALE = 5000;
@@ -777,10 +795,10 @@ import {IMPERIAL, joinList, t} from './i18n.js';
 
     const stepUnits = gridStepDeg * LAT_SCALE;
     const prec = gridStepDeg < 0.5 ? 2 : gridStepDeg < 1 ? 1 : 0;
+    const gridFontPx = Math.round(10 * uiScale);
 
-    fsCtx.lineWidth = 1;
-    fsCtx.font =
-      '10px SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace';
+    targetCtx.lineWidth = 1;
+    targetCtx.font = `${gridFontPx}px SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace`;
 
     // Horizontal latitude lines
     const startLatStep = Math.floor(vMinZ / stepUnits);
@@ -792,25 +810,25 @@ import {IMPERIAL, joinList, t} from './i18n.js';
       const lat = -s * gridStepDeg;
 
       const isEquator = Math.abs(lat) < 0.0001;
-      fsCtx.strokeStyle = isEquator
+      targetCtx.strokeStyle = isEquator
         ? 'rgba(255, 215, 0, 0.28)'
         : 'rgba(255, 255, 255, 0.08)';
-      fsCtx.beginPath();
-      fsCtx.moveTo(0, lineY);
-      fsCtx.lineTo(screenW, lineY);
-      fsCtx.stroke();
+      targetCtx.beginPath();
+      targetCtx.moveTo(0, lineY);
+      targetCtx.lineTo(screenW, lineY);
+      targetCtx.stroke();
 
       const latLabel = isEquator
         ? t('0.0° (Equator)')
         : lat > 0
           ? `${lat.toFixed(prec)}° N`
           : `${Math.abs(lat).toFixed(prec)}° S`;
-      fsCtx.fillStyle = isEquator
+      targetCtx.fillStyle = isEquator
         ? 'rgba(255, 215, 0, 0.65)'
         : 'rgba(255, 255, 255, 0.45)';
-      fsCtx.textAlign = 'left';
-      fsCtx.textBaseline = 'bottom';
-      fsCtx.fillText(latLabel, 14, lineY - 4);
+      targetCtx.textAlign = 'left';
+      targetCtx.textBaseline = 'bottom';
+      targetCtx.fillText(latLabel, 14, lineY - 4);
     }
 
     // Vertical longitude lines
@@ -823,25 +841,25 @@ import {IMPERIAL, joinList, t} from './i18n.js';
       const lon = s * gridStepDeg;
 
       const isPrime = Math.abs(lon) < 0.0001;
-      fsCtx.strokeStyle = isPrime
+      targetCtx.strokeStyle = isPrime
         ? 'rgba(52, 152, 219, 0.28)'
         : 'rgba(255, 255, 255, 0.08)';
-      fsCtx.beginPath();
-      fsCtx.moveTo(screenX, 0);
-      fsCtx.lineTo(screenX, screenH);
-      fsCtx.stroke();
+      targetCtx.beginPath();
+      targetCtx.moveTo(screenX, 0);
+      targetCtx.lineTo(screenX, screenH);
+      targetCtx.stroke();
 
       const lonLabel = isPrime
         ? '0.0°'
         : lon > 0
           ? `${lon.toFixed(prec)}° E`
           : `${Math.abs(lon).toFixed(prec)}° W`;
-      fsCtx.fillStyle = isPrime
+      targetCtx.fillStyle = isPrime
         ? 'rgba(52, 152, 219, 0.65)'
         : 'rgba(255, 255, 255, 0.45)';
-      fsCtx.textAlign = 'center';
-      fsCtx.textBaseline = 'top';
-      fsCtx.fillText(lonLabel, screenX, 72);
+      targetCtx.textAlign = 'center';
+      targetCtx.textBaseline = 'top';
+      targetCtx.fillText(lonLabel, screenX, lonLabelTop);
     }
 
     // 3. Landmarks (with LOD: compact pins at distance, full cards when zoomed in)
@@ -851,40 +869,39 @@ import {IMPERIAL, joinList, t} from './i18n.js';
       const lz = (lm.z - vMinZ) / worldUnitsPerPixel;
 
       if (lx >= -60 && lx <= screenW + 60 && lz >= -60 && lz <= screenH + 60) {
-        fsCtx.save();
-        fsCtx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-        fsCtx.shadowBlur = 6;
+        targetCtx.save();
+        targetCtx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        targetCtx.shadowBlur = 6;
 
-        const pinRadius = showFullLandmarks ? 10 : 7;
-        fsCtx.fillStyle = lm.color;
-        fsCtx.beginPath();
-        fsCtx.arc(lx, lz, pinRadius, 0, Math.PI * 2);
-        fsCtx.fill();
-        fsCtx.strokeStyle = '#ffffff';
-        fsCtx.lineWidth = showFullLandmarks ? 1.75 : 1.25;
-        fsCtx.stroke();
+        const pinRadius = (showFullLandmarks ? 10 : 7) * uiScale;
+        targetCtx.fillStyle = lm.color;
+        targetCtx.beginPath();
+        targetCtx.arc(lx, lz, pinRadius, 0, Math.PI * 2);
+        targetCtx.fill();
+        targetCtx.strokeStyle = '#ffffff';
+        targetCtx.lineWidth = (showFullLandmarks ? 1.75 : 1.25) * uiScale;
+        targetCtx.stroke();
 
         if (showFullLandmarks) {
-          fsCtx.fillStyle = '#ffffff';
-          fsCtx.font = 'bold 11px -apple-system, sans-serif';
-          fsCtx.textAlign = 'center';
-          fsCtx.textBaseline = 'middle';
-          fsCtx.fillText(lm.symbol, lx, lz);
+          targetCtx.fillStyle = '#ffffff';
+          targetCtx.font = `bold ${Math.round(11 * uiScale)}px -apple-system, sans-serif`;
+          targetCtx.textAlign = 'center';
+          targetCtx.textBaseline = 'middle';
+          targetCtx.fillText(lm.symbol, lx, lz);
 
-          fsCtx.fillStyle = '#ffffff';
-          fsCtx.font = '600 12px Inter, -apple-system, sans-serif';
-          fsCtx.fillText(t(lm.name), lx, lz + 18);
+          targetCtx.fillStyle = '#ffffff';
+          targetCtx.font = `600 ${Math.round(12 * uiScale)}px Inter, -apple-system, sans-serif`;
+          targetCtx.fillText(t(lm.name), lx, lz + 18 * uiScale);
 
           const lmLat = -lm.z / 5000;
           const lmLon = lm.x / 5000;
           const lmCoordStr = `${Math.abs(lmLat).toFixed(1)}° ${lmLat >= 0 ? 'N' : 'S'}, ${Math.abs(lmLon).toFixed(1)}° ${lmLon >= 0 ? 'E' : 'W'}`;
-          fsCtx.fillStyle = 'rgba(255, 255, 255, 0.65)';
-          fsCtx.font =
-            '10px SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace';
-          fsCtx.fillText(lmCoordStr, lx, lz + 32);
+          targetCtx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+          targetCtx.font = `${gridFontPx}px SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace`;
+          targetCtx.fillText(lmCoordStr, lx, lz + 32 * uiScale);
         }
 
-        fsCtx.restore();
+        targetCtx.restore();
       }
     });
 
@@ -893,46 +910,51 @@ import {IMPERIAL, joinList, t} from './i18n.js';
     if (waypoint) {
       const wx = (waypoint.x - vMinX) / worldUnitsPerPixel;
       const wz = (waypoint.z - vMinZ) / worldUnitsPerPixel;
-      fsCtx.save();
-      fsCtx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-      fsCtx.shadowBlur = 6;
-      fsCtx.fillStyle = '#ffd700';
-      fsCtx.strokeStyle = '#1a1a1a';
-      fsCtx.lineWidth = 1.5;
-      fsCtx.beginPath();
-      fsCtx.moveTo(wx, wz - 10);
-      fsCtx.lineTo(wx + 8, wz);
-      fsCtx.lineTo(wx, wz + 10);
-      fsCtx.lineTo(wx - 8, wz);
-      fsCtx.closePath();
-      fsCtx.fill();
-      fsCtx.stroke();
-      fsCtx.restore();
+      const dy = 10 * uiScale;
+      const dx = 8 * uiScale;
+      targetCtx.save();
+      targetCtx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      targetCtx.shadowBlur = 6;
+      targetCtx.fillStyle = '#ffd700';
+      targetCtx.strokeStyle = '#1a1a1a';
+      targetCtx.lineWidth = 1.5 * uiScale;
+      targetCtx.beginPath();
+      targetCtx.moveTo(wx, wz - dy);
+      targetCtx.lineTo(wx + dx, wz);
+      targetCtx.lineTo(wx, wz + dy);
+      targetCtx.lineTo(wx - dx, wz);
+      targetCtx.closePath();
+      targetCtx.fill();
+      targetCtx.stroke();
+      targetCtx.restore();
     }
 
     // 3.5 The picked spot (warp or waypoint)
-    if (warpPin) {
-      const wx = (warpPin.x - vMinX) / worldUnitsPerPixel;
-      const wz = (warpPin.z - vMinZ) / worldUnitsPerPixel;
-      fsCtx.save();
-      fsCtx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-      fsCtx.shadowBlur = 6;
-      fsCtx.strokeStyle = '#ffd700';
-      fsCtx.lineWidth = 2.5;
-      fsCtx.beginPath();
-      fsCtx.arc(wx, wz, 11, 0, Math.PI * 2);
-      fsCtx.stroke();
-      fsCtx.beginPath();
-      fsCtx.moveTo(wx - 17, wz);
-      fsCtx.lineTo(wx - 5, wz);
-      fsCtx.moveTo(wx + 5, wz);
-      fsCtx.lineTo(wx + 17, wz);
-      fsCtx.moveTo(wx, wz - 17);
-      fsCtx.lineTo(wx, wz - 5);
-      fsCtx.moveTo(wx, wz + 5);
-      fsCtx.lineTo(wx, wz + 17);
-      fsCtx.stroke();
-      fsCtx.restore();
+    if (activePin) {
+      const wx = (activePin.x - vMinX) / worldUnitsPerPixel;
+      const wz = (activePin.z - vMinZ) / worldUnitsPerPixel;
+      const r = 11 * uiScale;
+      const inner = 5 * uiScale;
+      const outer = 17 * uiScale;
+      targetCtx.save();
+      targetCtx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      targetCtx.shadowBlur = 6;
+      targetCtx.strokeStyle = '#ffd700';
+      targetCtx.lineWidth = 2.5 * uiScale;
+      targetCtx.beginPath();
+      targetCtx.arc(wx, wz, r, 0, Math.PI * 2);
+      targetCtx.stroke();
+      targetCtx.beginPath();
+      targetCtx.moveTo(wx - outer, wz);
+      targetCtx.lineTo(wx - inner, wz);
+      targetCtx.moveTo(wx + inner, wz);
+      targetCtx.lineTo(wx + outer, wz);
+      targetCtx.moveTo(wx, wz - outer);
+      targetCtx.lineTo(wx, wz - inner);
+      targetCtx.moveTo(wx, wz + inner);
+      targetCtx.lineTo(wx, wz + outer);
+      targetCtx.stroke();
+      targetCtx.restore();
     }
 
     // 3.6 Friends flying with you, with their names
@@ -942,19 +964,19 @@ import {IMPERIAL, joinList, t} from './i18n.js';
       if (fx < -20 || fx > screenW + 20 || fz < -20 || fz > screenH + 20) {
         continue;
       }
-      drawFriend(fsCtx, fx, fz, friend, 1);
-      fsCtx.save();
-      fsCtx.font = 'bold 10px Inter, -apple-system, sans-serif';
-      fsCtx.textAlign = 'center';
-      fsCtx.fillStyle = '#ffffff';
-      fsCtx.shadowColor = 'rgba(0,0,0,0.9)';
-      fsCtx.shadowBlur = 4;
-      fsCtx.fillText(
+      drawFriend(targetCtx, fx, fz, friend, uiScale);
+      targetCtx.save();
+      targetCtx.font = `bold ${Math.round(10 * uiScale)}px Inter, -apple-system, sans-serif`;
+      targetCtx.textAlign = 'center';
+      targetCtx.fillStyle = '#ffffff';
+      targetCtx.shadowColor = 'rgba(0,0,0,0.9)';
+      targetCtx.shadowBlur = 4;
+      targetCtx.fillText(
         friend.it ? t('{name} (it)', {name: friend.name}) : friend.name,
         fx,
-        fz - 18
+        fz - 18 * uiScale
       );
-      fsCtx.restore();
+      targetCtx.restore();
     }
 
     // 4. Player Plane Indicator
@@ -973,47 +995,48 @@ import {IMPERIAL, joinList, t} from './i18n.js';
         screenPz <= screenH - 20;
 
       if (isOnScreen) {
-        const pulseT = (Date.now() % 1600) / 1600;
-        const pulseR = 14 + pulseT * 26;
+        const pulseT = animatePulse ? (Date.now() % 1600) / 1600 : 0.35;
+        const pulseR = (14 + pulseT * 26) * uiScale;
         const pulseAlpha = Math.max(0, 1 - pulseT) * 0.7;
 
-        fsCtx.save();
-        fsCtx.strokeStyle = `rgba(255, 215, 0, ${pulseAlpha})`;
-        fsCtx.lineWidth = 2;
-        fsCtx.beginPath();
-        fsCtx.arc(screenPx, screenPz, pulseR, 0, Math.PI * 2);
-        fsCtx.stroke();
-        fsCtx.restore();
+        targetCtx.save();
+        targetCtx.strokeStyle = `rgba(255, 215, 0, ${pulseAlpha})`;
+        targetCtx.lineWidth = 2 * uiScale;
+        targetCtx.beginPath();
+        targetCtx.arc(screenPx, screenPz, pulseR, 0, Math.PI * 2);
+        targetCtx.stroke();
+        targetCtx.restore();
 
         const canvasAngle = -rotY - Math.PI / 2;
-        fsCtx.save();
-        fsCtx.translate(screenPx, screenPz);
-        fsCtx.rotate(canvasAngle);
-        fsCtx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-        fsCtx.shadowBlur = 8;
+        targetCtx.save();
+        targetCtx.translate(screenPx, screenPz);
+        targetCtx.rotate(canvasAngle);
+        targetCtx.scale(uiScale, uiScale);
+        targetCtx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        targetCtx.shadowBlur = 8;
 
-        fsCtx.fillStyle = '#ffd700';
-        fsCtx.beginPath();
-        fsCtx.moveTo(14, 0);
-        fsCtx.lineTo(-11, -11);
-        fsCtx.lineTo(-6, 0);
-        fsCtx.lineTo(-11, 11);
-        fsCtx.closePath();
-        fsCtx.fill();
+        targetCtx.fillStyle = '#ffd700';
+        targetCtx.beginPath();
+        targetCtx.moveTo(14, 0);
+        targetCtx.lineTo(-11, -11);
+        targetCtx.lineTo(-6, 0);
+        targetCtx.lineTo(-11, 11);
+        targetCtx.closePath();
+        targetCtx.fill();
 
-        fsCtx.strokeStyle = '#ffffff';
-        fsCtx.lineWidth = 1.75;
-        fsCtx.stroke();
-        fsCtx.restore();
+        targetCtx.strokeStyle = '#ffffff';
+        targetCtx.lineWidth = 1.75;
+        targetCtx.stroke();
+        targetCtx.restore();
 
-        fsCtx.save();
-        fsCtx.font = 'bold 10px Inter, -apple-system, sans-serif';
-        fsCtx.textAlign = 'center';
-        fsCtx.fillStyle = '#ffd700';
-        fsCtx.shadowColor = 'rgba(0,0,0,0.9)';
-        fsCtx.shadowBlur = 4;
-        fsCtx.fillText(t('YOU'), screenPx, screenPz - 18);
-        fsCtx.restore();
+        targetCtx.save();
+        targetCtx.font = `bold ${Math.round(10 * uiScale)}px Inter, -apple-system, sans-serif`;
+        targetCtx.textAlign = 'center';
+        targetCtx.fillStyle = '#ffd700';
+        targetCtx.shadowColor = 'rgba(0,0,0,0.9)';
+        targetCtx.shadowBlur = 4;
+        targetCtx.fillText(t('YOU'), screenPx, screenPz - 18 * uiScale);
+        targetCtx.restore();
       } else {
         const dx = screenPx - screenW / 2;
         const dy = screenPz - screenH / 2;
@@ -1033,38 +1056,59 @@ import {IMPERIAL, joinList, t} from './i18n.js';
           edgeX += (dy > 0 ? halfH : -halfH) * (dx / dy);
         }
 
-        fsCtx.save();
-        fsCtx.translate(edgeX, edgeY);
-        fsCtx.rotate(angle);
+        targetCtx.save();
+        targetCtx.translate(edgeX, edgeY);
+        targetCtx.rotate(angle);
+        targetCtx.scale(uiScale, uiScale);
 
-        fsCtx.fillStyle = '#ffd700';
-        fsCtx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-        fsCtx.shadowBlur = 6;
-        fsCtx.beginPath();
-        fsCtx.moveTo(10, 0);
-        fsCtx.lineTo(-8, -7);
-        fsCtx.lineTo(-4, 0);
-        fsCtx.lineTo(-8, 7);
-        fsCtx.closePath();
-        fsCtx.fill();
-        fsCtx.strokeStyle = '#ffffff';
-        fsCtx.lineWidth = 1.5;
-        fsCtx.stroke();
-        fsCtx.restore();
+        targetCtx.fillStyle = '#ffd700';
+        targetCtx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+        targetCtx.shadowBlur = 6;
+        targetCtx.beginPath();
+        targetCtx.moveTo(10, 0);
+        targetCtx.lineTo(-8, -7);
+        targetCtx.lineTo(-4, 0);
+        targetCtx.lineTo(-8, 7);
+        targetCtx.closePath();
+        targetCtx.fill();
+        targetCtx.strokeStyle = '#ffffff';
+        targetCtx.lineWidth = 1.5;
+        targetCtx.stroke();
+        targetCtx.restore();
 
-        const distUnits = Math.hypot(px - fsViewCenterX, pz - fsViewCenterZ);
+        const distUnits = Math.hypot(px - centerX, pz - centerZ);
         const distLabel = IMPERIAL
           ? `${(distUnits * M_TO_MI).toFixed(1)} mi`
           : `${(distUnits / 1000).toFixed(1)} km`;
-        fsCtx.save();
-        fsCtx.font = 'bold 9px Inter, -apple-system, sans-serif';
-        fsCtx.textAlign = 'center';
-        fsCtx.fillStyle = '#ffd700';
-        fsCtx.fillText(distLabel, edgeX, edgeY + 16);
-        fsCtx.restore();
+        targetCtx.save();
+        targetCtx.font = `bold ${Math.round(9 * uiScale)}px Inter, -apple-system, sans-serif`;
+        targetCtx.textAlign = 'center';
+        targetCtx.fillStyle = '#ffd700';
+        targetCtx.fillText(distLabel, edgeX, edgeY + 16 * uiScale);
+        targetCtx.restore();
       }
     }
+  }
 
+  function renderFullscreenMap() {
+    if (!fsVisible || !fsCtx) return;
+
+    resizeFsCanvas();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const screenW = window.innerWidth;
+    const screenH = window.innerHeight;
+
+    fsCtx.save();
+    fsCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawWorldMapViewport(
+      fsCtx,
+      screenW,
+      screenH,
+      fsViewCenterX,
+      fsViewCenterZ,
+      fsViewRadius,
+      warpPin
+    );
     fsCtx.restore();
   }
 
@@ -1277,9 +1321,13 @@ import {IMPERIAL, joinList, t} from './i18n.js';
       v.y += y - from.y;
       v.z = z - ox * sin + oz * cos;
     }
-    if (!state.isVRPresenting) {
+    if (state.isVRPresenting) {
+      cameraDolly.up.set(0, 1, 0);
+      cameraDolly.lookAt(_currentLookTarget);
+    } else {
       camera.lookAt(_currentLookTarget);
     }
+    syncCameraAfterTeleport();
     // The jump isn't distance flown
     if (state.previousPosition)
       state.previousPosition.copy(planeGroup.position);
@@ -1290,11 +1338,7 @@ import {IMPERIAL, joinList, t} from './i18n.js';
   function closeFullscreenMap(options = {}) {
     if (!fsVisible) return;
 
-    const shouldEnterVR =
-      Boolean(options?.enterVR) ||
-      (Boolean(options?.reenterIfFromVR) &&
-        Boolean(state.returnToVROnMapClose));
-    state.returnToVROnMapClose = false;
+    const shouldEnterVR = Boolean(options?.enterVR);
 
     suppressPauseClick(500);
 
@@ -1382,7 +1426,7 @@ import {IMPERIAL, joinList, t} from './i18n.js';
 
     attachButtonAction(
       document.getElementById('fullscreen-map-resume-btn'),
-      () => closeFullscreenMap({reenterIfFromVR: true})
+      () => closeFullscreenMap()
     );
     attachButtonAction(document.getElementById('fullscreen-map-vr-btn'), () =>
       closeFullscreenMap({enterVR: true})
@@ -1393,8 +1437,8 @@ import {IMPERIAL, joinList, t} from './i18n.js';
       () => {
         if (!warpPin || inGameMode()) return;
         warpTo(warpPin);
-        // Straight into flight at the new spot (and back into VR if opened from VR)
-        closeFullscreenMap({reenterIfFromVR: true});
+        // Straight into flight at the new spot
+        closeFullscreenMap();
       }
     );
     attachButtonAction(
@@ -1410,8 +1454,8 @@ import {IMPERIAL, joinList, t} from './i18n.js';
         }
         const {x, z, name} = warpPin;
         setWaypoint(x, groundAt(x, z), z, {name});
-        // Back to flight to head there (and back into VR if opened from VR)
-        closeFullscreenMap({reenterIfFromVR: true});
+        // Back to flight to head there
+        closeFullscreenMap();
       }
     );
     attachButtonAction(
@@ -1612,6 +1656,142 @@ import {IMPERIAL, joinList, t} from './i18n.js';
 
     fsInitialized = true;
   }
+
+  // --- IN-VR 3D WORLD MAP ---
+  // Draws onto the floating 3D VR pause card (vr-manager.js) so Quest / WebXR
+  // players can pan, zoom, pick landmarks, warp, and set or clear waypoints
+  // without ending their immersive XR session.
+  let vrCenterX = 0;
+  let vrCenterZ = 0;
+  let vrViewRadius = 7500;
+  let vrPin = null; // {x, z, name?}
+  const SNAP_VR = 26;
+
+  hooks.vrMap = {
+    open() {
+      if (planeGroup) {
+        vrCenterX = planeGroup.position.x;
+        vrCenterZ = planeGroup.position.z;
+      }
+      vrPin = null;
+      trackScreen('map');
+      Achievements.unlock('cartographer');
+    },
+    close() {
+      vrPin = null;
+    },
+    pan(nx, ny, dt) {
+      if (!nx && !ny) return false;
+      const step = vrViewRadius * 1.65 * dt;
+      vrCenterX += nx * step;
+      vrCenterZ -= ny * step;
+      return true;
+    },
+    zoomByFactor(factor) {
+      const next = Math.max(
+        FS_MIN_RADIUS,
+        Math.min(FS_MAX_RADIUS, vrViewRadius * factor)
+      );
+      if (Math.abs(next - vrViewRadius) < 1e-3) return false;
+      vrViewRadius = next;
+      return true;
+    },
+    recenter() {
+      if (!planeGroup) return false;
+      vrCenterX = planeGroup.position.x;
+      vrCenterZ = planeGroup.position.z;
+      return true;
+    },
+    pickViewport(normX, normY, vpW, vpH) {
+      const minDim = Math.min(vpW, vpH);
+      const unitsPerPixel = (vrViewRadius * 2) / minDim;
+      const x = vrCenterX + normX * vpW * unitsPerPixel;
+      const z = vrCenterZ + normY * vpH * unitsPerPixel;
+      const place = nearestLandmark(x, z, SNAP_VR * unitsPerPixel);
+      vrPin = place ? {x: place.x, z: place.z, name: place.name} : {x, z};
+      return true;
+    },
+    clearPin() {
+      if (!vrPin) return false;
+      vrPin = null;
+      return true;
+    },
+    applyWarp() {
+      if (!vrPin || inGameMode()) return false;
+      warpTo(vrPin);
+      vrPin = null;
+      return true;
+    },
+    applyWaypoint() {
+      if (!vrPin) {
+        if (!getWaypoint()) return {acted: false, resumeFlight: false};
+        cancelJob();
+        clearWaypoint();
+        return {acted: true, resumeFlight: false};
+      }
+      const {x, z, name} = vrPin;
+      setWaypoint(x, groundAt(x, z), z, {name});
+      vrPin = null;
+      return {acted: true, resumeFlight: true};
+    },
+    getHitContext() {
+      return {
+        hasPin: Boolean(vrPin),
+        hasWaypoint: Boolean(getWaypoint()),
+        canWarp: !inGameMode(),
+      };
+    },
+    getRenderSignature() {
+      const wp = getWaypoint();
+      return {
+        sig: `${mapTiles.version}:${vrPin ? `${vrPin.x.toFixed(1)},${vrPin.z.toFixed(1)}` : ''}:${wp ? `${wp.x.toFixed(1)},${wp.z.toFixed(1)}` : ''}:${!inGameMode()}`,
+        hasFriends: friendsOnMap().length > 0,
+      };
+    },
+    getOverlayInfo() {
+      const waypoint = getWaypoint();
+      const spot = vrPin || waypoint;
+      const canWarp = !inGameMode();
+      if (!spot) {
+        return {
+          centerCoords: formatLatLon(vrCenterX, vrCenterZ),
+          hasPin: false,
+          hasWaypoint: false,
+          canWarp,
+          spotName: '',
+          spotCoords: '',
+          spotPeople: '',
+        };
+      }
+      const where = formatLatLon(spot.x, spot.z);
+      return {
+        centerCoords: formatLatLon(vrCenterX, vrCenterZ),
+        hasPin: Boolean(vrPin),
+        hasWaypoint: Boolean(waypoint),
+        canWarp,
+        spotName: spot.name ? t(spot.name) : '',
+        spotCoords: vrPin ? where : t('Waypoint {where}', {where}),
+        spotPeople: spot.name ? whoIsHere(spot.name) : '',
+      };
+    },
+    drawViewport(targetCtx, vpW, vpH, pixelRatio = 1.25) {
+      drawWorldMapViewport(
+        targetCtx,
+        vpW,
+        vpH,
+        vrCenterX,
+        vrCenterZ,
+        vrViewRadius,
+        vrPin,
+        {
+          uiScale: 1.28,
+          lonLabelTop: 10,
+          pixelRatio,
+          animatePulse: false,
+        }
+      );
+    },
+  };
 
   // APIs for modules that load earlier (see hooks.js)
   hooks.fullscreenMap = {

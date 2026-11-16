@@ -32,6 +32,7 @@ export class MapTiles {
     this.worldKey = null;
     this.sentCustomMap = null;
     this.mainThreadTimer = null;
+    this.version = 0;
   }
 
   // World units per tile pixel at a level
@@ -75,6 +76,7 @@ export class MapTiles {
     if (key !== this.worldKey) {
       this.worldKey = key;
       this.cache.clear();
+      this.version++;
     }
   }
 
@@ -184,5 +186,6 @@ export class MapTiles {
     while (this.cache.size > MAX_TILES) {
       this.cache.delete(this.cache.keys().next().value);
     }
+    this.version++;
   }
 }

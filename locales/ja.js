@@ -132,12 +132,16 @@ export default {
     'ひと休みするか、フライトを調整しましょう',
   'Resume flight': 'フライトを再開',
   'Trigger or press A / Y': 'トリガー または A / Y',
-  'Warp or set a waypoint in 2D': '2D でワープ・目的地を設定',
+  'Warp or set a waypoint': 'ワープ・目的地を設定',
   'Trigger or press B': 'トリガー または B',
   'Stick: steer · Triggers: throttle · Grips: turn / roll':
     'スティック：操縦 · トリガー：出力 · グリップ：急旋回 / ロール',
   'A: camera · B: headlight · X: vehicle · Y: pause':
     'A：カメラ · B：ライト · X：乗り物 · Y：一時停止',
+  Back: '戻る',
+  'Stick: pan · Grips: zoom · Trigger: pick a spot':
+    'スティック：移動 · グリップ：ズーム · トリガー：地点を選択',
+  'A / Y: resume · B: back': 'A / Y：再開 · B：戻る',
   'Double-tap center to exit zen': '画面中央をダブルタップで禅モード終了',
   'Press <b>Z</b> to exit zen': '<b>Z</b> キーで禅モード終了',
   Flight: 'フライト',

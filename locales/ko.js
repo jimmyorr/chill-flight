@@ -128,12 +128,16 @@ export default {
   'Take a breather or adjust your flight': '잠시 쉬거나 비행을 조정하세요',
   'Resume flight': '비행 계속',
   'Trigger or press A / Y': '트리거 또는 A / Y',
-  'Warp or set a waypoint in 2D': '2D에서 순간이동 또는 경유지 설정',
+  'Warp or set a waypoint': '순간이동 또는 경유지 설정',
   'Trigger or press B': '트리거 또는 B',
   'Stick: steer · Triggers: throttle · Grips: turn / roll':
     '스틱: 조종 · 트리거: 출력 · 그립: 급선회 / 배럴 롤',
   'A: camera · B: headlight · X: vehicle · Y: pause':
     'A: 카메라 · B: 헤드라이트 · X: 탈것 · Y: 일시정지',
+  Back: '뒤로',
+  'Stick: pan · Grips: zoom · Trigger: pick a spot':
+    '스틱: 이동 · 그립: 줌 · 트리거: 위치 선택',
+  'A / Y: resume · B: back': 'A / Y: 계속 · B: 뒤로',
   'Double-tap center to exit zen': '화면 가운데를 두 번 탭하면 젠 모드 종료',
   'Press <b>Z</b> to exit zen': '<b>Z</b> 키로 젠 모드 종료',
   Flight: '비행',

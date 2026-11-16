@@ -405,7 +405,7 @@ function performFrame(timestamp) {
     // Always render during pause so VR headset doesn't drop frames.
     if (state.isVRPresenting) {
       if (typeof updateVRPauseInteraction === 'function') {
-        updateVRPauseInteraction();
+        updateVRPauseInteraction(delta);
       }
       if (dirLight.castShadow && !dirLight.shadow.map) {
         renderer.shadowMap.needsUpdate = true;
