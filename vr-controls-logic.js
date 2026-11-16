@@ -75,10 +75,30 @@ function isPressed(gp, index) {
 }
 
 /**
+ * Returns whether an XRSession is actively visible and focused for user input.
+ * Meta Horizon OS sets `visibilityState` to `'visible-blurred'` while the
+ * system universal menu is open and `'hidden'` when the headset is unmounted
+ * (`VRC.Quest.Input.4`): input must be ignored until `'visible'` returns.
+ */
+export function isXRSessionVisible(session) {
+  if (!session) return false;
+  return !session.visibilityState || session.visibilityState === 'visible';
+}
+
+/**
  * Extracts left/right WebXR inputSource gamepads and an optional fallback
  * standard gamepad without duplicating XR controllers across arrays.
  */
 export function extractXRControllers(session, fallbackGamepads = []) {
+  if (session && !isXRSessionVisible(session)) {
+    return {
+      leftGp: null,
+      rightGp: null,
+      standardGp: null,
+      hasXRGamepad: false,
+    };
+  }
+
   let leftGp = null;
   let rightGp = null;
 

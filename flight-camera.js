@@ -413,8 +413,13 @@ export function updateFlightCamera(delta, nowTime) {
       Math.min(1, state.flightSpeedMultiplier / 2);
     _cameraOffset.set(0, yOffset, zOffset + pullBack);
 
-    // Add subtle camera vibration at high speeds/steep dives
-    if (state.flightSpeedMultiplier > 4.0 && diveFactor > 0.5) {
+    // Add subtle camera vibration at high speeds/steep dives (2D only: forced
+    // random camera translation causes VR motion discomfort)
+    if (
+      !state.isVRPresenting &&
+      state.flightSpeedMultiplier > 4.0 &&
+      diveFactor > 0.5
+    ) {
       const shakeIntensity =
         (state.flightSpeedMultiplier - 4.0) * 0.05 * diveFactor;
       _cameraOffset.x += (Math.random() - 0.5) * shakeIntensity;
@@ -424,8 +429,10 @@ export function updateFlightCamera(delta, nowTime) {
     // A jolt when knocking a tree or house over (breakables.js)
     if (state.impactShake > 0) {
       const jolt = state.impactShake;
-      _cameraOffset.x += (Math.random() - 0.5) * jolt;
-      _cameraOffset.y += (Math.random() - 0.5) * jolt;
+      if (!state.isVRPresenting) {
+        _cameraOffset.x += (Math.random() - 0.5) * jolt;
+        _cameraOffset.y += (Math.random() - 0.5) * jolt;
+      }
       state.impactShake = Math.max(0, jolt - delta * (2 + jolt * 3));
     }
 

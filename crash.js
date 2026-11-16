@@ -383,7 +383,7 @@ export function applyCrashCamera(
   });
   sampleGround(shot.pos.x, shot.pos.z, _ground);
   const minSurfaceY = Math.max(WATER_LEVEL, _ground.height) + 4;
-  const jolt = state.impactShake || 0;
+  const jolt = state.isVRPresenting ? 0 : state.impactShake || 0;
   const jx = jolt > 0 ? (Math.random() - 0.5) * jolt : 0;
   const jy = jolt > 0 ? (Math.random() - 0.5) * jolt : 0;
   activeCamTarget.position.set(

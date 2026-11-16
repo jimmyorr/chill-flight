@@ -16,6 +16,7 @@ import {
   extractXRControllers,
   getVRSessionInit,
   hitTestVRPauseMenuUV,
+  isXRSessionVisible,
   readCombinedThumbstick,
   readXRTriggers,
   scaleThumbstickAxis,
@@ -532,6 +533,58 @@ function makeSession(leftOpts, rightOpts) {
         ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) Version/17.5 Mobile Safari/604.1',
         isCoarsePointer: true,
       }).preset === 'mid'
+  );
+}
+
+// 9. XRSession visibilityState focus awareness (VRC.Quest.Input.4)
+{
+  const active = makeSession(
+    {axes: [0, 0, -0.8, 0], primary: true, trigger: 0.9},
+    {axes: [0, 0, 0.7, -0.6], primary: true, trigger: 0.8}
+  );
+  const stdFallback = [
+    {
+      connected: true,
+      mapping: 'standard',
+      axes: [0.6, 0, 0, 0],
+      buttons: Array.from({length: 12}, () => ({pressed: true, value: 1})),
+    },
+  ];
+
+  check(
+    'isXRSessionVisible treats visible or unspecified XRSession as visible and rejects blurred/hidden/null',
+    !isXRSessionVisible(null) &&
+      isXRSessionVisible(active) &&
+      isXRSessionVisible({...active, visibilityState: 'visible'}) &&
+      !isXRSessionVisible({...active, visibilityState: 'visible-blurred'}) &&
+      !isXRSessionVisible({...active, visibilityState: 'hidden'})
+  );
+
+  const blurredCtrls = extractXRControllers(
+    {...active, visibilityState: 'visible-blurred'},
+    stdFallback
+  );
+  const hiddenCtrls = extractXRControllers(
+    {...active, visibilityState: 'hidden'},
+    stdFallback
+  );
+  const visibleCtrls = extractXRControllers(
+    {...active, visibilityState: 'visible'},
+    stdFallback
+  );
+
+  check(
+    'extractXRControllers suppresses XR and fallback gamepads while session is visible-blurred or hidden',
+    !blurredCtrls.hasXRGamepad &&
+      blurredCtrls.leftGp === null &&
+      blurredCtrls.rightGp === null &&
+      blurredCtrls.standardGp === null &&
+      !hiddenCtrls.hasXRGamepad &&
+      hiddenCtrls.standardGp === null &&
+      visibleCtrls.hasXRGamepad &&
+      visibleCtrls.leftGp !== null &&
+      visibleCtrls.rightGp !== null &&
+      visibleCtrls.standardGp !== null
   );
 }
 

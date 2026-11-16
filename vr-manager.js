@@ -1,10 +1,12 @@
 import * as THREE from 'three';
 import {log} from './logger.js';
 import {camera, renderer} from './sky.js';
+import {handleMusicVisibility} from './audio.js';
 import {
   _currentLookTarget,
   _idealCameraPos,
-  splashVrBtn,
+  hudVrBtn,
+  hudVrBtnLabel,
   vrBtn,
   vrBtnLabel,
 } from './game.js';
@@ -19,6 +21,7 @@ import {
   extractXRControllers,
   getVRSessionInit,
   hitTestVRPauseMenuUV,
+  isXRSessionVisible,
 } from './vr-controls-logic.js';
 
 const MENU_WIDTH = 1.6;
@@ -35,29 +38,29 @@ let xrController0 = null;
 let xrController1 = null;
 let laser0 = null;
 let laser1 = null;
+let trackedXRSession = null;
 
 const vrRaycaster = new THREE.Raycaster();
 const _vrRayMatrix = new THREE.Matrix4();
 const _vrPauseLatch = createVRPauseInputLatch();
+
+function getActiveXRSession() {
+  return renderer && renderer.xr && renderer.xr.getSession
+    ? renderer.xr.getSession()
+    : null;
+}
 
 function readCurrentVRControllers() {
   const gamepads =
     typeof navigator !== 'undefined' && navigator.getGamepads
       ? navigator.getGamepads()
       : [];
-  const session =
-    renderer && renderer.xr && renderer.xr.getSession
-      ? renderer.xr.getSession()
-      : null;
-  return extractXRControllers(session, gamepads);
+  return extractXRControllers(getActiveXRSession(), gamepads);
 }
 
 function pulseXRControllers(intensity = 0.2, durationMs = 15) {
-  const session =
-    renderer && renderer.xr && renderer.xr.getSession
-      ? renderer.xr.getSession()
-      : null;
-  if (!session || !session.inputSources) return;
+  const session = getActiveXRSession();
+  if (!isXRSessionVisible(session) || !session.inputSources) return;
   for (const source of session.inputSources) {
     const actuator = source?.gamepad?.hapticActuators?.[0];
     if (actuator && typeof actuator.pulse === 'function') {
@@ -139,6 +142,7 @@ function ensureXRControllers() {
   const onGamepadlessSelect = (event) => {
     if (event?.data?.gamepad) return;
     if (!state.isPaused || !checkVRPresenting()) return;
+    if (!isXRSessionVisible(getActiveXRSession())) return;
     if (vrHoveredButton === 0) {
       togglePause();
     } else if (vrHoveredButton === 1) {
@@ -366,6 +370,17 @@ export var openVRPauseMenu = function () {
   // released before triggering a pause-menu action.
   _vrPauseLatch.arm(readCurrentVRControllers());
 
+  // While Horizon OS owns focus ('visible-blurred' universal menu or 'hidden'
+  // unmounted headset), keep our 3D pause card and lasers hidden so they do
+  // not overlap the system overlay; visibilitychange will reveal them on return.
+  if (!isXRSessionVisible(getActiveXRSession())) {
+    vrPauseMenu.visible = false;
+    if (vrLaserDot) vrLaserDot.visible = false;
+    if (laser0) laser0.visible = false;
+    if (laser1) laser1.visible = false;
+    return;
+  }
+
   // Position directly in front of the player's current head orientation
   vrPauseMenu.position.copy(camera.position);
   vrPauseMenu.quaternion.copy(camera.quaternion);
@@ -397,6 +412,14 @@ export var closeVRPauseMenu = function () {
 
 export var updateVRPauseInteraction = function () {
   if (!state.isPaused || !vrPauseMenu || !vrPauseMenu.visible || !vrPauseMesh) {
+    return;
+  }
+
+  if (!isXRSessionVisible(getActiveXRSession())) {
+    vrPauseMenu.visible = false;
+    if (vrLaserDot) vrLaserDot.visible = false;
+    if (laser0) laser0.visible = false;
+    if (laser1) laser1.visible = false;
     return;
   }
 
@@ -474,11 +497,29 @@ export var updateVRPauseInteraction = function () {
   }
 };
 
+function onXRVisibilityChange() {
+  if (!trackedXRSession) return;
+  handleMusicVisibility(trackedXRSession.visibilityState === 'hidden');
+
+  if (!isXRSessionVisible(trackedXRSession)) {
+    if (!state.isPaused) {
+      togglePause();
+    }
+    if (vrPauseMenu) vrPauseMenu.visible = false;
+    if (vrLaserDot) vrLaserDot.visible = false;
+    if (laser0) laser0.visible = false;
+    if (laser1) laser1.visible = false;
+    vrHoveredButton = -1;
+  } else if (state.isPaused) {
+    openVRPauseMenu();
+  }
+}
+
 if (vrBtn) {
   vrBtn.addEventListener('click', toggleVRSession);
 }
-if (splashVrBtn) {
-  splashVrBtn.addEventListener('click', toggleVRSession);
+if (hudVrBtn) {
+  hudVrBtn.addEventListener('click', toggleVRSession);
 }
 
 if (renderer && renderer.xr) {
@@ -506,8 +547,22 @@ if (renderer && renderer.xr) {
       renderer.xr.setFoveation(1.0);
     }
 
-    // Negotiate 72 or 90 Hz if supported
+    // Negotiate 72 or 90 Hz if supported and track Horizon OS focus state
     const session = renderer.xr.getSession();
+    if (
+      trackedXRSession &&
+      typeof trackedXRSession.removeEventListener === 'function'
+    ) {
+      trackedXRSession.removeEventListener(
+        'visibilitychange',
+        onXRVisibilityChange
+      );
+    }
+    trackedXRSession = session;
+    if (session && typeof session.addEventListener === 'function') {
+      session.addEventListener('visibilitychange', onXRVisibilityChange);
+    }
+
     if (
       session &&
       session.supportedFrameRates &&
@@ -524,7 +579,7 @@ if (renderer && renderer.xr) {
     }
 
     if (vrBtnLabel) vrBtnLabel.textContent = t('Exit VR');
-    if (splashVrBtn) splashVrBtn.textContent = t('Exit VR');
+    if (hudVrBtnLabel) hudVrBtnLabel.textContent = t('Exit VR');
 
     // If still at loading screen, dismiss and begin flight immediately
     const loadingEl = document.getElementById('loading-overlay');
@@ -543,6 +598,18 @@ if (renderer && renderer.xr) {
   });
 
   renderer.xr.addEventListener('sessionend', () => {
+    if (
+      trackedXRSession &&
+      typeof trackedXRSession.removeEventListener === 'function'
+    ) {
+      trackedXRSession.removeEventListener(
+        'visibilitychange',
+        onXRVisibilityChange
+      );
+    }
+    trackedXRSession = null;
+    handleMusicVisibility(false);
+
     // Detach camera from dolly and restore to standard world camera
     cameraDolly.remove(camera);
     scene.remove(cameraDolly);
@@ -552,7 +619,7 @@ if (renderer && renderer.xr) {
     closeVRPauseMenu();
 
     if (vrBtnLabel) vrBtnLabel.textContent = 'VR';
-    if (splashVrBtn) splashVrBtn.textContent = 'VR';
+    if (hudVrBtnLabel) hudVrBtnLabel.textContent = 'VR';
   });
 }
 

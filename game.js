@@ -132,7 +132,8 @@ setTimeout(onWindowResize, 2000); // Final check for very slow loading environme
 
 // --- WEBXR VR SESSION CONTROLS ---
 export var vrBtn = document.getElementById('vr-btn');
-export var splashVrBtn = document.getElementById('splash-vr-btn');
+export var hudVrBtn = document.getElementById('hud-vr-btn');
+export var hudVrBtnLabel = document.getElementById('hud-vr-btn-label');
 export var mapVrBtn = document.getElementById('fullscreen-map-vr-btn');
 export var vrBtnLabel = document.getElementById('vr-btn-label');
 
@@ -154,7 +155,7 @@ if (
         /Android|iPhone|iPad|Mobi/i.test(ua);
       if (supported && (isHeadset || !isPhone)) {
         if (vrBtn) vrBtn.style.display = '';
-        if (splashVrBtn) splashVrBtn.style.display = '';
+        if (hudVrBtn) hudVrBtn.style.display = '';
         if (mapVrBtn) mapVrBtn.style.display = '';
       }
     })

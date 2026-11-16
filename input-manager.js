@@ -582,6 +582,7 @@ export class InputManager {
       if (
         !e.target.closest('#loading-overlay') &&
         !e.target.closest('#cockpit-ui') &&
+        !e.target.closest('#hud-vr-btn') &&
         !e.target.closest('#debug-menu') &&
         !e.target.closest('.title') &&
         !e.target.closest('#mobile-controls') &&
@@ -602,7 +603,7 @@ export class InputManager {
   // Whether the pointer is over a menu, button or panel rather than the view
   isOverUI(target) {
     return !!target.closest?.(
-      '#loading-overlay, #cockpit-ui, #npc-dialog, #debug-menu, .title, ' +
+      '#loading-overlay, #cockpit-ui, #hud-vr-btn, #npc-dialog, #debug-menu, .title, ' +
         '#mobile-controls, #pause-overlay, ' +
         '#achievements-overlay, #people-overlay, #help-overlay, ' +
         '#fullscreen-map-overlay, #mobile-action-menu, #minimap-container, ' +
@@ -682,6 +683,7 @@ export class InputManager {
     const isUI =
       target.closest &&
       (target.closest('#cockpit-ui') ||
+        target.closest('#hud-vr-btn') ||
         target.closest('#pause-overlay') ||
         target.closest('#achievements-overlay') ||
         target.closest('#people-overlay') ||
@@ -823,6 +825,7 @@ export class InputManager {
     const isUI =
       target.closest &&
       (target.closest('#cockpit-ui') ||
+        target.closest('#hud-vr-btn') ||
         target.closest('#pause-overlay') ||
         target.closest('#achievements-overlay') ||
         target.closest('#people-overlay') ||
