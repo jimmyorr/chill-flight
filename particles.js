@@ -34,7 +34,6 @@ import {
 import {activePlaneType, planeGroup} from './airplane.js';
 import {isOnWheels} from './flight-physics.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
-import {simplex} from './noise.js';
 import {manualCloudHeight, precipitation} from './weather-manager.js';
 import {underCloudsCeiling} from './flight-physics-logic.js';
 import {rushTrail} from './crystal-rush.js';
@@ -349,25 +348,19 @@ const EXHAUSTS = {
 };
 
 // Contrails: thin white streaks from the engines high up (in the band
-// CONTRAILS_BELOW_CEILING in constants.js sets, under the top of the sky), or faint vapour in the
-// deep cold of the north (snow above COLD_START). Jets and the twin leave long
-// crisp trails; the piston planes' are short wisps. Each puff fades in over
-// its first moments, which leaves the gap behind the engine of a real one.
+// CONTRAILS_BELOW_CEILING in constants.js sets, under the top of the sky).
+// Jets and the twin leave long crisp trails; the piston planes' are short
+// wisps. Each puff fades in over its first moments, which leaves the gap
+// behind the engine of a real one.
 const CONTRAILS = {
   jet: {life: 9, size0: 1.4, size1: 8, alpha: 0.45},
   twin: {life: 7, size0: 1.4, size1: 7, alpha: 0.4},
   wisp: {life: 2.2, size0: 1.2, size1: 4, alpha: 0.35},
 };
-const COLD_START = 0.6;
-const COLD_FULL = 0.9;
-// Cold air alone gives this much of a trail
-const COLD_STRENGTH = 0.6;
 // Puffs this far apart, but no more than CONTRAIL_RATE a second per engine
 // (so ~1,600 of the pool at most, for the jet's two)
 const CONTRAIL_SPACING = 1.5;
 const CONTRAIL_RATE = 90;
-// Snow is checked this often (seconds)
-const COLD_CHECK = 0.5;
 
 // --- THE WORLD'S EFFECTS ---
 // Boats, waterfalls and the volcano only spawn this near the plane (units)
@@ -420,8 +413,6 @@ let vapour = 0;
 const vapourLast = [new THREE.Vector3(), new THREE.Vector3()];
 let lastTarget = null;
 let contrail = 0;
-let coldAir = 0;
-let coldCheckTimer = 0;
 const contrailLast = [new THREE.Vector3(), new THREE.Vector3()];
 
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -983,27 +974,13 @@ function wingtipVapour(delta, speed) {
 }
 
 // How much of a contrail the air gives here, 0 to 1
-function contrailAir(delta) {
-  coldCheckTimer -= delta;
-  if (coldCheckTimer <= 0) {
-    coldCheckTimer = COLD_CHECK;
-    const {x, z} = planeGroup.position;
-    coldAir = THREE.MathUtils.smoothstep(
-      ChillFlightLogic.snowFactorAt(
-        z,
-        ChillFlightLogic.snowNoiseShift(x, z, simplex)
-      ),
-      COLD_START,
-      COLD_FULL
-    );
-  }
+function contrailAir() {
   const top = underCloudsCeiling(manualCloudHeight);
-  const high = THREE.MathUtils.smoothstep(
+  return THREE.MathUtils.smoothstep(
     planeGroup.position.y,
     top - CONTRAILS_BELOW_CEILING.START,
     top - CONTRAILS_BELOW_CEILING.FULL
   );
-  return Math.max(high, coldAir * COLD_STRENGTH);
 }
 
 // Contrails from each exhaust, laid along the flight path like the smoke,
@@ -1012,7 +989,7 @@ function contrails(delta) {
   const exhausts =
     activePlaneType === 'buggy' ? null : EXHAUSTS[activePlaneType];
   const engineOn = (state.targetFlightSpeed || 0) > 0;
-  const target = exhausts && engineOn ? contrailAir(delta) : 0;
+  const target = exhausts && engineOn ? contrailAir() : 0;
   contrail += (target - contrail) * Math.min(1, delta * 1.5);
   if (!exhausts || contrail < 0.03) {
     for (const last of contrailLast) last.valid = false;
