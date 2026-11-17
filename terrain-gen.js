@@ -4616,14 +4616,18 @@ export function generateChunkData({
 
     // A mushroom cottage in some of the eastern mushroom groves (the
     // basalt columns crowded with big mushrooms), checked like the
-    // landmarks below
+    // landmarks below, never out on the snowy/frozen north
     if (
       _enableObjects &&
       !sharedEdge &&
+      !isFrozen &&
+      worldZ >= freezeBoundaryZ &&
       isEastAlien &&
       basaltCol !== null &&
+      basaltCol.top > 0 &&
       basaltCol.spire === 0 &&
       basaltCol.tint > 0.86 &&
+      (snowFactor < 0.5 || extremeBlend > 0.7) &&
       slopeFactor < 0.2 &&
       height > WATER_LEVEL + 3
     ) {

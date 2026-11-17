@@ -1044,5 +1044,69 @@ console.log(
   '  Passed: Falls cuesta headland preserves waterfall leap, dry inland slopes, and spawn clearance'
 );
 
+// --- MUSHROOM COTTAGES STAY OUT OF THE SNOWY NORTH ---
+// Regression: mushroom cottages must not spawn on the frozen northern ice
+// shelf or north of the freeze boundary (e.g. 15.3N 15.3E), while still
+// appearing in the eastern mushroom groves further south.
+{
+  useSeed(20261116);
+  const elevParams = {
+    WATER_LEVEL: 40,
+    MOUNTAIN_LEVEL: 180,
+    MAP_WORLD_SIZE: 10000,
+    MAP_HEIGHT_SCALE: 400,
+  };
+  let frozenCottages = 0;
+  for (let cx = 50; cx <= 53; cx++) {
+    for (let cz = -53; cz <= -50; cz++) {
+      const {result} = generateChunkData({
+        chunkX: cx,
+        chunkZ: cz,
+        chunkSize: 1500,
+        segments: 40,
+        elevParams,
+        worldSeed: 20261116,
+        enableObjects: true,
+      });
+      frozenCottages +=
+        (result.instanceData.mushroomCottage0Body?.count || 0) +
+        (result.instanceData.mushroomCottage1Body?.count || 0);
+    }
+  }
+  if (frozenCottages !== 0) {
+    console.error(
+      `FAIL: found ${frozenCottages} mushroom cottage(s) in the snowy north (15.3N 15.3E)`
+    );
+    process.exit(1);
+  }
+  let groveCottages = 0;
+  for (let cx = 42; cx <= 56; cx += 2) {
+    for (let cz = -6; cz <= 8; cz += 2) {
+      const {result} = generateChunkData({
+        chunkX: cx,
+        chunkZ: cz,
+        chunkSize: 1500,
+        segments: 40,
+        elevParams,
+        worldSeed: 20261116,
+        enableObjects: true,
+      });
+      groveCottages +=
+        (result.instanceData.mushroomCottage0Body?.count || 0) +
+        (result.instanceData.mushroomCottage1Body?.count || 0);
+    }
+  }
+  if (groveCottages === 0) {
+    console.error(
+      'FAIL: expected mushroom cottages in the eastern mushroom groves'
+    );
+    process.exit(1);
+  }
+  useSeed(20260101);
+}
+console.log(
+  '  Passed: mushroom cottages stay out of the snowy north and appear in eastern groves'
+);
+
 console.log('All terrain invariant tests passed successfully!');
 process.exit(0);
