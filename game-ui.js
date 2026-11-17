@@ -12,6 +12,7 @@ import {
   getMaxFlightSpeedMult,
   headlight,
   headlightGlow,
+  planeGroup,
   planeHandling,
 } from './airplane.js';
 import {hdgtSub, inputManager} from './game-input-bindings.js';
@@ -22,7 +23,7 @@ import {
   _virtualCameraPos,
   _virtualLookTarget,
 } from './game.js';
-import {camera, clock, renderer} from './sky.js';
+import {camera, clock, dirLight, renderer} from './sky.js';
 import {
   trackAboutClick,
   trackAppStoreClick,
@@ -627,13 +628,58 @@ if (overlay && renderer) {
     state.isWarmingUp = false;
   };
   let earlyCompile = null;
+  // Things that only appear later in flight (road cars, other planes, the
+  // lens flare) set out by the plane until the last warm-up frame
+  // (hooks.warmUps). Started with the early compile, so the road cars'
+  // models build while the rest of the terrain loads
+  let warmSetUp = null;
+  const setUpWarmUps = async () => {
+    const undos = [];
+    for (const warm of hooks.warmUps) {
+      try {
+        const undo = await warm(planeGroup.position);
+        if (undo) undos.push(undo);
+      } catch (e) {
+        log.warn('Warm-up step failed', e);
+      }
+    }
+    return undos;
+  };
   const warmUp = async () => {
     const t0 = performance.now();
     await earlyCompile;
     const tEarly = performance.now();
     const early = renderer.info.programs.length;
-    // Anything the later chunks added
+    const undos = (await warmSetUp) || [];
+    // Anything the later chunks added, and those
     await compileAll();
+    // One frame drawn with them, shadows included: compileAll doesn't reach
+    // the shadow pass's shaders, or the flare's (drawn inside its own
+    // onBeforeRender). The sun's shadow box only follows the plane in
+    // flight, so it's centred on the plane for this frame
+    const sunPos = dirLight.position.clone();
+    const sunTarget = dirLight.target.position.clone();
+    try {
+      // 4000 units sunward, as updateShadowSnapping (game-loop.js) puts it
+      const toSun = sunPos.clone().sub(sunTarget);
+      if (toSun.lengthSq() < 1e-6) toSun.set(0, 1, 0);
+      dirLight.target.position.copy(planeGroup.position);
+      dirLight.position
+        .copy(planeGroup.position)
+        .addScaledVector(toSun.normalize(), 4000);
+      dirLight.updateMatrixWorld();
+      dirLight.target.updateMatrixWorld();
+      renderer.shadowMap.needsUpdate = true;
+      renderFrame(scene, camera);
+    } catch (e) {
+      log.warn('Warm-up frame failed', e);
+    } finally {
+      dirLight.position.copy(sunPos);
+      dirLight.target.position.copy(sunTarget);
+      dirLight.updateMatrixWorld();
+      dirLight.target.updateMatrixWorld();
+    }
+    for (const undo of undos) undo();
     const tShaders = performance.now();
     performanceMonitor.reset();
     try {
@@ -685,7 +731,10 @@ if (overlay && renderer) {
         }
       }
 
-      if (progress >= 0.25 && !earlyCompile) earlyCompile = compileAll();
+      if (progress >= 0.25 && !earlyCompile) {
+        warmSetUp = setUpWarmUps();
+        earlyCompile = warmSetUp.then(compileAll);
+      }
 
       if (progress >= 1.0) {
         clearInterval(loadInterval);

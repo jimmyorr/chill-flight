@@ -26,4 +26,9 @@ export const hooks = {
   checkDiveCrash: null, // crash.js: (pitch, kts, verticalVelocity) => boolean
   onBackground: null, // analytics.js: called when mobile app is backgrounded
   onForeground: null, // analytics.js: called when mobile app comes back
+  // Loading screen warm-up steps (game-ui.js): each async (at) => undo or
+  // null. Each sets out something that only appears later in flight (road
+  // cars, other planes, the lens flare) by the plane (at, a Vector3) for one
+  // drawn frame, so its shaders compile on the loading screen, not mid-flight
+  warmUps: [],
 };

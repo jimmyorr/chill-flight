@@ -25,6 +25,7 @@ import {
 } from './road-vehicles.js';
 import {sampleRoad} from './terrain-chunks.js';
 import {trafficEnabled} from './traffic.js';
+import {hooks} from './hooks.js';
 import {
   brakeLightsOn,
   isRoadCarGone,
@@ -301,6 +302,27 @@ function disposeCar(group) {
     }
   });
 }
+
+// For the loading screen's warm-up (hooks.warmUps): builds every vehicle
+// now (each takes up to ~175 ms on a slow CPU, a dropped frame or several if
+// built in flight), then puts one car by the player's plane, lamps lit, so
+// its shaders (and its shadow's) compile then rather than at the first car
+hooks.warmUps.push(async () => {
+  if (!trafficEnabled() || !state._enableObjects) return null;
+  while (toBuild.length) {
+    buildNextVehicle();
+    // Lets the loading screen draw between builds
+    await new Promise((r) => setTimeout(r, 0));
+  }
+  const group = buildCar({livery: 0});
+  group.position.copy(planeGroup.position);
+  group.userData.tailMat.opacity = 1;
+  headMat.visible = poolMat.visible = true;
+  return () => {
+    disposeCar(group);
+    headMat.visible = poolMat.visible = false;
+  };
+});
 
 function removeAll() {
   for (const c of cars) disposeCar(c.group);
