@@ -825,13 +825,13 @@
           </div>
         </div>
         <script>
-          // Loading watchdog: if START hasn't come up after a minute on
+          // Loading watchdog: if START hasn't come up after 20 seconds on
           // screen (a stuck load, or a phone that ran out of memory and
           // reloaded), offer a reload on low graphics. Plain script so it
           // still works if the game's modules fail to load.
           (() => {
-            const LIMIT_MS = 60000;
-            const STEP_MS = 5000;
+            const LIMIT_MS = 20000;
+            const STEP_MS = 1000;
             let shownFor = 0;
             const timer = setInterval(() => {
               const overlay = document.getElementById('loading-overlay');
