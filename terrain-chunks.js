@@ -176,6 +176,9 @@ import {
   roadYellowMat,
   rockArchGrassMat,
   rockGeo,
+  graniteGeo,
+  graniteFarGeo,
+  graniteMat,
   rockMat,
   sailboatMooredReflectionGeo,
   sailboatMoored,
@@ -1233,6 +1236,7 @@ globalInstancer.registerType(
 globalInstancer.registerType('rock', rockGeo, rockMat);
 globalInstancer.registerType('snowRock', rockGeo, snowRockMat);
 globalInstancer.registerType('desertRock', rockGeo, desertRockMat);
+globalInstancer.registerType('granite', graniteGeo, graniteMat);
 globalInstancer.registerType('cactus', cactusGeo, cactusMat);
 globalInstancer.registerType('hayBale', hayBaleGeo, hayBaleMat);
 globalInstancer.registerType('fallenLog', fallenLogGeo, fallenLogMat);
@@ -1750,6 +1754,9 @@ for (const [type, geo] of [
     farRadius: SMALL_PROP_FAR_RADIUS,
   });
 }
+// Granite boulders are big enough to see from further off: a 20-triangle
+// lump past the detail radius
+globalInstancer.setFarGeometry('granite', graniteFarGeo, {farRadius: 6});
 globalInstancer.setFarGeometry('snowman', null);
 globalInstancer.setFarGeometry('hayBale', null);
 globalInstancer.setFarGeometry('fallenLog', null);

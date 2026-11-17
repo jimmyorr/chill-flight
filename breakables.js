@@ -110,6 +110,7 @@ const RUBBLE = {
   rock: BREAK.RUBBLE.rock,
   snowRock: BREAK.RUBBLE.rock,
   desertRock: BREAK.RUBBLE.rock,
+  granite: BREAK.RUBBLE.rock,
   iceberg: BREAK.RUBBLE.iceberg,
   iceFloe: BREAK.RUBBLE.iceFloe,
 };
@@ -132,7 +133,7 @@ const ROLLS = /^(hayBale|fallenLog|swampLog)$/;
 const LAND_CRITTER = /^(sheep|goat|deer)/;
 // Critters that don't waddle (only the penguins do, in their shader)
 const STILL_CRITTER = /^(sheep|goat|deer|seal)/;
-const ROCKS = /^(rock|snowRock|desertRock)$/;
+const ROCKS = /^(rock|snowRock|desertRock|granite)$/;
 const ICE = /^(iceberg|iceFloe)$/;
 // A real tree (not a streetlight, tent or silo), for Treehugger
 const TREE_PART =

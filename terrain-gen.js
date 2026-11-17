@@ -264,6 +264,13 @@ const ROCK_BIG_SHARE = 0.08;
 // Boulders are drawn this much bigger than their 3 m model, so they read
 // from the air
 const ROCK_SIZE = 2;
+// Big granite boulders (Boulders Beach): the chance per grid point in a
+// group on the shore and in the shallows, and out on the lowlands, and their
+// size (radius, m) before the odd much bigger one
+const GRANITE_COAST_CHANCE = 0.35;
+const GRANITE_LAND_CHANCE = 0.006;
+const GRANITE_MIN = 7;
+const GRANITE_SPREAD = 13;
 // Lone trees out in the open (copseAt): scale to keep their count
 const COPSE_SCALE = 1.95;
 // Bushes (bushinessAt): scale to keep their count
@@ -2970,6 +2977,7 @@ export function generateChunkData({
   const rockPositions = [];
   const snowRockPositions = [];
   const desertRockPositions = [];
+  const granitePositions = [];
   const cactusPositions = [];
   const snowmanPositions = [];
   const lilyPadPositions = [];
@@ -4595,6 +4603,71 @@ export function generateChunkData({
       }
     }
 
+    // Big rounded granite boulders in groups along the shore and out in the
+    // shallows, and here and there on the lowlands; clear of villages,
+    // roads and airfields. From hashes of the grid point, not the chunk's
+    // rolls, so nothing else in the chunk moves.
+    if (
+      _enableObjects &&
+      !isAlienLand &&
+      !isFrozen &&
+      !isLakeIce &&
+      !isOnRoad &&
+      !onFallsWall &&
+      !sharedEdge &&
+      swampFactor < 0.3 &&
+      snowFactor < 0.4 &&
+      height > WATER_LEVEL - 7 &&
+      height < treeLine &&
+      slopeFactor < 0.5 &&
+      villageNoise < 0.1 &&
+      !ChillFlightLogic.isOnAirport(worldX, worldZ, 150) &&
+      ChillFlightLogic.highwayDistance(worldX, worldZ) > 70
+    ) {
+      const gx = Math.round(worldX / gridSpacing);
+      const gz = Math.round(worldZ / gridSpacing);
+      const coast = height < sandMaxHeight + 6;
+      const group = Math.max(
+        0,
+        Math.min(
+          1,
+          (simplex.noise2D(worldX * 0.004 + 517, worldZ * 0.004 - 233) - 0.4) /
+            0.3
+        )
+      );
+      // Out in the water only near the shore (land within about 300 m)
+      const nearShore =
+        height >= WATER_LEVEL || reliefAt(ix, iy).highest > WATER_LEVEL + 3;
+      const chance = coast
+        ? nearShore
+          ? GRANITE_COAST_CHANCE * group
+          : 0
+        : GRANITE_LAND_CHANCE * (0.2 + 2 * group);
+      if (fieldHash(gx, gz, 1601) < chance * densityScale) {
+        const bx = localX + (fieldHash(gx, gz, 1603) - 0.5) * gridSpacing * 0.8;
+        const bz = localZ + (fieldHash(gx, gz, 1605) - 0.5) * gridSpacing * 0.8;
+        const by = heightAtLocal(bx, bz);
+        const roll = fieldHash(gx, gz, 1607);
+        let size =
+          (GRANITE_MIN + GRANITE_SPREAD * roll * roll) *
+          (fieldHash(gx, gz, 1609) < 0.12 ? 1.7 : 1);
+        const sy = 0.55 + 0.35 * fieldHash(gx, gz, 1613);
+        // One out in the water stands clear of it
+        if (by < WATER_LEVEL)
+          size = Math.max(size, (WATER_LEVEL - by + 3) / sy);
+        granitePositions.push({
+          x: bx,
+          y: by,
+          z: bz,
+          size,
+          sx: 0.85 + 0.4 * fieldHash(gx, gz, 1611),
+          sy,
+          sz: 0.85 + 0.4 * fieldHash(gx, gz, 1615),
+          rotY: fieldHash(gx, gz, 1617) * Math.PI * 2,
+        });
+      }
+    }
+
     // Ice fishing huts out on a frozen lake, in little camps. From hashes of
     // the grid point, not the chunk's rolls.
     if (_enableObjects && isLakeIce && !isAlienLand && !sharedEdge) {
@@ -5645,6 +5718,7 @@ export function generateChunkData({
         rockPositions,
         snowRockPositions,
         desertRockPositions,
+        granitePositions,
         cactusPositions,
         snowmanPositions,
         windmillPositions,
@@ -5909,6 +5983,7 @@ export function generateChunkData({
       rockPositions,
       snowRockPositions,
       desertRockPositions,
+      granitePositions,
       cactusPositions,
       snowmanPositions,
       campfirePositions,
@@ -6328,6 +6403,7 @@ export function generateChunkData({
       rockPositions,
       snowRockPositions,
       desertRockPositions,
+      granitePositions,
       cactusPositions,
       snowmanPositions,
       campfirePositions,
@@ -6450,6 +6526,7 @@ export function generateChunkData({
           rockPositions,
           snowRockPositions,
           desertRockPositions,
+          granitePositions,
           cactusPositions,
           snowmanPositions,
           campfirePositions,
@@ -6519,6 +6596,7 @@ export function generateChunkData({
       rockPositions,
       snowRockPositions,
       desertRockPositions,
+      granitePositions,
       cactusPositions,
       snowmanPositions,
       campfirePositions,
@@ -6916,6 +6994,37 @@ export function generateChunkData({
         collector.endProp();
       });
     }
+  });
+
+  // Granite boulders keep clear of breakwaters, piers, houses and the
+  // lighthouse
+  const graniteClear = [
+    ...breakwaterPositions,
+    ...pierPositions,
+    ...housePositions,
+    ...twoStoryHousePositions,
+    ...(lighthousePos ? [lighthousePos] : []),
+  ];
+  const graniteKept = granitePositions.filter((g) =>
+    graniteClear.every((c) => Math.hypot(g.x - c.x, g.z - c.z) > g.size + 40)
+  );
+  graniteKept.forEach((pos) => {
+    composeMatrix(
+      _matBuffer,
+      0,
+      worldOffsetX + pos.x,
+      pos.y,
+      worldOffsetZ + pos.z,
+      pos.size * pos.sx,
+      pos.size * pos.sy,
+      pos.size * pos.sz,
+      0,
+      pos.rotY,
+      0
+    );
+    collector.beginProp(BREAKABLE.HOUSE);
+    collector.add('granite', _matBuffer);
+    collector.endProp();
   });
 
   if (cactusPositions.length > 0) {
@@ -7870,6 +7979,7 @@ export function generateChunkData({
         rockPositions.length +
         snowRockPositions.length +
         desertRockPositions.length,
+      granite: granitePositions.length,
       bushes: bushPositions.length,
       snowmen: snowmanPositions.length,
       cactus: cactusPositions.length,

@@ -1193,6 +1193,33 @@ export var rockMat = createMaterial({color: 0x888888, flatShading: true});
 export var snowRockMat = createMaterial({color: 0xdddddd, flatShading: true});
 export var desertRockMat = createMaterial({color: 0xd2b48c, flatShading: true});
 
+// Big rounded granite boulders on beaches, in the shallows and out on the
+// lowlands: a lumpy, weathered ball of radius about 1 with a flattish base
+// sunk into the ground (its base is 0.35 below its origin)
+function graniteBoulderGeometry(detail) {
+  const geo = new THREE.IcosahedronGeometry(1, detail);
+  const pos = geo.attributes.position;
+  const v = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i);
+    // The same lump for each copy of a corner, so the faces stay joined
+    const h =
+      Math.sin(
+        Math.round(v.x * 1000) * 0.0129898 +
+          Math.round(v.y * 1000) * 0.078233 +
+          Math.round(v.z * 1000) * 0.037719
+      ) * 43758.5453;
+    v.multiplyScalar(0.86 + 0.26 * (h - Math.floor(h)));
+    if (v.y < -0.35) v.y = -0.35 + (v.y + 0.35) * 0.25;
+    pos.setXYZ(i, v.x, v.y, v.z);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+export var graniteGeo = graniteBoulderGeometry(1); // 80 triangles
+export var graniteFarGeo = graniteBoulderGeometry(0); // 20 triangles
+export var graniteMat = createMaterial({color: 0x9c8b77, flatShading: true});
+
 // Cactus geometries and materials
 // `simple`: 4-sided, without the rounded caps and elbows, for its shadow
 function createCactusGeometry(simple = false) {
