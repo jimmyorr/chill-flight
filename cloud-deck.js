@@ -31,41 +31,103 @@ const deckUniforms = {
   uDeckCenter: {value: new THREE.Vector2()},
 };
 
-const material = new THREE.ShaderMaterial({
-  uniforms: deckUniforms,
-  vertexShader: /* glsl */ `
+// Domes (#176 follow-up): near the camera the deck is a grid raised into
+// the clouds' tops, so skimming over it the billows stand up as rounded
+// domes with real silhouettes and parallax instead of a painted floor.
+// The cloud's thickness lifts each vertex up to DOME_HEIGHT; the grid is
+// snapped to its cells so the shapes don't swim as the camera moves, and
+// flattens out toward DOME_RADIUS, where the flat sheet takes over.
+const DOME_HEIGHT = 380;
+const DOME_RADIUS = 7000;
+const DOME_CELLS = 128;
+const DOME_CELL = (DOME_RADIUS * 2) / DOME_CELLS;
+// Where the domes end and the flat sheet starts (inside the grid's edge,
+// so the snapping never leaves a gap)
+const DOME_SEAM = DOME_RADIUS - 2 * DOME_CELL;
+
+// Shared by the domes (in the vertex shader, which has no derivatives:
+// the anime cirrus in CLOUD_GLSL uses fwidth, unused here) and the veil
+const DOME_GLSL = /* glsl */ `
+  uniform float uCloudDensity;
+  uniform float uTime;
+  uniform float uDeckHeight;
+  float cloudEdge() {
+    return 0.42 - (uCloudDensity - 0.5) * 0.6 - uCloudCover;
+  }
+  // The sky's cumulus noise (cloudsAlong in CLOUD_GLSL) at world xz, with
+  // the fine detail scaled by detail: the cloud's thickness
+  float cumulusAt(vec2 xz, float detail) {
+    vec2 q;
+    vec2 uv = xz / uDeckHeight;
+    return cumulusShape((uv + CLOUD_WIND * uTime * 0.034) * 2.0, detail, q);
+  }
+  // How high the cloud's top stands over the deck there: a steep side at
+  // its edge, then lumpy tops following the noise, so the thick middles
+  // tower over the rest instead of levelling off into a plateau
+  float domeHeight(vec2 xz) {
+    float d = cumulusAt(xz, 0.0) - cloudEdge();
+    float side = smoothstep(0.0, 0.07, d);
+    float top = clamp(d / 0.6, 0.0, 1.0);
+    // Cauliflower lumps a few hundred metres across on top
+    float lumps = fbmMacro(xz / 420.0 + 5.0) - 0.55;
+    return ${DOME_HEIGHT.toFixed(1)} * uCloudTypes.x
+      * max(0.0, 0.3 * side + 0.7 * top + lumps * 0.45 * side);
+  }
+`;
+
+function deckMaterial(domes) {
+  return new THREE.ShaderMaterial({
+    uniforms: deckUniforms,
+    defines: domes ? {DOMES: ''} : {},
+    vertexShader:
+      (domes ? '#define fwidth(x) 0.0\n' + CLOUD_GLSL + DOME_GLSL : '') +
+      /* glsl */ `
+    uniform vec2 uDeckCenter;
     varying vec3 vWorld;
+    varying vec3 vNormal2;
+    varying float vLift;
     void main() {
       vec4 w = modelMatrix * vec4(position, 1.0);
+      vNormal2 = vec3(0.0, 1.0, 0.0);
+      vLift = 0.0;
+#ifdef DOMES
+      float rim = 1.0 - smoothstep(0.55, 1.0,
+        length(w.xz - uDeckCenter) / ${DOME_SEAM.toFixed(1)});
+      float e = ${(DOME_CELL * 0.75).toFixed(1)};
+      float h0 = domeHeight(w.xz) * rim;
+      float hx = domeHeight(w.xz + vec2(e, 0.0)) * rim;
+      float hz = domeHeight(w.xz + vec2(0.0, e)) * rim;
+      w.y += h0;
+      vNormal2 = normalize(vec3(h0 - hx, e, h0 - hz));
+      vLift = h0 / ${DOME_HEIGHT.toFixed(1)};
+#endif
       vWorld = w.xyz;
       gl_Position = projectionMatrix * viewMatrix * w;
     }
   `,
-  fragmentShader:
-    CLOUD_GLSL +
-    /* glsl */ `
+    fragmentShader:
+      CLOUD_GLSL +
+      DOME_GLSL +
+      /* glsl */ `
     uniform vec3 sunDirection;
-    uniform float uCloudDensity;
-    uniform float uTime;
     uniform vec3 topColor;
     uniform vec3 bottomColor;
-    uniform float uDeckHeight;
     uniform float uDeckLight;
     uniform vec2 uDeckCenter;
     varying vec3 vWorld;
-
-    // The sky's cumulus noise (cloudsAlong in CLOUD_GLSL) at deck
-    // position uv, with the fine detail on: the cloud's thickness
-    float cumulusNoise(vec2 uv) {
-      vec2 q;
-      return cumulusShape((uv + CLOUD_WIND * uTime * 0.034) * 2.0, 1.0, q);
-    }
+    varying vec3 vNormal2;
+    varying float vLift;
 
     void main() {
-      float far = length(vWorld.xz - uDeckCenter) / ${RADIUS.toFixed(1)};
-      float edge = 0.42 - (uCloudDensity - 0.5) * 0.6 - uCloudCover;
-      vec2 uv = vWorld.xz / uDeckHeight;
-      float n = cumulusNoise(uv);
+      float dist = length(vWorld.xz - uDeckCenter);
+#ifdef DOMES
+      if (dist > ${DOME_SEAM.toFixed(1)}) discard;
+#else
+      if (dist < ${DOME_SEAM.toFixed(1)}) discard;
+#endif
+      float far = dist / ${RADIUS.toFixed(1)};
+      float edge = cloudEdge();
+      float n = cumulusAt(vWorld.xz, 1.0);
       float here = smoothstep(edge, edge + 0.16, n) * 0.92 * uCloudTypes.x;
       if (here < 0.004) discard;
       // The noise as the height of the tops, well past where the cloud
@@ -74,11 +136,23 @@ const material = new THREE.ShaderMaterial({
       // its edges; the hollows between billows are darker too
       vec2 sun2D = length(sunDirection.xz) > 0.001
         ? normalize(sunDirection.xz) : vec2(1.0, 0.0);
-      float towardSun = cumulusNoise(uv + sun2D * 0.008);
+      float towardSun = cumulusAt(vWorld.xz + sun2D * 0.008 * uDeckHeight, 1.0);
       float lit = clamp(0.6 + (n - towardSun) * 14.0, 0.0, 1.0);
       float hollow = smoothstep(edge, edge + 0.45, n);
       // Low sun: longer shadows and a warm light
       float lowSun = 1.0 - smoothstep(0.05, 0.5, sunDirection.y);
+#ifdef DOMES
+      // A dome's own sides: lit by the sun (soft, as cloud scatters it),
+      // with the billow detail on top; flat ground at the seam matches the
+      // sheet beyond
+      vec3 nrm = normalize(vNormal2);
+      if (!gl_FrontFacing) nrm = -nrm;
+      float sunSide = clamp(dot(nrm, normalize(sunDirection)) * 0.8 + 0.5, 0.0, 1.0);
+      float slope = 1.0 - nrm.y;
+      lit = mix(lit, lit * sunSide, smoothstep(0.01, 0.15, slope));
+      // Dome bases sit in their own shadow
+      hollow = min(hollow, mix(0.35, 1.0, smoothstep(0.0, 0.5, vLift)));
+#endif
       lit = mix(lit, lit * lit, lowSun * 0.3);
       vec3 sunlit = mix(vec3(1.0, 0.99, 0.97), bottomColor * 1.6, lowSun * 0.35);
       vec3 shade = mix(vec3(0.74, 0.77, 0.84), topColor, 0.25);
@@ -93,12 +167,16 @@ const material = new THREE.ShaderMaterial({
       gl_FragColor = vec4(col, a);
     }
   `,
-  transparent: true,
-  depthWrite: false,
-  fog: false,
-  side: THREE.DoubleSide,
-  forceSinglePass: true,
-});
+    transparent: true,
+    // The domes hide those behind them
+    depthWrite: domes,
+    fog: false,
+    side: THREE.DoubleSide,
+    forceSinglePass: true,
+  });
+}
+const material = deckMaterial(false);
+const domeMaterial = deckMaterial(true);
 
 const geometry = new THREE.PlaneGeometry(RADIUS * 2, RADIUS * 2, 1, 1);
 geometry.rotateX(-Math.PI / 2);
@@ -107,13 +185,31 @@ deck.frustumCulled = false;
 deck.visible = false;
 deck.renderOrder = 1;
 if (ABOVE_CLOUDS) scene.add(deck);
+const domeGeometry = new THREE.PlaneGeometry(
+  DOME_RADIUS * 2,
+  DOME_RADIUS * 2,
+  DOME_CELLS,
+  DOME_CELLS
+);
+domeGeometry.rotateX(-Math.PI / 2);
+const domes = new THREE.Mesh(domeGeometry, domeMaterial);
+domes.frustumCulled = false;
+domes.visible = false;
+domes.renderOrder = 2;
+if (ABOVE_CLOUDS) scene.add(domes);
 
 export function updateCloudDeck(camPos) {
   if (!ABOVE_CLOUDS) return;
   const h = skyUniforms.uCloudHeight.value;
   deck.visible = skyUniforms.uShowClouds.value && camPos.y > h + 5;
+  domes.visible = deck.visible;
   if (!deck.visible) return;
   deck.position.set(camPos.x, h, camPos.z);
+  domes.position.set(
+    Math.round(camPos.x / DOME_CELL) * DOME_CELL,
+    h,
+    Math.round(camPos.z / DOME_CELL) * DOME_CELL
+  );
   deckUniforms.uDeckHeight.value = h;
   deckUniforms.uDeckCenter.value.set(camPos.x, camPos.z);
   deckUniforms.uCloudTypes.value.set(skyUniforms.uCloudTypes.value.x, 0, 0);
@@ -130,6 +226,7 @@ const veilMaterial = new THREE.ShaderMaterial({
     uColor: {value: new THREE.Color()},
     uBand: {value: 0},
     uCamXZ: {value: new THREE.Vector2()},
+    uCamY: {value: 0},
     uDeckHeight: deckUniforms.uDeckHeight,
     uCloudDensity: skyUniforms.uCloudDensity,
     uTime: skyUniforms.uTime,
@@ -145,21 +242,21 @@ const veilMaterial = new THREE.ShaderMaterial({
   `,
   fragmentShader:
     CLOUD_GLSL +
+    DOME_GLSL +
     /* glsl */ `
     uniform vec3 uColor;
     uniform float uBand;
     uniform vec2 uCamXZ;
-    uniform float uDeckHeight;
-    uniform float uCloudDensity;
-    uniform float uTime;
+    uniform float uCamY;
     void main() {
-      vec2 q;
-      float n = cumulusShape(
-        (uCamXZ / uDeckHeight + CLOUD_WIND * uTime * 0.034) * 2.0, 0.0, q);
-      float edge = 0.42 - (uCloudDensity - 0.5) * 0.6 - uCloudCover;
+      float edge = cloudEdge();
       // Thicker toward the middle of a cloud, so the white builds and clears
-      float inside = smoothstep(edge, edge + 0.12, n) * uCloudTypes.x;
-      gl_FragColor = vec4(uColor, min(0.95, uBand * inside * 1.15));
+      float inside = smoothstep(edge, edge + 0.12, cumulusAt(uCamXZ, 0.0))
+        * uCloudTypes.x;
+      // Over the deck, white only inside a dome, thickening past its skin
+      float under = uDeckHeight + domeHeight(uCamXZ) - uCamY;
+      float band = uCamY > uDeckHeight ? smoothstep(-20.0, 60.0, under) : uBand;
+      gl_FragColor = vec4(uColor, min(0.95, band * inside * 1.15));
     }
   `,
   transparent: true,
@@ -177,7 +274,7 @@ if (ABOVE_CLOUDS) scene.add(veil);
 // cloud sheet or veil covers the view so ridge and plane ink don't bleed
 // through thick cloud, while gaps between clouds keep their ink
 if (ART_POST) {
-  for (const mat of [material, veilMaterial]) {
+  for (const mat of [material, domeMaterial, veilMaterial]) {
     mat.blending = THREE.CustomBlending;
     mat.blendSrc = THREE.SrcAlphaFactor;
     mat.blendDst = THREE.OneMinusSrcAlphaFactor;
@@ -193,11 +290,17 @@ export function updateCloudVeil(fogColor, camPos) {
   const band = skyUniforms.uShowClouds.value
     ? 1 - THREE.MathUtils.smoothstep(Math.abs(camPos.y - h), 60, 260)
     : 0;
-  veil.visible = band > 0.01;
+  // Over the deck the shader checks the dome under the camera
+  veil.visible =
+    band > 0.01 ||
+    (skyUniforms.uShowClouds.value &&
+      camPos.y > h &&
+      camPos.y < h + DOME_HEIGHT + 30);
   if (!veil.visible) return;
   const u = veilMaterial.uniforms;
   u.uBand.value = band;
   u.uCamXZ.value.set(camPos.x, camPos.z);
+  u.uCamY.value = camPos.y;
   u.uDeckHeight.value = h;
   deckUniforms.uCloudTypes.value.set(skyUniforms.uCloudTypes.value.x, 0, 0);
   // Cloud white in daylight, the dark fog's colour at night
