@@ -292,6 +292,12 @@ const _chunkShadowBox = new THREE.Box3();
 // few pixels across at that range, so the full models only cost triangles.
 // (Woods are dense enough that 3 chunks out cost ~350k more triangles.)
 const TREE_LOD_CHUNK_RADIUS = 2;
+// How far out (in chunks) Low's lean props draw (state.leanProps)
+const LEAN_PROP_RADIUS = 3;
+// ...and out to how many chunks they keep their usual (stand-in) models before
+// switching to the far ones: 0 is the plane's own chunk, so nearby swamp
+// trees aren't round blobs (about 10% more triangles than far models only)
+const LEAN_NEAR_RADIUS = 0;
 
 // Canopies, palms, cacti and bushes (setFarGeometry's `screenSized`) keep
 // their full models only out to where a canopy still spans this many pixels:
@@ -678,7 +684,11 @@ class GlobalInstanceManager {
       this._maxNearRadius,
       this._maxFarRadius
     );
-    const sigPrefix = `${this._configVersion}|${state._enableObjects ? 1 : 0}|${detailRadius}|`;
+    // Low's lean props: every type with a cheaper far model draws it at any
+    // range, nothing draws its close-up model, and props stop at
+    // LEAN_PROP_RADIUS chunks
+    const lean = state.leanProps === true;
+    const sigPrefix = `${this._configVersion}|${state._enableObjects ? 1 : 0}|${detailRadius}|${lean ? 'l' : ''}|`;
     const tileChunks = new Map();
     const shadowChunks = [];
     let shadowSig = `${this._configVersion}|${state._enableObjects ? 1 : 0}|`;
@@ -775,14 +785,24 @@ class GlobalInstanceManager {
           data._tileMesh = null;
           data._tileSlot = 0;
           syncDrawnAt(data);
-          if (!data.count || chunkDistance > typeInfo.farRadius) continue;
-          const nearRadius =
-            typeInfo.nearRadius ??
-            (typeInfo.screenSized ? detailRadius : TREE_LOD_CHUNK_RADIUS);
+          if (
+            !data.count ||
+            chunkDistance > typeInfo.farRadius ||
+            (lean && chunkDistance > LEAN_PROP_RADIUS)
+          )
+            continue;
+          const hasFarModel =
+            typeInfo.farGeo !== null && typeInfo.farGeo !== typeInfo.geo;
+          const nearRadius = lean
+            ? hasFarModel
+              ? LEAN_NEAR_RADIUS
+              : Math.min(1, typeInfo.nearRadius ?? TREE_LOD_CHUNK_RADIUS)
+            : (typeInfo.nearRadius ??
+              (typeInfo.screenSized ? detailRadius : TREE_LOD_CHUNK_RADIUS));
           const useFar =
             chunkDistance > nearRadius && typeInfo.farGeo !== typeInfo.geo;
           if (useFar && typeInfo.farGeo === null) continue; // not drawn far away
-          const closeUp = close && typeInfo.nearGeo !== null;
+          const closeUp = !lean && close && typeInfo.nearGeo !== null;
           const share = useFar ? typeInfo.farShare : null;
           const bucketType = share ? share.targetType : type;
           const bucketInfo = share ? this.types.get(bucketType) : typeInfo;

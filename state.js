@@ -129,6 +129,7 @@ export const state = {
   // Terrain chunk loading
   chunkQueue: [],
   _enableObjects: ChillFlightLogic.SHOW_OBJECTS, // procedural props toggle
+  leanProps: false, // low preset: cheapest prop models only (terrain-chunks.js)
 
   // Flight dynamics
   flightSpeedMultiplier: initialFlightSpeed,

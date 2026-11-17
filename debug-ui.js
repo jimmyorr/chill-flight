@@ -153,9 +153,11 @@ export function applyGraphicsPreset(preset) {
   // Store the preset's base pixel ratio so DRS can scale relative to it
   state._basePixelRatio = pixelRatio;
 
-  const showObjects = URL_SHOWS_OBJECTS && preset !== 'low';
-  if (showObjects !== state._enableObjects)
-    toggleProceduralObjects(showObjects, false);
+  // Low keeps the props but draws only their cheapest models, and not as
+  // far (terrain-chunks.js, LEAN_PROP_RADIUS)
+  state.leanProps = preset === 'low';
+  if (URL_SHOWS_OBJECTS !== state._enableObjects)
+    toggleProceduralObjects(URL_SHOWS_OBJECTS, false);
 
   if (renderer) {
     renderer.setPixelRatio(pixelRatio);

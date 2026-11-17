@@ -493,14 +493,14 @@ The game features automatic graphics preset detection that evaluates your device
 - **Presets (low / mid / high / ultra):** These presets automatically adjust render resolution, shadow maps, draw distances, and mesh densities. Mid and up also draw the distant terrain ring (see below); low fades the land into the sky at the draw distance instead.
 - **Manual override:** You can manually override the auto-detected graphics preset on the pause menu's Settings tab.
 
-| Preset    | Chunk radius | Active chunk grid          | Draw distance | Mesh density (`SEGMENTS`) | Triangles per chunk | Resolution scale          | Visual effects  |
-| :-------- | :----------- | :------------------------- | :------------ | :------------------------ | :------------------ | :------------------------ | :-------------- |
-| **Low**   | 4 chunks     | 9 × 9 (up to 81 chunks)    | 6,000 units   | 20                        | 800                 | Up to 1.5× (`dpr × 0.75`) | Off (optimized) |
-| **Mid**   | 6 chunks     | 13 × 13 (up to 169 chunks) | 9,000 units   | 30                        | 1,800               | Up to 1.5× (`dpr × 0.75`) | Full            |
-| **High**  | 7 chunks     | 15 × 15 (up to 225 chunks) | 10,500 units  | 40                        | 3,200               | Up to 1.5× (`dpr`)        | Full            |
-| **Ultra** | 8 chunks     | 17 × 17 (up to 289 chunks) | 12,000 units  | 50                        | 5,000               | Up to 2.0× (`dpr`)        | Full            |
+| Preset    | Chunk radius | Active chunk grid          | Draw distance | Mesh density (`SEGMENTS`) | Triangles per chunk | Resolution scale          | Visual effects |
+| :-------- | :----------- | :------------------------- | :------------ | :------------------------ | :------------------ | :------------------------ | :------------- |
+| **Low**   | 4 chunks     | 9 × 9 (up to 81 chunks)    | 6,000 units   | 20                        | 800                 | Up to 1.5× (`dpr × 0.75`) | Lean           |
+| **Mid**   | 6 chunks     | 13 × 13 (up to 169 chunks) | 9,000 units   | 30                        | 1,800               | Up to 1.5× (`dpr × 0.75`) | Full           |
+| **High**  | 7 chunks     | 15 × 15 (up to 225 chunks) | 10,500 units  | 40                        | 3,200               | Up to 1.5× (`dpr`)        | Full           |
+| **Ultra** | 8 chunks     | 17 × 17 (up to 289 chunks) | 12,000 units  | 50                        | 5,000               | Up to 2.0× (`dpr`)        | Full           |
 
-_Note: Full visual effects include real-time shadows, transparent water and clouds, and procedural sky clouds. The low preset disables these to minimize overdraw and maximize frame rate on lower-end devices._
+_Note: Full visual effects include real-time shadows, transparent water, antialiasing, procedural sky clouds, tall grass, rain and snow. The low preset turns these off for lower-end devices but keeps every prop: trees, houses, rocks and the rest are drawn with their cheapest (far-away) models, except in the plane's own chunk, and only out to 3 chunks (`LEAN_PROP_RADIUS` and `LEAN_NEAR_RADIUS` in `terrain-chunks.js`). Low also plants fewer trees (`terrain-gen.js`)._
 
 Looking toward the sun on mid and up (both art styles) adds a subtle lens flare: a faint warm halo and a few pale ghosts mirrored through the middle of the screen (`lens-flare.js`). Terrain, planes and clouds in front of the sun hide it, and it fades as the sun sets and toward the screen's edges. It is off on low and on VR headsets. The `flare` URL parameter scales it (`flare=2` is twice as strong) or turns it off (`flare=0`).
 

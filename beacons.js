@@ -356,7 +356,7 @@ function place(camX, camZ) {
 
 // Every frame, from game-loop.js
 export function updateBeacons() {
-  // Low has no props
+  // Not on the low preset
   const show = state.SEGMENTS > 20;
   masts.visible = lights.visible = show;
   if (!show) return;
