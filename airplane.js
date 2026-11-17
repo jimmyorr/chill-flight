@@ -589,6 +589,8 @@ const _beamTarget = new THREE.Vector3();
 // PLANE_BEAM_FADE.x, gone by .y (on/off stays headlight.intensity, so it's
 // the colour that dims)
 const PLANE_BEAM_FADE = {x: 350, y: 1100};
+// How much daylight dims both lamps (1 = gone at full day)
+const DAYLIGHT_DIM = 0.8;
 
 // Each frame: place the beam for the vehicle, dim the plane's with its
 // height over the ground (groundY under it), and point the pool where it
@@ -603,7 +605,12 @@ export function updateHeadlightBeam(driving, groundY) {
         PLANE_BEAM_FADE.x,
         PLANE_BEAM_FADE.y
       );
-  headlight.color.copy(HEADLIGHT_COLOR).multiplyScalar(fade);
+  // In daylight the lamp barely shows against the sun, as a real one
+  // would: at full strength it blew rock walls out to white close up
+  const day = Math.min(1, state.dayFactor ?? 0);
+  headlight.color
+    .copy(HEADLIGHT_COLOR)
+    .multiplyScalar(fade * (1 - DAYLIGHT_DIM * day));
   headlight.position.fromArray(beam.pos);
   headlightTarget.position.fromArray(beam.target);
   const pool = headlightPoolUniforms;
