@@ -6,10 +6,11 @@
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {simplex} from './noise.js';
 
-// The pyramids', dragon skeleton's and Christmas village's places depend on
-// the world (chill-flight-logic.js)
+// The pyramids', dragon skeleton's, alien portals' and Christmas village's
+// places depend on the world (chill-flight-logic.js)
 const pyramids = ChillFlightLogic.pyramidSite(simplex, {WATER_LEVEL: 40});
 const dragon = ChillFlightLogic.dragonSite(simplex, {WATER_LEVEL: 40});
+const portals = ChillFlightLogic.portalSites(simplex, {WATER_LEVEL: 40});
 // The Christmas village beside Pinewood Field, only in the season
 const xmasVillage = ChillFlightLogic.XMAS
   ? ChillFlightLogic.xmasVillageSite(simplex, {WATER_LEVEL: 40})
@@ -92,6 +93,32 @@ export const LANDMARKS = [
           z: xmasVillage.z,
           color: LANDMARK_COLOR,
           symbol: '✦',
+        },
+      ]
+    : []),
+  ...(portals?.east
+    ? [
+        {
+          name: 'East portal',
+          x: portals.east.x,
+          z: portals.east.z,
+          base: portals.east.base,
+          portalYaw: portals.east.yaw,
+          color: LANDMARK_COLOR,
+          symbol: 'Π',
+        },
+      ]
+    : []),
+  ...(portals?.west
+    ? [
+        {
+          name: 'West portal',
+          x: portals.west.x,
+          z: portals.west.z,
+          base: portals.west.base,
+          portalYaw: portals.west.yaw,
+          color: LANDMARK_COLOR,
+          symbol: 'Π',
         },
       ]
     : []),
@@ -179,6 +206,22 @@ export function arrivalAt(place, fromX, fromZ, groundAt) {
       speed: APPROACH_SPEED,
     };
   }
+  if (place.portalYaw !== undefined) {
+    const nx = Math.sin(place.portalYaw);
+    const nz = Math.cos(place.portalYaw);
+    const side = (fromX - place.x) * nx + (fromZ - place.z) * nz >= 0 ? 1 : -1;
+    const dist = 1100;
+    const x = place.x + nx * side * dist;
+    const z = place.z + nz * side * dist;
+    const base = place.base ?? groundAt(place.x, place.z);
+    const ground = highestGround(x, z, place.x, place.z, groundAt);
+    return {
+      x,
+      y: Math.max(base + 85, ground + 60),
+      z,
+      yaw: Math.atan2(nx * side, nz * side),
+    };
+  }
   if (place.name) {
     let dx = fromX - place.x;
     let dz = fromZ - place.z;
@@ -209,6 +252,8 @@ export const BUGGY_VIEW = {
   Pyramids: 900,
   Skeleton: 450,
   'Christmas village': 260,
+  'East portal': 240,
+  'West portal': 240,
   Lighthouse: 200,
   'Rock Arch': 300,
   Falls: 800,
@@ -216,7 +261,19 @@ export const BUGGY_VIEW = {
 };
 // Landmarks seen best from one side, whichever way it's coming from (x, z
 // of that side): the Falls pour from the south wall of their table mountain
-export const BUGGY_SIDE = {Falls: [0, 1]};
+export const BUGGY_SIDE = {
+  Falls: [0, 1],
+  ...(portals?.east
+    ? {
+        'East portal': [Math.sin(portals.east.yaw), Math.cos(portals.east.yaw)],
+      }
+    : {}),
+  ...(portals?.west
+    ? {
+        'West portal': [Math.sin(portals.west.yaw), Math.cos(portals.west.yaw)],
+      }
+    : {}),
+};
 // Into an airport's runway from the end planes land from (units), facing
 // down it
 export const BUGGY_RUNWAY_IN = 60;

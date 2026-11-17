@@ -58,6 +58,8 @@ import {
   dinoSkullGeo,
   DRAGON_COLORWAYS,
   dragonSkeletonGeo,
+  PORTAL_COLORWAYS,
+  portalGroup,
   LANDMARK_HOUSES,
   LANDMARK_SMALL,
   buildTentGeos,
@@ -418,6 +420,7 @@ function viewModel(type, e, colorSeed = 0) {
     'crystal',
     'road_vehicles',
     'dragon_skeleton',
+    'portal',
     'dinosaur_skull',
     'birch',
     'broadleaf_oak',
@@ -1385,6 +1388,11 @@ function viewModel(type, e, colorSeed = 0) {
         previewGroup.add(
           new THREE.Mesh(dragonSkeletonGeo(colorway), buildingMat)
         );
+        break;
+      }
+      case 'portal': {
+        const colorway = PORTAL_COLORWAYS[colorSeed % PORTAL_COLORWAYS.length];
+        previewGroup.add(portalGroup(colorway));
         break;
       }
       case 'pier':

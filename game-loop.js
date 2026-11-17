@@ -171,9 +171,11 @@ import {updateCloudDeck, updateCloudVeil} from './cloud-deck.js';
 import {simplex} from './noise.js';
 import {globalInstancer, processChunkQueue} from './terrain-chunks.js';
 import {FAR_RADIUS, updateFarTerrain} from './far-terrain.js';
+import {hooks} from './hooks.js';
+import {portalVeilMat} from './building-models.js';
 import {state} from './state.js';
 import {updateSfx} from './sfx.js';
-import {updateSfxEvents} from './sfx-events.js';
+import {playPortalWarp, updateSfxEvents} from './sfx-events.js';
 import {updateHaptics} from './haptics.js';
 import {Achievements} from './achievements.js';
 import {scriptedFlight} from './promo-script.js';
@@ -182,6 +184,7 @@ import {xmasGlowMat} from './xmas-models.js';
 
 let scriptedStartYaw = 0;
 let scriptedStartSpeed = 1;
+const immelmann = {pitch: 0, pitchRate: 0, roll: 0, yaw: 0, speed: 0};
 // Promo clips: filming starts with a promo-script event (promo.js), and the
 // clip's keyframes fly the plane from then on (see updatePhysicsAndControls)
 window.addEventListener('promo-script', (event) => {
@@ -212,6 +215,31 @@ const FREQUENT_FLYER_DISTANCE = 100000;
 // Tomb raider: within this of the middle pyramid, across the ground (units)
 const PYRAMIDS = LANDMARKS.find((l) => l.name === 'Pyramids');
 const TOMB_RAIDER_RANGE = 900;
+const PORTAL_SITES = ChillFlightLogic.portalSites(simplex, {WATER_LEVEL});
+let portalCooldown = 0;
+let portalFlash = 0;
+let portalFlashEl = null;
+
+function updatePortalFlash(delta, nowTime) {
+  if (portalVeilMat) {
+    portalVeilMat.opacity =
+      0.16 + 0.06 * Math.sin(nowTime * 0.0025) + portalFlash * 0.35;
+  }
+  if (portalCooldown > 0) portalCooldown = Math.max(0, portalCooldown - delta);
+  if (portalFlash <= 0) return;
+  portalFlash = Math.max(0, portalFlash - delta / 0.85);
+  if (!portalFlashEl && typeof document !== 'undefined') {
+    portalFlashEl = document.createElement('div');
+    portalFlashEl.id = 'portal-flash';
+    portalFlashEl.style.cssText =
+      'position:fixed;inset:0;pointer-events:none;z-index:900;background:radial-gradient(circle at 50% 50%, rgba(255,255,255,0.92) 0%, rgba(196,148,255,0.68) 45%, rgba(108,52,224,0.28) 100%);opacity:0;mix-blend-mode:screen;';
+    document.body.appendChild(portalFlashEl);
+  }
+  if (portalFlashEl) {
+    const ease = portalFlash * portalFlash;
+    portalFlashEl.style.opacity = (ease * 0.85).toFixed(3);
+  }
+}
 
 function animate(timestamp) {
   if (hasCrashed || !renderer) return;
@@ -572,8 +600,35 @@ function performFrame(timestamp) {
         state.distanceSinceLastSave = 0;
       }
 
+      if (portalCooldown <= 0 && !state.isCrashed) {
+        const warp = ChillFlightLogic.checkPortalCrossing(
+          state.previousPosition,
+          planeGroup.position,
+          PORTAL_SITES
+        );
+        if (warp) {
+          portalCooldown = 1.5;
+          portalFlash = 1;
+          scriptedStartYaw += warp.turn;
+          immelmann.yaw += warp.turn;
+          hooks.movePlane?.(
+            warp.x,
+            warp.y,
+            warp.z,
+            planeGroup.rotation.y + warp.turn,
+            undefined,
+            true
+          );
+          playPortalWarp();
+          log.info(
+            `[Portal wormhole] ${warp.from.name} -> ${warp.to.name}: X = ${warp.x.toFixed(0)}, Z = ${warp.z.toFixed(0)} (${(Math.abs(warp.x) / 5000).toFixed(2)} ${warp.x >= 0 ? 'East' : 'West'}, ${(Math.abs(warp.z) / 5000).toFixed(2)} ${warp.z <= 0 ? 'North' : 'South'})`
+          );
+        }
+      }
+
       state.previousPosition.copy(planeGroup.position);
     }
+    updatePortalFlash(delta, nowTime);
 
     // ~2 minutes of cruising flight is roughly 18000-20000 units.
     if (state.sessionDistanceTravelled > 20000) {
@@ -1007,8 +1062,6 @@ let loopRecovering = false; // settling onto level after letting go
 const IMMELMANN_DURATION = 2.4;
 const IMMELMANN_PITCH_END = 0.88;
 const IMMELMANN_SPEED_DIP = 0.18; // speed lost over the top
-// The plane's pitch, pitch rate, roll, heading and speed going in
-const immelmann = {pitch: 0, pitchRate: 0, roll: 0, yaw: 0, speed: 0};
 
 // An angle wrapped to -PI..PI
 function wrapAngle(a) {

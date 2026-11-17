@@ -805,6 +805,8 @@ export default {
   Pyramids: 'Piramidy',
   Skeleton: 'Szkielet',
   'Christmas village': 'Wioska świąteczna',
+  'East portal': 'Portal wschodni',
+  'West portal': 'Portal zachodni',
   'If something comes up, just clear the waypoint on the map.':
     'Jeśli coś ci wypadnie, po prostu usuń punkt trasy na mapie.',
   'ACHIEVEMENT UNLOCKED': 'ODBLOKOWANO OSIĄGNIĘCIE',

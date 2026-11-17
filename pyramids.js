@@ -10,7 +10,11 @@ import {ChillFlightLogic} from './chill-flight-logic.js';
 import {WATER_LEVEL} from './constants.js';
 import {simplex} from './noise.js';
 import {scene} from './scene.js';
-import {buildingMesh, dragonSkeletonGeo} from './building-models.js';
+import {
+  buildingMesh,
+  dragonSkeletonGeo,
+  portalGroup,
+} from './building-models.js';
 import {terrainMaterial} from './terrain-geometry.js';
 
 // Each course of stone is this tall (units), every other one a shade
@@ -108,4 +112,19 @@ if (dragon && ChillFlightLogic.SHOW_OBJECTS !== false) {
   lod.rotation.y = dragon.yaw;
   lod.updateMatrixWorld(true);
   scene.add(lod);
+}
+
+const portals = ChillFlightLogic.portalSites(simplex, {WATER_LEVEL});
+if (portals && ChillFlightLogic.SHOW_OBJECTS !== false) {
+  for (const portal of [portals.east, portals.west]) {
+    if (!portal) continue;
+    const lod = new THREE.LOD();
+    lod.name = portal.name.toLowerCase().replace(/\s+/g, '-');
+    lod.addLevel(portalGroup(portal.colorway), 0);
+    lod.addLevel(new THREE.Group(), DRAGON_DRAW_DISTANCE);
+    lod.position.set(portal.x, portal.base, portal.z);
+    lod.rotation.y = portal.yaw;
+    lod.updateMatrixWorld(true);
+    scene.add(lod);
+  }
 }

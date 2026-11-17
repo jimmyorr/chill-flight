@@ -940,6 +940,69 @@ export function solidFromHeights(
   return slabs;
 }
 
+/**
+ * A single arch slab making a freestanding stone gate (`grid` from
+ * heightsFromTriangles of portalGeos().body) solid at (x, base, z) turned
+ * `yaw`: its pillars and tall footing stones are solid to the ground, its
+ * lintel and keystone form a ceiling over the opening and ground above it,
+ * and low spall stones at the threshold stay open to drive over.
+ */
+export function portalArch(
+  x,
+  z,
+  yaw,
+  base,
+  grid,
+  {minHeight = 18, pillarClear = 130} = {}
+) {
+  const {cell, x0, z0, nx, nz, heights, lows} = grid;
+  const colTop = new Float64Array(nx).fill(-Infinity);
+  const colUnder = new Float64Array(nx).fill(Infinity);
+  const colDepth = new Float64Array(nx).fill(18);
+  let first = nx;
+  let last = -1;
+  for (let ix = 0; ix < nx; ix++) {
+    let zMax = 14;
+    for (let iz = 0; iz < nz; iz++) {
+      const k = iz * nx + ix;
+      const h = heights[k];
+      if (h < minHeight) continue;
+      if (h > colTop[ix]) colTop[ix] = h;
+      const l = lows[k];
+      if (l < pillarClear) colUnder[ix] = SOLID;
+      else if (colUnder[ix] !== SOLID && l < colUnder[ix]) colUnder[ix] = l;
+      const cz = Math.abs(z0 + (iz + 0.5) * cell);
+      if (cz + cell * 0.5 > zMax) zMax = cz + cell * 0.5;
+    }
+    colDepth[ix] = zMax;
+    if (colTop[ix] > -Infinity) {
+      if (ix < first) first = ix;
+      if (ix > last) last = ix;
+    }
+  }
+  if (first > last) return null;
+  return makeArch(
+    'portal',
+    x,
+    z,
+    -yaw,
+    x0 + first * cell,
+    x0 + (last + 1) * cell,
+    (u, p) => {
+      const i = Math.round((u - x0) / cell);
+      const a = Math.max(first, Math.min(last, i - 1));
+      const b = Math.max(first, Math.min(last, i));
+      const h = Math.max(colTop[a], colTop[b]);
+      const bottom = Math.min(colUnder[a], colUnder[b]);
+      p.under =
+        bottom === SOLID || !Number.isFinite(bottom) ? SOLID : base + bottom;
+      p.top = base + h;
+      p.depth = Math.max(colDepth[a], colDepth[b]);
+      p.round = 0;
+    }
+  );
+}
+
 function* findBasaltGates(E, simplex, water, rand) {
   const cell = ChillFlightLogic.basaltCell;
   const ROW = ChillFlightLogic.BASALT_ROW;

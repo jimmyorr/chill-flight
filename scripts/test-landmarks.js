@@ -309,6 +309,84 @@ check(
   );
 }
 
+// The alien portals: east in Xen and west in Westworld for every world and
+// continent shape, pinned on the map, and crossing one warps out of the other
+{
+  const {simplex} = await import('../noise.js');
+  const constants = {WATER_LEVEL: 40, MOUNTAIN_LEVEL: 200};
+  const eastPin = LANDMARKS.find((l) => l.name === 'East portal');
+  const westPin = LANDMARKS.find((l) => l.name === 'West portal');
+  const bad = [];
+  for (const continent of ChillFlightLogic.CONTINENT_NAMES) {
+    ChillFlightLogic.CONTINENT = continent;
+    for (const seed of [20260101, 20261025, 42]) {
+      simplex.seed(seed);
+      ChillFlightLogic.WORLD_SEED = seed;
+      const sites = ChillFlightLogic.portalSites(simplex, constants);
+      if (!sites?.east || !sites?.west) {
+        bad.push(`${continent}/${seed}: missing portal site`);
+        continue;
+      }
+      if (sites.east.x < 50000 || sites.west.x > -50000) {
+        bad.push(
+          `${continent}/${seed}: not in alien lands (${sites.east.x}, ${sites.west.x})`
+        );
+      }
+      for (const p of [sites.east, sites.west]) {
+        const ground = ChillFlightLogic.getElevation(
+          p.x,
+          p.z,
+          simplex,
+          constants
+        );
+        if (Math.abs(ground - p.base) > 1) {
+          bad.push(
+            `${continent}/${seed} ${p.name}: ground ${ground} != ${p.base}`
+          );
+        }
+      }
+    }
+  }
+  ChillFlightLogic.CONTINENT = null;
+  simplex.seed(20260101);
+  ChillFlightLogic.WORLD_SEED = 20260101;
+  const sites = ChillFlightLogic.portalSites(simplex, constants);
+  const e = sites.east;
+  const w = sites.west;
+  const ec = Math.cos(e.yaw);
+  const es = Math.sin(e.yaw);
+  // Fly through the East portal at lateral offset u = 10, height h = 75, from v = -12 to v = +8
+  const prev = {
+    x: e.x + 10 * ec - 12 * es,
+    y: e.base + 75,
+    z: e.z - 10 * es - 12 * ec,
+  };
+  const next = {
+    x: e.x + 10 * ec + 8 * es,
+    y: e.base + 75,
+    z: e.z - 10 * es + 8 * ec,
+  };
+  const warp = ChillFlightLogic.checkPortalCrossing(prev, next, sites);
+  const wc = Math.cos(w.yaw);
+  const ws = Math.sin(w.yaw);
+  const outU = (warp.x - w.x) * wc - (warp.z - w.z) * ws;
+  const outV = (warp.x - w.x) * ws + (warp.z - w.z) * wc;
+  check(
+    'the alien portals stand in Xen and Westworld in every world, pinned on the map, and warp between each other',
+    !!eastPin &&
+      !!westPin &&
+      bad.length === 0 &&
+      !!warp &&
+      warp.from === e &&
+      warp.to === w &&
+      near(outU, 10, 1e-6) &&
+      outV > 20 &&
+      near(warp.y, w.base + 75, 1e-6) &&
+      near(warp.turn, w.yaw - e.yaw, 1e-6),
+    bad.join('; ')
+  );
+}
+
 // Daily scenic spawns: first-time play always starts at (0, 445.5, 0) by the
 // Falls; returning players rotate through all eight scenic corridors on
 // consecutive days with safe clearance ahead.

@@ -810,6 +810,8 @@ export default {
   Pyramids: 'Piramida',
   Skeleton: 'Kerangka Raksasa',
   'Christmas village': 'Desa Natal',
+  'East portal': 'Portal timur',
+  'West portal': 'Portal barat',
   'If something comes up, just clear the waypoint on the map.':
     'Jika ada urusan lain, cukup hapus titik arah di peta.',
   'ACHIEVEMENT UNLOCKED': 'PENCAPAIAN TERBUKA',

@@ -11,10 +11,11 @@ import {
   archSearch,
   flareAt,
   heightsFromTriangles,
+  portalArch,
   solidFromHeights,
   solidPost,
 } from './arches-logic.js';
-import {dragonSkeletonGeo} from './building-models.js';
+import {dragonSkeletonGeo, portalGeos} from './building-models.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {CHUNK_SIZE, WATER_LEVEL} from './constants.js';
 import {simplex} from './noise.js';
@@ -394,6 +395,29 @@ function dragonSkeletonSolid() {
 }
 if (ChillFlightLogic.SHOW_OBJECTS !== false) {
   arches.push(...dragonSkeletonSolid());
+}
+
+// The two alien portals (pyramids.js): solid pillars and lintels, with the
+// opening between them clear to fly or drive through into the wormhole.
+function portalsSolid() {
+  const sites = ChillFlightLogic.portalSites(simplex, {WATER_LEVEL});
+  if (!sites) return [];
+  const {body} = portalGeos();
+  const grid = heightsFromTriangles(
+    body.attributes.position.array,
+    body.index ? body.index.array : null,
+    ARCH.STEP
+  );
+  const out = [];
+  for (const portal of [sites.east, sites.west]) {
+    if (!portal) continue;
+    const arch = portalArch(portal.x, portal.z, portal.yaw, portal.base, grid);
+    if (arch) out.push(arch);
+  }
+  return out;
+}
+if (ChillFlightLogic.SHOW_OBJECTS !== false) {
+  arches.push(...portalsSolid());
 }
 
 /**

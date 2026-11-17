@@ -21,11 +21,12 @@ import {
   archSites,
   archTop,
   heightsFromTriangles,
+  portalArch,
   solidAt,
   solidFromHeights,
 } from '../arches-logic.js';
 import {mergeAsset} from '../boat-models.js';
-import {DRAGON_SCALE} from '../building-models.js';
+import {DRAGON_SCALE, portalGeos} from '../building-models.js';
 import * as dragonSkeleton from '../third-party/polyfork/dragon-skeleton-88de43.mjs';
 import {wallContact} from '../wall-scrape-logic.js';
 
@@ -347,6 +348,54 @@ console.log(
   );
   console.log(
     `  Passed: the dragon skeleton is solid (${hull.length} slabs, ${tall} bone points inside)`
+  );
+}
+
+// --- The alien portals, solid pillars and lintel with a clear opening ---
+{
+  const {body} = portalGeos();
+  const grid = heightsFromTriangles(
+    body.attributes.position.array,
+    body.index ? body.index.array : null,
+    ARCH.STEP
+  );
+  const X = 59500;
+  const Z = -2500;
+  const BASE = 400;
+  const YAW = 0.39;
+  const arch = portalArch(X, Z, YAW, BASE, grid);
+  check(arch !== null, 'portalArch returned null');
+  const c = Math.cos(YAW);
+  const s = Math.sin(YAW);
+  const world = (u, v) => ({x: X + u * c + v * s, z: Z - u * s + v * c});
+  // Middle of the opening (u = 0, v = 0, y = BASE + 80): clear with a ceiling
+  const mid = world(0, 0);
+  const gMid = {height: BASE, slopeX: 0, slopeZ: 0};
+  check(
+    !archGround([arch], mid.x, mid.z, BASE + 80, gMid),
+    'portal opening is blocked by archGround'
+  );
+  const ceil = archCeiling([arch], mid.x, mid.z, BASE + 80);
+  check(
+    ceil !== null && ceil > BASE + 150,
+    `portal opening has no high ceiling (${ceil})`
+  );
+  // Left and right pillars (u = -55 and u = +55): solid to the ground
+  for (const u of [-55, 55]) {
+    const pil = world(u, 0);
+    const gPil = {height: BASE, slopeX: 0, slopeZ: 0};
+    check(
+      archGround([arch], pil.x, pil.z, BASE + 20, gPil) &&
+        gPil.height > BASE + 180,
+      `portal pillar at u=${u} is not solid`
+    );
+    check(
+      archBlocks([arch], pil.x, pil.z, BASE, 7, 12),
+      `portal pillar at u=${u} does not block the buggy`
+    );
+  }
+  console.log(
+    '  Passed: the alien portals have solid pillars, a ceiling lintel and a clear opening'
   );
 }
 

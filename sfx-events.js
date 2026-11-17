@@ -34,6 +34,7 @@ export const SFX_EVENTS = [
   {key: 'race', label: 'Race countdown'},
   {key: 'bump', label: 'Bumping into other planes'},
   {key: 'scrape', label: 'Scraping a wall'},
+  {key: 'portal', label: 'Portal wormhole'},
 ];
 
 const STORAGE_KEY = 'chill_flight_sfx_events';
@@ -566,6 +567,48 @@ export function playShatter(loud = 1, force = false) {
   }
 }
 
+// Crossing through an alien portal wormhole (game-loop.js): a deep sub-bass
+// dimensional rush and a warm, shimmering Lydian chord swell that blooms and
+// trails off across the jump.
+const PORTAL_CHORD = [220, 329.63, 440, 554.37, 659.25, 830.61, 987.77];
+export function playPortalWarp(force = false) {
+  if ((!force && !isSfxEventEnabled('portal')) || !ready()) return;
+  const t = ctx.currentTime;
+  noiseBurst(t, {
+    type: 'bandpass',
+    freq: 1400,
+    freqEnd: 240,
+    q: 1.1,
+    gain: 0.42,
+    attack: 0.08,
+    decay: 1.35,
+  });
+  tone(t, {
+    freq: 110,
+    freqEnd: 55,
+    gain: 0.32,
+    attack: 0.05,
+    decay: 1.4,
+  });
+  for (const [i, freq] of PORTAL_CHORD.entries()) {
+    const start = t + i * 0.035;
+    tone(start, {
+      type: 'triangle',
+      freq,
+      gain: 0.11 - i * 0.01,
+      attack: 0.12 + i * 0.02,
+      decay: 2.1,
+      lowpass: 2400,
+    });
+    tone(start + 0.04, {
+      freq: freq * 2,
+      gain: 0.028,
+      attack: 0.16,
+      decay: 1.6,
+    });
+  }
+}
+
 // Audition each one-shot from the debug menu and sound lab, even when it's
 // switched off
 export const SFX_EVENT_PLAYERS = {
@@ -590,6 +633,7 @@ export const SFX_EVENT_PLAYERS = {
       setTimeout(() => playScrape(1, i === 0, true), i * 160);
     }
   },
+  portal: () => playPortalWarp(true),
   race: () => {
     for (let i = 0; i < 4; i++) {
       setTimeout(() => playRaceBeep(i === 3, true), i * 1000);

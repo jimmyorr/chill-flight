@@ -6480,6 +6480,8 @@ export function generateChunkData({
             PYRAMID_PROP_CLEAR &&
           ChillFlightLogic.dragonFootAt(wx, wz, simplex, elevParams) >=
             PYRAMID_PROP_CLEAR &&
+          ChillFlightLogic.portalFootAt(wx, wz, simplex, elevParams) >=
+            PYRAMID_PROP_CLEAR &&
           ChillFlightLogic.xmasVillageDistance(wx, wz, simplex, elevParams) >=
             XMAS_CLEAR
         ) {

@@ -34,6 +34,7 @@ import * as pierCorner from './third-party/polyfork/pier-deck-corner-c56248.mjs'
 import * as farmhouse from './third-party/polyfork/gabled-farmhouse-c7534f.mjs';
 import * as dragonSkeleton from './third-party/polyfork/dragon-skeleton-88de43.mjs';
 import * as dinosaurSkull from './third-party/polyfork/dinosaur-skull-4c3a3c.mjs';
+import * as portalModel from './third-party/polyfork/portal-60d5e6.mjs';
 
 export const buildingMat = createMaterial({
   vertexColors: true,
@@ -134,6 +135,99 @@ export function dragonSkeletonGeo(colorway = 'old-ivory') {
     );
   }
   return _dragonGeos.get(colorway);
+}
+
+// The alien wormhole portals in Xen and Westworld: Polyfork's Portal scaled
+// up so a plane can thread the opening (~64 wide x ~160 tall under the
+// keystone), with the carved rune inlays drawn in a glowing violet material
+// and a faint translucent shimmer across the aperture.
+export const PORTAL_SCALE = 60;
+export const PORTAL_COLORWAYS = ['black-basalt', 'grave-slate', 'bone-ruin'];
+const PORTAL_OPTS = {build: 0.15, height: 1.2};
+const PORTAL_RUNE_HEX = new THREE.Color(
+  portalModel.params.rune.default
+).getHexString();
+
+export const portalRuneMat = createMaterial({
+  vertexColors: true,
+  emissive: 0xb388ff,
+  emissiveIntensity: 0.9,
+  flatShading: true,
+  roughness: 0.4,
+});
+
+export const portalVeilMat = createMaterial({
+  color: 0xa874ff,
+  emissive: 0x7c4dff,
+  emissiveIntensity: 0.65,
+  transparent: true,
+  opacity: 0.22,
+  depthWrite: false,
+  side: THREE.DoubleSide,
+  roughness: 0.2,
+});
+{
+  const base = portalVeilMat.onBeforeCompile;
+  portalVeilMat.onBeforeCompile = (shader, renderer) => {
+    base(shader, renderer);
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        '#include <common>',
+        '#include <common>\nvarying vec2 vPortalUv;'
+      )
+      .replace('#include <uv_vertex>', '#include <uv_vertex>\nvPortalUv = uv;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        '#include <common>\nvarying vec2 vPortalUv;'
+      )
+      .replace(
+        '#include <alphamap_fragment>',
+        `#include <alphamap_fragment>
+        diffuseColor.a *= smoothstep(0.04, 0.32, vPortalUv.y) * (1.0 - smoothstep(0.75, 0.98, vPortalUv.y));`
+      );
+  };
+}
+
+const _portalGeos = new Map();
+let _portalVeilGeo = null;
+export function portalGeos(colorway = 'black-basalt') {
+  if (!_portalGeos.has(colorway)) {
+    const asset = portalModel.createAsset({...PORTAL_OPTS, colorway});
+    _portalGeos.set(colorway, {
+      body: mergeAsset(
+        asset,
+        0.06,
+        PORTAL_SCALE,
+        0,
+        (_low, hex) => hex !== PORTAL_RUNE_HEX
+      ),
+      runes: mergeAsset(
+        asset,
+        0.06,
+        PORTAL_SCALE,
+        0,
+        (_low, hex) => hex === PORTAL_RUNE_HEX
+      ),
+    });
+  }
+  if (!_portalVeilGeo) {
+    _portalVeilGeo = new THREE.PlaneGeometry(72, 190);
+    _portalVeilGeo.translate(3, 83, 0);
+  }
+  const {body, runes} = _portalGeos.get(colorway);
+  return {body, runes, veil: _portalVeilGeo};
+}
+
+export function portalGroup(colorway = 'black-basalt') {
+  const {body, runes, veil} = portalGeos(colorway);
+  const group = new THREE.Group();
+  group.add(buildingMesh(body));
+  const runeMesh = new THREE.Mesh(runes, portalRuneMat);
+  group.add(runeMesh);
+  const veilMesh = new THREE.Mesh(veil, portalVeilMat);
+  group.add(veilMesh);
+  return group;
 }
 
 // A mesh of one of these geometries, casting and taking shadows

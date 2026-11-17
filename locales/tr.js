@@ -808,6 +808,8 @@ export default {
   Pyramids: 'Piramitler',
   Skeleton: 'İskelet',
   'Christmas village': 'Noel köyü',
+  'East portal': 'Doğu geçidi',
+  'West portal': 'Batı geçidi',
   'If something comes up, just clear the waypoint on the map.':
     'Bir işin çıkarsa haritadaki rota noktasını kaldırman yeterli.',
   'ACHIEVEMENT UNLOCKED': 'BAŞARIM AÇILDI',

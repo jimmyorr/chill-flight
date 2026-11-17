@@ -1291,13 +1291,18 @@ import {IMPERIAL, joinList, t} from './i18n.js';
   }
 
   // Moves the plane to x, y, z, facing `yaw` and flying at `speed` (a speed
-  // multiplier) when given; also flying to a friend (multiplayer.js)
-  function movePlane(x, y, z, yaw, speed) {
+  // multiplier) when given; also flying to a friend (multiplayer.js) or
+  // through an alien portal wormhole (`keepAttitude` preserves pitch & roll).
+  function movePlane(x, y, z, yaw, speed, keepAttitude = false) {
     const from = planeGroup.position.clone();
     const turn = yaw === undefined ? 0 : yaw - planeGroup.rotation.y;
     planeGroup.position.set(x, y, z);
     if (yaw !== undefined) {
-      planeGroup.rotation.set(0, yaw, 0);
+      if (keepAttitude) {
+        planeGroup.rotation.y = yaw;
+      } else {
+        planeGroup.rotation.set(0, yaw, 0);
+      }
       state._nextYaw = yaw;
     }
     if (speed !== undefined) {

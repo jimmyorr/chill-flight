@@ -803,6 +803,8 @@ export default {
   Pyramids: 'Pirâmides',
   Skeleton: 'Esqueleto',
   'Christmas village': 'Vila de Natal',
+  'East portal': 'Portal leste',
+  'West portal': 'Portal oeste',
   'If something comes up, just clear the waypoint on the map.':
     'Se surgir alguma coisa, é só limpar o ponto de rota no mapa.',
   'ACHIEVEMENT UNLOCKED': 'CONQUISTA DESBLOQUEADA',

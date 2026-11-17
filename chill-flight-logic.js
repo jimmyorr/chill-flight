@@ -3079,6 +3079,266 @@ export const ChillFlightLogic = {};
     return true;
   }
 
+  // --- THE ALIEN PORTALS ---
+  // A pair of megalithic rune gates linked by a wormhole across the world:
+  // the east portal standing on a flat basalt column top in Xen (near Basalt
+  // Field) and the west portal on a stepped plateau in Westworld. Flying or
+  // driving through either opening warps straight out of the other at the
+  // same relative offset, attitude and airspeed (checkPortalCrossing).
+  const PORTAL_SCALE = 60;
+  const PORTAL_BED = 130;
+  const PORTAL_BED_EDGE = 250;
+  const PORTAL_OPEN_U_MIN = -30;
+  const PORTAL_OPEN_U_MAX = 36;
+  const PORTAL_OPEN_HEIGHT = 160;
+  const PORTAL_EXIT_PUSH = 16;
+  const PORTAL_PROBES = [[0, 0]];
+  for (const rad of [85, 175]) {
+    for (let k = 0; k < 8; k++) {
+      const a = (k * Math.PI) / 4;
+      PORTAL_PROBES.push([Math.cos(a) * rad, Math.sin(a) * rad]);
+    }
+  }
+  const _portalSites = new WeakMap();
+  let _findingPortals = false;
+
+  function pickPortalYaw(cx, cz, base, simplex, constants, lerp) {
+    let bestYaw = 0;
+    let bestObstruction = Infinity;
+    for (let k = 0; k < 8; k++) {
+      const yaw = (k * Math.PI) / 8;
+      const nx = Math.sin(yaw);
+      const nz = Math.cos(yaw);
+      let maxH = -Infinity;
+      for (const d of [-900, -680, -460, -250, 250, 460, 680, 900]) {
+        const h = getElevation(
+          cx + nx * d,
+          cz + nz * d,
+          simplex,
+          constants,
+          lerp,
+          {ignoreRoads: true, ignoreAirports: true}
+        );
+        if (h > maxH) maxH = h;
+      }
+      const obs = Math.max(0, maxH - (base + 10));
+      if (obs < bestObstruction) {
+        bestObstruction = obs;
+        bestYaw = yaw;
+      }
+    }
+    return {yaw: bestYaw, obstruction: bestObstruction};
+  }
+
+  function portalSites(simplex, constants = {}, lerp) {
+    const signature = `${exports.CONTINENT}:${exports.WORLD_SEED}:${simplex.noise2D(0.123, 0.456)}`;
+    const cached = _portalSites.get(simplex);
+    if (cached && cached.signature === signature) return cached.sites;
+    const water = constants.WATER_LEVEL || 40;
+    const salt = Math.floor((simplex.noise2D(12.34, 56.78) + 1) * 1e6);
+    _findingPortals = true;
+    coastRoadsOff++;
+    let east = null;
+    let west = null;
+    try {
+      // 1. East portal: on a tall, spire-free basalt column in Xen
+      let bestEastScore = Infinity;
+      for (let row = -14; row <= 10; row++) {
+        for (let col = 55; col <= 68; col++) {
+          const c = basaltColumn(col, row, salt, simplex);
+          if (!(c.top > 220) || c.spire > 0) continue;
+          // Unwarp (c.cx, c.cz) so (wx, wz) lands on the column's middle
+          let wx = c.cx;
+          let wz = c.cz;
+          for (let i = 0; i < 3; i++) {
+            wx = c.cx - domainWarpX(wx, wz, simplex);
+            wz = c.cz - domainWarpZ(wx, wz, simplex);
+          }
+          wx = Math.round(wx);
+          wz = Math.round(wz);
+          if (Math.hypot(wx - 57000, wz - -5000) < 2200) continue;
+          if (alienAt(wx, wz, simplex) < 0.7) continue;
+          let minH = Infinity;
+          let maxH = -Infinity;
+          let sum = 0;
+          for (const [dx, dz] of PORTAL_PROBES) {
+            const h = getElevation(wx + dx, wz + dz, simplex, constants, lerp, {
+              ignoreRoads: true,
+              ignoreAirports: true,
+            });
+            sum += h;
+            if (h < minH) minH = h;
+            if (h > maxH) maxH = h;
+          }
+          if (minH < water + 140 || maxH > 650) continue;
+          const spread = maxH - minH;
+          if (spread > 28) continue;
+          const base = sum / PORTAL_PROBES.length;
+          const {yaw, obstruction} = pickPortalYaw(
+            wx,
+            wz,
+            base,
+            simplex,
+            constants,
+            lerp
+          );
+          const distHeart = Math.hypot(wx - 58500, wz - -3500);
+          const score = obstruction * 12 + spread * 2 + distHeart * 0.002;
+          if (score < bestEastScore) {
+            bestEastScore = score;
+            east = {
+              name: 'East portal',
+              x: wx,
+              z: wz,
+              base,
+              yaw,
+              colorway: 'black-basalt',
+            };
+          }
+        }
+      }
+
+      // 2. West portal: on a stepped plateau in Westworld
+      let bestWestScore = Infinity;
+      for (let z = -12000; z <= 12000; z += 1000) {
+        for (let x = -54000; x >= -74000; x -= 1000) {
+          if (alienAt(x, z, simplex) < 0.7) continue;
+          if (roadClear(x, z) < 1) continue;
+          let minH = Infinity;
+          let maxH = -Infinity;
+          let sum = 0;
+          for (const [dx, dz] of PORTAL_PROBES) {
+            const h = getElevation(x + dx, z + dz, simplex, constants, lerp, {
+              ignoreRoads: true,
+              ignoreAirports: true,
+            });
+            sum += h;
+            if (h < minH) minH = h;
+            if (h > maxH) maxH = h;
+          }
+          if (minH < water + 40 || maxH > 580) continue;
+          const spread = maxH - minH;
+          if (spread > 26) continue;
+          const base = sum / PORTAL_PROBES.length;
+          const {yaw, obstruction} = pickPortalYaw(
+            x,
+            z,
+            base,
+            simplex,
+            constants,
+            lerp
+          );
+          const distHeart = Math.hypot(x - -60000, z);
+          const score = obstruction * 12 + spread * 2 + distHeart * 0.002;
+          if (score < bestWestScore) {
+            bestWestScore = score;
+            west = {
+              name: 'West portal',
+              x,
+              z,
+              base,
+              yaw,
+              colorway: 'grave-slate',
+            };
+          }
+        }
+      }
+    } finally {
+      _findingPortals = false;
+      coastRoadsOff--;
+    }
+    const sites = {east, west};
+    _portalSites.set(simplex, {signature, sites});
+    return sites;
+  }
+
+  const _portal = {bed: 0, base: 0, r: Infinity};
+  function portalAt(x, z, simplex, constants, lerp) {
+    _portal.bed = 0;
+    _portal.r = Infinity;
+    if (_findingPortals || Math.abs(x) < 50000 || Math.abs(z) > 20000) {
+      return false;
+    }
+    const sites = portalSites(simplex, constants || {}, lerp);
+    const site = x > 0 ? sites.east : sites.west;
+    if (!site) return false;
+    const dx = x - site.x;
+    const dz = z - site.z;
+    if (Math.abs(dx) > PORTAL_BED_EDGE || Math.abs(dz) > PORTAL_BED_EDGE) {
+      return false;
+    }
+    const r = Math.hypot(dx, dz);
+    if (r >= PORTAL_BED_EDGE) return false;
+    _portal.bed = 1 - smoothRamp(r, PORTAL_BED, PORTAL_BED_EDGE);
+    _portal.base = site.base;
+    _portal.r = r;
+    return true;
+  }
+
+  // Whether the segment from prevPos to nextPos crosses through the clear
+  // opening of either portal, returning the exit pose at its twin portal:
+  // {from, to, x, y, z, turn} or null.
+  function checkPortalCrossing(prevPos, nextPos, portals) {
+    if (!prevPos || !nextPos || !portals?.east || !portals?.west) return null;
+    const stepSq =
+      (nextPos.x - prevPos.x) ** 2 +
+      (nextPos.y - prevPos.y) ** 2 +
+      (nextPos.z - prevPos.z) ** 2;
+    if (stepSq < 1e-8 || stepSq > 300 * 300) return null;
+    for (const [from, to] of [
+      [portals.east, portals.west],
+      [portals.west, portals.east],
+    ]) {
+      if (
+        Math.abs(nextPos.x - from.x) > 160 ||
+        Math.abs(nextPos.z - from.z) > 160
+      ) {
+        continue;
+      }
+      const c = Math.cos(from.yaw);
+      const s = Math.sin(from.yaw);
+      const dx0 = prevPos.x - from.x;
+      const dz0 = prevPos.z - from.z;
+      const u0 = dx0 * c - dz0 * s;
+      const v0 = dx0 * s + dz0 * c;
+      const h0 = prevPos.y - from.base;
+
+      const dx1 = nextPos.x - from.x;
+      const dz1 = nextPos.z - from.z;
+      const u1 = dx1 * c - dz1 * s;
+      const v1 = dx1 * s + dz1 * c;
+      const h1 = nextPos.y - from.base;
+
+      if ((v0 <= 0 && v1 <= 0) || (v0 >= 0 && v1 >= 0)) continue;
+      const denom = Math.abs(v0) + Math.abs(v1);
+      if (denom < 1e-5) continue;
+      const t = Math.abs(v0) / denom;
+      const uc = u0 + (u1 - u0) * t;
+      const hc = h0 + (h1 - h0) * t;
+      if (
+        uc < PORTAL_OPEN_U_MIN ||
+        uc > PORTAL_OPEN_U_MAX ||
+        hc < -2 ||
+        hc > PORTAL_OPEN_HEIGHT
+      ) {
+        continue;
+      }
+      const sign = v1 >= 0 ? 1 : -1;
+      const vOut = v1 + sign * PORTAL_EXIT_PUSH;
+      const tc = Math.cos(to.yaw);
+      const ts = Math.sin(to.yaw);
+      return {
+        from,
+        to,
+        x: to.x + u1 * tc + vOut * ts,
+        y: to.base + Math.max(0, h1),
+        z: to.z - u1 * ts + vOut * tc,
+        turn: to.yaw - from.yaw,
+      };
+    }
+    return null;
+  }
+
   function getElevation(x, z, simplex, constants, lerp, options = {}) {
     const WATER_LEVEL = constants.WATER_LEVEL || 40;
 
@@ -4659,6 +4919,11 @@ export const ChillFlightLogic = {};
       n = _lerp(n, _xmas.base, _xmas.bed);
     }
 
+    // The alien portals' level stone beds in Xen and Westworld
+    if (portalAt(origX, origZ, simplex, constants, _lerp)) {
+      n = _lerp(n, _portal.base, _portal.bed);
+    }
+
     return n;
   }
 
@@ -4711,6 +4976,13 @@ export const ChillFlightLogic = {};
     const site = dragonSite(simplex, constants || {});
     return Math.max(0, Math.hypot(x - site.x, z - site.z) - DRAGON_BED);
   };
+  exports.PORTAL_SCALE = PORTAL_SCALE;
+  exports.portalSites = portalSites;
+  exports.portalFootAt = (x, z, simplex, constants) =>
+    portalAt(x, z, simplex, constants)
+      ? Math.max(0, _portal.r - PORTAL_BED)
+      : Infinity;
+  exports.checkPortalCrossing = checkPortalCrossing;
   exports.CANYON_TIER_HEIGHT = CANYON_TIER_HEIGHT;
   exports.FALLS_Z = FALLS_Z;
   exports.FALLS_LIP_Z = FALLS_LIP_Z;
