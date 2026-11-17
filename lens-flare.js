@@ -15,6 +15,7 @@ import {CLOUD_GLSL} from './constants.js';
 import {scene} from './scene.js';
 import {skyUniforms} from './sky-uniforms.js';
 import {state} from './state.js';
+import {hooks} from './hooks.js';
 
 // How bright the flare is overall: ?flare=2 doubles it, ?flare=0 turns it
 // off. Off on VR headsets even in 2D windows: mid-frame copyTexSubImage2D on
@@ -254,6 +255,13 @@ function createFlare() {
 
   flare.onBeforeRender = (renderer, _scene, camera) => {
     if (renderer.xr.isPresenting || state.graphicsPreset === 'low') return;
+    if (warming) {
+      // The loading screen's warm-up: draw once, faintly, in the middle of
+      // the screen, wherever the sun is, so the flare's shaders compile
+      _screen.set(0, 0, 0.5);
+      drawFlare(renderer, camera, 0.001);
+      return;
+    }
     const sun = skyUniforms.sunDirection.value;
     // Gone once the sun is down, fading in as it rises
     const sunUp = smooth(-0.01, 0.05, sun.y);
@@ -272,7 +280,11 @@ function createFlare() {
     const edge = Math.max(Math.abs(_screen.x), Math.abs(_screen.y));
     const fade = sunUp * smooth(1, 0.8, edge) * FLARE_STRENGTH;
     if (fade <= 0) return;
+    drawFlare(renderer, camera, fade);
+  };
 
+  // Draws the flare for the sun at _screen (normalized device coordinates)
+  const drawFlare = (renderer, camera, fade) => {
     renderer.getCurrentViewport(_viewport);
     const target = renderer.getRenderTarget();
     const type = target ? target.texture.type : THREE.UnsignedByteType;
@@ -364,4 +376,13 @@ function createFlare() {
   return flare;
 }
 
-if (enabled) scene.add(createFlare());
+// Set for one frame by the loading screen's warm-up (hooks.warmUps): the
+// flare's shaders otherwise compile the first time the sun is on screen
+let warming = false;
+if (enabled) {
+  scene.add(createFlare());
+  hooks.warmUps.push(async () => {
+    warming = true;
+    return () => (warming = false);
+  });
+}
