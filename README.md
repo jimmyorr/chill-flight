@@ -490,7 +490,7 @@ Chill Flight supports immersive virtual reality on devices such as the Meta Ques
 
 The game features automatic graphics preset detection that evaluates your device's hardware capabilities upon loading and seamlessly scales visual fidelity to ensure a smooth frame rate.
 
-- **Presets (low / mid / high / ultra):** These presets automatically adjust render resolution, shadow maps, draw distances, and mesh densities. Mid and up also draw the distant terrain ring (see below); low fades the land into the sky at the draw distance instead.
+- **Presets (low / mid / high / ultra):** These presets automatically adjust render resolution, shadow maps, draw distances, and mesh densities. Every preset also draws the distant terrain ring (see below).
 - **Manual override:** You can manually override the auto-detected graphics preset on the pause menu's Settings tab.
 
 | Preset    | Chunk radius | Active chunk grid          | Draw distance | Mesh density (`SEGMENTS`) | Triangles per chunk | Resolution scale          | Visual effects |

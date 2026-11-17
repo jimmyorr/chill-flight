@@ -64,7 +64,7 @@ export const state = {
   // Graphics settings (graphics presets in debug-ui.js change these)
   SEGMENTS: 40,
   RENDER_DISTANCE: 2,
-  farTerrainEnabled: true, // distant terrain ring (far-terrain.js); off on low
+  farTerrainEnabled: true, // distant terrain ring (far-terrain.js)
   graphicsPreset: 'mid', // the applied preset's name (debug-ui.js)
   // Debug menu cloud controls (weather-manager.js; read by updateCloudMood
   // in game-loop.js): a mood name forcing the day's cloud mood (null: the

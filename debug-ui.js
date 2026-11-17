@@ -175,7 +175,9 @@ export function applyGraphicsPreset(preset) {
 
   // Toggle overdraw optimizations (transparency)
   const isLow = segments <= 20;
-  state.farTerrainEnabled = !isLow;
+  // The distant terrain ring (about 20 draw calls) on every preset: without
+  // it Low's horizon was empty sky past 6 km
+  state.farTerrainEnabled = true;
 
   waterMaterial.transparent = !isLow;
   waterMaterial.opacity = isLow ? 1.0 : 0.6;
