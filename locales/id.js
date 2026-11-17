@@ -198,6 +198,7 @@ export default {
   'Your name': 'Namamu',
   Callsign: 'Tanda panggil',
   'Fly with bots': 'Terbang bersama bot',
+  Bots: 'Bot',
   "or join a friend's flight": 'atau gabung ke penerbangan teman',
   Code: 'Kode',
   Join: 'Gabung',

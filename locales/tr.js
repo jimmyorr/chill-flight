@@ -196,6 +196,7 @@ export default {
   'Your name': 'Adın',
   Callsign: 'Çağrı kodu',
   'Fly with bots': 'Botlarla uç',
+  Bots: 'Botlar',
   "or join a friend's flight": 'veya bir arkadaşının uçuşuna katıl',
   Code: 'Kod',
   Join: 'Katıl',

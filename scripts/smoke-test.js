@@ -670,6 +670,61 @@ async function exerciseControls(page, tag) {
     false,
     'close people'
   );
+  // Together -> Fly with bots supports choosing 1..3 bots and changing mid-flight
+  await page.click('#fly-tab');
+  await wait(200);
+  const defaultBots = await page.$eval(
+    '#fly-solo-bot-count .scheme-btn.active',
+    (el) => el.dataset.bots
+  );
+  if (defaultBots !== '3') {
+    fail(`expected default bot count 3, got "${defaultBots}"`);
+  }
+  await page.click('#fly-solo-bot-count [data-bots="1"]');
+  await page.click('#fly-bots-btn');
+  await wait(500);
+  if (await isPaused()) fail('Fly with bots did not unpause the game');
+  const chipAfterOne = await page.$$eval(
+    '#room-chip-dots > span',
+    (els) => els.length
+  );
+  if (chipAfterOne !== 2) {
+    fail(`expected 2 planes in room chip with 1 bot, got ${chipAfterOne}`);
+  }
+  await page.keyboard.press('Escape');
+  await wait(300);
+  await page.click('#fly-tab');
+  await wait(200);
+  const oneBotState = await page.evaluate(() => ({
+    bots: document.querySelectorAll('#fly-players > .fly-player').length,
+    localRowVisible: !document.getElementById('fly-local-bots-row')?.hidden,
+    onlineRowHidden: !!document.getElementById('fly-bots-row')?.hidden,
+    active: document.querySelector('#fly-room-bot-count .scheme-btn.active')
+      ?.dataset.bots,
+  }));
+  if (
+    oneBotState.bots !== 1 ||
+    !oneBotState.localRowVisible ||
+    !oneBotState.onlineRowHidden ||
+    oneBotState.active !== '1'
+  ) {
+    fail(`unexpected 1-bot room state: ${JSON.stringify(oneBotState)}`);
+  }
+  await page.click('#fly-room-bot-count [data-bots="2"]');
+  await wait(200);
+  const twoBotCount = await page.$$eval(
+    '#fly-players > .fly-player',
+    (els) => els.length
+  );
+  if (twoBotCount !== 2) {
+    fail(`switching to 2 bots yielded ${twoBotCount} bot rows`);
+  }
+  await page.click('#fly-leave-btn');
+  await wait(200);
+  await page.click('#fly-solo-bot-count [data-bots="3"]');
+  await page.click('.pause-tab[data-tab="flight"]');
+  await wait(200);
+
   await page
     .click('#resume-btn')
     .catch((err) => fail(`resume: ${err.message}`));

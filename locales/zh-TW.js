@@ -183,6 +183,7 @@ export default {
   'Your name': '你的名字',
   Callsign: '呼號',
   'Fly with bots': '和機器人一起飛',
+  Bots: '機器人',
   "or join a friend's flight": '或加入朋友的航班',
   Code: '程式碼',
   Join: '加入',

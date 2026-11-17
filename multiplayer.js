@@ -122,6 +122,7 @@ import {
   TAG_ROUND_MS,
   TAG_SPEED_BOOST,
   WAGGLE_MS,
+  clampBotCount,
   cleanName,
   formatTagTime,
   inviteUrl,
@@ -141,6 +142,7 @@ import {
   tagWinner,
   unpackState,
   waggleRoll,
+  wantedBotSeats,
 } from './multiplayer-logic.js';
 import {joinList, t} from './i18n.js';
 import {trackShare} from './analytics.js';
@@ -170,6 +172,7 @@ const HIDDEN_DISCONNECT_MS = 60 * 1000;
 // awake (and using up the relay's free allowance); flying on reconnects
 const PAUSED_DISCONNECT_MS = 15 * 60 * 1000;
 const NAME_KEY = 'chill_flight_name';
+const BOTS_COUNT_KEY = 'chill_flight_bots';
 const defaultCallsign = randomCallsign();
 
 // The pause menu's Together tab, and its panel
@@ -194,6 +197,7 @@ const roomSection = document.getElementById('fly-room');
 const roomCodeText = document.getElementById('fly-room-code');
 const roomLabel = document.getElementById('fly-room-label');
 const botsRow = document.getElementById('fly-bots-row');
+const localBotsRow = document.getElementById('fly-local-bots-row');
 const playersList = document.getElementById('fly-players');
 const statusText = document.getElementById('fly-status');
 const tagBtn = document.getElementById('fly-tag-btn');
@@ -205,6 +209,8 @@ const tagChip = document.getElementById('tag-chip');
 const tagGlow = document.getElementById('tag-glow');
 const botsInput = document.getElementById('fly-bots-input');
 const botsBtn = document.getElementById('fly-bots-btn');
+const soloBotCount = document.getElementById('fly-solo-bot-count');
+const roomBotCount = document.getElementById('fly-room-bot-count');
 const markersEl = document.getElementById('friend-markers');
 const waveBtn = document.getElementById('mobile-wave-btn');
 
@@ -258,16 +264,22 @@ let tagEndsAt = 0;
 // with their updates, as peer.points)
 let myPoints = 0;
 // Points a second being scored right now (for the glow), and the chip's text
-let scoringRate = 0;
 let chipText = '';
+let scoringRate = 0;
 // When points were last added (performance.now()): they go by the clock,
 // not the frame, so a slow device scores the same
 let scoredAt = 0;
 let gatherToId = null;
 // Bots this player brought, by k ('1' to '3'): {bot (bot-logic.js), peer,
-// name, livery, plane (out of games)}; and whether they want them
+// name, livery, plane (out of games)}; and how many they want (0: none)
 const myBots = new Map();
-let botsWanted = false;
+let botsWanted = 0;
+let localBotCount = MAX_PLAYERS - 1;
+try {
+  localBotCount = clampBotCount(localStorage.getItem(BOTS_COUNT_KEY));
+} catch {
+  /* default */
+}
 // A game of tag just started: this player's bots are to gather for it
 let gatherBotsPending = false;
 // Who was it before whoever's it now (a bot doesn't tag them straight back)
@@ -546,7 +558,7 @@ function onMessage(event) {
     }
   } else if (msg.t === 'bots') {
     if (msg.on === false && botsWanted) {
-      botsWanted = false;
+      botsWanted = 0;
       syncBots();
     }
     renderPanel();
@@ -1442,10 +1454,12 @@ function syncBots() {
       if (!otherOwner || owner < otherOwner) otherOwner = owner;
     }
   }
-  const want =
-    botsWanted && !(otherOwner && otherOwner < room.id)
-      ? Math.max(0, MAX_PLAYERS - people - othersBots)
-      : 0;
+  const want = wantedBotSeats(
+    botsWanted,
+    people,
+    othersBots,
+    !(otherOwner && otherOwner < room.id)
+  );
   // Someone arrived with a bot's name: the bot takes another
   for (const [k, mine] of myBots) {
     const clash = [...peers.values()].some(
@@ -1472,10 +1486,25 @@ function botsInRoom() {
 }
 
 function setBotsWanted(on) {
-  botsWanted = on;
+  botsWanted = on ? MAX_PLAYERS - 1 : 0;
   // Someone else's bots: ask them to go
   if (!on) send({t: 'bots', on: false});
   syncBots();
+}
+
+function setLocalBotCount(n) {
+  localBotCount = clampBotCount(n);
+  try {
+    localStorage.setItem(BOTS_COUNT_KEY, String(localBotCount));
+  } catch {
+    /* not saved */
+  }
+  if (room?.local) {
+    botsWanted = localBotCount;
+    syncBots();
+  } else {
+    renderPanel();
+  }
 }
 
 // This player's bots near a friend who waggled wave back, a moment later
@@ -1943,14 +1972,14 @@ function flyWithBots() {
   setSmokeTint(state.planeColor);
   if (!sendTimer) sendTimer = setInterval(sendState, SEND_INTERVAL_MS);
   setStatus('');
-  botsWanted = true;
+  botsWanted = localBotCount;
   syncBots();
 }
 
 function clearRoom() {
   for (const id of [...peers.keys()]) removePeer(id);
   myBots.clear();
-  botsWanted = false;
+  botsWanted = 0;
   gatherBotsPending = false;
   socket = null;
   room = null;
@@ -2600,6 +2629,16 @@ function renderChip() {
 
 let renderedAt = 0;
 
+function syncBotCountButtons(groupEl, count, disabled = false) {
+  if (!groupEl) return;
+  for (const btn of groupEl.querySelectorAll('[data-bots]')) {
+    const active = Number(btn.dataset.bots) === count;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', String(active));
+    btn.disabled = disabled;
+  }
+}
+
 function renderPanel() {
   renderedAt = performance.now();
   if (waveBtn) waveBtn.hidden = !room;
@@ -2610,8 +2649,10 @@ function renderPanel() {
   roomSection.hidden = !room;
   inviteBtn.disabled = joinBtn.disabled = busy;
   if (botsBtn) botsBtn.disabled = busy;
+  syncBotCountButtons(soloBotCount, localBotCount, busy);
   if (!room) return;
-  if (botsInput) botsInput.checked = botsWanted || botsInRoom();
+  if (botsInput) botsInput.checked = Boolean(botsWanted) || botsInRoom();
+  syncBotCountButtons(roomBotCount, botsWanted || localBotCount);
   // A flight with bots has no code yet: Invite friends makes one
   roomCodeText.hidden = !!room.local;
   roomCodeText.textContent = room.code || '';
@@ -2633,10 +2674,12 @@ function renderPanel() {
     tagBtn.classList.toggle('open', pickerOpen && !gameOn);
   }
   // Choosing a game takes the list's place a moment
+  const pickingGame = !!gamesPicker && pickerOpen && !gameOn && !tagBtn?.hidden;
   if (gamesPicker) {
-    gamesPicker.hidden = !pickerOpen || gameOn || tagBtn.hidden;
-    playersList.parentElement.hidden = !gamesPicker.hidden;
+    gamesPicker.hidden = !pickingGame;
+    playersList.parentElement.hidden = pickingGame;
   }
+  if (localBotsRow) localBotsRow.hidden = !room.local || pickingGame;
   // In a game, live points or race places; after one, how it ended
   const raceRows = raceListing();
   const showPoints =
@@ -2855,6 +2898,12 @@ if (RELAY && tabBtn && panel) {
   botsInput?.addEventListener('change', () => {
     if (room) setBotsWanted(botsInput.checked);
   });
+  for (const group of [soloBotCount, roomBotCount]) {
+    group?.addEventListener('click', (e) => {
+      const btn = e.target.closest?.('[data-bots]');
+      if (btn && !btn.disabled) setLocalBotCount(btn.dataset.bots);
+    });
+  }
   // A flight of your own, with bots in the other seats, on this device
   // alone (Invite friends opens it up)
   botsBtn?.addEventListener('click', () => {

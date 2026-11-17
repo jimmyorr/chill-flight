@@ -323,9 +323,31 @@
                 <button id="fly-invite-btn" class="fly-btn">
                   Invite friends
                 </button>
-                <button id="fly-bots-btn" class="fly-btn fly-btn-quiet">
-                  Fly with bots
-                </button>
+                <div class="fly-bots-launch">
+                  <button id="fly-bots-btn" class="fly-btn fly-btn-quiet">
+                    Fly with bots
+                  </button>
+                  <div
+                    id="fly-solo-bot-count"
+                    class="scheme-btn-group fly-bot-count"
+                    role="group"
+                    aria-label="Bots"
+                  >
+                    <button type="button" class="scheme-btn" data-bots="1">
+                      1
+                    </button>
+                    <button type="button" class="scheme-btn" data-bots="2">
+                      2
+                    </button>
+                    <button
+                      type="button"
+                      class="scheme-btn active"
+                      data-bots="3"
+                    >
+                      3
+                    </button>
+                  </div>
+                </div>
               </div>
               <div class="fly-group">
                 <div class="fly-or">or join a friend's flight</div>
@@ -371,6 +393,29 @@
                   </span>
                 </label>
                 <div id="fly-players" class="fly-players"></div>
+              </div>
+              <div
+                id="fly-local-bots-row"
+                class="fly-bots-row fly-local-bots-row"
+                hidden
+              >
+                <span>Bots</span>
+                <div
+                  id="fly-room-bot-count"
+                  class="scheme-btn-group fly-bot-count"
+                  role="group"
+                  aria-label="Bots"
+                >
+                  <button type="button" class="scheme-btn" data-bots="1">
+                    1
+                  </button>
+                  <button type="button" class="scheme-btn" data-bots="2">
+                    2
+                  </button>
+                  <button type="button" class="scheme-btn active" data-bots="3">
+                    3
+                  </button>
+                </div>
               </div>
               <label
                 id="fly-bots-row"

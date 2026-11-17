@@ -676,3 +676,20 @@ export function tagTarget(itPos, others, radius = TAG_RADIUS) {
   }
   return best;
 }
+
+/** Clamps a chosen local bot count to 1..MAX_PLAYERS - 1 (defaulting to full). */
+export function clampBotCount(n) {
+  const v = Number(n);
+  return Number.isInteger(v) && v >= 1 && v < MAX_PLAYERS ? v : MAX_PLAYERS - 1;
+}
+
+/** How many bots to fly (0..MAX_PLAYERS - 1), capped by empty seats. */
+export function wantedBotSeats(
+  botsWanted,
+  people,
+  othersBots = 0,
+  allowed = true
+) {
+  if (!allowed || !(botsWanted > 0)) return 0;
+  return Math.min(botsWanted, Math.max(0, MAX_PLAYERS - people - othersBots));
+}

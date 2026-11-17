@@ -197,6 +197,7 @@ export default {
   'Your name': 'Seu nome',
   Callsign: 'Indicativo',
   'Fly with bots': 'Voar com bots',
+  Bots: 'Bots',
   "or join a friend's flight": 'ou entre no voo de um amigo',
   Code: 'Código',
   Join: 'Entrar',

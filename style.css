@@ -1782,7 +1782,11 @@ input[type='number'].customization-input {
   font-weight: 600;
   letter-spacing: 0.3px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
   padding: 0 5px;
   -webkit-user-select: none;
   user-select: none;
@@ -2462,9 +2466,41 @@ input[type='number'].customization-input {
   flex-shrink: 0;
 }
 
-#fly-invite-btn,
-#fly-bots-btn {
+#fly-invite-btn {
   width: 100%;
+}
+
+.fly-bots-launch {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+#fly-bots-btn {
+  flex: 1;
+  min-width: 0;
+  padding: 0 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fly-bot-count {
+  flex: 0 0 auto;
+}
+
+.fly-bot-count .scheme-btn {
+  flex: 0 0 auto;
+  width: 30px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.fly-bots-launch .fly-bot-count .scheme-btn {
+  width: 32px;
+  height: 42px;
+  border-radius: 8px;
+  font-size: 13px;
 }
 
 .fly-btn:hover {
@@ -2603,6 +2639,10 @@ input[type='number'].customization-input {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.75);
   cursor: pointer;
+}
+
+.fly-local-bots-row {
+  cursor: default;
 }
 
 .fly-status:empty {

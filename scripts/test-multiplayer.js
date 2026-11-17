@@ -32,6 +32,7 @@ import {
   TAG_ROUND_MS,
   TAG_SPEED_BOOST,
   WAGGLE_MS,
+  clampBotCount,
   formatTagTime,
   inviteUrl,
   isNewerTag,
@@ -49,6 +50,7 @@ import {
   tagWinner,
   unpackState,
   waggleRoll,
+  wantedBotSeats,
 } from '../multiplayer-logic.js';
 
 console.log('Testing flying together...');
@@ -688,6 +690,29 @@ check(
       rules.MAX_ROOMS_STARTED > 0
   );
 }
+
+// Bot seat counts: 1..3 for local flights, capped by empty seats
+check(
+  'Local bot count clamps to 1..3 and defaults to full',
+  clampBotCount(1) === 1 &&
+    clampBotCount('2') === 2 &&
+    clampBotCount(3) === 3 &&
+    clampBotCount(0) === 3 &&
+    clampBotCount(4) === 3 &&
+    clampBotCount(null) === 3 &&
+    clampBotCount('abc') === 3
+);
+check(
+  'Wanted bot seats respect chosen count, empty seats, and owner priority',
+  wantedBotSeats(1, 1) === 1 &&
+    wantedBotSeats(2, 1) === 2 &&
+    wantedBotSeats(3, 1) === 3 &&
+    wantedBotSeats(3, 2) === 2 &&
+    wantedBotSeats(2, 3) === 1 &&
+    wantedBotSeats(1, 4) === 0 &&
+    wantedBotSeats(0, 1) === 0 &&
+    wantedBotSeats(2, 1, 0, false) === 0
+);
 
 if (failed) {
   console.error('Flying together tests failed.');

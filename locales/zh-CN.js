@@ -186,6 +186,7 @@ export default {
   'Your name': '你的名字',
   Callsign: '呼号',
   'Fly with bots': '和机器人一起飞',
+  Bots: '机器人',
   "or join a friend's flight": '或加入朋友的航班',
   Code: '代码',
   Join: '加入',

@@ -195,6 +195,7 @@ export default {
   'Your name': "Твоє ім'я",
   Callsign: 'Позивний',
   'Fly with bots': 'Летіти з ботами',
+  Bots: 'Боти',
   "or join a friend's flight": 'або приєднайся до польоту друга',
   Code: 'Код',
   Join: 'Увійти',

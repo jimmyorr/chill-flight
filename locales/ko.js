@@ -189,6 +189,7 @@ export default {
   'Your name': '내 이름',
   Callsign: '호출부호',
   'Fly with bots': '봇과 비행',
+  Bots: '봇',
   "or join a friend's flight": '또는 친구의 비행에 참가',
   Code: '코드',
   Join: '참가',

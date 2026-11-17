@@ -193,6 +193,7 @@ export default {
   'Your name': 'あなたの名前',
   Callsign: 'コールサイン',
   'Fly with bots': 'ボットと飛ぶ',
+  Bots: 'ボット',
   "or join a friend's flight": 'またはフレンドのフライトに参加',
   Code: 'コード',
   Join: '参加',

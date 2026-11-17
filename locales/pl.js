@@ -193,6 +193,7 @@ export default {
   'Your name': 'Twoje imię',
   Callsign: 'Znak wywoławczy',
   'Fly with bots': 'Lataj z botami',
+  Bots: 'Boty',
   "or join a friend's flight": 'lub dołącz do lotu znajomego',
   Code: 'Kod',
   Join: 'Dołącz',
