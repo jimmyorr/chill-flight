@@ -2,20 +2,19 @@
 // The cars, vans and trucks the road traffic drives (road-traffic.js):
 // Polyfork models (polyfork.dev, free licence; sources unchanged in
 // third-party/polyfork), each in its own paint schemes. Each model is
-// generated in code, taking 10 to 100 ms, so road-traffic.js builds them a
-// few at a time in idle moments and clones the built ones (clones share the
-// geometry). Front toward +z, wheels on y = 0, real-world metres.
+// generated in code, taking 10 to 50 ms, so road-traffic.js builds them all
+// on the loading screen and clones the built ones (clones share the
+// geometry). The GT3 and skate team tour van took 130 to 175 ms each and
+// were dropped. Front toward +z, wheels on y = 0, real-world metres.
 import * as THREE from 'three';
 import {createMaterial} from './constants.js';
 import {POLYFORK_SCALE} from './boat-models.js';
 import * as compactHatchback from './third-party/polyfork/compact-hatchback-386417.mjs';
 import * as deliveryTruck from './third-party/polyfork/delivery-truck-a9537e.mjs';
 import * as familyMinivan from './third-party/polyfork/family-minivan-924de0.mjs';
-import * as gt3 from './third-party/polyfork/model-of-a-gt3-32b70d.mjs';
 import * as hatchback80s from './third-party/polyfork/hatchback-80s-e95554.mjs';
 import * as policeCruiser from './third-party/polyfork/police-cruiser-a2d25e.mjs';
 import * as popTopCamper from './third-party/polyfork/pop-top-camper-van-62a322.mjs';
-import * as skateTourVan from './third-party/polyfork/skate-team-tour-van-fb3c89.mjs';
 import * as stationWagon70s from './third-party/polyfork/station-wagon-70s-11d67b.mjs';
 import * as townCar from './third-party/polyfork/town-car-56eeb6.mjs';
 
@@ -32,8 +31,6 @@ export const ROAD_VEHICLES = [
   {name: 'Hatchback (80s)', module: hatchback80s, weight: 2},
   {name: 'Station wagon (70s)', module: stationWagon70s, weight: 2},
   {name: 'Pop-top camper van', module: popTopCamper, weight: 1.5},
-  {name: 'Skate team tour van', module: skateTourVan, weight: 1},
-  {name: 'GT3 car', module: gt3, weight: 0.7},
   {name: 'Police cruiser', module: policeCruiser, weight: 0.5},
 ].map((v) => ({...v, colorways: v.module.params.colorway.options}));
 

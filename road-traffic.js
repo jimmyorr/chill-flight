@@ -34,10 +34,13 @@ import {
 } from './road-traffic-logic.js';
 
 const MAX_CARS = 4;
-// Seconds between building one more vehicle model in the background, until
-// every kind has been built in this many paint schemes
+// Seconds between building one more vehicle model in flight, until every
+// kind has been built in this many paint schemes (normally all are built
+// on the loading screen; this covers traffic turned on later). One scheme
+// each: with four cars about, two colours of one model were rarely seen,
+// and each build costs 10 to 50 ms
 const BUILD_EVERY = 0.4;
-const SCHEMES_PER_KIND = 2;
+const SCHEMES_PER_KIND = 1;
 // Seconds before the next car appears while there's room
 const SPAWN_DELAY_MIN = 3;
 const SPAWN_DELAY_MAX = 10;
