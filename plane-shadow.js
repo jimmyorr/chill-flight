@@ -13,6 +13,7 @@ import {renderer, dirLight, hemiLight} from './sky.js';
 import {planeGroup} from './airplane.js';
 import {sampleGround} from './terrain-geometry.js';
 import {state} from './state.js';
+import {hooks} from './hooks.js';
 
 const LAYER = 7;
 const SIZE = 256;
@@ -41,6 +42,16 @@ const coverMaterial = new THREE.MeshBasicMaterial({
   fog: false,
   side: THREE.DoubleSide,
 });
+// The silhouette is drawn in a scene of its own (the plane is moved into it
+// for the draw). three.js keeps the lights it found for each scene, and the
+// next frame's sun shadow pass runs on those before the lights are gathered
+// again, so drawing the main scene from this camera, which sees no lights,
+// made that shadow pass use different shaders: a second set of every
+// shadow shader compiled mid-flight over water, and the lit materials
+// rechecked their shaders every frame
+const silhouetteScene = new THREE.Scene();
+silhouetteScene.overrideMaterial = coverMaterial;
+silhouetteScene.matrixWorldAutoUpdate = false;
 
 const decalMaterial = new THREE.ShaderMaterial({
   uniforms: {
@@ -160,6 +171,53 @@ function traceToSurface(p) {
   _hit.along = Math.max(0, p.y - surface) / _sun.y;
 }
 
+// Renders the plane from shadowCam into target, in silhouetteScene
+function drawSilhouette() {
+  const parent = planeGroup.parent;
+  const index = parent ? parent.children.indexOf(planeGroup) : -1;
+  const prevTarget = renderer.getRenderTarget();
+  const prevShadows = renderer.shadowMap.enabled;
+  const prevXr = renderer.xr.enabled;
+  renderer.getClearColor(_clear);
+  const prevAlpha = renderer.getClearAlpha();
+  try {
+    planeGroup.updateMatrixWorld();
+    silhouetteScene.add(planeGroup);
+    renderer.shadowMap.enabled = false;
+    renderer.xr.enabled = false;
+    renderer.setRenderTarget(target);
+    renderer.setClearColor(0x000000, 0);
+    renderer.clear();
+    renderer.render(silhouetteScene, shadowCam);
+  } finally {
+    renderer.setRenderTarget(prevTarget);
+    renderer.setClearColor(_clear, prevAlpha);
+    renderer.xr.enabled = prevXr;
+    renderer.shadowMap.enabled = prevShadows;
+    // Back in its place among the scene's children
+    silhouetteScene.remove(planeGroup);
+    if (parent) {
+      parent.children.splice(index, 0, planeGroup);
+      planeGroup.parent = parent;
+    }
+  }
+}
+
+// For the loading screen's warm-up (hooks.warmUps): one silhouette and the
+// water decal, so their shaders compile then rather than over the first water
+hooks.warmUps.push(async () => {
+  if (!renderer || !dirLight.castShadow) return null;
+  prepareModel();
+  shadowCam.position.copy(planeGroup.position).add(_yAxis);
+  shadowCam.lookAt(planeGroup.position);
+  shadowCam.updateMatrixWorld();
+  drawSilhouette();
+  const wasVisible = decal.visible;
+  decal.position.copy(planeGroup.position);
+  decal.visible = true;
+  return () => (decal.visible = wasVisible);
+});
+
 // Call once a frame before the main render
 export function updatePlaneShadow() {
   if (!renderer) return;
@@ -205,30 +263,7 @@ export function updatePlaneShadow() {
   shadowCam.updateProjectionMatrix();
   shadowCam.updateMatrixWorld();
 
-  const prevTarget = renderer.getRenderTarget();
-  const prevBackground = scene.background;
-  const prevOverride = scene.overrideMaterial;
-  const prevShadows = renderer.shadowMap.enabled;
-  const prevXr = renderer.xr.enabled;
-  renderer.getClearColor(_clear);
-  const prevAlpha = renderer.getClearAlpha();
-  try {
-    scene.background = null;
-    scene.overrideMaterial = coverMaterial;
-    renderer.shadowMap.enabled = false;
-    renderer.xr.enabled = false;
-    renderer.setRenderTarget(target);
-    renderer.setClearColor(0x000000, 0);
-    renderer.clear();
-    renderer.render(scene, shadowCam);
-  } finally {
-    renderer.setRenderTarget(prevTarget);
-    renderer.setClearColor(_clear, prevAlpha);
-    renderer.xr.enabled = prevXr;
-    renderer.shadowMap.enabled = prevShadows;
-    scene.overrideMaterial = prevOverride;
-    scene.background = prevBackground;
-  }
+  drawSilhouette();
 
   const u = decalMaterial.uniforms;
   u.shadowMatrix.value.multiplyMatrices(
