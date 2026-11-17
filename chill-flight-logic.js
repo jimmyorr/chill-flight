@@ -1628,11 +1628,12 @@ export const ChillFlightLogic = {};
   // Each column's land base and top height, per noise instance (world seed)
   const basaltCache = new WeakMap();
   function basaltColumn(col, row, salt, simplex) {
-    let cache = basaltCache.get(simplex);
-    if (!cache || cache.size > 20000) {
-      cache = new Map();
-      basaltCache.set(simplex, cache);
+    let entry = basaltCache.get(simplex);
+    if (!entry || entry.salt !== salt || entry.map.size > 20000) {
+      entry = {salt, map: new Map()};
+      basaltCache.set(simplex, entry);
     }
+    const cache = entry.map;
     const key = col * 100003 + row;
     let cell = cache.get(key);
     if (!cell) {
