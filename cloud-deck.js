@@ -11,8 +11,15 @@ import {CLOUD_GLSL} from './constants.js';
 import {ART_POST} from './art-style.js';
 import {state} from './state.js';
 import {ABOVE_CLOUDS} from './flight-physics-logic.js';
+import {headlight} from './airplane.js';
 
 const RADIUS = 26000;
+// The landing light on the cloud: cos of the beam's outer and inner
+// half-angles (its spotlight is 30 degrees across), where it fades out,
+// and how far the glow round the plane reaches
+const LAMP_CONE = {x: '0.866', y: '0.97'};
+const LAMP_RANGE = {x: '300.0', y: '1500.0'};
+const LAMP_GLOW = 160;
 const deckUniforms = {
   sunDirection: skyUniforms.sunDirection,
   uCloudDensity: skyUniforms.uCloudDensity,
@@ -29,6 +36,11 @@ const deckUniforms = {
   uDeckHeight: {value: 3000},
   uDeckLight: {value: 1},
   uDeckCenter: {value: new THREE.Vector2()},
+  // The plane's landing light (black when off): its beam lights the
+  // cloud ahead, and a soft glow lights the cloud right around the plane
+  uLampPos: {value: new THREE.Vector3()},
+  uLampDir: {value: new THREE.Vector3(0, 0, -1)},
+  uLampColor: {value: new THREE.Color(0, 0, 0)},
 };
 
 // Domes (#176 follow-up): near the camera the deck is a grid raised into
@@ -114,6 +126,9 @@ function deckMaterial(domes) {
     uniform vec3 bottomColor;
     uniform float uDeckLight;
     uniform vec2 uDeckCenter;
+    uniform vec3 uLampPos;
+    uniform vec3 uLampDir;
+    uniform vec3 uLampColor;
     varying vec3 vWorld;
     varying vec3 vNormal2;
     varying float vLift;
@@ -161,6 +176,15 @@ function deckMaterial(domes) {
       // top is in the sun)
       col *= mix(0.84, 1.0, hollow);
       col *= uDeckLight;
+      if (uLampColor.r + uLampColor.g + uLampColor.b > 0.0) {
+        vec3 toCloud = vWorld - uLampPos;
+        float d = length(toCloud);
+        float beam = smoothstep(${LAMP_CONE.x}, ${LAMP_CONE.y},
+          dot(toCloud / max(d, 1e-3), uLampDir));
+        float reach = 1.0 - smoothstep(${LAMP_RANGE.x}, ${LAMP_RANGE.y}, d);
+        float glow = 1.0 - smoothstep(0.0, ${LAMP_GLOW.toFixed(1)}, d);
+        col += uLampColor * mix(0.8, 1.0, lit) * (beam * reach * 0.55 + glow * 0.35);
+      }
       col = mix(col, bottomColor, smoothstep(0.25, 0.95, far));
       // Solid where the sky would show thick cloud, so no ground shows through
       float a = smoothstep(0.0, 0.7, here) * (1.0 - smoothstep(0.85, 1.0, far));
@@ -214,6 +238,23 @@ export function updateCloudDeck(camPos) {
   deckUniforms.uDeckCenter.value.set(camPos.x, camPos.z);
   deckUniforms.uCloudTypes.value.set(skyUniforms.uCloudTypes.value.x, 0, 0);
   deckUniforms.uDeckLight.value = 0.3 + 0.7 * Math.min(1, state.dayFactor);
+  updateLamp();
+}
+
+const _lampTarget = new THREE.Vector3();
+// The landing light, from the spotlight itself (airplane.js aims it); it
+// shows mostly at night, against the dark cloud
+function updateLamp() {
+  const u = deckUniforms;
+  if (headlight.intensity === 0) {
+    u.uLampColor.value.setRGB(0, 0, 0);
+    return;
+  }
+  headlight.getWorldPosition(u.uLampPos.value);
+  headlight.target.getWorldPosition(_lampTarget);
+  u.uLampDir.value.subVectors(_lampTarget, u.uLampPos.value).normalize();
+  const night = 1 - Math.min(1, state.dayFactor);
+  u.uLampColor.value.copy(headlight.color).multiplyScalar(0.15 + 0.85 * night);
 }
 
 // Inside the deck: a whiteout over the whole view (the fog alone doesn't
@@ -284,6 +325,8 @@ if (ART_POST) {
 }
 
 const _white = new THREE.Color(0xf2f4f7);
+const _nightCloud = new THREE.Color(0x3a414c);
+const _litCloud = new THREE.Color(0x9a9286);
 export function updateCloudVeil(fogColor, camPos) {
   if (!ABOVE_CLOUDS) return;
   const h = skyUniforms.uCloudHeight.value;
@@ -303,8 +346,15 @@ export function updateCloudVeil(fogColor, camPos) {
   u.uCamY.value = camPos.y;
   u.uDeckHeight.value = h;
   deckUniforms.uCloudTypes.value.set(skyUniforms.uCloudTypes.value.x, 0, 0);
-  // Cloud white in daylight, the dark fog's colour at night
+  // Cloud white in daylight; at night a dim moonlit grey instead of the
+  // fog's near-black (which read as the screen going dark), lit up warm
+  // by the landing light when it's on
+  const day = Math.min(1, state.dayFactor);
   u.uColor.value
     .copy(fogColor)
-    .lerp(_white, 0.6 * Math.min(1, state.dayFactor));
+    .lerp(_nightCloud, 1 - day)
+    .lerp(_white, 0.6 * day);
+  if (headlight.intensity > 0) {
+    u.uColor.value.lerp(_litCloud, 0.55 * (1 - day));
+  }
 }
