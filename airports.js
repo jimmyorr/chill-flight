@@ -10,11 +10,20 @@ import {ChillFlightLogic} from './chill-flight-logic.js';
 import {createMaterial, WATER_LEVEL, MOUNTAIN_LEVEL} from './constants.js';
 import {scene} from './scene.js';
 import {simplex} from './noise.js';
-import {getElevation} from './terrain-geometry.js';
-import {BREAKABLE} from './terrain-gen.js';
+import {getElevation, windUniforms} from './terrain-geometry.js';
+import {BREAKABLE, WIND_DIR_X, WIND_DIR_Z} from './terrain-gen.js';
 import {buildPlaneModel} from './plane-models.js';
 import {t} from './i18n.js';
-import {buildingMesh, controlTowerGeo, windsockGeo} from './building-models.js';
+import {
+  buildingMesh,
+  controlTowerGeo,
+  windsockMastGeo,
+  windsockSockGeo,
+  WINDSOCK_SWIVEL_Y,
+  WINDSOCK_FILL_BASE,
+  WINDSOCK_FILL_LIGHT,
+  WINDSOCK_FILL_GALE,
+} from './building-models.js';
 
 // Breakable props that aren't in any chunk (airports): each a stand-in for
 // a chunk, {userData: {meshProps, ...}}. A part can also be a whole object
@@ -115,11 +124,68 @@ export function createHangar() {
   return group;
 }
 
-// The windsock (Polyfork's, building-models.js): one mesh, pole and sock
+// The windsock (Polyfork's, building-models.js): the mast, and the sock on
+// its swivel (userData.swivel), which updateWindsocks turns into the wind
 export function createWindsock() {
   const group = new THREE.Group();
-  group.add(buildingMesh(windsockGeo()));
+  group.add(buildingMesh(windsockMastGeo()));
+  const swivel = new THREE.Group();
+  swivel.position.y = WINDSOCK_SWIVEL_Y;
+  const sock = buildingMesh(windsockSockGeo());
+  swivel.add(sock);
+  group.add(swivel);
+  group.userData.swivel = swivel;
+  group.userData.sock = sock;
   return group;
+}
+
+// The airport windsocks in the world, each {swivel, sock, parentYaw, phase,
+// lod}: they swing round to stream downwind (the same wind that bends the
+// grass and trees, WIND_DIR_X/Z), fill and stand out as the weather turns
+// gusty (uWindStrength) and droop a little in the lulls between gusts
+const _windsocks = [];
+const WIND_YAW = Math.atan2(WIND_DIR_X, WIND_DIR_Z);
+const DEG = Math.PI / 180;
+export function updateWindsocks(time) {
+  // uWindStrength runs 0.7 on a fair day to 1.6 in a storm
+  const strength = THREE.MathUtils.clamp(
+    (windUniforms.uWindStrength.value - 0.7) / 0.9,
+    0,
+    1
+  );
+  for (const w of _windsocks) {
+    // Only near enough for the airport's details to draw
+    if (w.lod.getCurrentLevel() !== 0) continue;
+    const t = time + w.phase;
+    // A slow gust every ten seconds or so, with a quicker one riding on it
+    const gust = 0.65 * Math.sin(t * 0.63) + 0.35 * Math.sin(t * 1.71 + 1.3);
+    const fill = THREE.MathUtils.clamp(
+      0.44 + 0.5 * strength + 0.14 * gust,
+      WINDSOCK_FILL_LIGHT,
+      WINDSOCK_FILL_GALE
+    );
+    const inf = w.sock.morphTargetInfluences;
+    if (fill < WINDSOCK_FILL_BASE) {
+      inf[0] =
+        (WINDSOCK_FILL_BASE - fill) /
+        (WINDSOCK_FILL_BASE - WINDSOCK_FILL_LIGHT);
+      inf[1] = 0;
+    } else {
+      inf[0] = 0;
+      inf[1] =
+        (fill - WINDSOCK_FILL_BASE) /
+        (WINDSOCK_FILL_GALE - WINDSOCK_FILL_BASE);
+    }
+    // Hunting either side of the wind: a slow swing and a quick flutter,
+    // wider when the sock is limp than when it is stretched taut
+    const slack = 1.25 - 0.5 * fill;
+    const swing =
+      (7 * Math.sin(t * 0.9) + 3 * Math.sin(t * 2.3 + 0.7)) * slack +
+      2.5 * Math.sin(t * 7.1) * (0.4 + 0.6 * strength);
+    w.swivel.rotation.y = WIND_YAW - w.parentYaw + swing * DEG;
+    // A small bob as the gusts fill and spill it
+    w.swivel.rotation.x = 1.5 * Math.sin(t * 3.3) * DEG * slack;
+  }
 }
 
 // The runway (along local X), its markings and the apron beside it (+Z)
@@ -552,6 +618,14 @@ function createAirport(a, index) {
   detailLOD.addLevel(details, 0);
   detailLOD.addLevel(new THREE.Group(), AIRPORT_DETAIL_DISTANCE);
   group.add(detailLOD);
+  _windsocks.push({
+    swivel: sock.userData.swivel,
+    sock: sock.userData.sock,
+    // The airport turns by -a.angle; the sock is not turned within it
+    parentYaw: -a.angle,
+    phase: index * 7.3,
+    lod: detailLOD,
+  });
   const airport = new THREE.LOD();
   airport.name = a.name;
   airport.addLevel(group, 0);

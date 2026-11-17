@@ -61,21 +61,59 @@ export function controlTowerGeo(colorway = 'raf-brick') {
 }
 
 // The airfield windsock: Polyfork's Windsock in orange and white bands on
-// its grey mast, scaled up to a 12-unit pole with its foot at y = 0 and
-// the sock streaming off toward +x (down the runway, like the old one)
+// its grey mast, scaled up to a 12-unit pole with its foot at y = 0. Two
+// meshes so the sock can move (airports.js updateWindsocks): the mast, and
+// the sock on its swivel, WINDSOCK_SWIVEL_Y up, streaming toward its +z.
 export const WINDSOCK_POLE_H = 12;
 const WINDSOCK_MAST_H = 6.33;
-let _windsockGeo = null;
-export function windsockGeo() {
-  if (!_windsockGeo) {
-    _windsockGeo = mergeAsset(
-      windsock.createAsset({colorway: 'international-orange'}),
-      0,
-      WINDSOCK_POLE_H / WINDSOCK_MAST_H,
-      Math.PI / 2
-    );
+const WINDSOCK_SCALE = WINDSOCK_POLE_H / WINDSOCK_MAST_H;
+// The asset's swivel rides 0.75 m under the 6 m mast top
+export const WINDSOCK_SWIVEL_Y = (6 - 0.75) * WINDSOCK_SCALE;
+const WINDSOCK_OPTS = {colorway: 'international-orange'};
+let _windsockMastGeo = null;
+export function windsockMastGeo() {
+  if (!_windsockMastGeo) {
+    const asset = windsock.createAsset(WINDSOCK_OPTS);
+    asset.remove(asset.getObjectByName('swivel'));
+    _windsockMastGeo = mergeAsset(asset, 0, WINDSOCK_SCALE, Math.PI / 2);
   }
-  return _windsockGeo;
+  return _windsockMastGeo;
+}
+
+// The sock (with its swivel collar and hoop) filled by a breeze, plus two
+// morph targets: the same sock drooping in a light air and standing straight
+// out in a gale. The asset keeps the sock's vertex order at every wind, so
+// blending between them is a smooth fill or sag.
+export const WINDSOCK_FILL_BASE = 0.65;
+export const WINDSOCK_FILL_LIGHT = 0.3;
+export const WINDSOCK_FILL_GALE = 1;
+let _windsockSockGeo = null;
+function sockPositions(wind) {
+  const asset = windsock.createAsset({...WINDSOCK_OPTS, wind});
+  const g = asset.getObjectByName('sock-frame').geometry;
+  const p = g.attributes.position.clone();
+  for (let i = 0; i < p.array.length; i++) p.array[i] *= WINDSOCK_SCALE;
+  return {g, p};
+}
+export function windsockSockGeo() {
+  if (!_windsockSockGeo) {
+    const {g, p} = sockPositions(WINDSOCK_FILL_BASE);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', p);
+    geo.setAttribute('color', g.attributes.color.clone());
+    geo.morphAttributes.position = [
+      sockPositions(WINDSOCK_FILL_LIGHT).p,
+      sockPositions(WINDSOCK_FILL_GALE).p,
+    ];
+    geo.computeVertexNormals();
+    // Bounds cover every shape the sock can take
+    geo.boundingSphere = new THREE.Sphere(
+      new THREE.Vector3(0, 0, 0),
+      4.6 * WINDSOCK_SCALE
+    );
+    _windsockSockGeo = geo;
+  }
+  return _windsockSockGeo;
 }
 
 // The ancient dragon skeleton curled in a northern tundra hollow: Polyfork's

@@ -165,7 +165,7 @@ import {updateWaypoint} from './waypoint.js';
 import {updateJobs} from './jobs.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {ART_CLOUDS} from './art-style.js';
-import {updateAirportLights} from './airports.js';
+import {updateAirportLights, updateWindsocks} from './airports.js';
 import {updateTowerSlices} from './sky-uniforms.js';
 import {updateCloudDeck, updateCloudVeil} from './cloud-deck.js';
 import {simplex} from './noise.js';
@@ -2405,6 +2405,8 @@ function updateEnvironmentLighting(delta, now) {
 
     // Wind in the trees: a breeze, gustier as the weather turns
     windUniforms.uWindStrength.value = 0.7 + overcast * 0.9;
+    // And in the airport windsocks
+    updateWindsocks(now * 0.001);
     // Whitecaps on the open sea: none on fair days, some as the clouds
     // thicken, the most in rain (both already eased)
     waterUniforms.uWhitecaps.value = THREE.MathUtils.clamp(
