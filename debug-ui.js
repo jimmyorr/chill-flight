@@ -137,18 +137,13 @@ export function applyGraphicsPreset(preset) {
     `Graphics preset applied: ${preset} (SEGMENTS=${segments}, DIST=${dist}, LOD=${propLod}, FPS=${fps})`
   );
 
-  // Update pixel ratio dynamically: baked resolution scale into quality levels
-  // Low draws no props at all (trees, houses, rocks: nearly all of a
-  // phone's frame) and spends that on mid's sharpness instead of half
-  // resolution
-  let pixelRatio;
-  if (segments <= 30) {
-    pixelRatio = Math.min(window.devicePixelRatio, 2) * 0.75;
-  } else if (segments <= 40) {
-    pixelRatio = Math.min(window.devicePixelRatio, 1.5);
-  } else {
-    pixelRatio = Math.min(window.devicePixelRatio, 2.0); // Capped at 2.0 for Ultra
-  }
+  // Pixel ratio: Low and Mid draw at 3/4 of the screen's (up to 1.5x); High
+  // and Ultra at the screen's own, up to 2x. High is Mid's world drawn sharp,
+  // Ultra adds the longest view and prop distances (laptops and desktops)
+  const pixelRatio =
+    preset === 'high' || preset === 'ultra'
+      ? Math.min(window.devicePixelRatio, 2)
+      : Math.min(window.devicePixelRatio, 2) * 0.75;
 
   // Store the preset's base pixel ratio so DRS can scale relative to it
   state._basePixelRatio = pixelRatio;
