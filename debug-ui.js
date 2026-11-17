@@ -168,9 +168,9 @@ export function applyGraphicsPreset(preset) {
     performanceMonitor.pixelRatioMultiplier = 1.0;
   }
 
-  // Toggle sky clouds dynamically: disable expensive fBm on low mode
+  // Sky clouds on every preset (?clouds=none or the debug toggle hides them)
   if (skyUniforms !== undefined) {
-    skyUniforms.uShowClouds.value = segments > 20 && showCloudsEnabled;
+    skyUniforms.uShowClouds.value = showCloudsEnabled;
   }
 
   // Toggle overdraw optimizations (transparency)

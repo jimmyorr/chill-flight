@@ -315,7 +315,7 @@ const _isLowQuality =
   (!_initPreset && _legacyQuality && parseInt(_legacyQuality) <= 20);
 
 // Update uniforms for initial load
-skyUniforms.uShowClouds.value = ChillFlightLogic.SHOW_CLOUDS && !_isLowQuality;
+skyUniforms.uShowClouds.value = ChillFlightLogic.SHOW_CLOUDS;
 
 function showWebGLErrorNotice() {
   const container = document.getElementById('splash-interactive-area');

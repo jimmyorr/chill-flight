@@ -440,9 +440,7 @@ function initWeather() {
     debugCloudsToggle.addEventListener('change', (e) => {
       showCloudsEnabled = e.target.checked;
       if (skyUniforms) {
-        skyUniforms.uShowClouds.value =
-          showCloudsEnabled &&
-          (typeof state.SEGMENTS === 'undefined' || state.SEGMENTS > 20);
+        skyUniforms.uShowClouds.value = showCloudsEnabled;
       }
     });
   }
