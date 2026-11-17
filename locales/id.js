@@ -288,6 +288,7 @@ export default {
   'Pinewood Field': 'Lapangan Hutan Pinus',
   'Frost Field': 'Lapangan Embun Beku',
   'Coral Field': 'Lapangan Karang',
+  'Basalt Field': 'Lapangan Basal',
   'Fresh batch, still warm! Your cockpit is going to smell like heaven.':
     'Kloter baru, masih hangat! Kokpitmu bakal harum seperti surga.',
   'Could you fly these bags over to {to}?':
@@ -536,6 +537,8 @@ export default {
   "Another course checked off the bucket list! That's {done} for me.":
     'Satu lapangan lagi tercoret dari daftar impian! Itu sudah {done} untukku.',
   Marielle: 'Marielle',
+  'meow...': 'meong...',
+  'purr...': 'prrr...',
   "Hi, I'm Marielle! Welcome to Coral Field. I read, I drink tea, and I usually do both at once.":
     'Hai, aku Marielle! Selamat datang di Lapangan Karang. Aku suka membaca, minum teh, dan biasanya melakukan keduanya sekaligus.',
   'Land and roll to a stop on a runway to pick up or drop off. I always have a pot of tea on, if you want a cup.':

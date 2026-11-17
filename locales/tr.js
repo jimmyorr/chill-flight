@@ -286,6 +286,7 @@ export default {
   'Pinewood Field': 'Çamlık Meydanı',
   'Frost Field': 'Kırağı Meydanı',
   'Coral Field': 'Mercan Meydanı',
+  'Basalt Field': 'Bazalt Meydanı',
   'Fresh batch, still warm! Your cockpit is going to smell like heaven.':
     'Taze parti, hâlâ sıcak! Kokpitin cennet gibi kokacak.',
   'Could you fly these bags over to {to}?':
@@ -534,6 +535,8 @@ export default {
   "Another course checked off the bucket list! That's {done} for me.":
     'Listeden bir saha daha çizildi! Benim için {done} oldu.',
   Marielle: 'Marielle',
+  'meow...': 'miyav...',
+  'purr...': 'mırr...',
   "Hi, I'm Marielle! Welcome to Coral Field. I read, I drink tea, and I usually do both at once.":
     'Merhaba, ben Marielle! Mercan Meydanı’na hoş geldin. Kitap okurum, çay içerim ve genelde ikisini aynı anda yaparım.',
   'Land and roll to a stop on a runway to pick up or drop off. I always have a pot of tea on, if you want a cup.':

@@ -1049,6 +1049,9 @@ export const ChillFlightLogic = {};
     },
     {name: 'Frost Field', x: -22500, z: -20000, angle: 0, access: -1},
     {name: 'Coral Field', x: 17500, z: 15000, angle: Math.PI / 4},
+    // Far out in the eastern alien land, among the basalt columns: Purrple
+    // Cat's
+    {name: 'Basalt Field', x: 57000, z: -5000, angle: Math.PI / 6},
   ];
   const RUNWAY_LENGTH = 800;
   const RUNWAY_WIDTH = 40;

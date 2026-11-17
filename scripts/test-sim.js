@@ -696,7 +696,16 @@ function wrapAngle(a) {
     ...LANDMARKS.map((l) => [l.name, l]),
     ...airportMap,
   ]);
-  const residentAirports = [...new Set(PEOPLE.map((p) => p.airport))];
+  // (people with jobs: Purrple Cat at Basalt Field offers none)
+  const residentAirports = [
+    ...new Set(PEOPLE.filter((p) => p.jobs.length).map((p) => p.airport)),
+  ];
+  // Airports only someone with no jobs lives at: no job sends you there
+  const greetOnly = new Set(
+    PEOPLE.filter((p) => !p.jobs.length)
+      .map((p) => p.airport)
+      .filter((a) => !residentAirports.includes(a))
+  );
 
   function nearestResidentAirport(fromName) {
     const from = airportMap.get(fromName);
@@ -777,9 +786,9 @@ function wrapAngle(a) {
   const minDist = Math.min(...distances);
   const maxDist = Math.max(...distances);
 
-  // Assert all 8 airports were visited
+  // Assert every airport with jobs to or from it was visited
   const unvisited = AIRPORTS.filter(
-    (a) => (airportVisits.get(a.name) || 0) === 0
+    (a) => !greetOnly.has(a.name) && (airportVisits.get(a.name) || 0) === 0
   );
   if (unvisited.length > 0) {
     console.error(

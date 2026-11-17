@@ -285,6 +285,7 @@ export default {
   'Pinewood Field': 'Соснове Поле',
   'Frost Field': 'Морозне Поле',
   'Coral Field': 'Коралове Поле',
+  'Basalt Field': 'Базальтове Поле',
   'Fresh batch, still warm! Your cockpit is going to smell like heaven.':
     'Свіжа партія, ще тепла! У твоїй кабіні пахнутиме як у раю.',
   'Could you fly these bags over to {to}?':
@@ -535,6 +536,8 @@ export default {
   "Another course checked off the bucket list! That's {done} for me.":
     'Ще одне поле зі списку мрій підкорено! Для мене це вже {done}.',
   Marielle: 'Маріель',
+  'meow...': 'няв...',
+  'purr...': 'мррр...',
   "Hi, I'm Marielle! Welcome to Coral Field. I read, I drink tea, and I usually do both at once.":
     'Привіт, я Маріель! Ласкаво просимо на Коралове Поле. Я читаю книжки, п’ю чай і зазвичай роблю це одночасно.',
   'Land and roll to a stop on a runway to pick up or drop off. I always have a pot of tea on, if you want a cup.':

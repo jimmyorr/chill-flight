@@ -278,6 +278,7 @@ export default {
   'Pinewood Field': '파인우드 비행장',
   'Frost Field': '프로스트 비행장',
   'Coral Field': '코럴 비행장',
+  'Basalt Field': '바솔트 비행장',
   'Fresh batch, still warm! Your cockpit is going to smell like heaven.':
     '갓 볶아서 아직 따뜻해! 조종석이 천국 냄새로 가득할 거야.',
   'Could you fly these bags over to {to}?': '이 봉지들 {to}까지 갖다줄래?',
@@ -517,6 +518,8 @@ export default {
   "Another course checked off the bucket list! That's {done} for me.":
     '버킷리스트 코스 하나 또 완료! 이걸로 {done}째야.',
   Marielle: '마리엘',
+  'meow...': '야옹...',
+  'purr...': '그르릉...',
   "Hi, I'm Marielle! Welcome to Coral Field. I read, I drink tea, and I usually do both at once.":
     '안녕, 난 마리엘이야! 코럴 비행장에 온 걸 환영해. 책 읽고, 차 마시고, 보통 둘 다 동시에 해.',
   'Land and roll to a stop on a runway to pick up or drop off. I always have a pot of tea on, if you want a cup.':

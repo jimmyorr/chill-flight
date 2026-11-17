@@ -45,8 +45,11 @@ function lines(field, rng) {
   return Array.isArray(field[0]) ? pick(field, rng) : field;
 }
 
+// A line starting with a {word} gets a capital letter ("{to} has a
+// crate"); others keep theirs (Purrple Cat's "meow...")
 function fill(text, words) {
   const filled = text.replace(/\{(\w+)\}/g, (_, key) => words[key] ?? '');
+  if (!text.startsWith('{')) return filled;
   return filled.charAt(0).toUpperCase() + filled.slice(1);
 }
 
@@ -127,6 +130,22 @@ function asker(progress, field, people, rng) {
   );
 }
 
+// Someone at field with no jobs to offer says hello (their intro the first
+// time), and that's them met. null when there's nobody like that there.
+function greet(progress, field, people, rng) {
+  const person = people.find((p) => p.airport === field && !p.jobs?.length);
+  if (!person) return null;
+  const greeting = progress.met[person.name] ? person.hello : person.intro;
+  return {
+    progress: {...progress, met: {...progress.met, [person.name]: true}},
+    person,
+    dialog: say(person, greeting, progress, null, rng),
+    offer: null,
+    outfit: null,
+    toast: null,
+  };
+}
+
 // Landed and stopped at the airport named field. Returns the progress after
 // it, who's talking (person, or null), what they say (dialog, or null), a
 // job they offer (offer: answer it with accept or decline), the outfit they
@@ -151,7 +170,7 @@ export function land(
   // No job on: someone here offers one
   if (!progress.job) {
     const person = asker(progress, field, people, rng);
-    if (!person) return none;
+    if (!person) return greet(progress, field, people, rng) || none;
     const open = person.jobs.filter((j) => places(j, field, sights).length);
     if (!open.length) return none;
     const job = pick(open, rng);
@@ -170,7 +189,9 @@ export function land(
     };
   }
 
-  if (field !== destination(progress, people)) return none;
+  if (field !== destination(progress, people)) {
+    return greet(progress, field, people, rng) || none;
+  }
   const {job} = progress;
   const person = personNamed(job.person, people);
   const spec = jobOf(person, job.id);
@@ -333,10 +354,17 @@ export function checkPeople(people, airports, sights = []) {
     if (!airports.includes(p.airport)) {
       problems.push(`${who}: unknown airport ${p.airport}`);
     }
+    // (someone with no jobs just says hello: no accept or decline)
+    const offers = p.jobs?.length > 0;
     for (const what of ['intro', 'hello', 'accept', 'decline']) {
-      checkLines(who, what, p[what], true);
+      checkLines(
+        who,
+        what,
+        p[what],
+        offers || what === 'intro' || what === 'hello'
+      );
     }
-    if (!p.jobs?.length) problems.push(`${who}: no jobs`);
+    if (!Array.isArray(p.jobs)) problems.push(`${who}: no jobs list`);
     const ids = new Set();
     for (const j of p.jobs || []) {
       const job = `${who}'s ${j.id || '(no id)'}`;

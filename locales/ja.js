@@ -282,6 +282,7 @@ export default {
   'Pinewood Field': 'パインウッド飛行場',
   'Frost Field': 'フロスト飛行場',
   'Coral Field': 'コーラル飛行場',
+  'Basalt Field': 'バサルト飛行場',
   'Fresh batch, still warm! Your cockpit is going to smell like heaven.':
     '焼きたてでまだ温かいよ！コックピットが天国の香りになるぞ。',
   'Could you fly these bags over to {to}?': 'この袋を{to}まで届けてくれない？',
@@ -525,6 +526,8 @@ export default {
   "Another course checked off the bucket list! That's {done} for me.":
     'やりたいことリストのコースがまたひとつ！これで{done}だね。',
   Marielle: 'マリエル',
+  'meow...': 'にゃー...',
+  'purr...': 'ゴロゴロ...',
   "Hi, I'm Marielle! Welcome to Coral Field. I read, I drink tea, and I usually do both at once.":
     'こんにちは、マリエルよ！コーラル飛行場へようこそ。本を読んで、お茶を飲んで、たいてい両方いっしょにやってるの。',
   'Land and roll to a stop on a runway to pick up or drop off. I always have a pot of tea on, if you want a cup.':

@@ -11,7 +11,9 @@
 //   intro     What they say the first time you meet.
 //   hello     What they say when you drop by after that.
 //   accept    When you take a job. decline: when you say not right now.
-//   jobs      What they ask you to do (below).
+//   jobs      What they ask you to do (below). Someone with no jobs (an
+//             empty list, and no accept or decline) just says their intro
+//             or hello whenever you land there.
 //
 // Each job:
 //   id        A short name, unique for this person (saved with progress).
@@ -940,5 +942,12 @@ export const PEOPLE = [
         ],
       },
     ],
+  },
+  {
+    name: 'Purrple Cat',
+    airport: 'Basalt Field',
+    intro: [['meow...'], ['purr...']],
+    hello: [['meow...'], ['purr...']],
+    jobs: [],
   },
 ];

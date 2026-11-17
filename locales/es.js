@@ -287,6 +287,7 @@ export default {
   'Pinewood Field': 'Campo Pinar',
   'Frost Field': 'Campo Escarcha',
   'Coral Field': 'Campo Coral',
+  'Basalt Field': 'Campo Basalto',
   'Fresh batch, still warm! Your cockpit is going to smell like heaven.':
     '¡Tanda recién hecha, aún calentita! Tu cabina va a oler a gloria.',
   'Could you fly these bags over to {to}?':
@@ -534,6 +535,8 @@ export default {
   "Another course checked off the bucket list! That's {done} for me.":
     '¡Otro campo tachado de la lista! Ya van {done} para mí.',
   Marielle: 'Marielle',
+  'meow...': 'miau...',
+  'purr...': 'prrr...',
   "Hi, I'm Marielle! Welcome to Coral Field. I read, I drink tea, and I usually do both at once.":
     '¡Hola, soy Marielle! Bienvenido a Campo Coral. Leo, tomo té y casi siempre hago las dos cosas a la vez.',
   'Land and roll to a stop on a runway to pick up or drop off. I always have a pot of tea on, if you want a cup.':

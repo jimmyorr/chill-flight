@@ -271,6 +271,7 @@ export default {
   'Pinewood Field': '松林機場',
   'Frost Field': '寒霜機場',
   'Coral Field': '珊瑚機場',
+  'Basalt Field': '玄武岩機場',
   'Fresh batch, still warm! Your cockpit is going to smell like heaven.':
     '新鮮出爐，還熱著呢！你的駕駛艙要香得像天堂了。',
   'Could you fly these bags over to {to}?': '你能把這幾袋送到{to}嗎？',
@@ -501,6 +502,8 @@ export default {
   "Another course checked off the bucket list! That's {done} for me.":
     '心願清單上又劃掉一座球場！你已經幫我跑了 {done}了。',
   Marielle: '瑪麗埃爾',
+  'meow...': '喵...',
+  'purr...': '呼嚕...',
   "Hi, I'm Marielle! Welcome to Coral Field. I read, I drink tea, and I usually do both at once.":
     '嗨，我是瑪麗埃爾！歡迎來到珊瑚機場。我愛看書，愛喝茶，通常兩件事一起做。',
   'Land and roll to a stop on a runway to pick up or drop off. I always have a pot of tea on, if you want a cup.':

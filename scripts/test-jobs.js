@@ -158,6 +158,36 @@ check(
   ).length >= 3
 );
 
+// Someone with no jobs (Purrple Cat) just says hello whenever you land
+// there, job or no job, and lowercase lines stay lowercase
+{
+  const cat = {
+    name: 'Cat',
+    airport: 'Coral Field',
+    intro: ['meow...'],
+    hello: [['purr...']],
+    jobs: [],
+  };
+  const people = [...TEST_PEOPLE, cat];
+  const first = land(newProgress(), 'Coral Field', () => 0, people);
+  const again = land(first.progress, 'Coral Field', () => 0, people);
+  const offered = land(newProgress(), 'Meadow Field', () => 0, people);
+  const busy = accept(again.progress, offered.offer, () => 0, people).progress;
+  const onJob = land(busy, 'Coral Field', () => 0, people);
+  check(
+    'someone with no jobs just says hello',
+    !checkPeople([cat], AIRPORTS).length &&
+      first.person?.name === 'Cat' &&
+      !first.offer &&
+      first.dialog?.join() === 'meow...' &&
+      first.progress.met.Cat &&
+      again.dialog?.join() === 'purr...' &&
+      onJob.dialog?.join() === 'purr...' &&
+      onJob.progress.job?.id === busy.job.id,
+    JSON.stringify([first.dialog, again.dialog, onJob.dialog])
+  );
+}
+
 // Bo wears an apron for the pie job: offering it and thanking you, not
 // at the pickup
 {

@@ -40,9 +40,11 @@ function card(person) {
   title.textContent = met ? t(person.name) : '???';
   const hint = document.createElement('div');
   hint.className = 'achievement-card-hint';
-  hint.textContent = met
-    ? `${t(person.airport)} · ${done === 1 ? t('1 job') : t('{n} jobs', {n: done})}`
-    : t(person.airport);
+  // (someone with no jobs: just where they are)
+  hint.textContent =
+    met && person.jobs.length
+      ? `${t(person.airport)} · ${done === 1 ? t('1 job') : t('{n} jobs', {n: done})}`
+      : t(person.airport);
   el.append(face, title, hint);
   return el;
 }

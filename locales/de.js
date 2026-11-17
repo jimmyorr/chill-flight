@@ -288,6 +288,7 @@ export default {
   'Pinewood Field': 'Kiefernfeld',
   'Frost Field': 'Frostfeld',
   'Coral Field': 'Korallenfeld',
+  'Basalt Field': 'Basaltfeld',
   'Fresh batch, still warm! Your cockpit is going to smell like heaven.':
     'Frische Ladung, noch warm! Dein Cockpit wird himmlisch duften.',
   'Could you fly these bags over to {to}?':
@@ -535,6 +536,8 @@ export default {
   "Another course checked off the bucket list! That's {done} for me.":
     'Noch ein Platz von der Liste abgehakt! Das sind {done} für mich.',
   Marielle: 'Marielle',
+  'meow...': 'miau...',
+  'purr...': 'schnurr...',
   "Hi, I'm Marielle! Welcome to Coral Field. I read, I drink tea, and I usually do both at once.":
     'Hi, ich bin Marielle! Willkommen im Korallenfeld. Ich lese, ich trinke Tee, und meistens mache ich beides gleichzeitig.',
   'Land and roll to a stop on a runway to pick up or drop off. I always have a pot of tea on, if you want a cup.':
