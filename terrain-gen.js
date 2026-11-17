@@ -6115,14 +6115,12 @@ export function generateChunkData({
     }
 
     // Christmas in the northern snowy villages (specs/christmas-village.md
-    // section 3): roofline string lights on some houses (1 in 8 in November,
-    // Northern villages celebrate Christmas too (specs/christmas-village.md §3):
-    // houses with snow cover > 0.6 get roofline lights (1 in 3 in November,
-    // 2 in 3 from December, warm white or multicolour by village, with at least
-    // one lit house guaranteed per snowy chunk), and from December front-yard
-    // firs (1 in 2), lawn reindeer or ornament balls (1 in 4) and garland lamp
-    // posts beside village lanes (1 in 4, >= 45 units apart), all from
-    // fieldHash so downstream rng() rolls stay unchanged.
+    // section 3): houses with snow cover > 0.6 get multicolour roofline lights
+    // (1 in 3 in November, 2 in 3 from December, with at least one lit house
+    // guaranteed per snowy chunk), and from December front-yard firs (1 in 2),
+    // lawn reindeer or ornament balls (1 in 4) and garland lamp posts beside
+    // village lanes (1 in 4, >= 45 units apart), all from fieldHash so
+    // downstream rng() rolls stay unchanged.
     if (ChillFlightLogic.XMAS) {
       const full = ChillFlightLogic.XMAS === 'full';
       const lightChance = full ? 2 / 3 : 1 / 3;
@@ -6133,10 +6131,6 @@ export function generateChunkData({
         ) > 0.6 &&
         ChillFlightLogic.xmasVillageDistance(wx, wz, simplex, elevParams) >=
           XMAS_CLEAR;
-      const villageLightsAt = (wx, wz) =>
-        fieldHash(Math.floor(wx / 1200), Math.floor(wz / 1200), 1901) < 0.5
-          ? 'xmasRoofLightsWarm'
-          : 'xmasRoofLights';
       const yardFit = (h, x, z) => {
         if (Math.abs(x) >= halfSize || Math.abs(z) >= halfSize) return null;
         if (
@@ -6192,7 +6186,7 @@ export function generateChunkData({
         const firSide = fieldHash(wx, wz, 1907) < 0.5 ? -1 : 1;
         snowyHouses.push({h, wx, wz, firSide});
         if (fieldHash(wx, wz, 1903) < lightChance) {
-          h.xmasLights = villageLightsAt(wx, wz);
+          h.xmasLights = 'xmasRoofLights';
           anyLit = true;
         }
         if (!full) continue;
@@ -6253,7 +6247,7 @@ export function generateChunkData({
       }
       if (!anyLit && snowyHouses.length > 0) {
         const first = snowyHouses[0];
-        first.h.xmasLights = villageLightsAt(first.wx, first.wz);
+        first.h.xmasLights = 'xmasRoofLights';
       }
       if (full && !anyFir) {
         for (const s of snowyHouses) {
@@ -6266,7 +6260,7 @@ export function generateChunkData({
         const wz = Math.round(worldOffsetZ + p.z);
         if (!snowyAt(wx, wz)) continue;
         if (fieldHash(wx, wz, 1919) < lightChance) {
-          p.xmasLights = villageLightsAt(wx, wz);
+          p.xmasLights = 'xmasRoofLights';
         }
       }
       const firSpots = xmasYardPositions.filter((p) => p.clear);

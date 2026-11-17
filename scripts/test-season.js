@@ -229,8 +229,7 @@ check(
     fullChunk.instanceData.farmhouse0Body?.count === 2 &&
     fullChunk.instanceData.xmasLampPost?.count >= 10 &&
     fullChunk.instanceData.xmasYardFir?.count >= 1 &&
-    (fullChunk.instanceData.xmasRoofLights?.count >= 1 ||
-      fullChunk.instanceData.xmasRoofLightsWarm?.count >= 1),
+    fullChunk.instanceData.xmasRoofLights?.count >= 1,
   Object.keys(fullChunk.instanceData)
     .filter((k) => /^xmas|^farmhouse/.test(k))
     .join(',')

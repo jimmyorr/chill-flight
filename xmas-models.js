@@ -332,13 +332,8 @@ export function buildXmasGeos() {
     }
     if (parts.glow) geos[name + 'Glow'] = parts.glow;
   }
-  for (const [type, bulbs] of [
-    ['xmasRoofLights', 'multicolour'],
-    ['xmasRoofLightsWarm', 'warm'],
-  ]) {
-    const parts = lightRunGeos(bulbs);
-    geos[type] = parts.body;
-    geos[type + 'Glow'] = parts.glow;
-  }
+  const parts = lightRunGeos('multicolour');
+  geos.xmasRoofLights = parts.body;
+  geos.xmasRoofLightsGlow = parts.glow;
   return geos;
 }
