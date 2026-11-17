@@ -10,9 +10,10 @@
 //   8. short-20261111-jet-cut.mp4    - 12s coral swept-wing jet landmark match-cut (seed 20261111)
 //   9. short-20261112-aerobatic-cut.mp4 - 12s rose biplane loop, climbing roll & dive across 4 biomes (seed 20261112)
 //  10. short-20261114-bayou-cut.mp4  - 12s coral seaplane roll through 2 rock arches across 4 biomes (seed 20261114)
+//  11. short-20261116-twin-cut.mp4   - 12s purple twin-prop roll across volcano, pyramids, arctic arch & alien pillars (seed 20261116)
 //
 // Usage:
-//   node scripts/shorts.js [match-cut | daily-match-cut | seaplane-cut | weather-cut | jet-cut | aerobatic-cut | bayou-cut | daily-postcard | wing-cam | landmark-cut | meta] [--preview]
+//   node scripts/shorts.js [match-cut | daily-match-cut | seaplane-cut | weather-cut | jet-cut | aerobatic-cut | bayou-cut | twin-cut | daily-postcard | wing-cam | landmark-cut | meta] [--preview]
 
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
@@ -1439,6 +1440,94 @@ async function renderBayouArchCutShort(browser, seed = 20261114) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Prototype 11: Lofi Purple Twin-Prop 4-Landmarks Match-Cut (Seed 20261116)
+// ---------------------------------------------------------------------------
+async function renderTwinWondersCutShort(browser, seed = 20261116) {
+  const speedMult = 1.22;
+  await renderMatchCutClip(browser, {
+    id: 'twin-cut',
+    banner: `Twin-Prop Wonders Match-Cut (Seed ${seed}: Purple Twin-Prop)`,
+    seed,
+    speedMult,
+    cam:
+      `plane=twin&livery=purple&smoke=1&speed=${speedMult}` +
+      '&camOffset=-7,11,52&camLook=0,-6,-66',
+    moves: [
+      [0.0, 0, 0, 0],
+      [1.2, -24, 2, 5],
+      [2.3, 16, 6, 10],
+      [3.0, 66, 4, 10],
+      [4.5, 252, -2, 10],
+      [5.5, 360, 1, 12],
+      [6.0, 378, 2, 14],
+      [7.4, 342, -1, 14],
+      [8.4, 370, 2, 16],
+      [9.0, 346, 2, 16],
+      [10.2, 368, 1, 16],
+      [11.3, 360, 0, 16],
+      [12.0, 360, 0, 16],
+    ],
+    segments: [
+      {
+        label: 'Volcano Caldera · 1.0°S, 1.0°W',
+        tx: -4960,
+        ty: 2020,
+        tz: 4560,
+        heading: 176,
+        extra: 'tod=0.29&cloudMood=fair',
+        startFrame: 0,
+        endFrame: 90,
+      },
+      {
+        label: 'Great Pyramids · 4.1°S, 2.0°W',
+        tx: -8820,
+        ty: 620,
+        tz: 21350,
+        heading: 32,
+        extra: 'tod=0.52&cloudMood=fair',
+        startFrame: 90,
+        endFrame: 180,
+      },
+      {
+        label: 'Arctic Sea Arch · 3.8°N, 7.3°E',
+        tx: 36682,
+        ty: 108,
+        tz: -19178,
+        heading: 106,
+        extra: 'tod=0.42&weather=snow&cloudMood=high',
+        startFrame: 180,
+        endFrame: 270,
+      },
+      {
+        label: 'Alien Basalt Arch · 1.6°S, 11.7°E',
+        tx: 58788,
+        ty: 512,
+        tz: 8246,
+        heading: 35,
+        extra: 'tod=0.765&headlight=1&cloudMood=mackerel',
+        startFrame: 270,
+        endFrame: 360,
+      },
+    ],
+    outBaseName: `short-${seed}-twin-cut`,
+    trackSlug: 'purrple-cat-wonderment',
+    musicStart: 18,
+    meta: {
+      title: 'Twin-prop roll across 4 landmarks and an arctic arch ✈️',
+      tiktokQuestion:
+        'Volcano crater, desert pyramids, arctic arch, or alien pillars?',
+      stops: [
+        '0:00 Volcano Caldera (1.0°S, 1.0°W)',
+        '0:03 Great Pyramids (4.1°S, 2.0°W)',
+        '0:06 Arctic Sea Arch (3.8°N, 7.3°E)',
+        '0:09 Alien Basalt Arch (1.6°S, 11.7°E)',
+      ],
+      trackTitle: 'Wonderment',
+    },
+  });
+}
+
 async function main() {
   fs.mkdirSync(OUT, {recursive: true});
   const cliArgs = process.argv.slice(2).filter((a) => !a.startsWith('--'));
@@ -1550,6 +1639,18 @@ async function main() {
       ],
       trackTitle: 'Somewhere New',
     });
+    writeShortMetadata(path.join(OUT, 'short-20261116-twin-cut.mp4'), {
+      title: 'Twin-prop roll across 4 landmarks and an arctic arch ✈️',
+      tiktokQuestion:
+        'Volcano crater, desert pyramids, arctic arch, or alien pillars?',
+      stops: [
+        '0:00 Volcano Caldera (1.0°S, 1.0°W)',
+        '0:03 Great Pyramids (4.1°S, 2.0°W)',
+        '0:06 Arctic Sea Arch (3.8°N, 7.3°E)',
+        '0:09 Alien Basalt Arch (1.6°S, 11.7°E)',
+      ],
+      trackTitle: 'Wonderment',
+    });
     return;
   }
   const browser = await launch({
@@ -1585,6 +1686,9 @@ async function main() {
     }
     if (!filter || filter === 'bayou-cut') {
       await renderBayouArchCutShort(browser, 20261114);
+    }
+    if (!filter || filter === 'twin-cut') {
+      await renderTwinWondersCutShort(browser, 20261116);
     }
     if (!filter || filter === 'daily-postcard') {
       await renderDailyPostcardShort(browser, 20261108);
