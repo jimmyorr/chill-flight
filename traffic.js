@@ -21,8 +21,10 @@ import {
   wingtipPoints,
 } from './plane-models.js';
 import {getElevation} from './terrain-geometry.js';
+import {hooks} from './hooks.js';
 import {fadePush} from './bumps-logic.js';
 import {
+  TRAFFIC_TYPES,
   isTrafficPlaneGone,
   spawnTrafficPlane,
   stepTrafficPlane,
@@ -140,6 +142,24 @@ function disposePlane(group) {
     }
   });
 }
+
+// For the loading screen's warm-up (hooks.warmUps): one plane of each type
+// by the player's plane, nav lights showing, so their shaders (and shadows')
+// compile then rather than when the first plane flies into view
+hooks.warmUps.push(async () => {
+  if (!enabled) return null;
+  const groups = TRAFFIC_TYPES.map((type) => {
+    const group = buildPlane({type, livery: 0});
+    group.position.copy(planeGroup.position);
+    return group;
+  });
+  const opacities = Object.values(navMats).map((m) => m.opacity);
+  for (const m of Object.values(navMats)) m.opacity = 1;
+  return () => {
+    for (const g of groups) disposePlane(g);
+    Object.values(navMats).forEach((m, i) => (m.opacity = opacities[i]));
+  };
+});
 
 function removeAll() {
   for (const p of planes) disposePlane(p.group);

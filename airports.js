@@ -14,6 +14,7 @@ import {getElevation, windUniforms} from './terrain-geometry.js';
 import {BREAKABLE, WIND_DIR_X, WIND_DIR_Z} from './terrain-gen.js';
 import {buildPlaneModel} from './plane-models.js';
 import {t} from './i18n.js';
+import {hooks} from './hooks.js';
 import {
   buildingMesh,
   controlTowerGeo,
@@ -139,6 +140,19 @@ export function createWindsock() {
   return group;
 }
 
+// For the loading screen's warm-up (hooks.warmUps): a windsock by the plane,
+// so its sock's shadow shader (it bends by morph targets, which takes a
+// shader of its own) compiles then rather than at the first airport in view
+hooks.warmUps.push(async (at) => {
+  const sock = createWindsock();
+  sock.position.copy(at);
+  scene.add(sock);
+  return () => {
+    scene.remove(sock);
+    sock.traverse((o) => o.geometry?.dispose());
+  };
+});
+
 // The airport windsocks in the world, each {swivel, sock, parentYaw, phase,
 // lod}: they swing round to stream downwind (the same wind that bends the
 // grass and trees, WIND_DIR_X/Z), fill and stand out as the weather turns
@@ -173,8 +187,7 @@ export function updateWindsocks(time) {
     } else {
       inf[0] = 0;
       inf[1] =
-        (fill - WINDSOCK_FILL_BASE) /
-        (WINDSOCK_FILL_GALE - WINDSOCK_FILL_BASE);
+        (fill - WINDSOCK_FILL_BASE) / (WINDSOCK_FILL_GALE - WINDSOCK_FILL_BASE);
     }
     // Hunting either side of the wind: a slow swing and a quick flutter,
     // wider when the sock is limp than when it is stretched taut
