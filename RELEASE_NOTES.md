@@ -1,5 +1,11 @@
 # Release notes
 
+## [1.2.11](https://v1-2-11.chill-flight.pages.dev)
+
+- **Flight & clouds:** Climb through and above 3D cloud decks with whiteout mist, engine contrails, and tree-bending prop wash.
+- **VR & controls:** Virtual flight stick with bare-hand tracking, Chill and Sim stick modes, and an interactive in-VR 3D world map.
+- **World & languages:** Polish, Turkish, and Indonesian support; tire skid marks; animated airport windsocks; and alien wormholes.
+
 ## [1.2.10](https://v1-2-10.chill-flight.pages.dev)
 
 - **Holiday season:** Christmas village near Pinewood Field with festive lights, Santa in the town square, and seasonal winter themes.
