@@ -178,19 +178,23 @@ import {updateSfx} from './sfx.js';
 import {playPortalWarp, updateSfxEvents} from './sfx-events.js';
 import {updateHaptics} from './haptics.js';
 import {Achievements} from './achievements.js';
-import {scriptedFlight} from './promo-script.js';
+import {
+  applyPromoReplay,
+  configurePromoDirector,
+  updatePromoDirector,
+} from './promo-director.js';
 import {t} from './i18n.js';
 import {xmasGlowMat} from './xmas-models.js';
 
 let scriptedStartYaw = 0;
 let scriptedStartSpeed = 1;
 const immelmann = {pitch: 0, pitchRate: 0, roll: 0, yaw: 0, speed: 0};
-// Promo clips: filming starts with a promo-script event (promo.js), and the
-// clip's keyframes fly the plane from then on (see updatePhysicsAndControls)
+// Promo clips: filming starts with a promo-script event (promo.js, shorts.js),
+// and the clip's keyframes fly the plane, camera, wingmen, or replay from then on
 window.addEventListener('promo-script', (event) => {
   scriptedStartYaw = planeGroup.rotation.y;
   scriptedStartSpeed = state.flightSpeedMultiplier;
-  state.scriptedFlight = scriptedFlight(event.detail, performance.now());
+  configurePromoDirector(event.detail, performance.now());
 });
 
 let _currentOvercast;
@@ -379,7 +383,12 @@ function performFrame(timestamp) {
     ? 33
     : performanceMonitor.getChunkBudget();
   if (processChunkQueue) processChunkQueue(chunkBudget);
-  updateFarTerrain(planeGroup.position);
+  const farTerrainAnchor =
+    state.isFreeCamera ||
+    (state.cameraMode === 'cinematic' && state.camFrame === 'world-track')
+      ? camera.position
+      : planeGroup.position;
+  updateFarTerrain(farTerrainAnchor);
   if (globalInstancer) globalInstancer.rebuildAll();
   // Timed by the frame's own timestamp (when the browser will show it), not
   // by when this code got round to running: under load frames alternate
@@ -480,32 +489,39 @@ function performFrame(timestamp) {
 
   // --- DAY/NIGHT CYCLE ---
   updateDayNightCycle(delta);
+  const replaying = !state.isFreeCamera && applyPromoReplay(nowTime);
   // The buggy drives in place of the flight model and physics
   const driving = activePlaneType === 'buggy';
-  if (driving) {
-    applyShiftThrottle(delta, nowTime);
-    if (state.autopilotEnabled && !state.isFreeCamera) {
-      // Steering takes over from the autopilot, as in the planes
-      const steering =
-        !keys.Shift &&
-        (keys.ArrowUp ||
-          keys.ArrowDown ||
-          keys.ArrowLeft ||
-          keys.ArrowRight ||
-          keys.KeyW ||
-          keys.KeyA ||
-          keys.KeyS ||
-          keys.KeyD ||
-          (inputManager.state.gamepad.gripTurn || 0) !== 0);
-      if (steering || deliberateSteer()) toggleAutopilot();
-      else updateDrivingAutopilot(delta);
+  if (!replaying) {
+    if (driving) {
+      applyShiftThrottle(delta, nowTime);
+      if (
+        !state.scriptedDrive &&
+        state.autopilotEnabled &&
+        !state.isFreeCamera
+      ) {
+        // Steering takes over from the autopilot, as in the planes
+        const steering =
+          !keys.Shift &&
+          (keys.ArrowUp ||
+            keys.ArrowDown ||
+            keys.ArrowLeft ||
+            keys.ArrowRight ||
+            keys.KeyW ||
+            keys.KeyA ||
+            keys.KeyS ||
+            keys.KeyD ||
+            (inputManager.state.gamepad.gripTurn || 0) !== 0);
+        if (steering || deliberateSteer()) toggleAutopilot();
+        else updateDrivingAutopilot(delta);
+      }
+      updateBuggy(delta);
+    } else if (!state.isCrashed) {
+      updatePhysicsAndControls(delta, nowTime);
     }
-    updateBuggy(delta);
-  } else if (!state.isCrashed) {
-    updatePhysicsAndControls(delta, nowTime);
   }
   // --- MANEUVER & PITCH ACHIEVEMENTS ---
-  if (!state.isFreeCamera && !driving) {
+  if (!state.isFreeCamera && !driving && !replaying) {
     // 1. Maneuver completions
     if (state.wasDoingFullLoop && !state.isDoingFullLoop) {
       Achievements.unlock('froot_loops');
@@ -562,10 +578,12 @@ function performFrame(timestamp) {
   state.wasDoingFullBarrelRoll = state.isDoingFullBarrelRoll;
   state.wasDoingImmelmann = state.isDoingImmelmann;
 
-  if (!driving && !state.isCrashed) updateFlightPhysics(delta, nowTime);
-  // Wingtips and the nose push off steep walls (and forget them in a crash)
-  updateWallScrape(delta);
-  updateCrash(delta);
+  if (!replaying) {
+    if (!driving && !state.isCrashed) updateFlightPhysics(delta, nowTime);
+    // Wingtips and the nose push off steep walls (and forget them in a crash)
+    updateWallScrape(delta);
+    updateCrash(delta);
+  }
   updateHeadlightBeam(
     driving,
     getElevation(planeGroup.position.x, planeGroup.position.z)
@@ -695,7 +713,7 @@ function performFrame(timestamp) {
   }
 
   // A bump's shove, before the camera follows the plane
-  applyBumps(delta);
+  if (!replaying) applyBumps(delta);
 
   // Ensure the plane's matrix is fully updated before camera calculations
   // This prevents the camera from "jittering" or lagging one frame behind.
@@ -712,6 +730,7 @@ function performFrame(timestamp) {
   updateBreakables(delta);
   updateTrip(delta);
   updateRush(delta);
+  updatePromoDirector(delta, nowTime);
   updateParticles(delta);
   updateTireTracks(delta);
   updateWhales(delta);
@@ -1425,11 +1444,13 @@ function updatePhysicsAndControls(delta, nowTime) {
   // A promo clip's scripted attitude takes over from the controls, the
   // autopilot and the manual maneuvers below (see promo-script.js)
   const scripted = !state.isFreeCamera && state.scriptedFlight?.(nowTime);
+  if (!scripted) state.scriptedSpeed = null;
   if (scripted) {
     vrSimStickWereFlying = false;
     state.isDoingImmelmann = false;
     state.targetPitch = scripted.pitch;
     state.targetRoll = scripted.roll;
+    const baseSpeed = scripted.speed ?? scriptedStartSpeed;
     manualPitchVel = 0;
     manualPitchActive = false;
     lastPitchMode = 0;
@@ -1440,12 +1461,26 @@ function updatePhysicsAndControls(delta, nowTime) {
       planeGroup.rotation.z = scripted.roll;
       planeGroup.rotation.y = scriptedStartYaw + scripted.yaw;
       state._nextYaw = planeGroup.rotation.y;
-      state.flightSpeedMultiplier =
-        scriptedStartSpeed *
-        (1 - (LOOP_SPEED_DIP * (1 - Math.cos(scripted.pitch))) / 2);
+      const dip = scripted.surface
+        ? 0
+        : (LOOP_SPEED_DIP * (1 - Math.cos(scripted.pitch))) / 2;
+      const effSpeed = baseSpeed * (1 - dip);
+      state.flightSpeedMultiplier = effSpeed;
+      if (scripted.speed !== null || scripted.surface) {
+        state.targetFlightSpeed = effSpeed;
+        state.scriptedSpeed = effSpeed;
+      } else {
+        state.scriptedSpeed = null;
+      }
       state.isLooping = true;
-      state.isDoingFullLoop = true;
+      state.isDoingFullLoop = !scripted.surface;
       state.isBarrelRolling = true;
+    } else if (scripted.speed !== null) {
+      state.targetFlightSpeed = scripted.speed;
+      state.flightSpeedMultiplier = scripted.speed;
+      state.scriptedSpeed = scripted.speed;
+    } else {
+      state.scriptedSpeed = null;
     }
   } else if (
     !state.isFreeCamera &&
@@ -1936,8 +1971,11 @@ function updateShadowSnapping() {
   // Center the shadow box ahead of the anchor (along the camera's heading),
   // since almost nothing behind the plane is on screen. This pushes the
   // shadow edge from ~2 km ahead to ~3.5 km at the same map resolution.
+  const shadowAtCamera =
+    state.isFreeCamera ||
+    (state.cameraMode === 'cinematic' && state.camFrame === 'world-track');
   const anchorPos = _shadowAnchor.copy(
-    state.isFreeCamera ? camera.position : planeGroup.position
+    shadowAtCamera ? camera.position : planeGroup.position
   );
   camera.getWorldDirection(_shadowForward);
   _shadowForward.y = 0;

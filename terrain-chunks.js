@@ -4687,8 +4687,11 @@ export function clearAllChunks() {
 }
 
 export function updateChunks() {
-  const target =
-    typeof window !== 'undefined' && state.isFreeCamera ? camera : planeGroup;
+  const anchorAtCamera =
+    typeof window !== 'undefined' &&
+    (state.isFreeCamera ||
+      (state.cameraMode === 'cinematic' && state.camFrame === 'world-track'));
+  const target = anchorAtCamera ? camera : planeGroup;
   const currentChunkX = Math.round(target.position.x / CHUNK_SIZE);
   const currentChunkZ = Math.round(target.position.z / CHUNK_SIZE);
   const renderDistance = state.RENDER_DISTANCE;

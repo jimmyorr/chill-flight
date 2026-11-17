@@ -297,6 +297,24 @@ function installVirtualClock() {
 
 const step = (page, dt) => page.evaluate((d) => window.__promoStep(d), dt);
 
+function shotScriptDetail(shot) {
+  if (
+    shot.direct !== undefined ||
+    shot.surface !== undefined ||
+    shot.driveMoves ||
+    shot.replay
+  ) {
+    return {
+      moves: shot.moves,
+      direct: shot.direct,
+      surface: shot.surface,
+      driveMoves: shot.driveMoves,
+      replay: shot.replay,
+    };
+  }
+  return shot.moves || null;
+}
+
 // Opens a shot in a fresh profile (saved settings like Zen or the livery don't
 // carry over), emulating a phone or tablet for mobile targets so the game uses
 // its touch layout, and waits for the scene to settle.
@@ -357,13 +375,41 @@ async function openShot(browser, shot, target) {
   // Then full size and real time, so the chase camera and the plane's motion
   // settle (and the renderer and shadows catch up with the new size)
   await page.setViewport(viewport(1));
-  for (let i = 0; i < Math.round((shot.preroll ?? PREROLL) * FPS); i++) {
+  const prerollSec = shot.preroll ?? PREROLL;
+  if (shot.camMoves || shot.camFrame || shot.wingmen) {
+    await page.evaluate(
+      ({camMoves, camFrame, wingmen, startOffsetMs}) => {
+        if (camMoves || camFrame) {
+          window.dispatchEvent(
+            new CustomEvent('promo-camera', {
+              detail: {camMoves, camFrame, startOffsetMs},
+            })
+          );
+        }
+        if (wingmen) {
+          window.dispatchEvent(
+            new CustomEvent('promo-wingmen', {
+              detail: {wingmen, startOffsetMs},
+            })
+          );
+        }
+      },
+      {
+        camMoves: shot.camMoves || null,
+        camFrame: shot.camFrame || null,
+        wingmen: shot.wingmen || null,
+        startOffsetMs: prerollSec * 1000,
+      }
+    );
+  }
+  for (let i = 0; i < Math.round(prerollSec * FPS); i++) {
     await step(page, 1000 / FPS);
   }
-  if (mode !== 'video' && shot.moves && shot.stillTime) {
-    await page.evaluate((moves) => {
-      window.dispatchEvent(new CustomEvent('promo-script', {detail: moves}));
-    }, shot.moves);
+  const detail = shotScriptDetail(shot);
+  if (mode !== 'video' && detail && shot.stillTime) {
+    await page.evaluate((d) => {
+      window.dispatchEvent(new CustomEvent('promo-script', {detail: d}));
+    }, detail);
     for (let i = 0; i < Math.round(shot.stillTime * FPS); i++) {
       await step(page, 1000 / FPS);
     }
@@ -604,14 +650,13 @@ try {
       fs.rmSync(frameDir, {recursive: true, force: true});
       fs.mkdirSync(frameDir, {recursive: true});
       const page = await openShot(browser, shot, target);
-      // Filming starts now: a shot's moves (scripted banks and pull ups) fly
-      // from this frame, on the virtual clock (promo-script.js)
-      if (shot.moves) {
-        await page.evaluate((moves) => {
-          window.dispatchEvent(
-            new CustomEvent('promo-script', {detail: moves})
-          );
-        }, shot.moves);
+      // Filming starts now: a shot's moves (scripted banks and pull ups),
+      // driveMoves, or replay run from this frame on the virtual clock
+      const detail = shotScriptDetail(shot);
+      if (detail) {
+        await page.evaluate((d) => {
+          window.dispatchEvent(new CustomEvent('promo-script', {detail: d}));
+        }, detail);
       }
       const frames = Math.round(shot.seconds * FPS);
       const frameFile = (i) =>

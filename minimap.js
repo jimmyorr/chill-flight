@@ -1332,6 +1332,9 @@ import {IMPERIAL, joinList, t} from './i18n.js';
     } else {
       camera.lookAt(_currentLookTarget);
     }
+    if (state._cinematicStableHeading !== null) {
+      state._cinematicStableHeading += turn;
+    }
     syncCameraAfterTeleport();
     // The jump isn't distance flown
     if (state.previousPosition)

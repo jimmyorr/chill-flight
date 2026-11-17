@@ -85,11 +85,28 @@ export const CINEMATIC_CONFIGS = [
   }, // Wing-tip view
 ];
 
-// ?camOffset= (with optional camLook and fov) is a custom cinematic view, first
-// so it's the one the cinematic mode starts on.
-if (ChillFlightLogic.START_CAM_OFFSET) {
+// ?camOffset= (with optional camLook and fov), or ?camFrame= (such as
+// world-track with camX/camY/camZ), prepends a custom cinematic view so
+// cinematic mode starts on it.
+const startWorldTrackPos =
+  ChillFlightLogic.START_CAM_FRAME === 'world-track' &&
+  ChillFlightLogic.START_CAM_X !== null &&
+  ChillFlightLogic.START_CAM_Y !== null &&
+  ChillFlightLogic.START_CAM_Z !== null
+    ? [
+        ChillFlightLogic.START_CAM_X,
+        ChillFlightLogic.START_CAM_Y,
+        ChillFlightLogic.START_CAM_Z,
+      ]
+    : null;
+if (ChillFlightLogic.START_CAM_OFFSET || ChillFlightLogic.START_CAM_FRAME) {
+  const fallbackOffset = CINEMATIC_CONFIGS[0].offset;
   CINEMATIC_CONFIGS.unshift({
-    offset: new THREE.Vector3(...ChillFlightLogic.START_CAM_OFFSET),
+    offset: ChillFlightLogic.START_CAM_OFFSET
+      ? new THREE.Vector3(...ChillFlightLogic.START_CAM_OFFSET)
+      : startWorldTrackPos
+        ? new THREE.Vector3(...startWorldTrackPos)
+        : fallbackOffset.clone(),
     lookOffset: new THREE.Vector3(
       ...(ChillFlightLogic.START_CAM_LOOK || [0, 0, 0])
     ),

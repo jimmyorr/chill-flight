@@ -33,6 +33,7 @@ import {
   getMaxFlightSpeedMult,
   headlight,
   planeGroup,
+  poseGear,
 } from './airplane.js';
 import {
   _lastChunkUpdatePos,
@@ -425,16 +426,25 @@ export function initDebugUI() {
       planeGroup.position.z
     );
     const spawnIsWater = spawnElev <= WATER_LEVEL + 0.1;
+    const gearStart = ChillFlightLogic.START_GEAR;
+    const wheelDepth = state.airplaneModel?.wheelDepth;
     const spawnRestingHeight = spawnIsWater
       ? WATER_LEVEL + 4.8
-      : spawnElev + 12.0;
+      : gearStart === true && wheelDepth !== undefined
+        ? spawnElev + wheelDepth
+        : spawnElev + 12.0;
     if (planeGroup.position.y < spawnRestingHeight) {
       planeGroup.position.y = spawnRestingHeight;
     }
-    // Starting stopped on the water: floats already down
-    if (spawnIsWater && state.targetFlightSpeed === 0) {
+    if (gearStart !== null) {
+      state.gearWanted = gearStart;
+      state.gearExtension = gearStart ? 1 : 0;
+      poseGear(state.gearExtension);
+    } else if (spawnIsWater && state.targetFlightSpeed === 0) {
+      // Starting stopped on the water: floats already down
       state.gearWanted = true;
       state.gearExtension = 1;
+      poseGear(1);
     }
   };
 
@@ -731,16 +741,30 @@ export function initDebugUI() {
       params.set('livery', ChillFlightLogic.LIVERY_NAMES[liveryIndex]);
     }
 
-    // A custom ?camOffset= view is the first cinematic config (game.js); keep
-    // its parameters while it's the one showing.
+    // A custom ?camOffset= or ?camFrame= view is the first cinematic config
+    // (game.js); keep its parameters while it's the one showing.
     const isCustomCinematic =
       state.cameraMode === 'cinematic' &&
-      ChillFlightLogic.START_CAM_OFFSET &&
+      (ChillFlightLogic.START_CAM_OFFSET || ChillFlightLogic.START_CAM_FRAME) &&
       currentCinematicIndex === 0;
     if (!isCustomCinematic) {
       params.delete('camOffset');
       params.delete('camLook');
       params.delete('fov');
+    }
+    if (
+      state.cameraMode === 'cinematic' &&
+      state.camFrame &&
+      state.camFrame !== 'yaw'
+    ) {
+      params.set('camFrame', state.camFrame);
+    } else {
+      params.delete('camFrame');
+    }
+    if (!forCamera && ChillFlightLogic.START_GEAR !== null) {
+      params.set('gear', state.gearWanted ? '1' : '0');
+    } else {
+      params.delete('gear');
     }
     params.delete('angle');
     if (forCamera || state.cameraMode === 'follow') {

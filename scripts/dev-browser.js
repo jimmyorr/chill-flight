@@ -145,6 +145,10 @@ function isPidAlive(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return false;
   try {
     process.kill(pid, 0);
+    if (process.platform === 'linux') {
+      const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
+      if (/\)\s+Z\b/.test(stat)) return false;
+    }
     return true;
   } catch (err) {
     return err?.code === 'EPERM';
@@ -344,6 +348,7 @@ export async function openPromoWorld(
     prerollSec = 1.5,
     fps = 30,
     timeoutMs = 120000,
+    beforePreroll = null,
   } = {}
 ) {
   const context = await browser.createBrowserContext();
@@ -371,7 +376,17 @@ export async function openPromoWorld(
   });
 
   try {
-    await page.goto(url, {waitUntil: 'load', timeout: timeoutMs});
+    const parsedUrl = new URL(url);
+    if (!parsedUrl.searchParams.has('fps')) {
+      parsedUrl.searchParams.set('fps', '0');
+    }
+    if (!parsedUrl.searchParams.has('adaptive')) {
+      parsedUrl.searchParams.set('adaptive', '0');
+    }
+    await page.goto(parsedUrl.toString(), {
+      waitUntil: 'load',
+      timeout: timeoutMs,
+    });
 
     const started = Date.now();
     let loadedAt = 0;
@@ -401,6 +416,9 @@ export async function openPromoWorld(
       isMobile: mobile,
       hasTouch: mobile,
     });
+    if (beforePreroll) {
+      await beforePreroll(page);
+    }
     const prerollFrames = Math.round(prerollSec * fps);
     for (let i = 0; i < prerollFrames; i++) {
       await stepPromoFrame(page, 1000 / fps);
@@ -412,6 +430,38 @@ export async function openPromoWorld(
 
   page.close = async () => context.close();
   return page;
+}
+
+// Advances near-frozen virtual-clock frames (0.001ms each) until near chunks
+// and the distant terrain ring finish loading after a portal warp or teleport.
+export async function waitForPromoChunks(
+  page,
+  {settleMs = 400, timeoutMs = 60000} = {}
+) {
+  const started = Date.now();
+  let readyAt = 0;
+  // Step once so updateChunks and updateFarTerrain enqueue destination cells
+  await stepPromoFrame(page, 0.001);
+  while (!readyAt || Date.now() - readyAt < settleMs) {
+    if (Date.now() - started > timeoutMs) {
+      throw new Error(
+        `Timed out after ${timeoutMs}ms waiting for post-warp promo chunks`
+      );
+    }
+    await stepPromoFrame(page, 0.001);
+    const ready = await page.evaluate(async () => {
+      const {state} = await window.gameModule('state.js');
+      return (
+        state.chunkQueue.length === 0 && document.body.dataset.farReady === '1'
+      );
+    });
+    if (ready) {
+      if (!readyAt) readyAt = Date.now();
+    } else {
+      readyAt = 0;
+    }
+    await new Promise((r) => setTimeout(r, 15));
+  }
 }
 
 // Minimal static file server for a production build in a temp dir (never

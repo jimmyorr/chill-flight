@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {ChillFlightLogic} from './chill-flight-logic.js';
 import {getElevation, sampleGround} from './terrain-geometry.js';
 import {breakwaterTop, sampleRoad} from './terrain-chunks.js';
 import {ARCH, archCeiling, archGround} from './arches-logic.js';
@@ -208,7 +209,10 @@ export function updateFlightPhysics(delta, nowTime) {
   // moving again. Nose down it heads for a faster speed and nose up a slower
   // one (pitchedTarget), much less while being pushed up by ground avoidance;
   // the throttle slider itself stays where it was set.
-  if (
+  if (state.scriptedSpeed !== null) {
+    state.targetFlightSpeed = state.scriptedSpeed;
+    state.flightSpeedMultiplier = state.scriptedSpeed;
+  } else if (
     Math.abs(state.flightSpeedMultiplier) > 0.001 ||
     Math.abs(state.targetFlightSpeed) > 0.001
   ) {
@@ -336,7 +340,12 @@ export function updateFlightPhysics(delta, nowTime) {
     !state.isFreeCamera &&
     (planeGroup.position.y <= restingHeight + 0.1 || followingGround)
   ) {
-    if (!state.isOnGround && !state.isOnWater && !followingGround) {
+    if (
+      !state.scriptedFlight &&
+      !state.isOnGround &&
+      !state.isOnWater &&
+      !followingGround
+    ) {
       if (
         hooks.checkDiveCrash?.(
           planeGroup.rotation.x,
@@ -354,27 +363,29 @@ export function updateFlightPhysics(delta, nowTime) {
     // plane stays level (so the flight model and controls work as on water)
     // and only the model tilts to the slope, below.
     state.verticalVelocity = 0;
-    state.targetPitch = 0;
-    state.targetRoll = 0;
-    while (planeGroup.rotation.x > Math.PI)
-      planeGroup.rotation.x -= 2 * Math.PI;
-    while (planeGroup.rotation.x < -Math.PI)
-      planeGroup.rotation.x += 2 * Math.PI;
-    while (planeGroup.rotation.z > Math.PI)
-      planeGroup.rotation.z -= 2 * Math.PI;
-    while (planeGroup.rotation.z < -Math.PI)
-      planeGroup.rotation.z += 2 * Math.PI;
+    if (!state.scriptedFlight) {
+      state.targetPitch = 0;
+      state.targetRoll = 0;
+      while (planeGroup.rotation.x > Math.PI)
+        planeGroup.rotation.x -= 2 * Math.PI;
+      while (planeGroup.rotation.x < -Math.PI)
+        planeGroup.rotation.x += 2 * Math.PI;
+      while (planeGroup.rotation.z > Math.PI)
+        planeGroup.rotation.z -= 2 * Math.PI;
+      while (planeGroup.rotation.z < -Math.PI)
+        planeGroup.rotation.z += 2 * Math.PI;
 
-    planeGroup.rotation.x = THREE.MathUtils.lerp(
-      planeGroup.rotation.x,
-      0,
-      0.1 * delta * 60
-    );
-    planeGroup.rotation.z = THREE.MathUtils.lerp(
-      planeGroup.rotation.z,
-      0,
-      0.1 * delta * 60
-    );
+      planeGroup.rotation.x = THREE.MathUtils.lerp(
+        planeGroup.rotation.x,
+        0,
+        0.1 * delta * 60
+      );
+      planeGroup.rotation.z = THREE.MathUtils.lerp(
+        planeGroup.rotation.z,
+        0,
+        0.1 * delta * 60
+      );
+    }
     if (followingGround) {
       // Rolling on the wheels follows the ground exactly, where the plane is
       // now (it has moved since the top of the frame)
@@ -496,7 +507,7 @@ export function updateFlightPhysics(delta, nowTime) {
     if (state.targetFlightSpeed > lastTargetSpeed + 1e-6) {
       throttleOpenedOnSurface = true;
     }
-    if (!throttleOpenedOnSurface) {
+    if (!throttleOpenedOnSurface && state.scriptedSpeed === null) {
       state.targetFlightSpeed = Math.max(
         0,
         state.targetFlightSpeed - delta * 0.5
@@ -548,24 +559,28 @@ export function updateFlightPhysics(delta, nowTime) {
     : Math.min(GROUND_CUSHION, groundCushion + GROUND_CUSHION_RISE * delta);
   _lastPosition.copy(planeGroup.position);
 
-  // Pontoons and retractable wheels come down approaching water (and, for
-  // wheels, any ground) and go up climbing away, by height above the surface
-  // (units: down within 60, about 30 m, and up past 80)
-  const surfaceAlt =
-    planeGroup.position.y - (isWater ? WATER_LEVEL : terrainHeight);
-  if (surfaceAlt >= 80) state.gearWanted = false;
-
   const currentY = planeGroup.position.y;
   const isDescending = currentY < state.lastY;
   state.lastY = currentY;
 
-  // Low and coming down, or low and slow (an approach can hold its height
-  // over rising ground)
-  if (
-    (isWater || wheelDepth !== undefined) &&
-    surfaceAlt < 60 &&
-    (isDescending || currentKTS < 100)
-  ) {
-    state.gearWanted = true;
+  if (ChillFlightLogic.START_GEAR !== null) {
+    state.gearWanted = ChillFlightLogic.START_GEAR;
+  } else {
+    // Pontoons and retractable wheels come down approaching water (and, for
+    // wheels, any ground) and go up climbing away, by height above the surface
+    // (units: down within 60, about 30 m, and up past 80)
+    const surfaceAlt =
+      planeGroup.position.y - (isWater ? WATER_LEVEL : terrainHeight);
+    if (surfaceAlt >= 80) state.gearWanted = false;
+
+    // Low and coming down, or low and slow (an approach can hold its height
+    // over rising ground)
+    if (
+      (isWater || wheelDepth !== undefined) &&
+      surfaceAlt < 60 &&
+      (isDescending || currentKTS < 100)
+    ) {
+      state.gearWanted = true;
+    }
   }
 }

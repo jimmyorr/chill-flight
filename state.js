@@ -96,8 +96,8 @@ export const state = {
   // Landing gear (the seaplane's pontoons, the twin's and jet's wheels):
   // whether it should be down (set in flight-physics.js), and how far down it
   // is, 0 to 1 (eased toward that in game-loop.js; poseGear in airplane.js)
-  gearWanted: false,
-  gearExtension: 0,
+  gearWanted: ChillFlightLogic.START_GEAR === true,
+  gearExtension: ChillFlightLogic.START_GEAR === true ? 1 : 0,
   // Wing waggle roll (radians) on top of the flying wobble: a wave to
   // friends flying with you (multiplayer.js)
   waggleRoll: 0,
@@ -147,13 +147,20 @@ export const state = {
   joystickTouchId: null,
   targetPitch: 0,
   targetRoll: 0,
-  // A promo clip's scripted attitude: (now) => {roll, pitch} in radians, or
-  // null (promo-script.js; set by the promo script's event only)
+  // Promo clip scripting hooks (promo-script.js, promo-director.js)
   scriptedFlight: null,
+  scriptedCamera: null,
+  scriptedDrive: null,
+  scriptedReplay: null,
+  scriptedSpeed: null,
+  lastRecordedReplay: null,
   smoothedManeuverFactor: 0, // Ensures smooth cinematic transitions
   manualPitch: 0,
   // A ?camera= mode starts in place rather than easing in from follow.
   cameraMode: ChillFlightLogic.START_CAMERA || 'follow', // 'follow', 'first-person', 'birds-eye', or 'cinematic'
+  // Cinematic reference frame: 'yaw', 'yaw-lock', 'plane' (rigid GoPro), or
+  // 'world-track' (stationary/keyframed world tripod tracking the plane)
+  camFrame: ChillFlightLogic.START_CAM_FRAME || 'yaw',
   cameraTransitionProgress:
     {'first-person': 0.5, 'birds-eye': 1}[ChillFlightLogic.START_CAMERA] || 0, // 0 = follow/cinematic, 1 = bird's eye
   // Each camera's pinch zoom (ChillFlightLogic.CAMERA_ZOOM): its distance

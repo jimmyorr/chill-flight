@@ -95,6 +95,7 @@ import {RUSH_FOV, rushAmount} from './crystal-rush.js';
 const _prevIdealCameraPos = new THREE.Vector3();
 const _prevIdealLookTarget = new THREE.Vector3();
 let _followPrevValid = false;
+let _wasWorldTrack = ChillFlightLogic.START_CAM_FRAME === 'world-track';
 
 // Swinging the cinematic camera around the plane with the stick: full stick
 // turns this fast (radians a second), between these angles from overhead
@@ -554,105 +555,214 @@ export function updateFlightCamera(delta, nowTime) {
     // 3. Calculate Cinematic State
     const cinematicConfig =
       CINEMATIC_CONFIGS[currentCinematicIndex] || CINEMATIC_CONFIGS[0];
+    const camFrame =
+      state.cameraMode === 'cinematic' ? state.camFrame || 'yaw' : 'yaw';
+    const scriptedCam =
+      state.cameraMode === 'cinematic'
+        ? state.scriptedCamera?.(nowTime) || null
+        : null;
+    const isPlaneMount = camFrame === 'plane';
+    const isWorldTrack = camFrame === 'world-track';
+    const cinematicDirectLock =
+      state.cameraMode === 'cinematic' &&
+      (camFrame !== 'yaw' || scriptedCam !== null)
+        ? 1
+        : 0;
+
     if (state._cinematicStableHeading === null) {
       state._cinematicStableHeading = planeGroup.rotation.y;
     }
     if (state.cameraMode === 'cinematic') {
-      // Smoothen the switches between cinematic offsets
-      const hasOffsetJumped =
-        _cinematicOffsetCurrent.distanceToSquared(cinematicConfig.offset) >
-        0.001;
-      if (hasOffsetJumped) {
-        _cinematicOffsetCurrent.lerp(cinematicConfig.offset, 0.02 * delta * 60);
-        _cinematicLookTargetCurrent.lerp(
-          cinematicConfig.lookOffset,
-          0.02 * delta * 60
-        );
+      if (isWorldTrack && !_wasWorldTrack) {
+        _cinematicOffsetCurrent.copy(camera.position);
+      } else if (!isWorldTrack && _wasWorldTrack) {
+        _cinematicOffsetCurrent.copy(cinematicConfig.offset);
+      }
+      _wasWorldTrack = isWorldTrack;
+
+      if (scriptedCam) {
+        if (scriptedCam.ox !== null) _cinematicOffsetCurrent.x = scriptedCam.ox;
+        if (scriptedCam.oy !== null) _cinematicOffsetCurrent.y = scriptedCam.oy;
+        if (scriptedCam.oz !== null) _cinematicOffsetCurrent.z = scriptedCam.oz;
+        if (scriptedCam.lx !== null)
+          _cinematicLookTargetCurrent.x = scriptedCam.lx;
+        if (scriptedCam.ly !== null)
+          _cinematicLookTargetCurrent.y = scriptedCam.ly;
+        if (scriptedCam.lz !== null)
+          _cinematicLookTargetCurrent.z = scriptedCam.lz;
+      } else if (
+        !isWorldTrack ||
+        ChillFlightLogic.START_CAM_FRAME === 'world-track'
+      ) {
+        // Smoothen the switches between cinematic offsets
+        const hasOffsetJumped =
+          _cinematicOffsetCurrent.distanceToSquared(cinematicConfig.offset) >
+          0.001;
+        if (hasOffsetJumped) {
+          _cinematicOffsetCurrent.lerp(
+            cinematicConfig.offset,
+            0.02 * delta * 60
+          );
+          _cinematicLookTargetCurrent.lerp(
+            cinematicConfig.lookOffset,
+            0.02 * delta * 60
+          );
+        }
       }
 
-      // Optimize: Only recalculate matrix if plane has moved or rotated, or if offset is still transitioning
-      const rotationChanged =
-        Math.abs(state._cinematicStableHeading - planeGroup.rotation.y) >
-        0.0001;
-      // Check position change without expensive extra calculations
-      const positionChanged =
-        Math.abs(_cinematicStableMatrix.elements[12] - planeGroup.position.x) >
-          0.1 ||
-        Math.abs(_cinematicStableMatrix.elements[13] - planeGroup.position.y) >
-          0.1 ||
-        Math.abs(_cinematicStableMatrix.elements[14] - planeGroup.position.z) >
-          0.1;
-
-      if (rotationChanged || positionChanged || hasOffsetJumped) {
-        state._cinematicStableHeading = ChillFlightLogic.lerpAngle(
-          state._cinematicStableHeading,
-          planeGroup.rotation.y,
-          0.05 * delta * 60
-        );
+      if (camFrame === 'yaw-lock') {
+        state._cinematicStableHeading = planeGroup.rotation.y;
         _cinematicStableQuat.setFromAxisAngle(
           _yAxis,
           state._cinematicStableHeading
         );
         _cinematicStableMatrix.makeRotationFromQuaternion(_cinematicStableQuat);
         _cinematicStableMatrix.setPosition(planeGroup.position);
+      } else if (camFrame === 'yaw') {
+        // Optimize: Only recalculate matrix if plane has moved or rotated, or if offset is still transitioning
+        const rotationChanged =
+          Math.abs(state._cinematicStableHeading - planeGroup.rotation.y) >
+          0.0001;
+        // Check position change without expensive extra calculations
+        const positionChanged =
+          Math.abs(
+            _cinematicStableMatrix.elements[12] - planeGroup.position.x
+          ) > 0.1 ||
+          Math.abs(
+            _cinematicStableMatrix.elements[13] - planeGroup.position.y
+          ) > 0.1 ||
+          Math.abs(
+            _cinematicStableMatrix.elements[14] - planeGroup.position.z
+          ) > 0.1;
+        const offsetMoving =
+          scriptedCam !== null ||
+          _cinematicOffsetCurrent.distanceToSquared(cinematicConfig.offset) >
+            0.001;
+
+        if (rotationChanged || positionChanged || offsetMoving) {
+          state._cinematicStableHeading = ChillFlightLogic.lerpAngle(
+            state._cinematicStableHeading,
+            planeGroup.rotation.y,
+            0.05 * delta * 60
+          );
+          _cinematicStableQuat.setFromAxisAngle(
+            _yAxis,
+            state._cinematicStableHeading
+          );
+          _cinematicStableMatrix.makeRotationFromQuaternion(
+            _cinematicStableQuat
+          );
+          _cinematicStableMatrix.setPosition(planeGroup.position);
+        }
+      } else {
+        state._cinematicStableHeading = planeGroup.rotation.y;
       }
     } else {
       // Keep heading in sync while not in cinematic mode for smooth entry
       state._cinematicStableHeading = planeGroup.rotation.y;
     }
 
-    // Swung around the plane by the stick (game-loop.js), from the preset
+    // Swung around the plane by the stick (game-loop.js) or scripted orbit
     if (state.cameraMode === 'cinematic') {
-      state.cinematicOrbitYaw += state.cinematicSteerX * ORBIT_YAW_RATE * delta;
-      state.cinematicOrbitPitch +=
-        state.cinematicSteerY * ORBIT_PITCH_RATE * delta;
+      if (scriptedCam && scriptedCam.orbitYaw !== null) {
+        state.cinematicOrbitYaw = scriptedCam.orbitYaw;
+      } else {
+        state.cinematicOrbitYaw +=
+          state.cinematicSteerX * ORBIT_YAW_RATE * delta;
+      }
+      if (scriptedCam && scriptedCam.orbitPitch !== null) {
+        state.cinematicOrbitPitch = scriptedCam.orbitPitch;
+      } else {
+        state.cinematicOrbitPitch +=
+          state.cinematicSteerY * ORBIT_PITCH_RATE * delta;
+      }
     }
-    _orbitSpherical.setFromVector3(_cinematicOffsetCurrent);
-    // Kept between nearly overhead and a little below the plane
-    state.cinematicOrbitPitch = THREE.MathUtils.clamp(
-      state.cinematicOrbitPitch,
-      _orbitSpherical.phi - ORBIT_MAX_PHI,
-      _orbitSpherical.phi - ORBIT_MIN_PHI
-    );
-    _orbitSpherical.theta += state.cinematicOrbitYaw;
-    _orbitSpherical.phi -= state.cinematicOrbitPitch;
-    _orbitSpherical.radius *= state.cameraZoom.cinematic;
-    _orbitOffset.setFromSpherical(_orbitSpherical);
-    _orbitLook
-      .copy(_cinematicLookTargetCurrent)
-      .applyAxisAngle(_orbitAxis, state.cinematicOrbitYaw);
-    _idealCameraPos_Cinematic
-      .copy(_orbitOffset)
-      .applyMatrix4(_cinematicStableMatrix);
-    _idealLookTarget_Cinematic
-      .copy(_orbitLook)
-      .applyMatrix4(_cinematicStableMatrix);
+
+    if (isWorldTrack) {
+      // Stationary or world-keyframed tripod panning to follow the aircraft
+      _idealCameraPos_Cinematic.copy(_cinematicOffsetCurrent);
+      _idealLookTarget_Cinematic
+        .copy(_cinematicLookTargetCurrent)
+        .applyMatrix4(planeGroup.matrixWorld);
+    } else {
+      _orbitSpherical.setFromVector3(_cinematicOffsetCurrent);
+      if (scriptedCam && scriptedCam.orbitPitch !== null) {
+        _orbitSpherical.phi = THREE.MathUtils.clamp(
+          _orbitSpherical.phi - state.cinematicOrbitPitch,
+          0.02,
+          Math.PI - 0.02
+        );
+      } else {
+        // Kept between nearly overhead and a little below the plane
+        state.cinematicOrbitPitch = THREE.MathUtils.clamp(
+          state.cinematicOrbitPitch,
+          _orbitSpherical.phi - ORBIT_MAX_PHI,
+          _orbitSpherical.phi - ORBIT_MIN_PHI
+        );
+        _orbitSpherical.phi -= state.cinematicOrbitPitch;
+      }
+      _orbitSpherical.theta += state.cinematicOrbitYaw;
+      _orbitSpherical.radius *= state.cameraZoom.cinematic;
+      _orbitOffset.setFromSpherical(_orbitSpherical);
+      _orbitLook
+        .copy(_cinematicLookTargetCurrent)
+        .applyAxisAngle(_orbitAxis, state.cinematicOrbitYaw);
+      if (isPlaneMount) {
+        if (state.airplaneModel) {
+          state.airplaneModel.updateMatrixWorld(true);
+        }
+        const mountMatrix =
+          state.airplaneModel?.matrixWorld || planeGroup.matrixWorld;
+        _idealCameraPos_Cinematic.copy(_orbitOffset).applyMatrix4(mountMatrix);
+        _idealLookTarget_Cinematic.copy(_orbitLook).applyMatrix4(mountMatrix);
+      } else {
+        _idealCameraPos_Cinematic
+          .copy(_orbitOffset)
+          .applyMatrix4(_cinematicStableMatrix);
+        _idealLookTarget_Cinematic
+          .copy(_orbitLook)
+          .applyMatrix4(_cinematicStableMatrix);
+      }
+    }
 
     // 4. Blend FOV
     // Follow mode has dynamic FOV, Top-down is fixed at 60, Cinematic is per-config
     const followFov = targetFov;
     const topDownFov = 60;
-    const cinematicFov = cinematicConfig.fov;
+    const cinematicFov =
+      scriptedCam && scriptedCam.fov !== null
+        ? scriptedCam.fov
+        : cinematicConfig.fov;
 
     let targetBlendedFov;
     if (state.cameraMode === 'cinematic') {
-      targetBlendedFov = THREE.MathUtils.lerp(followFov, cinematicFov, 1.0); // Simple snap for FOV in cinematic
+      targetBlendedFov = THREE.MathUtils.lerp(followFov, cinematicFov, 1.0);
     } else {
       targetBlendedFov = THREE.MathUtils.lerp(followFov, topDownFov, easedT);
     }
 
-    camera.fov = THREE.MathUtils.lerp(
-      camera.fov,
-      targetBlendedFov,
-      1 - Math.pow(1 - 0.1, delta * 60)
-    );
+    if (scriptedCam && scriptedCam.fov !== null) {
+      camera.fov = targetBlendedFov;
+    } else {
+      camera.fov = THREE.MathUtils.lerp(
+        camera.fov,
+        targetBlendedFov,
+        1 - Math.pow(1 - 0.1, delta * 60)
+      );
+    }
     camera.updateProjectionMatrix();
 
     // 5. Blend Positions & Targets
     if (state.cameraMode === 'cinematic') {
       _idealCameraPos.copy(_idealCameraPos_Cinematic);
       _idealLookTarget.copy(_idealLookTarget_Cinematic);
-      _idealUp.set(0, 1, 0); // Always world-up for cinematic
+      if (isPlaneMount) {
+        const mountMatrix =
+          state.airplaneModel?.matrixWorld || planeGroup.matrixWorld;
+        _idealUp.set(0, 1, 0).transformDirection(mountMatrix).normalize();
+      } else {
+        _idealUp.set(0, 1, 0); // World-up for yaw and world-track cinematic rigs
+      }
     } else {
       const p = state.cameraTransitionProgress;
       if (p < 0.5) {
@@ -686,23 +796,26 @@ export function updateFlightCamera(delta, nowTime) {
       }
     }
 
-    // Camera collision avoidance with terrain & water surface
-    const idealTerrainHeight = getElevation(
-      _idealCameraPos.x,
-      _idealCameraPos.z
-    );
-    const minCamSurface = Math.max(WATER_LEVEL, idealTerrainHeight);
-    if (_idealCameraPos.y < minCamSurface + 2.0) {
-      _idealCameraPos.y = minCamSurface + 2.0;
+    // Camera collision avoidance with terrain & water surface (skipped on rigid
+    // airframe GoPro mounts and world-track tripods so bridge/tower mounts never jump)
+    if (!isPlaneMount && !isWorldTrack) {
+      const idealTerrainHeight = getElevation(
+        _idealCameraPos.x,
+        _idealCameraPos.z
+      );
+      const minCamSurface = Math.max(WATER_LEVEL, idealTerrainHeight);
+      if (_idealCameraPos.y < minCamSurface + 2.0) {
+        _idealCameraPos.y = minCamSurface + 2.0;
+      }
+      // Under an arch with the plane, or over it (not inside the rock)
+      _idealCameraPos.y = archCameraY(
+        arches,
+        _idealCameraPos.x,
+        _idealCameraPos.z,
+        _idealCameraPos.y,
+        planeGroup.position.y
+      );
     }
-    // Under an arch with the plane, or over it (not inside the rock)
-    _idealCameraPos.y = archCameraY(
-      arches,
-      _idealCameraPos.x,
-      _idealCameraPos.z,
-      _idealCameraPos.y,
-      planeGroup.position.y
-    );
     // A car's chase camera stays over the drawn ground, with the car in
     // sight (shedding it on the way into the seat view)
     const chaseFloorWeight =
@@ -807,7 +920,7 @@ export function updateFlightCamera(delta, nowTime) {
       activeCamTarget.position.add(_seatCarry);
       _currentLookTarget.add(_seatCarry);
       // In loops the position locks on, as inertia lag could flip lookAt,
-      // and in a seat view it stays fixed to the seat
+      // and in a seat view or direct cinematic rig it locks onto its mount
       // (follow-logic.js: the same lag whatever each frame's length)
       if (_followPrevValid) {
         followStep(
@@ -831,7 +944,7 @@ export function updateFlightCamera(delta, nowTime) {
         activeCamTarget.position.lerp(_idealCameraPos, follow);
         _currentLookTarget.lerp(_idealLookTarget, follow);
       }
-      const lock = Math.max(loopLock, seatLock);
+      const lock = Math.max(loopLock, seatLock, cinematicDirectLock);
       activeCamTarget.position.lerp(_idealCameraPos, lock);
       _currentLookTarget.lerp(_idealLookTarget, lock);
       _prevIdealCameraPos.copy(_idealCameraPos);
@@ -852,39 +965,46 @@ export function updateFlightCamera(delta, nowTime) {
     const activeCamTarget = state.isVRPresenting ? cameraDolly : camera;
 
     // Hard clamp to prevent dipping below terrain during fast movement
-    const actualTerrainHeight = getElevation(
-      activeCamTarget.position.x,
-      activeCamTarget.position.z
-    );
-    if (activeCamTarget.position.y < actualTerrainHeight + 1.0) {
-      activeCamTarget.position.y = actualTerrainHeight + 1.0;
+    if (!isPlaneMount) {
+      const actualTerrainHeight = getElevation(
+        activeCamTarget.position.x,
+        activeCamTarget.position.z
+      );
+      if (activeCamTarget.position.y < actualTerrainHeight + 1.0) {
+        activeCamTarget.position.y = actualTerrainHeight + 1.0;
+      }
+      activeCamTarget.position.y = archCameraY(
+        arches,
+        activeCamTarget.position.x,
+        activeCamTarget.position.z,
+        activeCamTarget.position.y,
+        planeGroup.position.y
+      );
     }
-    activeCamTarget.position.y = archCameraY(
-      arches,
-      activeCamTarget.position.x,
-      activeCamTarget.position.z,
-      activeCamTarget.position.y,
-      planeGroup.position.y
-    );
 
-    if (state.isVRPresenting && loopLock === 0) {
+    const upLock = isPlaneMount ? 1 : loopLock;
+    if (state.isVRPresenting && upLock === 0) {
       activeCamTarget.up.set(0, 1, 0); // Keep world up stable in VR during normal flight
     } else {
-      // During vertical loops, up vector must match the inverted plane to prevent gimbal lock at 90°
+      // During vertical loops or rigid airframe GoPro mounts, up vector
+      // matches the airframe to prevent gimbal lock at 90°
       activeCamTarget.up
         .lerp(
           _idealUp,
-          THREE.MathUtils.lerp(1 - Math.pow(1 - 0.1, delta * 60), 1, loopLock)
+          THREE.MathUtils.lerp(1 - Math.pow(1 - 0.1, delta * 60), 1, upLock)
         )
         .normalize();
     }
 
     activeCamTarget.lookAt(_currentLookTarget);
 
-    // Update terrain chunks (only if the plane has moved ~50 units)
-    if (planeGroup.position.distanceToSquared(_lastChunkUpdatePos) > 2500) {
+    // Update terrain chunks (only if the anchor has moved ~50 units)
+    const chunkAnchorPos = isWorldTrack
+      ? activeCamTarget.position
+      : planeGroup.position;
+    if (chunkAnchorPos.distanceToSquared(_lastChunkUpdatePos) > 2500) {
       updateChunks();
-      _lastChunkUpdatePos.copy(planeGroup.position);
+      _lastChunkUpdatePos.copy(chunkAnchorPos);
     }
   }
 

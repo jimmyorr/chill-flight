@@ -13,18 +13,23 @@
 //  11. short-20261116-twin-cut.mp4   - 12s purple twin-prop roll across volcano, pyramids, arctic arch & alien pillars (seed 20261116)
 //
 // Usage:
-//   node scripts/shorts.js [match-cut | daily-match-cut | seaplane-cut | weather-cut | jet-cut | aerobatic-cut | bayou-cut | twin-cut | daily-postcard | wing-cam | landmark-cut | meta] [--preview]
+//   node scripts/shorts.js [short-id | meta | check] [--preview] [--check]
 
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import https from 'node:https';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {launch, openPromoWorld, stepPromoFrame} from './dev-browser.js';
+import {
+  launch,
+  openPromoWorld,
+  stepPromoFrame,
+  waitForPromoChunks,
+} from './dev-browser.js';
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {simplex} from '../noise.js';
-import {archSites} from '../arches-logic.js';
-import {attitudeAt} from '../promo-script.js';
+import {ARCH, archBlocks, archCeiling, archSites} from '../arches-logic.js';
+import {solveStartCoords, traceScriptedTrajectory} from '../promo-script.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'promo');
@@ -41,9 +46,13 @@ const FPS = 30;
 const PREROLL = 1.5;
 const SETTLE_MS = 2000;
 const PREVIEW = process.argv.includes('--preview');
+const CHECK_ONLY = process.argv.includes('--check');
+const WATER_LEVEL = 40;
 const VIEWPORT = {width: 540, height: 960, scale: 2, mobile: true}; // 1080x1920
 const PIXEL_W = VIEWPORT.width * VIEWPORT.scale;
 const PIXEL_H = VIEWPORT.height * VIEWPORT.scale;
+
+let checkFailures = 0;
 
 // Christmas off: flight paths are scouted in Node, where the season is
 // always off, so the browser must draw the same ground (a Short can add
@@ -100,7 +109,7 @@ function downloadTrack(slug) {
 
 const step = (page, dt = 1000 / FPS) => stepPromoFrame(page, dt);
 
-function openWorld(browser, query, preroll = PREROLL) {
+function openWorld(browser, query, preroll = PREROLL, beforePreroll = null) {
   return openPromoWorld(browser, `${BASE_URL}?${COMMON}&${query}`, {
     width: VIEWPORT.width,
     height: VIEWPORT.height,
@@ -109,6 +118,7 @@ function openWorld(browser, query, preroll = PREROLL) {
     settleMs: PREVIEW ? 800 : SETTLE_MS,
     prerollSec: preroll,
     fps: FPS,
+    beforePreroll,
   });
 }
 
@@ -263,9 +273,462 @@ function writeShortMetadata(
   console.log(txtPath);
 }
 
+function formatWorldLocation(x, z) {
+  const lon = (Math.abs(x) / 5000).toFixed(2);
+  const lat = (Math.abs(z) / 5000).toFixed(2);
+  const ew = x >= 0 ? 'East' : 'West';
+  const ns = z <= 0 ? 'North' : 'South';
+  return `X = ${Math.round(x)}, Z = ${Math.round(z)} (${lon} ${ew}, ${lat} ${ns})`;
+}
+
+function coordBadgeLabel(x, z) {
+  const latDeg = Math.abs(z / 5000).toFixed(1);
+  const latDir = z <= 0 ? 'N' : 'S';
+  const lonDeg = Math.abs(x / 5000).toFixed(1);
+  const lonDir = x >= 0 ? 'E' : 'W';
+  return `${latDeg}°${latDir}, ${lonDeg}°${lonDir}`;
+}
+
+const _seedSiteCache = new Map();
+function getWorldSites(seed, xmasMode = 'off') {
+  const key = `${seed}:${xmasMode}`;
+  if (_seedSiteCache.has(key)) return _seedSiteCache.get(key);
+  ChillFlightLogic.WORLD_SEED = seed;
+  ChillFlightLogic.XMAS_SEASON = xmasMode;
+  simplex.seed(seed);
+  const elevOpts = {WATER_LEVEL};
+  const arches = archSites(simplex, elevOpts);
+  const portals = ChillFlightLogic.portalSites(simplex, elevOpts);
+  const entry = {arches, portals, elevOpts};
+  _seedSiteCache.set(key, entry);
+  return entry;
+}
+
+// Resolves a declarative landmark target `{tx, ty, tz, heading, coordLabel, portalCross}`
+// on `seed` so segments can target arches, portals, or named landmarks with `hitFrame`.
+export function resolveLandmarkTarget(seed, landmark, xmasMode = 'off') {
+  if (!landmark) return null;
+  const spec = typeof landmark === 'string' ? {kind: landmark} : landmark;
+  const {arches, portals, elevOpts} = getWorldSites(seed, xmasMode);
+  const kind = spec.kind;
+
+  if (
+    kind === 'arch' ||
+    kind === 'sea' ||
+    kind === 'gorge' ||
+    kind === 'canyon' ||
+    kind === 'basalt'
+  ) {
+    const archType = kind === 'arch' ? spec.archType || 'sea' : kind;
+    const list = arches.filter((s) => s.kind === archType);
+    const arch = list[spec.index ?? 0] || list[0];
+    if (!arch) {
+      throw new Error(`No arch of kind "${archType}" found on seed ${seed}`);
+    }
+    let maxUnder = -Infinity;
+    let bestIdx = Math.floor(arch.under.length / 2);
+    for (let i = 0; i < arch.under.length; i++) {
+      if (arch.under[i] > maxUnder) {
+        maxUnder = arch.under[i];
+        bestIdx = i;
+      }
+    }
+    const u = arch.uMin + bestIdx * 6 + (spec.offsetAlong ?? 0);
+    const cx = arch.x + arch.ux * u;
+    const cz = arch.z + arch.uz * u;
+    const ground = ChillFlightLogic.getElevation(cx, cz, simplex, elevOpts);
+    const surface = Math.max(WATER_LEVEL, ground);
+    const flyY = Math.round(
+      Math.max(
+        surface + (spec.minClear ?? 42),
+        surface + (maxUnder - surface) * (spec.heightFrac ?? 0.55)
+      )
+    );
+    let bestDir = null;
+    for (const sign of [1, -1]) {
+      const dx = -arch.uz * sign;
+      const dz = arch.ux * sign;
+      let maxOut = 0;
+      for (let d = 80; d <= 850; d += 50) {
+        maxOut = Math.max(
+          maxOut,
+          ChillFlightLogic.getElevation(
+            cx + dx * d,
+            cz + dz * d,
+            simplex,
+            elevOpts
+          )
+        );
+      }
+      if (!bestDir || maxOut < bestDir.maxOut) {
+        bestDir = {dx, dz, maxOut};
+      }
+    }
+    const dirSign = spec.direction ?? 1;
+    const dx = bestDir.dx * dirSign;
+    const dz = bestDir.dz * dirSign;
+    const heading = Math.round((Math.atan2(-dx, -dz) * 180) / Math.PI);
+    return {
+      tx: Math.round(cx),
+      ty: flyY,
+      tz: Math.round(cz),
+      heading,
+      coordLabel: coordBadgeLabel(cx, cz),
+    };
+  }
+
+  if (kind === 'portal') {
+    const side = spec.side === 'west' ? 'west' : 'east';
+    const site = portals?.[side];
+    if (!site) {
+      throw new Error(`No ${side} portal found on seed ${seed}`);
+    }
+    const dir = spec.direction ?? 1;
+    const nx = Math.sin(site.yaw) * dir;
+    const nz = Math.cos(site.yaw) * dir;
+    const heading = Math.round((Math.atan2(-nx, -nz) * 180) / Math.PI);
+    return {
+      tx: Math.round(site.x),
+      ty: Math.round(site.base + (spec.heightAboveBase ?? 78)),
+      tz: Math.round(site.z),
+      heading,
+      portalCross: spec.portalCross !== false,
+      coordLabel: coordBadgeLabel(site.x, site.z),
+    };
+  }
+
+  if (kind === 'volcano') {
+    return {
+      tx: -5000,
+      ty: 2020,
+      tz: 5000,
+      heading: 175,
+      coordLabel: coordBadgeLabel(-5000, 5000),
+    };
+  }
+  if (kind === 'falls') {
+    return {
+      tx: 0,
+      ty: 260,
+      tz: -4350,
+      heading: 15,
+      coordLabel: coordBadgeLabel(0, -4500),
+    };
+  }
+  if (kind === 'lighthouse') {
+    return {
+      tx: 7525,
+      ty: 155,
+      tz: 3000,
+      heading: 65,
+      coordLabel: coordBadgeLabel(7525, 3000),
+    };
+  }
+  if (kind === 'swamp-oak') {
+    const oak = ChillFlightLogic.giantSwampOak();
+    const ground = ChillFlightLogic.getElevation(
+      oak.x,
+      oak.z,
+      simplex,
+      elevOpts
+    );
+    return {
+      tx: Math.round(oak.x + (spec.offsetX ?? 320)),
+      ty: Math.round(Math.max(WATER_LEVEL, ground) + (spec.clearance ?? 120)),
+      tz: Math.round(oak.z + (spec.offsetZ ?? 320)),
+      heading: 45,
+      coordLabel: coordBadgeLabel(oak.x, oak.z),
+    };
+  }
+  if (kind === 'pyramids') {
+    const pyr = ChillFlightLogic.pyramidSite(simplex, elevOpts);
+    return {
+      tx: Math.round(pyr.x + (spec.offsetX ?? 950)),
+      ty: Math.round(pyr.base + (spec.clearance ?? 420)),
+      tz: Math.round(pyr.z + (spec.offsetZ ?? 950)),
+      heading: 40,
+      coordLabel: coordBadgeLabel(pyr.x, pyr.z),
+    };
+  }
+  if (kind === 'dragon') {
+    const drg = ChillFlightLogic.dragonSite(simplex, elevOpts);
+    return {
+      tx: Math.round(drg.x + (spec.offsetX ?? 0)),
+      ty: Math.round(drg.base + (spec.clearance ?? 140)),
+      tz: Math.round(drg.z + (spec.offsetZ ?? 280)),
+      heading: 15,
+      coordLabel: coordBadgeLabel(drg.x, drg.z),
+    };
+  }
+  if (kind === 'xmas') {
+    const xmas = ChillFlightLogic.xmasVillageSite(simplex, elevOpts);
+    return {
+      tx: Math.round(xmas.x),
+      ty: Math.round(xmas.base + (spec.clearance ?? 95)),
+      tz: Math.round(xmas.z),
+      heading: 0,
+      coordLabel: coordBadgeLabel(xmas.x, xmas.z),
+    };
+  }
+  throw new Error(`Unknown landmark kind "${kind}"`);
+}
+
+// Merges clip-level `cam` and segment-level `cam`, `extra`, and shorthand
+// properties (`plane`, `livery`, `style`, `camFrame`, `gear`, etc.) cleanly
+// via URLSearchParams so per-segment overrides replace rather than duplicate keys.
+export function buildSegmentQuery(
+  clipSpec,
+  seg,
+  start,
+  heading,
+  speedMult,
+  seed
+) {
+  const params = new URLSearchParams();
+  for (const raw of [clipSpec.cam, seg.cam, seg.extra]) {
+    if (!raw) continue;
+    for (const [k, v] of new URLSearchParams(raw.replace(/^[^?]*\?/, ''))) {
+      params.set(k, v);
+    }
+  }
+  params.set('seed', String(seed));
+  params.set('x', String(start.x));
+  params.set('y', String(start.y));
+  params.set('z', String(start.z));
+  params.set('heading', String(heading));
+  if (speedMult !== undefined && !seg.extra?.includes('speed=')) {
+    params.set('speed', String(speedMult));
+  }
+  const overrides = [
+    ['plane', seg.plane],
+    ['livery', seg.livery],
+    ['style', seg.style],
+    ['camFrame', seg.camFrame ?? clipSpec.camFrame],
+    ['gear', seg.gear === true ? 1 : seg.gear === false ? 0 : seg.gear],
+    ['smoke', seg.smoke === true ? 1 : seg.smoke === false ? 0 : seg.smoke],
+    ['fov', seg.fov],
+    [
+      'camOffset',
+      Array.isArray(seg.camOffset) ? seg.camOffset.join(',') : seg.camOffset,
+    ],
+    [
+      'camLook',
+      Array.isArray(seg.camLook) ? seg.camLook.join(',') : seg.camLook,
+    ],
+    ['camX', seg.camX],
+    ['camY', seg.camY],
+    ['camZ', seg.camZ],
+    ['forza', seg.forza === true ? 1 : seg.forza],
+    ['trip', seg.trip === true ? 1 : seg.trip],
+    ['xmas', seg.xmas],
+  ];
+  for (const [key, val] of overrides) {
+    if (val !== undefined && val !== null) {
+      params.set(key, String(val));
+    }
+  }
+  return params.toString();
+}
+
+function resolveWingmenSpecs(
+  wingmen,
+  {prerollSec = PREROLL, fps = FPS, defaultSpeed = 1} = {}
+) {
+  if (!Array.isArray(wingmen) || wingmen.length === 0) return null;
+  return wingmen.map((w) => {
+    if (
+      w.x === undefined &&
+      w.tx !== undefined &&
+      w.ty !== undefined &&
+      w.tz !== undefined &&
+      !Array.isArray(w.offset) &&
+      !Array.isArray(w.offsetMoves)
+    ) {
+      const start = solveStartCoords({
+        tx: w.tx,
+        ty: w.ty,
+        tz: w.tz,
+        headingDeg: w.heading ?? 0,
+        speedMult: w.speed ?? defaultSpeed,
+        moves: w.moves || [[0, 0, 0, 0]],
+        targetFrame: w.hitFrame ?? 0,
+        prerollSec,
+        fps,
+        loopDip: Boolean(w.loopDip),
+      });
+      return {...w, x: start.x, y: start.y, z: start.z};
+    }
+    return w;
+  });
+}
+
+// Pure Node pre-render trajectory verifier (<15ms per segment): traces every
+// frame from `-preroll` through `endFrame` (including portal crossings and
+// spline wingmen) and checks terrain, water, and arch rock clearance.
+export function verifySegmentCorridor({
+  seed,
+  label = 'segment',
+  x,
+  y,
+  z,
+  headingDeg = 0,
+  speedMult = 1,
+  moves = [[0, 0, 0, 0]],
+  startFrame = 0,
+  endFrame = 90,
+  prerollSec = PREROLL,
+  fps = FPS,
+  loopDip = false,
+  surface = false,
+  minClearance = 5,
+  xmasMode = 'off',
+  wingmen = null,
+}) {
+  const {arches, portals, elevOpts} = getWorldSites(seed, xmasMode);
+  ChillFlightLogic.WORLD_SEED = seed;
+  ChillFlightLogic.XMAS_SEASON = xmasMode;
+  simplex.seed(seed);
+
+  const rawSamples = traceScriptedTrajectory({
+    x,
+    y,
+    z,
+    headingDeg,
+    speedMult,
+    moves,
+    endFrame,
+    prerollSec,
+    fps,
+    loopDip,
+  });
+
+  // Apply portal warp to remaining samples if the trajectory threads a portal
+  let portalCrossFrame = null;
+  let offsetX = 0;
+  let offsetY = 0;
+  let offsetZ = 0;
+  let yawTurn = 0;
+  const samples = [];
+  for (let i = 0; i < rawSamples.length; i++) {
+    const raw = rawSamples[i];
+    let sx = raw.x + offsetX;
+    let sy = raw.y + offsetY;
+    let sz = raw.z + offsetZ;
+    if (yawTurn !== 0 && portalCrossFrame !== null) {
+      const pivot = samples[portalCrossFrame];
+      const dx = raw.x - rawSamples[portalCrossFrame].x;
+      const dz = raw.z - rawSamples[portalCrossFrame].z;
+      const c = Math.cos(yawTurn);
+      const s = Math.sin(yawTurn);
+      sx = pivot.x + dx * c + dz * s;
+      sz = pivot.z - dx * s + dz * c;
+    }
+    const cur = {...raw, x: sx, y: sy, z: sz};
+    if (i > 0 && portalCrossFrame === null) {
+      const prev = samples[i - 1];
+      const cross = ChillFlightLogic.checkPortalCrossing(prev, cur, portals);
+      if (cross) {
+        portalCrossFrame = i;
+        offsetX = cross.x - cur.x;
+        offsetY = cross.y - cur.y;
+        offsetZ = cross.z - cur.z;
+        yawTurn = cross.turn;
+        cur.x = cross.x;
+        cur.y = cross.y;
+        cur.z = cross.z;
+      }
+    }
+    samples.push(cur);
+  }
+
+  const violations = [];
+  let minSurfClearance = Infinity;
+  let minSurfFrame = samples[0]?.frame ?? 0;
+  let minArchMargin = Infinity;
+
+  const floorMargin = surface ? -3.0 : minClearance;
+  for (const s of samples) {
+    const ground = ChillFlightLogic.getElevation(s.x, s.z, simplex, elevOpts);
+    const surf = Math.max(WATER_LEVEL, ground);
+    const clear = s.y - surf;
+    if (clear < minSurfClearance) {
+      minSurfClearance = clear;
+      minSurfFrame = s.frame;
+    }
+    if (clear < floorMargin && violations.length < 3) {
+      const phase = s.frame < startFrame ? 'approach' : 'on-camera';
+      violations.push(
+        `[${label}] ${phase} frame ${s.frame} (${s.t.toFixed(2)}s): ` +
+          `altitude Y = ${s.y.toFixed(1)} is ${clear.toFixed(1)} units above surface ` +
+          `(surface = ${surf.toFixed(1)}, min = ${floorMargin}) at ${formatWorldLocation(s.x, s.z)}`
+      );
+    }
+
+    const ceiling = archCeiling(arches, s.x, s.z, s.y);
+    if (ceiling !== null) {
+      const archMargin = ceiling - s.y;
+      if (archMargin < minArchMargin) minArchMargin = archMargin;
+      if (archMargin < ARCH.CEILING_MARGIN && violations.length < 3) {
+        violations.push(
+          `[${label}] frame ${s.frame} (${s.t.toFixed(2)}s): ` +
+            `hits arch ceiling (Y = ${s.y.toFixed(1)}, underside = ${ceiling.toFixed(1)}) ` +
+            `at ${formatWorldLocation(s.x, s.z)}`
+        );
+      }
+    }
+    if (archBlocks(arches, s.x, s.z, s.y - 2, 4, 2) && violations.length < 3) {
+      violations.push(
+        `[${label}] frame ${s.frame} (${s.t.toFixed(2)}s): ` +
+          `hits solid arch rock (Y = ${s.y.toFixed(1)}) at ${formatWorldLocation(s.x, s.z)}`
+      );
+    }
+  }
+
+  if (Array.isArray(wingmen)) {
+    wingmen.forEach((w, idx) => {
+      if (
+        w.x === undefined ||
+        Array.isArray(w.offset) ||
+        Array.isArray(w.offsetMoves)
+      ) {
+        return;
+      }
+      const wCheck = verifySegmentCorridor({
+        seed,
+        label: `${label} wingman#${idx + 1}`,
+        x: w.x,
+        y: w.y,
+        z: w.z,
+        headingDeg: w.heading ?? 0,
+        speedMult: w.speed ?? speedMult,
+        moves: w.moves || [[0, 0, 0, 0]],
+        startFrame,
+        endFrame,
+        prerollSec,
+        fps,
+        loopDip: Boolean(w.loopDip),
+        surface: Boolean(w.surface),
+        minClearance,
+        xmasMode,
+      });
+      violations.push(...wCheck.violations);
+    });
+  }
+
+  return {
+    ok: violations.length === 0,
+    minClearance: minSurfClearance,
+    minClearanceFrame: minSurfFrame,
+    minArchMargin,
+    portalCrossFrame:
+      portalCrossFrame !== null ? samples[portalCrossFrame].frame : null,
+    violations,
+  };
+}
+
 // Computes the starting (x, y, z) so that after `preroll` seconds of level
 // flight plus `targetFrame` frames of `moves`, the plane arrives at (tx, ty, tz)
-function startCoordsForFrame(
+export function startCoordsForFrame(
   tx,
   ty,
   tz,
@@ -275,79 +738,223 @@ function startCoordsForFrame(
   targetFrame,
   loopDip = false
 ) {
-  const dt = 1 / FPS;
-  const stepDist = speedMult * 3.0 * (dt * 60);
-  const baseYaw = (headingDeg * Math.PI) / 180;
-  let dx = 0;
-  let dy = 0;
-  let dz = 0;
-  // Preroll is level flight at baseYaw
-  const prerollSteps = Math.round(PREROLL * FPS);
-  dx += -Math.sin(baseYaw) * stepDist * prerollSteps;
-  dz += -Math.cos(baseYaw) * stepDist * prerollSteps;
-  // Scripted frames 0 .. targetFrame - 1
-  for (let i = 0; i < targetFrame; i++) {
-    const att = attitudeAt(moves, ((i + 1) * 1000) / FPS / 1000);
-    const yaw = baseYaw + att.yaw;
-    const pitch = att.pitch;
-    const effStep = loopDip
-      ? stepDist * (1 - (0.15 * (1 - Math.cos(pitch))) / 2)
-      : stepDist;
-    dx += -Math.sin(yaw) * Math.cos(pitch) * effStep;
-    dy += Math.sin(pitch) * effStep;
-    dz += -Math.cos(yaw) * Math.cos(pitch) * effStep;
-  }
+  return solveStartCoords({
+    tx,
+    ty,
+    tz,
+    headingDeg,
+    speedMult,
+    moves,
+    targetFrame,
+    prerollSec: PREROLL,
+    fps: FPS,
+    loopDip,
+  });
+}
+
+function planSegment(clipSpec, seg) {
+  const segSeed = seg.seed ?? clipSpec.seed;
+  const segMoves = seg.moves ?? clipSpec.moves ?? [[0, 0, 0, 0]];
+  const segSpeed = seg.speed ?? clipSpec.speedMult ?? 1;
+  const segLoopDip = seg.loopDip ?? clipSpec.loopDip ?? false;
+  const segSurface = Boolean(seg.surface ?? clipSpec.surface);
+  const segDirect = seg.direct ?? clipSpec.direct;
+  const segPreroll = seg.preroll ?? clipSpec.preroll ?? PREROLL;
+  const segXmas =
+    seg.xmas || (seg.extra?.includes('xmas=full') ? 'full' : 'off');
+
+  const lm = seg.landmark
+    ? resolveLandmarkTarget(segSeed, seg.landmark, segXmas)
+    : null;
+  const tx = seg.tx ?? lm?.tx ?? 0;
+  const ty = seg.ty ?? lm?.ty ?? 200;
+  const tz = seg.tz ?? lm?.tz ?? 0;
+  const heading = seg.heading ?? lm?.heading ?? 0;
+  const targetFrame = seg.hitFrame ?? seg.startFrame ?? 0;
+
+  const start =
+    seg.x !== undefined && seg.y !== undefined && seg.z !== undefined
+      ? {x: seg.x, y: seg.y, z: seg.z}
+      : solveStartCoords({
+          tx,
+          ty,
+          tz,
+          headingDeg: heading,
+          speedMult: segSpeed,
+          moves: segMoves,
+          targetFrame,
+          prerollSec: segPreroll,
+          fps: FPS,
+          loopDip: segLoopDip,
+        });
+
+  const resolvedWingmen = resolveWingmenSpecs(seg.wingmen ?? clipSpec.wingmen, {
+    prerollSec: segPreroll,
+    fps: FPS,
+    defaultSpeed: segSpeed,
+  });
+  const query = buildSegmentQuery(
+    clipSpec,
+    seg,
+    start,
+    heading,
+    segSpeed,
+    segSeed
+  );
+  const camMoves = seg.camMoves ?? clipSpec.camMoves ?? null;
+  const camFrame = seg.camFrame ?? clipSpec.camFrame ?? null;
+  const driveMoves = seg.driveMoves ?? clipSpec.driveMoves ?? null;
+  const replay = seg.replay ?? clipSpec.replay ?? null;
+  const isSurfaceDriven =
+    segSurface ||
+    Boolean(driveMoves) ||
+    Boolean(replay) ||
+    new URLSearchParams(query).get('plane') === 'buggy';
+
+  const check =
+    seg.skipCheck || driveMoves || replay
+      ? {
+          ok: true,
+          minClearance: Infinity,
+          minClearanceFrame: 0,
+          minArchMargin: Infinity,
+          portalCrossFrame: null,
+          violations: [],
+        }
+      : verifySegmentCorridor({
+          seed: segSeed,
+          label: `${clipSpec.id}:${seg.label}`,
+          x: start.x,
+          y: start.y,
+          z: start.z,
+          headingDeg: heading,
+          speedMult: segSpeed,
+          moves: segMoves,
+          startFrame: seg.startFrame ?? 0,
+          endFrame: seg.endFrame,
+          prerollSec: segPreroll,
+          fps: FPS,
+          loopDip: segLoopDip,
+          surface: isSurfaceDriven,
+          minClearance: seg.minClearance ?? 5,
+          xmasMode: segXmas,
+          wingmen: resolvedWingmen,
+        });
+
   return {
-    x: Math.round(tx - dx),
-    y: Math.round(ty - dy),
-    z: Math.round(tz - dz),
+    segSeed,
+    segMoves,
+    segSpeed,
+    segLoopDip,
+    segSurface,
+    segDirect,
+    segPreroll,
+    heading,
+    start,
+    query,
+    camMoves,
+    camFrame,
+    driveMoves,
+    replay,
+    resolvedWingmen,
+    portalCross: Boolean(
+      seg.portalCross ?? lm?.portalCross ?? check.portalCrossFrame !== null
+    ),
+    check,
   };
 }
 
-async function renderMatchCutClip(
-  browser,
-  {
+async function renderMatchCutClip(browser, clipSpec) {
+  const {
     id,
     banner,
-    seed,
-    speedMult,
-    cam,
-    moves,
-    loopDip = false,
     segments,
     outBaseName,
     trackSlug,
     musicStart,
     durationSec = 12,
     meta,
+  } = clipSpec;
+
+  const plans = segments.map((seg) => ({
+    seg,
+    plan: planSegment(clipSpec, seg),
+  }));
+  const allViolations = plans.flatMap(({plan}) => plan.check.violations);
+
+  if (!browser) {
+    console.log(`=== Checking ${banner} ===`);
+    for (const {seg, plan} of plans) {
+      const archNote = Number.isFinite(plan.check.minArchMargin)
+        ? `, arch margin = ${plan.check.minArchMargin.toFixed(1)}u`
+        : '';
+      const portalNote =
+        plan.check.portalCrossFrame !== null
+          ? `, portal warp @ frame ${plan.check.portalCrossFrame}`
+          : '';
+      console.log(
+        `  [${plan.check.ok ? 'OK' : 'FAIL'}] ${seg.label}: min clearance = ` +
+          `${Number.isFinite(plan.check.minClearance) ? plan.check.minClearance.toFixed(1) + 'u' : 'skipped'} ` +
+          `(spawn ${formatWorldLocation(plan.start.x, plan.start.z)}${archNote}${portalNote})`
+      );
+    }
+    for (const v of allViolations) console.error(`  ERROR: ${v}`);
+    if (allViolations.length > 0) checkFailures += allViolations.length;
+    return;
   }
-) {
+
+  if (allViolations.length > 0) {
+    throw new Error(
+      `Pre-render corridor check failed for ${id}:\n  ` +
+        allViolations.join('\n  ')
+    );
+  }
+
   console.log(`=== Rendering ${banner}${PREVIEW ? ' [PREVIEW]' : ''} ===`);
   const frameDir = path.join(OUT, `frames-${outBaseName}`);
   fs.rmSync(frameDir, {recursive: true, force: true});
   fs.mkdirSync(frameDir, {recursive: true});
 
+  const topLine = 'CHILL FLIGHT · Play free at chillflight.app';
   let previewIdx = 0;
-  for (const seg of segments) {
-    const start = startCoordsForFrame(
-      seg.tx,
-      seg.ty,
-      seg.tz,
-      seg.heading,
-      speedMult,
-      moves,
-      seg.startFrame,
-      loopDip
+  for (const {seg, plan} of plans) {
+    const beforePreroll =
+      plan.camMoves || plan.camFrame || plan.resolvedWingmen
+        ? async (p) => {
+            await p.evaluate(
+              ({camMoves, camFrame, wingmen, startOffsetMs}) => {
+                if (camMoves || camFrame) {
+                  window.dispatchEvent(
+                    new CustomEvent('promo-camera', {
+                      detail: {camMoves, camFrame, startOffsetMs},
+                    })
+                  );
+                }
+                if (wingmen) {
+                  window.dispatchEvent(
+                    new CustomEvent('promo-wingmen', {
+                      detail: {wingmen, startOffsetMs},
+                    })
+                  );
+                }
+              },
+              {
+                camMoves: plan.camMoves,
+                camFrame: plan.camFrame,
+                wingmen: plan.resolvedWingmen,
+                startOffsetMs: plan.segPreroll * 1000,
+              }
+            );
+          }
+        : null;
+
+    const page = await openWorld(
+      browser,
+      plan.query,
+      plan.segPreroll,
+      beforePreroll
     );
-    const query =
-      `seed=${seed}&x=${start.x}&y=${start.y}&z=${start.z}` +
-      `&heading=${seg.heading}&${seg.extra}&${cam}`;
-    const page = await openWorld(browser, query, PREROLL);
-    await addPostcardBadge(
-      page,
-      'CHILL FLIGHT · Play free at chillflight.app',
-      seg.label
-    );
+    await addPostcardBadge(page, topLine, seg.label);
     if (seg.rainbow) {
       await page.evaluate(async () => {
         const {state} = await window.gameModule('state.js');
@@ -355,14 +962,38 @@ async function renderMatchCutClip(
         state.rainbowIntensity = 1.0;
       });
     }
-    await page.evaluate((m) => {
-      window.dispatchEvent(new CustomEvent('promo-script', {detail: m}));
-    }, moves);
 
+    const scriptDetail =
+      plan.segDirect !== undefined ||
+      plan.segSurface ||
+      plan.driveMoves ||
+      plan.replay
+        ? {
+            moves: plan.segMoves,
+            direct: plan.segDirect,
+            surface: plan.segSurface,
+            driveMoves: plan.driveMoves,
+            replay: plan.replay,
+          }
+        : plan.segMoves;
+    await page.evaluate((detail) => {
+      window.dispatchEvent(new CustomEvent('promo-script', {detail}));
+    }, scriptDetail);
+
+    const badgeMap = Array.isArray(seg.badges) ? new Map(seg.badges) : null;
     const midFrame = Math.floor((seg.startFrame + seg.endFrame) / 2);
     const previewFrames = new Set([seg.startFrame, midFrame, seg.endFrame - 1]);
+    let prevPos = plan.portalCross
+      ? await page.evaluate(async () => {
+          const {planeGroup} = await window.gameModule('airplane.js');
+          return {x: planeGroup.position.x, z: planeGroup.position.z};
+        })
+      : null;
 
     for (let i = 0; i < seg.endFrame; i++) {
+      if (badgeMap && badgeMap.has(i)) {
+        await addPostcardBadge(page, topLine, badgeMap.get(i));
+      }
       if (seg.lightningFrames && seg.lightningFrames.includes(i)) {
         await page.evaluate(async () => {
           const {flashLightning} =
@@ -371,6 +1002,20 @@ async function renderMatchCutClip(
         });
       }
       await step(page);
+
+      if (plan.portalCross && prevPos) {
+        const curPos = await page.evaluate(async () => {
+          const {planeGroup} = await window.gameModule('airplane.js');
+          return {x: planeGroup.position.x, z: planeGroup.position.z};
+        });
+        if (Math.hypot(curPos.x - prevPos.x, curPos.z - prevPos.z) > 10000) {
+          await waitForPromoChunks(page, {
+            settleMs: PREVIEW ? 250 : 600,
+          });
+        }
+        prevPos = curPos;
+      }
+
       if (PREVIEW) {
         if (previewFrames.has(i)) {
           const framePath = path.join(
@@ -597,16 +1242,17 @@ function scoutArchPass(seed, kind, index = 0) {
 }
 
 async function renderDailyPostcardShort(browser, seed = 20261108) {
-  console.log(`=== Rendering Prototype 2: Daily Postcard (Seed ${seed}) ===`);
   const gorge = scoutArchPass(seed, 'gorge', 1);
   const sea = scoutArchPass(seed, 'sea', 1);
-  console.log('  Auto-scouted gorge bridge:', gorge);
-  console.log('  Auto-scouted sea arch:', sea);
 
   const shots = [
     {
       name: 'gorge',
       seconds: 6,
+      x: gorge.sx,
+      y: gorge.flyY,
+      z: gorge.sz,
+      heading: gorge.heading,
       topLine: 'CHILL FLIGHT · Play free at chillflight.app',
       subLine: `Mountain Gorge Bridge · ${gorge.coordLabel}`,
       query:
@@ -623,6 +1269,10 @@ async function renderDailyPostcardShort(browser, seed = 20261108) {
     {
       name: 'sea',
       seconds: 6,
+      x: sea.sx,
+      y: sea.flyY,
+      z: sea.sz,
+      heading: sea.heading,
       topLine: 'CHILL FLIGHT · Play free at chillflight.app',
       subLine: `Coral Sea Arch · ${sea.coordLabel}`,
       query:
@@ -637,6 +1287,35 @@ async function renderDailyPostcardShort(browser, seed = 20261108) {
       ],
     },
   ];
+
+  if (!browser) {
+    console.log(`=== Checking Prototype 2: Daily Postcard (Seed ${seed}) ===`);
+    for (const s of shots) {
+      const check = verifySegmentCorridor({
+        seed,
+        label: `daily-postcard:${s.name}`,
+        x: s.x,
+        y: s.y,
+        z: s.z,
+        headingDeg: s.heading,
+        speedMult: 1,
+        moves: s.moves,
+        startFrame: 0,
+        endFrame: Math.round(s.seconds * FPS),
+      });
+      console.log(
+        `  [${check.ok ? 'OK' : 'FAIL'}] ${s.subLine}: min clearance = ${check.minClearance.toFixed(1)}u ` +
+          `(spawn ${formatWorldLocation(s.x, s.z)})`
+      );
+      for (const v of check.violations) console.error(`  ERROR: ${v}`);
+      if (!check.ok) checkFailures += check.violations.length;
+    }
+    return;
+  }
+
+  console.log(`=== Rendering Prototype 2: Daily Postcard (Seed ${seed}) ===`);
+  console.log('  Auto-scouted gorge bridge:', gorge);
+  console.log('  Auto-scouted sea arch:', sea);
 
   const outMp4 = path.join(OUT, 'short-2-daily-postcard.mp4');
   const previewDir = path.join(OUT, 'frames-short-postcard-preview');
@@ -742,11 +1421,6 @@ async function renderDailyPostcardShort(browser, seed = 20261108) {
 // Prototype 3: Window Seat / Wing-Cam Sunset Flight (12s continuous)
 // ---------------------------------------------------------------------------
 async function renderWingCamShort(browser) {
-  console.log('=== Rendering Prototype 3: Window Seat / Wing-Cam ===');
-  const frameDir = path.join(OUT, 'frames-short-wing-cam');
-  fs.rmSync(frameDir, {recursive: true, force: true});
-  fs.mkdirSync(frameDir, {recursive: true});
-
   // Mounted right beside the cockpit between the upper (y=2.85) and lower
   // (y=-1.0) right wings at z=-3.2, looking outward and forward through the
   // N-struts toward the headland lighthouse and sunset islands
@@ -762,6 +1436,35 @@ async function renderWingCamShort(browser) {
     [12.0, 0, 0],
   ];
 
+  const totalFrames = 12 * FPS;
+  if (!browser) {
+    console.log('=== Checking Prototype 3: Window Seat / Wing-Cam ===');
+    const check = verifySegmentCorridor({
+      seed: 20260101,
+      label: 'wing-cam',
+      x: 8600,
+      y: 135,
+      z: 3550,
+      headingDeg: 65,
+      speedMult: 1,
+      moves,
+      startFrame: 0,
+      endFrame: totalFrames,
+    });
+    console.log(
+      `  [${check.ok ? 'OK' : 'FAIL'}] Headland Lighthouse · 0.6°S, 1.5°E: ` +
+        `min clearance = ${check.minClearance.toFixed(1)}u (spawn ${formatWorldLocation(8600, 3550)})`
+    );
+    for (const v of check.violations) console.error(`  ERROR: ${v}`);
+    if (!check.ok) checkFailures += check.violations.length;
+    return;
+  }
+
+  console.log('=== Rendering Prototype 3: Window Seat / Wing-Cam ===');
+  const frameDir = path.join(OUT, 'frames-short-wing-cam');
+  fs.rmSync(frameDir, {recursive: true, force: true});
+  fs.mkdirSync(frameDir, {recursive: true});
+
   const page = await openWorld(browser, query, PREROLL);
   await addPostcardBadge(
     page,
@@ -771,8 +1474,6 @@ async function renderWingCamShort(browser) {
   await page.evaluate((m) => {
     window.dispatchEvent(new CustomEvent('promo-script', {detail: m}));
   }, moves);
-
-  const totalFrames = 12 * FPS;
   let previewIdx = 0;
   for (let i = 0; i < totalFrames; i++) {
     await step(page);
@@ -889,7 +1590,7 @@ async function renderLandmarkCutShort(browser) {
       {
         label: 'Headland Lighthouse · 0.6°S, 1.5°E',
         tx: 7920,
-        ty: 125,
+        ty: 145,
         tz: 3280,
         heading: 68,
         extra: 'tod=0.78&headlight=1&cloudMood=mackerel',
@@ -947,7 +1648,7 @@ async function renderDailyMatchCutShort(browser, seed = 20261109) {
         label: 'Twin Falls · 0.9°N, 0.0°E',
         tx: 45,
         ty: 290,
-        tz: -4220,
+        tz: -4050,
         heading: 160,
         extra: 'tod=0.29&cloudMood=fair',
         startFrame: 0,
@@ -976,7 +1677,7 @@ async function renderDailyMatchCutShort(browser, seed = 20261109) {
       {
         label: 'Desert Pyramids · 3.8°S, 2.1°W',
         tx: -10150,
-        ty: 435,
+        ty: 448,
         tz: 19150,
         heading: -45,
         extra: 'tod=0.75&headlight=1&cloudMood=high',
@@ -1120,7 +1821,7 @@ async function renderWeatherCutShort(browser, seed = 20261110) {
       {
         label: 'Sunrise Mist · 0.9°N, 0.0°E',
         tx: 210,
-        ty: 195,
+        ty: 206,
         tz: -3350,
         heading: 14,
         extra: 'tod=0.272&cloudCover=0.25&cloudMood=fair',
@@ -1529,9 +2230,12 @@ async function renderTwinWondersCutShort(browser, seed = 20261116) {
 }
 
 async function main() {
-  fs.mkdirSync(OUT, {recursive: true});
   const cliArgs = process.argv.slice(2).filter((a) => !a.startsWith('--'));
-  const filter = cliArgs[0];
+  const isCheck = CHECK_ONLY || cliArgs[0] === 'check';
+  const filter = cliArgs[0] === 'check' ? cliArgs[1] : cliArgs[0];
+  if (!isCheck) {
+    fs.mkdirSync(OUT, {recursive: true});
+  }
   if (filter === 'meta') {
     const gorge = scoutArchPass(20261108, 'gorge', 1);
     const sea = scoutArchPass(20261108, 'sea', 1);
@@ -1653,18 +2357,20 @@ async function main() {
     });
     return;
   }
-  const browser = await launch({
-    headless: 'new',
-    args: [
-      '--use-gl=angle',
-      '--use-angle=metal',
-      '--enable-gpu-rasterization',
-      '--ignore-gpu-blocklist',
-      '--disable-background-timer-throttling',
-      '--disable-renderer-backgrounding',
-      '--disable-backgrounding-occluded-windows',
-    ],
-  });
+  const browser = isCheck
+    ? null
+    : await launch({
+        headless: 'new',
+        args: [
+          '--use-gl=angle',
+          '--use-angle=metal',
+          '--enable-gpu-rasterization',
+          '--ignore-gpu-blocklist',
+          '--disable-background-timer-throttling',
+          '--disable-renderer-backgrounding',
+          '--disable-backgrounding-occluded-windows',
+        ],
+      });
   try {
     if (!filter || filter === 'match-cut') {
       await renderMatchCutShort(browser);
@@ -1700,8 +2406,23 @@ async function main() {
       await renderLandmarkCutShort(browser);
     }
   } finally {
-    await browser.close();
+    if (browser) await browser.close();
+  }
+  if (isCheck) {
+    if (checkFailures > 0) {
+      console.error(
+        `Short corridor check failed (${checkFailures} violation(s)).`
+      );
+      process.exit(1);
+    }
+    console.log('All checked Short flight corridors passed.');
+    process.exit(0);
   }
 }
 
-main();
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  main();
+}

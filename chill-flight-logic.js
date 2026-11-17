@@ -404,21 +404,30 @@ export const ChillFlightLogic = {};
   };
   const _cameraArg = (getParam('camera', '') || '').trim().toLowerCase();
   const _cameraParam = OLD_CAMERA_MODES[_cameraArg]?.mode || _cameraArg;
+  const CAM_FRAMES = ['yaw', 'yaw-lock', 'plane', 'world-track'];
+  const _camFrameArg = (getParam('camFrame', '') || '').trim().toLowerCase();
+  const START_CAM_FRAME = CAM_FRAMES.includes(_camFrameArg)
+    ? _camFrameArg
+    : null;
   // A chase offset relative to the plane (right, up, behind) is a custom
   // cinematic view; camLook is the point it looks at, also relative.
+  // ?camFrame= also starts in cinematic mode (e.g. ?camFrame=world-track&camX=...).
   const START_CAM_OFFSET = parseVec3Param('camOffset');
   const START_CAM_LOOK = parseVec3Param('camLook');
-  const START_CAMERA = START_CAM_OFFSET
-    ? 'cinematic'
-    : CAMERA_MODES.includes(_cameraParam)
-      ? _cameraParam
-      : null;
+  const START_CAMERA =
+    START_CAM_OFFSET || START_CAM_FRAME
+      ? 'cinematic'
+      : CAMERA_MODES.includes(_cameraParam)
+        ? _cameraParam
+        : null;
   // Which of the cinematic mode's preset angles (game.js CINEMATIC_CONFIGS)
   const _angleParam = parseNumberParam('angle');
   const START_CAM_ANGLE =
     _angleParam !== null && _angleParam >= 0 ? Math.floor(_angleParam) : null;
   const START_FOV = parseNumberParam('fov');
   const START_HEADLIGHT = getSwitchParam('headlight');
+  const START_GEAR = getSwitchParam('gear');
+  const START_RECORD = getSwitchParam('record');
   // The plane's bank, in degrees (holds while the free camera freezes the
   // plane; in flight the flight model takes over)
   const START_ROLL = parseNumberParam('roll');
@@ -7153,14 +7162,19 @@ export const ChillFlightLogic = {};
   exports.getIslandArchetype = getIslandArchetype;
   exports.START_PLANE = START_PLANE;
   exports.START_CAMERA = START_CAMERA;
-  exports.START_CAMERA_ZOOM = START_CAM_OFFSET
-    ? null
-    : (OLD_CAMERA_MODES[_cameraArg]?.zoom ?? null);
+  exports.CAM_FRAMES = CAM_FRAMES;
+  exports.START_CAM_FRAME = START_CAM_FRAME;
+  exports.START_CAMERA_ZOOM =
+    START_CAM_OFFSET || START_CAM_FRAME
+      ? null
+      : (OLD_CAMERA_MODES[_cameraArg]?.zoom ?? null);
   exports.START_CAM_OFFSET = START_CAM_OFFSET;
   exports.START_CAM_LOOK = START_CAM_LOOK;
   exports.START_CAM_ANGLE = START_CAM_ANGLE;
   exports.START_FOV = START_FOV;
   exports.START_HEADLIGHT = START_HEADLIGHT;
+  exports.START_GEAR = START_GEAR;
+  exports.START_RECORD = START_RECORD;
   exports.START_ROLL = START_ROLL;
   exports.START_CAM_X = START_CAM_X;
   exports.START_CAM_Y = START_CAM_Y;

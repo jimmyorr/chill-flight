@@ -534,15 +534,19 @@ function stepBuggy(dt) {
   if ((keys.ArrowUp || keys.KeyW) && !shift) joyY = 1;
   else if ((keys.ArrowDown || keys.KeyS) && !shift) joyY = -1;
   // On autopilot (autopilot.js) it drives itself; steering turns it off
-  // (game-loop.js)
-  if (state.autopilotEnabled && state.autopilotDrive) {
+  // (game-loop.js). A promo clip's scripted drive overrides both.
+  const scriptedDrv = state.scriptedDrive?.(performance.now()) || null;
+  if (scriptedDrv) {
+    steerIn = THREE.MathUtils.clamp(scriptedDrv.steer, -1, 1);
+    joyY = THREE.MathUtils.clamp(scriptedDrv.throttle, -1, 1);
+  } else if (state.autopilotEnabled && state.autopilotDrive) {
     steerIn = state.autopilotDrive.steer;
     joyY = state.autopilotDrive.throttle;
   }
 
   // Double-tap moves (held: the double-tap stays set until the key's let go)
   const held = (dir) => doubleTap[dir] && keys[dir] && !shift;
-  const dtUp = held('ArrowUp');
+  const dtUp = scriptedDrv ? Boolean(scriptedDrv.hop) : held('ArrowUp');
   const hop = ChillFlightLogic.stepBuggyHop(hopTimer, {
     tapped: dtUp && !hopLatch,
     airborne,
@@ -554,15 +558,18 @@ function stepBuggy(dt) {
     hopping = true;
     hopFloatLeft = ChillFlightLogic.BUGGY_MOVES.HOP_FLOAT_SECONDS;
   }
-  const hopHeld = hopping && keys.ArrowUp && !shift;
+  const hopHeld = hopping && (scriptedDrv ? dtUp : keys.ArrowUp && !shift);
   const float = hopHeld && hopFloatLeft > 0;
   hopFloatLeft = hopHeld ? hopFloatLeft - dt : 0;
-  const hardBrake = held('ArrowDown');
-  const slide =
-    gripTurn !== 0 ||
-    held('ArrowLeft') ||
-    held('ArrowRight') ||
-    (hardBrake && Math.abs(steerIn) > 0.5);
+  const hardBrake = scriptedDrv
+    ? scriptedDrv.throttle < -0.6
+    : held('ArrowDown');
+  const slide = scriptedDrv
+    ? Boolean(scriptedDrv.slide) || (hardBrake && Math.abs(steerIn) > 0.5)
+    : gripTurn !== 0 ||
+      held('ArrowLeft') ||
+      held('ArrowRight') ||
+      (hardBrake && Math.abs(steerIn) > 0.5);
 
   // --- FORCES ---
   const fx = -Math.sin(yaw);
