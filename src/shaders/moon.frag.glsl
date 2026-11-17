@@ -9,8 +9,8 @@
     uniform vec3 uCameraPos;
     uniform sampler2D uMoonMap;
     uniform float uHasMoonMap;
-    #ifdef ANIME_TOWERS
     uniform bool uShowClouds;
+    #ifdef ANIME_TOWERS
     uniform float offset;
     uniform float uSkyTime;
     #endif
@@ -132,8 +132,10 @@
         fresnel = pow(fresnel, 3.0);
         color += vec3(0.95, 0.95, 1.0) * fresnel * 0.15 * phaseMask;
 
-        // Cloud occlusion - moon fades behind clouds
-        float cloudCover = getCloudCoverage();
+        // Cloud occlusion - moon fades behind clouds (none when the sky draws
+        // no clouds: on Low or with ?clouds=none the moon faded in and out
+        // behind clouds nobody could see)
+        float cloudCover = uShowClouds ? getCloudCoverage() : 0.0;
         #ifdef ANIME_TOWERS
         // ...and behind the anime style's towering horizon clouds, pixel by
         // pixel, in the sky dome's own direction for this pixel (the dome is
