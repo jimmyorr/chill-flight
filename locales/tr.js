@@ -17,6 +17,8 @@ export default {
   'Reticulating splines...': 'Eğriler örülüyor...',
   'Calculating flight paths...': 'Uçuş rotaları hesaplanıyor...',
   'Have a chill flight.': 'Keyifli uçuşlar.',
+  'Taking a long time to load.': 'Yükleme uzun sürüyor.',
+  'Retry on low graphics': 'Düşük grafikle tekrar dene',
   ', ': ', ',
   '{list} and {last}': '{list} ve {last}',
   '1 job': '1 görev',

@@ -17,6 +17,8 @@ export default {
   'Reticulating splines...': 'Merangkai kurva spline...',
   'Calculating flight paths...': 'Menghitung jalur terbang...',
   'Have a chill flight.': 'Selamat terbang santai.',
+  'Taking a long time to load.': 'Pemuatan memakan waktu lama.',
+  'Retry on low graphics': 'Coba lagi dengan grafis rendah',
   ', ': ', ',
   '{list} and {last}': '{list} dan {last}',
   '1 job': '1 tugas',

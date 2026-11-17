@@ -17,6 +17,8 @@ export default {
   'Reticulating splines...': '스플라인 그물망 짜는 중...',
   'Calculating flight paths...': '비행 경로 계산 중...',
   'Have a chill flight.': '느긋한 비행 되세요.',
+  'Taking a long time to load.': '로딩이 오래 걸리고 있어요.',
+  'Retry on low graphics': '낮은 그래픽으로 다시 시도',
   ', ': ', ',
   '{list} and {last}': '{list} 및 {last}',
   '1 job': '1건',

@@ -18,6 +18,8 @@ export default {
   'Reticulating splines...': '正在网状化样条曲线……',
   'Calculating flight paths...': '正在计算航线……',
   'Have a chill flight.': '祝你飞得惬意。',
+  'Taking a long time to load.': '加载时间有点长。',
+  'Retry on low graphics': '以低画质重试',
   ', ': '、',
   '{list} and {last}': '{list}和{last}',
   '1 job': '1 单',

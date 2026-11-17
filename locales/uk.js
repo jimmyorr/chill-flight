@@ -17,6 +17,8 @@ export default {
   'Reticulating splines...': 'Побудова сплайнів...',
   'Calculating flight paths...': 'Розрахунок маршрутів польоту...',
   'Have a chill flight.': 'Приємного й затишного польоту.',
+  'Taking a long time to load.': 'Завантаження триває довго.',
+  'Retry on low graphics': 'Спробувати знову з низькою графікою',
   ', ': ', ',
   '{list} and {last}': '{list} і {last}',
   '1 job': '1 завдання',

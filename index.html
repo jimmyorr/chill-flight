@@ -778,6 +778,12 @@
                 "
               ></div>
             </div>
+            <div id="splash-stuck" hidden>
+              <div>Taking a long time to load.</div>
+              <button id="splash-stuck-btn" class="btn" type="button">
+                Retry on low graphics
+              </button>
+            </div>
           </div>
           <div id="splash-btn-container" class="splash-fade-item hidden">
             <button id="begin-btn" class="btn">Start</button>
@@ -818,6 +824,51 @@
             </div>
           </div>
         </div>
+        <script>
+          // Loading watchdog: if START hasn't come up after a minute on
+          // screen (a stuck load, or a phone that ran out of memory and
+          // reloaded), offer a reload on low graphics. Plain script so it
+          // still works if the game's modules fail to load.
+          (() => {
+            const LIMIT_MS = 60000;
+            const STEP_MS = 5000;
+            let shownFor = 0;
+            const timer = setInterval(() => {
+              const overlay = document.getElementById('loading-overlay');
+              const progress = document.getElementById(
+                'splash-progress-container'
+              );
+              const loaded =
+                !overlay ||
+                overlay.style.display === 'none' ||
+                !progress?.classList.contains('visible');
+              if (loaded) {
+                clearInterval(timer);
+                return;
+              }
+              if (document.visibilityState !== 'visible') return;
+              shownFor += STEP_MS;
+              if (shownFor < LIMIT_MS) return;
+              clearInterval(timer);
+              const stuck = document.getElementById('splash-stuck');
+              if (stuck) stuck.hidden = false;
+            }, STEP_MS);
+            document
+              .getElementById('splash-stuck-btn')
+              ?.addEventListener('click', () => {
+                try {
+                  localStorage.setItem('chill_flight_graphics_preset', 'low');
+                  localStorage.setItem(
+                    'chill_flight_graphics_preset_manual',
+                    '1'
+                  );
+                } catch {
+                  /* reload anyway */
+                }
+                location.reload();
+              });
+          })();
+        </script>
         <div
           id="loading-music-attribution"
           class="pause-metadata"

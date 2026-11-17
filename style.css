@@ -1560,6 +1560,21 @@ input[type='number'].customization-input {
   min-height: 56px; /* Ensure space for content */
 }
 
+/* Loading watchdog note (index.html): shown when START is slow to come up */
+#splash-stuck {
+  margin-top: 20px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+  text-align: center;
+}
+#splash-stuck[hidden] {
+  display: none;
+}
+#splash-stuck .btn {
+  margin-top: 10px;
+  font-size: 13px;
+}
+
 #splash-progress-container,
 #splash-btn-container {
   grid-area: overlap;

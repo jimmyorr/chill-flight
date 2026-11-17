@@ -17,6 +17,8 @@ export default {
   'Reticulating splines...': 'Réticulation des splines...',
   'Calculating flight paths...': 'Calcul des trajectoires de vol...',
   'Have a chill flight.': 'Bon vol, tranquille.',
+  'Taking a long time to load.': 'Le chargement prend du temps.',
+  'Retry on low graphics': 'Réessayer en graphismes bas',
   ', ': ', ',
   '{list} and {last}': '{list} et {last}',
   '1 job': '1 mission',

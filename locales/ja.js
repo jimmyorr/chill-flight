@@ -17,6 +17,8 @@ export default {
   'Reticulating splines...': 'スプラインを網状化中…',
   'Calculating flight paths...': '飛行ルートを計算中…',
   'Have a chill flight.': 'のんびりフライトを。',
+  'Taking a long time to load.': '読み込みに時間がかかっています。',
+  'Retry on low graphics': '低画質で再試行',
   ', ': '、',
   '{list} and {last}': '{list}と{last}',
   '1 job': '1件',
