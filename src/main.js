@@ -1,5 +1,6 @@
 // Game entry point for index.html. Modules imported here run before the
 // classic <script defer> tags in index.html.
+import './polyfills.js';
 import './sentry.js';
 // Bundled font: a render-blocking Google Fonts stylesheet kept the page from
 // ever painting on networks that drop packets (black screen, issue #73).

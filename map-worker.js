@@ -1,6 +1,7 @@
 // map-worker.js
 // Renders map tiles and bands off the main thread (see map-render.js), for
 // the in-game map (map-tiles.js) and the map export page.
+import './src/polyfills.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {renderMapRows} from './map-render.js';
 

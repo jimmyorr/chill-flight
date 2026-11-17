@@ -1,6 +1,7 @@
 // terrain-worker.js
 // Terrain web worker: generates chunks off the main thread (see terrain-gen.js).
 
+import './src/polyfills.js';
 import {generateChunkData} from './terrain-gen.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 
