@@ -33,16 +33,18 @@ import {camera, renderer} from './sky.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {simplex} from './noise.js';
 
-const CELL = 3000;
+const CELL = 4500;
 // Cells this many out from the camera's cell, each way, are looked at
-const RANGE = 3;
+const RANGE = 2;
 const MAX_MASTS = 64;
-// A summit must be this high, and this much higher than the ground this far
-// round it, to get a mast; and only some cells have one
-const PEAK_MIN = 450;
+// A summit must stand above the tree line, rise sharply over the ground close
+// round it, have no higher ground nearby, and keep clear of neighboring masts
+const PEAK_MIN = 650;
 const PROMINENCE_REACH = 400;
-const PROMINENCE_RISE = 50;
-const MAST_CHANCE = 0.7;
+const PROMINENCE_RISE = 70;
+const DOMINANCE_REACH = 1100;
+const MIN_SPACING = 2500;
+const MAST_CHANCE = 0.6;
 const FLASH_PERIOD = 2.0;
 // Masts keep this far outside a pyramid's base
 const PYRAMID_CLEAR = 1100;
@@ -54,37 +56,21 @@ const SAMPLES_PER_FRAME = 32;
 const cells = new Map();
 
 function cellHash(cx, cz, salt) {
-  let h = (cx * 374761393 + cz * 668265263 + salt * 2147483647) | 0;
+  let h =
+    (Math.imul(cx, 374761393) ^
+      Math.imul(cz, 668265263) ^
+      Math.imul((ChillFlightLogic.WORLD_SEED | 0) + salt, 2147483647)) |
+    0;
   h = Math.imul(h ^ (h >>> 13), 1274126177);
   h ^= h >>> 16;
   return (h >>> 0) / 4294967296;
 }
 
-// The cell's highest point, or null if it shouldn't have a mast. A
-// generator that yields after each height it looks up, so the search is
-// spread over frames (SAMPLES_PER_FRAME); its return value is the result.
-function* findMast(cx, cz) {
-  if (cellHash(cx, cz, 17) > MAST_CHANCE) return null;
-  const x0 = cx * CELL;
-  const z0 = cz * CELL;
-  const mid = ChillFlightLogic.alienAt?.(x0 + CELL / 2, z0 + CELL / 2, simplex);
-  if (mid > 0.2) return null;
-  let bx = 0;
-  let bz = 0;
-  let by = -Infinity;
-  const n = 7;
-  const step = CELL / n;
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < n; j++) {
-      const x = x0 + (i + 0.5) * step;
-      const z = z0 + (j + 0.5) * step;
-      const y = getElevation(x, z);
-      if (y > by) [bx, bz, by] = [x, z, y];
-      yield;
-    }
-  }
-  if (by < PEAK_MIN - 150) return null;
-  // Climb to the top
+function inCell(x, z, x0, z0) {
+  return x >= x0 && x < x0 + CELL && z >= z0 && z < z0 + CELL;
+}
+
+function* climb(bx, bz, by, step) {
   for (let s = step / 2; s >= 20; s /= 2) {
     let moved = true;
     for (let tries = 0; moved && tries < 8; tries++) {
@@ -102,7 +88,52 @@ function* findMast(cx, cz) {
       }
     }
   }
+  return [bx, bz, by];
+}
+
+// The cell's highest point, or null if it shouldn't have a mast. A
+// generator that yields after each height it looks up, so the search is
+// spread over frames (SAMPLES_PER_FRAME); its return value is the result.
+function* findMast(cx, cz) {
+  if (cellHash(cx, cz, 17) > MAST_CHANCE) return null;
+  const x0 = cx * CELL;
+  const z0 = cz * CELL;
+  const mid = ChillFlightLogic.alienAt?.(x0 + CELL / 2, z0 + CELL / 2, simplex);
+  if (mid > 0.3) return null;
+  let x1 = 0;
+  let z1 = 0;
+  let y1 = -Infinity;
+  let x2 = 0;
+  let z2 = 0;
+  let y2 = -Infinity;
+  const n = 9;
+  const step = CELL / n;
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      const x = x0 + (i + 0.5) * step;
+      const z = z0 + (j + 0.5) * step;
+      const y = getElevation(x, z);
+      if (y > y1) {
+        if (Math.hypot(x - x1, z - z1) > step * 1.6)
+          [x2, z2, y2] = [x1, z1, y1];
+        [x1, z1, y1] = [x, z, y];
+      } else if (y > y2 && Math.hypot(x - x1, z - z1) > step * 1.6) {
+        [x2, z2, y2] = [x, z, y];
+      }
+      yield;
+    }
+  }
+  if (y1 < PEAK_MIN - 200) return null;
+  // Climb to the top from the best coarse spot (and the runner-up if a sharp
+  // peak could beat it, or if the first walked out of the cell)
+  let [bx, bz, by] = yield* climb(x1, z1, y1, step);
+  if (!inCell(bx, bz, x0, z0)) by = -Infinity;
+  if (y2 > Math.max(PEAK_MIN - 200, by - 350)) {
+    const [bx2, bz2, by2] = yield* climb(x2, z2, y2, step);
+    if (by2 > by && inCell(bx2, bz2, x0, z0)) [bx, bz, by] = [bx2, bz2, by2];
+  }
   if (by < PEAK_MIN) return null;
+  if ((ChillFlightLogic.alienAt?.(bx, bz, simplex) ?? 0) > 0.15) return null;
   // Never on or beside the pyramids: a warning light doesn't belong there
   const site = ChillFlightLogic.pyramidSite(simplex, {WATER_LEVEL});
   if (site) {
@@ -115,13 +146,23 @@ function* findMast(cx, cz) {
     }
   }
   // A real summit, not a high plateau or a slope running out of the cell
-  for (let k = 0; k < 6; k++) {
-    const a = (k * Math.PI) / 3;
+  for (let k = 0; k < 8; k++) {
+    const a = (k * Math.PI) / 4;
     const y = getElevation(
       bx + Math.cos(a) * PROMINENCE_REACH,
       bz + Math.sin(a) * PROMINENCE_REACH
     );
     if (y > by - PROMINENCE_RISE) return null;
+    yield;
+  }
+  // Dominant locally, not a secondary spur beside a taller peak
+  for (let k = 0; k < 12; k++) {
+    const a = (k * Math.PI) / 6;
+    const y = getElevation(
+      bx + Math.cos(a) * DOMINANCE_REACH,
+      bz + Math.sin(a) * DOMINANCE_REACH
+    );
+    if (y > by) return null;
     yield;
   }
   return {x: bx, y: by, z: bz, phase: cellHash(cx, cz, 29) * FLASH_PERIOD};
@@ -252,12 +293,31 @@ let search = null;
 const shown = [];
 const placedY = new Float32Array(MAX_MASTS);
 
+function crowded(cx, cz, m) {
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dz = -1; dz <= 1; dz++) {
+      if (!dx && !dz) continue;
+      const nb = cells.get(`${cx + dx},${cz + dz}`);
+      if (!nb) continue;
+      if (
+        Math.hypot(m.x - nb.x, m.z - nb.z) < MIN_SPACING &&
+        (nb.y > m.y || (nb.y === m.y && (dx > 0 || (!dx && dz > 0))))
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 function rebuild(ccx, ccz) {
   let n = 0;
   for (let dx = -RANGE; dx <= RANGE && n < MAX_MASTS; dx++) {
     for (let dz = -RANGE; dz <= RANGE && n < MAX_MASTS; dz++) {
-      const m = cells.get(`${ccx + dx},${ccz + dz}`);
-      if (!m) continue;
+      const cx = ccx + dx;
+      const cz = ccz + dz;
+      const m = cells.get(`${cx},${cz}`);
+      if (!m || crowded(cx, cz, m)) continue;
       shown[n] = m;
       placedY[n] = NaN;
       lightInfo.set([1, m.phase, 0, m.phase], n * 4);
