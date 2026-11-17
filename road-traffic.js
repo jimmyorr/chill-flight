@@ -324,7 +324,8 @@ const _camPos = new THREE.Vector3();
 
 // Called once per frame while flying (not while paused)
 export function updateRoadTraffic(delta) {
-  if (!trafficEnabled()) {
+  // Cars are props too: none with the props off (?objects=none)
+  if (!trafficEnabled() || !state._enableObjects) {
     if (cars.length) removeAll();
     return;
   }
