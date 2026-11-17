@@ -11,7 +11,7 @@ import {CLOUD_GLSL} from './constants.js';
 import {ART_POST} from './art-style.js';
 import {state} from './state.js';
 import {ABOVE_CLOUDS} from './flight-physics-logic.js';
-import {headlight} from './airplane.js';
+import {headlight, HEADLIGHT_COLOR} from './airplane.js';
 
 const RADIUS = 26000;
 // The landing light on the cloud: cos of the beam's outer and inner
@@ -254,7 +254,7 @@ function updateLamp() {
   headlight.target.getWorldPosition(_lampTarget);
   u.uLampDir.value.subVectors(_lampTarget, u.uLampPos.value).normalize();
   const night = 1 - Math.min(1, state.dayFactor);
-  u.uLampColor.value.copy(headlight.color).multiplyScalar(0.15 + 0.85 * night);
+  u.uLampColor.value.copy(HEADLIGHT_COLOR).multiplyScalar(0.15 + 0.85 * night);
 }
 
 // Inside the deck: a whiteout over the whole view (the fog alone doesn't

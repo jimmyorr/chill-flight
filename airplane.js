@@ -541,7 +541,8 @@ setActivePlane(activePlaneType, true);
 planeGroup.rotation.order = 'YXZ';
 
 // Headlight
-export const headlight = new THREE.SpotLight(0xffd1a3, 0);
+export const HEADLIGHT_COLOR = new THREE.Color(0xffd1a3);
+export const headlight = new THREE.SpotLight(HEADLIGHT_COLOR, 0);
 headlight.position.set(0, 0, -10);
 
 const headlightTarget = new THREE.Object3D();
@@ -582,10 +583,27 @@ const BUGGY_POOL_BRIGHTNESS = 0.9;
 const _beamPos = new THREE.Vector3();
 const _beamTarget = new THREE.Vector3();
 
-// Each frame: place the beam for the vehicle, and point the pool where it
+// The plane's beam has no falloff with distance (see above), so it lit a
+// bright pool on the ground even from well over a kilometre up. It fades
+// with the plane's height over the ground instead: full below
+// PLANE_BEAM_FADE.x, gone by .y (on/off stays headlight.intensity, so it's
+// the colour that dims)
+const PLANE_BEAM_FADE = {x: 350, y: 1100};
+
+// Each frame: place the beam for the vehicle, dim the plane's with its
+// height over the ground (groundY under it), and point the pool where it
 // shines (only while driving with the lights on).
-export function updateHeadlightBeam(driving) {
+export function updateHeadlightBeam(driving, groundY) {
   const beam = driving ? BUGGY_BEAM : PLANE_BEAM;
+  const fade = driving
+    ? 1
+    : 1 -
+      THREE.MathUtils.smoothstep(
+        planeGroup.position.y - groundY,
+        PLANE_BEAM_FADE.x,
+        PLANE_BEAM_FADE.y
+      );
+  headlight.color.copy(HEADLIGHT_COLOR).multiplyScalar(fade);
   headlight.position.fromArray(beam.pos);
   headlightTarget.position.fromArray(beam.target);
   const pool = headlightPoolUniforms;

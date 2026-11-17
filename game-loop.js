@@ -538,7 +538,10 @@ function performFrame(timestamp) {
   // Wingtips and the nose push off steep walls (and forget them in a crash)
   updateWallScrape(delta);
   updateCrash(delta);
-  updateHeadlightBeam(driving);
+  updateHeadlightBeam(
+    driving,
+    getElevation(planeGroup.position.x, planeGroup.position.z)
+  );
   // --- SPATIAL / BIOME ACHIEVEMENTS ---
   if (!state.isFreeCamera) {
     if (!state.previousPosition) {
