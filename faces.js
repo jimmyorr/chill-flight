@@ -716,6 +716,69 @@ export const FACES = {
       L: '#cfe6f0', // glasses lenses
     },
   },
+  // Purrple Cat: a purple cat with big pointed ears, happy closed eyes, a
+  // little w mouth, long whiskers, fluffy cheeks and her front paws, against
+  // a night sky. Her eyes are always shut, so a blink squeezes them flat
+  'Purrple Cat': {
+    background: '#2e2a5e',
+    rows: [
+      '....k......................k....',
+      '....kkk..................kkk....',
+      '....kiik................kiik....',
+      '....kiiik..............kiiik....',
+      '.....kiipk............kpiik.....',
+      '.....kiiipk..........kpiiik.....',
+      '.....kiiiipk........kpiiiik.....',
+      '.....kiiipppkkkkkkkkpppiiik.....',
+      '.....kiippppppppppppppppiik.....',
+      '.....kppppppppPppPppppppppk.....',
+      '.....kppppppppPppPppppppppk.....',
+      '....kppppppppppppppppppppppk....',
+      '....kppppeeeppppppppeeeppppk....',
+      'ww..kpppepppeppppppepppepppk..ww',
+      '..wwwwwppppppppnnppppppppwwwww..',
+      '...kppppppppmppmmppmppppppppk...',
+      'wwwwwwwppppppmmoommppppppwwwwwww',
+      '..kpppppppppppmoompppppppppppk..',
+      '..wwwwwppppppppmmppppppppwwwww..',
+      'ww.kPPppppppppppppppppppppPPk.ww',
+      '....kpPPPPppppppppppppPPPPpk....',
+      '.....kppppPPPPPPPPPPPPppppk.....',
+      '.....kpppppppllllllpppppppk.....',
+      '.....kppppppllllllllppppppk.....',
+      '.....kppppppllllllllppppppk.....',
+      '....kppppppllllllllllppppppk....',
+      '....kppppppllllllllllppppppk....',
+      '....kppppkkkkllllllkkkkppppk....',
+      '...kppppkqqqqkllllkqqqqkppppk...',
+      '...kppppkqqqqkllllkqqqqkppppk...',
+      '...kppppkqQqQkllllkQqQqkppppk...',
+      '...kppppkqQqQkllllkQqQqkppppk...',
+    ],
+    mouthClosed: {
+      16: 'wwwwwwwppppppmmppmmppppppwwwwwww',
+      17: '..kppppppppppppppppppppppppppk..',
+      18: '..wwwwwppppppppppppppppppwwwww..',
+    },
+    eyesClosed: {
+      12: '....kppppppppppppppppppppppk....',
+      13: 'ww..kpppeeeeeppppppeeeeepppk..ww',
+    },
+    palette: {
+      k: '#3b1a45', // outline
+      p: '#b468d2', // fur
+      P: '#9450b4', // fur shadow and forehead stripes
+      l: '#c78ae0', // chest
+      i: '#8a46a8', // inside the ears
+      e: '#2a1230', // closed eyes
+      n: '#5a2462', // nose
+      m: '#4a1c50', // mouth
+      o: '#e47a9e', // open mouth
+      w: '#e2cfec', // whiskers
+      q: '#c98ce2', // paws
+      Q: '#9450b4', // between the toes
+    },
+  },
 };
 
 // face in its outfit named outfit, or the face itself without one

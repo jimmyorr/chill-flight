@@ -57,7 +57,7 @@ export function faceToSvg(
 export function checkFacesSvg() {
   const problems = [];
   for (const [name, face] of Object.entries(FACES)) {
-    const filename = `${name.toLowerCase()}.svg`;
+    const filename = `${name.toLowerCase().replace(/\s+/g, '-')}.svg`;
     const targetPath = path.join(FACES_DIR, filename);
     if (!fs.existsSync(targetPath)) {
       problems.push(`missing ${filename}`);
@@ -77,7 +77,7 @@ export function exportFaces() {
     fs.mkdirSync(FACES_DIR, {recursive: true});
   }
   for (const [name, face] of Object.entries(FACES)) {
-    const filename = `${name.toLowerCase()}.svg`;
+    const filename = `${name.toLowerCase().replace(/\s+/g, '-')}.svg`;
     const targetPath = path.join(FACES_DIR, filename);
     fs.writeFileSync(targetPath, faceToSvg(face));
     console.log(`Exported ${filename}`);
