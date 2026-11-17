@@ -261,6 +261,9 @@ const DESERT_STANDOUT = 0.1;
 // they were spread evenly, and the share drawn much bigger
 const ROCK_SCALE = 0.93;
 const ROCK_BIG_SHARE = 0.08;
+// Boulders are drawn this much bigger than their 3 m model, so they read
+// from the air
+const ROCK_SIZE = 2;
 // Lone trees out in the open (copseAt): scale to keep their count
 const COPSE_SCALE = 1.95;
 // Bushes (bushinessAt): scale to keep their count
@@ -6890,7 +6893,7 @@ export function generateChunkData({
   rockVariations.forEach((variation) => {
     if (variation.pos.length > 0) {
       variation.pos.forEach((pos) => {
-        const big = pos.big ? 2.2 : 1;
+        const big = (pos.big ? 2.2 : 1) * ROCK_SIZE;
         const sx = (0.5 + rng() * 2.0) * big;
         const sy = (0.5 + rng() * 2.0) * big;
         const sz = (0.5 + rng() * 2.0) * big;
