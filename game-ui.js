@@ -558,10 +558,6 @@ if (overlay && renderer) {
   const progressBar = document.getElementById('splash-progress-bar');
   const loadingAttrEl = document.getElementById('loading-music-attribution');
 
-  if (loadingAttrEl) {
-    loadingAttrEl.style.display = musicEnabled ? 'block' : 'none';
-  }
-
   const musicToggle = document.getElementById('splash-music-toggle');
   if (musicToggle) {
     musicToggle.addEventListener('click', () => {

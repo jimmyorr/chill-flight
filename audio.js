@@ -382,6 +382,8 @@ export function getCurrentTrackDisplay() {
 
 let isMusicInternalAction = false;
 let isPausedByVisibility = false;
+let resumeArmed = false;
+let resumeInFlight = false;
 
 function syncMusicUI(playing) {
   // Update music settings toggle
@@ -407,6 +409,9 @@ purrpleCatAudio.addEventListener('play', () => {
 });
 
 purrpleCatAudio.addEventListener('pause', () => {
+  // A rejected autoplay attempt fires 'pause' after its Promise rejects;
+  // don't treat that as the player or system turning music off.
+  if (resumeArmed) return;
   if (!isMusicInternalAction && !purrpleCatAudio.ended && musicEnabled) {
     if (
       typeof document !== 'undefined' &&
@@ -563,8 +568,6 @@ purrpleCatAudio.addEventListener('error', () => {
 // Safety net for blocked autoplay: retry on each gesture until music plays
 // or is turned off. One try isn't enough, since an event may not count as a
 // gesture (or the game started without any tap, e.g. with music off).
-let resumeArmed = false;
-let resumeInFlight = false;
 function armResumeOnInteraction() {
   if (resumeArmed) return;
   resumeArmed = true;
@@ -600,12 +603,14 @@ function armResumeOnInteraction() {
       })
       .catch((e) => {
         resumeInFlight = false;
-        isMusicInternalAction = false;
         purrpleCatAudio.volume = state.isPaused
           ? MUSIC_PAUSED_VOLUME
           : MUSIC_VOLUME;
         clearTimeout(stallTimer);
         log.info('Still blocked:', e);
+        setTimeout(() => {
+          isMusicInternalAction = false;
+        }, 100);
       });
   };
   for (const type of UNLOCK_EVENTS) {
@@ -637,7 +642,6 @@ export async function updateAudioPlayer(enabled) {
         updateMediaMetadata();
       })
       .catch((e) => {
-        isMusicInternalAction = false;
         purrpleCatAudio.volume = state.isPaused
           ? MUSIC_PAUSED_VOLUME
           : MUSIC_VOLUME;
@@ -645,6 +649,9 @@ export async function updateAudioPlayer(enabled) {
         clearTimeout(stallTimer);
         log.info('Audio play blocked:', e);
         armResumeOnInteraction();
+        setTimeout(() => {
+          isMusicInternalAction = false;
+        }, 100);
       });
   } else {
     clearTimeout(stallTimer);

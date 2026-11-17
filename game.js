@@ -367,6 +367,8 @@ export const _goldenSky = new THREE.Color();
 export const _sunsetSky = new THREE.Color();
 export const _goldenSunsetSky = new THREE.Color();
 
+let splashPaletteInitialized = false;
+
 function updateSkyBaseColors(palette) {
   if (palette && palette.day !== undefined) {
     _daySky.setHex(palette.day);
@@ -388,6 +390,16 @@ function updateSkyBaseColors(palette) {
   // Update Splash Screen Background
   const overlay = document.getElementById('loading-overlay');
   if (overlay) {
+    if (
+      !splashPaletteInitialized &&
+      !isCustomPalette &&
+      overlay.style.getPropertyValue('--splash-bg-top')
+    ) {
+      splashPaletteInitialized = true;
+      return;
+    }
+    splashPaletteInitialized = true;
+
     // Keep it dark but clearly influenced by the current colors
     const topHSL = {};
     top.getHSL(topHSL);
@@ -402,13 +414,13 @@ function updateSkyBaseColors(palette) {
       .setHSL(bottomHSL.h, Math.max(bottomHSL.s, 0.5), 0.08)
       .getStyle();
 
-    overlay.style.background = `radial-gradient(circle at center, ${darkTop} 0%, ${darkBottom} 100%)`;
-
     // Set Dynamic Accent Colors for the Button
     const accentColor = bottom.clone().multiplyScalar(1.2).getStyle();
     const accentGlow = bottom.clone().multiplyScalar(1.2);
     const glowStyle = `rgba(${Math.round(accentGlow.r * 255)}, ${Math.round(accentGlow.g * 255)}, ${Math.round(accentGlow.b * 255)}, 0.4)`;
 
+    overlay.style.setProperty('--splash-bg-top', darkTop);
+    overlay.style.setProperty('--splash-bg-bottom', darkBottom);
     overlay.style.setProperty('--accent-color', accentColor);
     overlay.style.setProperty('--accent-glow', glowStyle);
   }
