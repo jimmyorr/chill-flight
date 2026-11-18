@@ -2627,6 +2627,94 @@ export const ChillFlightLogic = {};
     return (45 + 70 * size) * body * lumps * district;
   }
 
+  // Sea stacks off the rocky stretches of the shores: sheer rock columns
+  // 70 to 200 units high and 110 to 260 across, with flat grassy
+  // tops, one in most 650-unit cells of the districts that have them.
+  // Height above the water (0 where there's none).
+  const STACK_CELL = 650;
+  // The cell of the last stack seaStackAt found, and whether each cell's
+  // stack has land near it (stackNearLand)
+  const _stack = {key: 0, x: 0, z: 0};
+  const _stackNearLand = {salt: null, map: new Map()};
+  function seaStackAt(x, z, simplex) {
+    const district = smoothRamp(
+      simplex.noise2D(x * 0.0003 + 141, z * 0.0003 - 87),
+      -0.15,
+      0.25
+    );
+    if (district <= 0) return 0;
+    const ci = Math.floor(x / STACK_CELL);
+    const cj = Math.floor(z / STACK_CELL);
+    if (mesaHash(ci, cj, 21) > 0.55 * district) return 0;
+    const cx = (ci + 0.2 + 0.6 * mesaHash(ci, cj, 22)) * STACK_CELL;
+    const cz = (cj + 0.2 + 0.6 * mesaHash(ci, cj, 23)) * STACK_CELL;
+    const dx = x - cx;
+    const dz = z - cz;
+    const size = mesaHash(ci, cj, 24);
+    const radius = 55 + 75 * size;
+    if (dx * dx + dz * dz > radius * radius * 1.7) return 0;
+    if (isOnAirport(cx, cz, 1200)) return 0;
+    _stack.key = ci * 100003 + cj;
+    _stack.x = cx;
+    _stack.z = cz;
+    const ang = Math.atan2(dz, dx);
+    const r =
+      radius *
+      (1 +
+        0.3 *
+          simplex.noise2D(
+            Math.cos(ang) * 1.5 + ci * 3.1,
+            Math.sin(ang) * 1.5 + cj * 4.3
+          ));
+    const d = Math.sqrt(dx * dx + dz * dz) / r;
+    const body = 1 - smoothRamp(d, 0.8, 1);
+    if (body <= 0) return 0;
+    const tall = 70 + 130 * mesaHash(ci, cj, 25) * (0.5 + 0.5 * size);
+    const lumps = 0.9 + 0.1 * simplex.noise2D(x * 0.03 + ci, z * 0.03 + cj);
+    return tall * lumps * body;
+  }
+
+  // Whether a stack's cell has land within about 400 units of its centre
+  // (two to four of eight points round it above the water), so stacks
+  // stand off the shore rather than out at sea, and not in a river or a
+  // narrow lake. Remembered per cell.
+  function stackNearLand(stack, simplex, constants, lerp, options) {
+    // A new world (seed) or continent outline starts the memory afresh
+    const salt =
+      Math.floor((simplex.noise2D(12.34, 56.78) + 1) * 1e6) +
+      ':' +
+      exports.CONTINENT;
+    if (_stackNearLand.salt !== salt || _stackNearLand.map.size > 20000) {
+      _stackNearLand.salt = salt;
+      _stackNearLand.map = new Map();
+    }
+    let near = _stackNearLand.map.get(stack.key);
+    if (near === undefined) {
+      const wl = constants.WATER_LEVEL;
+      const probe = {...options, noStacks: true};
+      let land = 0;
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * Math.PI * 2;
+        const h = getElevation(
+          stack.x + Math.cos(a) * 400,
+          stack.z + Math.sin(a) * 400,
+          simplex,
+          constants,
+          lerp,
+          probe
+        );
+        if (h > wl + 2) land++;
+      }
+      near =
+        land >= 2 &&
+        land <= 4 &&
+        !getRiverFlow(stack.x, stack.z, simplex) &&
+        swampFactorAt(stack.x, stack.z, simplex) < 0.05;
+      _stackNearLand.map.set(stack.key, near);
+    }
+    return near;
+  }
+
   // The western alien land's spires, chasms and terraces stay this far off
   // the highways (roadClear)
   const WEST_ROAD_NEAR = 120;
@@ -4683,6 +4771,28 @@ export const ChillFlightLogic = {};
       if (tor > 0) {
         const land = Math.min(1, (n - WATER_LEVEL - 3) / 12);
         n += tor * farNorth * land * roadClear(origX, origZ);
+      }
+    }
+
+    // --- SEA STACKS ---
+    // Sea stacks stand in the water and on the beaches just off the shores
+    // (seaStackAt). After the coasts, and kept off the highway and the
+    // airfields.
+    if (
+      !options.forRoad &&
+      !options.noStacks &&
+      n < WATER_LEVEL + 4 &&
+      farNorth < 1
+    ) {
+      const stack = seaStackAt(origX, origZ, simplex);
+      if (
+        stack > 0 &&
+        stackNearLand(_stack, simplex, constants, lerp, options)
+      ) {
+        n = Math.max(
+          n,
+          WATER_LEVEL - 10 + (stack + 10) * roadClear(origX, origZ)
+        );
       }
     }
 
