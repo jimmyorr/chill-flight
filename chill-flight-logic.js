@@ -542,6 +542,20 @@ export const ChillFlightLogic = {};
     return true;
   }
 
+  function shouldShowDisableMouseSetting({
+    ua = '',
+    isNative = false,
+    hasFinePointer = false,
+    hasHover = false,
+    keyboardDetected = false,
+  } = {}) {
+    if (isVRHeadsetUserAgent(ua)) return false;
+    if (keyboardDetected) return true;
+    if (isNative) return false;
+    if (/Android|iPhone|iPad|iPod|Mobile/i.test(ua)) return false;
+    return Boolean(hasFinePointer && hasHover);
+  }
+
   function chooseAutoGraphicsPreset({
     cores = 4,
     memory = null,
@@ -7259,6 +7273,7 @@ export const ChillFlightLogic = {};
   exports.shouldEnforceVROnly = shouldEnforceVROnly;
   exports.resolveControlScheme = resolveControlScheme;
   exports.shouldInvertYAxis = shouldInvertYAxis;
+  exports.shouldShowDisableMouseSetting = shouldShowDisableMouseSetting;
   exports.chooseAutoGraphicsPreset = chooseAutoGraphicsPreset;
   exports.MAX_FPS = MAX_FPS;
   exports.ZENITH_COLOR = ZENITH_COLOR;

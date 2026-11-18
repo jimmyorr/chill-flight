@@ -843,15 +843,18 @@ export default {
   'Double-tap the top and hold': 'Doppelt oben tippen und halten',
   'Double-tap the top': 'Doppelt oben tippen',
   'Double-tap the bottom and hold': 'Doppelt unten tippen und halten',
+  'Disable mouse': 'Maus ausschalten',
+  'Keyboard controls only': 'Nur Tastatursteuerung',
   'Disable hints': 'Tipps ausschalten',
-  'No tap move tips while you play':
-    'Keine Tipps zu Tipp-Manövern beim Spielen',
+  'Hide control tips': 'Steuerungstipps ausblenden',
   Help: 'Hilfe',
   Plane: 'Flugzeug',
   'Drag the throttle right to drive':
     'Gashebel nach rechts ziehen zum Losfahren',
   'Drag the throttle right to take off':
     'Gashebel nach rechts ziehen zum Abheben',
+  'Press Shift + ↑ to drive': 'Umschalt + ↑ zum Losfahren',
+  'Press Shift + ↑ to take off': 'Umschalt + ↑ zum Abheben',
   'Press Shift + ↑ or scroll to drive':
     'Umschalt + ↑ oder scrollen zum Losfahren',
   'Press Shift + ↑ or scroll to take off':

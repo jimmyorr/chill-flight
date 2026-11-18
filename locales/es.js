@@ -838,15 +838,18 @@ export default {
   'Double-tap the top and hold': 'Toca arriba dos veces y mantén',
   'Double-tap the top': 'Toca arriba dos veces',
   'Double-tap the bottom and hold': 'Toca abajo dos veces y mantén',
+  'Disable mouse': 'Desactivar ratón',
+  'Keyboard controls only': 'Solo controles de teclado',
   'Disable hints': 'Desactivar consejos',
-  'No tap move tips while you play':
-    'Sin consejos de maniobras mientras juegas',
+  'Hide control tips': 'Ocultar consejos de control',
   Help: 'Ayuda',
   Plane: 'Avión',
   'Drag the throttle right to drive':
     'Arrastra el acelerador a la derecha para arrancar',
   'Drag the throttle right to take off':
     'Arrastra el acelerador a la derecha para despegar',
+  'Press Shift + ↑ to drive': 'Pulsa Mayús + ↑ para arrancar',
+  'Press Shift + ↑ to take off': 'Pulsa Mayús + ↑ para despegar',
   'Press Shift + ↑ or scroll to drive':
     'Pulsa Mayús + ↑ o desplaza para arrancar',
   'Press Shift + ↑ or scroll to take off':

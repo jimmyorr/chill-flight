@@ -282,4 +282,5 @@ export const state = {
 
   // Controls settings (game.js)
   invertYAxis: false,
+  disableMouse: false,
 };

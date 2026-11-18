@@ -838,12 +838,16 @@ export default {
   'Double-tap the top and hold': 'Двічі торкнися вгорі і тримай',
   'Double-tap the top': 'Двічі торкнися вгорі',
   'Double-tap the bottom and hold': 'Двічі торкнися внизу і тримай',
+  'Disable mouse': 'Вимкнути мишу',
+  'Keyboard controls only': 'Керування лише клавіатурою',
   'Disable hints': 'Вимкнути підказки',
-  'No tap move tips while you play': 'Без підказок про трюки під час гри',
+  'Hide control tips': 'Приховати підказки керування',
   Help: 'Довідка',
   Plane: 'Літак',
   'Drag the throttle right to drive': 'Потягни газ праворуч, щоб рушити',
   'Drag the throttle right to take off': 'Потягни газ праворуч, щоб злетіти',
+  'Press Shift + ↑ to drive': 'Натисни Shift + ↑, щоб рушити',
+  'Press Shift + ↑ to take off': 'Натисни Shift + ↑, щоб злетіти',
   'Press Shift + ↑ or scroll to drive':
     'Натисни Shift + ↑ або прокрути, щоб рушити',
   'Press Shift + ↑ or scroll to take off':

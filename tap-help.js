@@ -347,6 +347,10 @@ function showThrottleHint() {
     line = buggy
       ? t('Drag the throttle right to drive')
       : t('Drag the throttle right to take off');
+  } else if (state.disableMouse) {
+    line = buggy
+      ? t('Press Shift + ↑ to drive')
+      : t('Press Shift + ↑ to take off');
   } else {
     line = buggy
       ? t('Press Shift + ↑ or scroll to drive')
@@ -391,6 +395,7 @@ function checkStuck() {
 // The signs: a tap on the view, an arrow key without Shift, or a tap on the
 // throttle that leaves it at zero (counts double)
 document.addEventListener('pointerdown', (e) => {
+  if (state.disableMouse && e.pointerType === 'mouse') return;
   if (e.target?.tagName === 'CANVAS' && stopped()) stuckSigns++;
 });
 document.addEventListener('keydown', (e) => {

@@ -22,6 +22,7 @@ import {updateChunks} from './terrain-chunks.js';
 import {
   _lastChunkUpdatePos,
   currentCinematicIndex,
+  inputManager,
 } from './game-input-bindings.js';
 import {applyGraphicsPreset, initDebugUI} from './debug-ui.js';
 import {trackVehicleSelect} from './analytics.js';
@@ -267,6 +268,9 @@ if (colorOptionsInit && typeof state.planeColor !== 'undefined') {
   });
 }
 
+const isNativeApp =
+  typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform();
+
 const savedInvertY = localStorage.getItem('chill_flight_invert_y');
 if (savedInvertY !== null) {
   state.invertYAxis = savedInvertY === 'true';
@@ -277,6 +281,62 @@ if (invertYInput) {
   invertYInput.addEventListener('change', (e) => {
     state.invertYAxis = e.target.checked;
     localStorage.setItem('chill_flight_invert_y', state.invertYAxis);
+  });
+}
+
+const savedDisableMouse = localStorage.getItem('chill_flight_disable_mouse');
+if (savedDisableMouse !== null) {
+  state.disableMouse = savedDisableMouse === 'true';
+}
+const disableMouseRow = document.getElementById('disable-mouse-row');
+const disableMouseInput = document.getElementById('disable-mouse-input');
+if (disableMouseRow && disableMouseInput) {
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+  const hasFinePointer = Boolean(
+    typeof window !== 'undefined' &&
+    window.matchMedia?.('(pointer: fine)').matches
+  );
+  const hasHover = Boolean(
+    typeof window !== 'undefined' &&
+    window.matchMedia?.('(hover: hover)').matches
+  );
+  const showInitially = ChillFlightLogic.shouldShowDisableMouseSetting({
+    ua,
+    isNative: isNativeApp,
+    hasFinePointer,
+    hasHover,
+    keyboardDetected: state.disableMouse,
+  });
+  if (showInitially) {
+    disableMouseRow.style.display = '';
+  } else if (!ChillFlightLogic.isVRHeadsetUserAgent(ua)) {
+    const revealDisableMouseOnKey = (e) => {
+      if (
+        e.isTrusted &&
+        e.key &&
+        e.key !== 'Unidentified' &&
+        e.keyCode !== 229 &&
+        !['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName)
+      ) {
+        disableMouseRow.style.display = '';
+        window.removeEventListener('keydown', revealDisableMouseOnKey);
+      }
+    };
+    window.addEventListener('keydown', revealDisableMouseOnKey);
+  }
+  disableMouseInput.checked = state.disableMouse;
+  disableMouseInput.addEventListener('change', (e) => {
+    state.disableMouse = e.target.checked;
+    localStorage.setItem('chill_flight_disable_mouse', state.disableMouse);
+    if (state.disableMouse) {
+      state.mouseX = 0;
+      state.mouseY = 0;
+      state.mouseControlActive = false;
+      inputManager.resetMouseSteering();
+      inputManager.state.cinematicDrag.dragging = false;
+      inputManager.state.cinematicDrag.deltaX = 0;
+      inputManager.state.cinematicDrag.deltaY = 0;
+    }
   });
 }
 
@@ -310,8 +370,6 @@ const urlPreset =
     ? ChillFlightLogic.GRAPHICS_PRESET
     : null;
 
-const isNativeApp =
-  typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform();
 const savedPresetRaw = localStorage.getItem('chill_flight_graphics_preset');
 const savedPreset =
   isNativeApp &&

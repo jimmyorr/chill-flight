@@ -220,7 +220,13 @@ export class InputManager {
       (e) => {
         if (!e.ctrlKey) return;
         e.preventDefault();
-        if (this.state.isPaused || this.state.isFreeCamera) return;
+        if (
+          state.disableMouse ||
+          this.state.isPaused ||
+          this.state.isFreeCamera
+        ) {
+          return;
+        }
         this.state.pinch *= Math.exp(
           -Math.max(-50, Math.min(50, e.deltaY)) * 0.006
         );
@@ -234,7 +240,13 @@ export class InputManager {
     });
     window.addEventListener('gesturechange', (e) => {
       e.preventDefault();
-      if (this.state.isPaused || this.state.isFreeCamera) return;
+      if (
+        state.disableMouse ||
+        this.state.isPaused ||
+        this.state.isFreeCamera
+      ) {
+        return;
+      }
       if (e.scale > 0) this.state.pinch *= e.scale / gestureScale;
       gestureScale = e.scale;
     });
@@ -615,7 +627,11 @@ export class InputManager {
         this.state.freeCam.dragging = true;
         this._isTouchFreeCamDrag = false;
       }
-    } else if (this.state.isCinematic && !this.isOverUI(e.target)) {
+    } else if (
+      !state.disableMouse &&
+      this.state.isCinematic &&
+      !this.isOverUI(e.target)
+    ) {
       this.state.cinematicDrag.dragging = true;
     }
   }
@@ -651,6 +667,17 @@ export class InputManager {
     if (this.state.freeCam.dragging && this.state.isFreeCamera) {
       this.state.freeCam.deltaX += e.movementX || 0;
       this.state.freeCam.deltaY += e.movementY || 0;
+      return;
+    }
+
+    if (state.disableMouse) {
+      if (
+        this.state.mouse.controlActive &&
+        !this.state.joystick.active &&
+        this.state.touch.steeringId === null
+      ) {
+        this.resetMouseSteering();
+      }
       return;
     }
 

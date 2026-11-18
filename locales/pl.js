@@ -839,14 +839,18 @@ export default {
   'Double-tap the top and hold': 'Stuknij 2 razy u góry i przytrzymaj',
   'Double-tap the top': 'Stuknij 2 razy u góry',
   'Double-tap the bottom and hold': 'Stuknij 2 razy u dołu i przytrzymaj',
+  'Disable mouse': 'Wyłącz mysz',
+  'Keyboard controls only': 'Tylko sterowanie klawiaturą',
   'Disable hints': 'Wyłącz podpowiedzi',
-  'No tap move tips while you play': 'Brak wskazówek o manewrach podczas gry',
+  'Hide control tips': 'Ukryj wskazówki sterowania',
   Help: 'Pomoc',
   Plane: 'Samolot',
   'Drag the throttle right to drive':
     'Przeciągnij przepustnicę w prawo, aby ruszyć',
   'Drag the throttle right to take off':
     'Przeciągnij przepustnicę w prawo, aby wystartować',
+  'Press Shift + ↑ to drive': 'Naciśnij Shift + ↑, aby ruszyć',
+  'Press Shift + ↑ to take off': 'Naciśnij Shift + ↑, aby wystartować',
   'Press Shift + ↑ or scroll to drive':
     'Naciśnij Shift + ↑ lub przewiń, aby ruszyć',
   'Press Shift + ↑ or scroll to take off':

@@ -783,6 +783,50 @@ function makeSession(leftOpts, rightOpts) {
         virtualStickActive: true,
       })
   );
+
+  check(
+    'shouldShowDisableMouseSetting shows on desktop/laptop pointers and tablets with keyboards while hiding on phones, bare tablets, native mobile apps, and VR headsets',
+    ChillFlightLogic.shouldShowDisableMouseSetting({
+      ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+      hasFinePointer: true,
+      hasHover: true,
+    }) &&
+      ChillFlightLogic.shouldShowDisableMouseSetting({
+        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        hasFinePointer: true,
+        hasHover: true,
+      }) &&
+      // Phones and bare iPads (even with Macintosh desktop-mode UA on iPadOS where primary pointer is coarse)
+      !ChillFlightLogic.shouldShowDisableMouseSetting({
+        ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)',
+        hasFinePointer: false,
+        hasHover: false,
+      }) &&
+      !ChillFlightLogic.shouldShowDisableMouseSetting({
+        ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15',
+        hasFinePointer: false,
+        hasHover: false,
+      }) &&
+      // Native Capacitor apps stay hidden until a hardware keyboard is detected
+      !ChillFlightLogic.shouldShowDisableMouseSetting({
+        ua: 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)',
+        isNative: true,
+        hasFinePointer: true,
+        hasHover: true,
+      }) &&
+      ChillFlightLogic.shouldShowDisableMouseSetting({
+        ua: 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)',
+        isNative: true,
+        keyboardDetected: true,
+      }) &&
+      // VR headsets never show Disable mouse even though controller rays report fine hover
+      !ChillFlightLogic.shouldShowDisableMouseSetting({
+        ua: 'Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 OculusBrowser/35.0',
+        hasFinePointer: true,
+        hasHover: true,
+        keyboardDetected: true,
+      })
+  );
 }
 
 // 11. In-VR 3D world map card UV hit-testing, viewport mapping, pan, and latches

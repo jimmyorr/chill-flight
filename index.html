@@ -235,7 +235,7 @@
                 <option value="zh-TW" data-no-translate>繁體中文</option>
               </select>
             </div>
-            <div class="pause-row">
+            <div class="pause-row" style="display: none">
               <span class="pause-row-text">
                 <span class="pause-row-title">Music mode</span>
                 <span class="pause-row-sub">By album or how you fly</span>
@@ -277,6 +277,22 @@
             </label>
             <label
               class="pause-row"
+              for="disable-mouse-input"
+              id="disable-mouse-row"
+              style="display: none"
+            >
+              <span class="pause-row-text">
+                <span class="pause-row-title">Disable mouse</span>
+                <span class="pause-row-sub">Keyboard controls only</span>
+              </span>
+              <input
+                type="checkbox"
+                id="disable-mouse-input"
+                class="pause-switch"
+              />
+            </label>
+            <label
+              class="pause-row"
               for="haptics-input"
               id="haptics-row"
               style="display: none"
@@ -293,9 +309,7 @@
             <label class="pause-row" for="hints-off-input">
               <span class="pause-row-text">
                 <span class="pause-row-title">Disable hints</span>
-                <span class="pause-row-sub"
-                  >No tap move tips while you play</span
-                >
+                <span class="pause-row-sub">Hide control tips</span>
               </span>
               <input
                 type="checkbox"

@@ -653,6 +653,82 @@ async function exerciseControls(page, tag) {
   ) {
     fail(`biplane stats mismatch: ${JSON.stringify(biplaneStats)}`);
   }
+
+  // Settings: Music mode is hidden, and Disable mouse sits between Invert y axis
+  // and Disable hints and suppresses mouse steering + scroll throttle when on.
+  await page.click('.pause-tab[data-tab="settings"]');
+  await wait(200);
+  const settingsLayout = await page.evaluate(() => {
+    const visible = (el) => {
+      if (!el) return false;
+      const cs = getComputedStyle(el);
+      return (
+        cs.display !== 'none' &&
+        cs.visibility !== 'hidden' &&
+        el.getClientRects().length > 0
+      );
+    };
+    const musicRow = document
+      .getElementById('music-mode-select')
+      ?.closest('.pause-row');
+    const visibleIds = [
+      ...document.querySelectorAll(
+        '.pause-panel[data-panel="settings"] label.pause-row input'
+      ),
+    ]
+      .filter((inp) => visible(inp.closest('.pause-row')))
+      .map((inp) => inp.id);
+    return {
+      musicModeVisible: visible(musicRow),
+      visibleSwitchIds: visibleIds,
+    };
+  });
+  if (settingsLayout.musicModeVisible) {
+    fail('Music mode row should be hidden in Settings');
+  }
+  if (
+    settingsLayout.visibleSwitchIds.join(',') !==
+    'invert-y-input,disable-mouse-input,hints-off-input'
+  ) {
+    fail(
+      `unexpected Settings switch order: ${settingsLayout.visibleSwitchIds.join(',')}`
+    );
+  }
+  await page.click('label[for="disable-mouse-input"]');
+  await wait(150);
+  await page.click('#resume-btn');
+  await wait(500);
+  const beforeBlockedMouse = await page.evaluate(() => ({
+    throttleKts: document.getElementById('throttle-kts')?.textContent,
+    heading: document.getElementById('debug-camera')?.textContent,
+  }));
+  // Move cursor over the canvas (outside #debug-menu) and scroll wheel
+  await page.mouse.move(vp.width * 0.85, vp.height * 0.5);
+  await page.mouse.wheel({deltaY: -300});
+  await wait(500);
+  const afterBlockedMouse = await page.evaluate(() => ({
+    throttleKts: document.getElementById('throttle-kts')?.textContent,
+    heading: document.getElementById('debug-camera')?.textContent,
+  }));
+  if (afterBlockedMouse.throttleKts !== beforeBlockedMouse.throttleKts) {
+    fail(
+      `scroll wheel changed throttle while Disable mouse was on (${beforeBlockedMouse.throttleKts} -> ${afterBlockedMouse.throttleKts})`
+    );
+  }
+  if (afterBlockedMouse.heading !== beforeBlockedMouse.heading) {
+    fail(
+      `mouse move steered plane while Disable mouse was on (${beforeBlockedMouse.heading} -> ${afterBlockedMouse.heading})`
+    );
+  }
+  await page.keyboard.press('Escape');
+  await wait(300);
+  await page.click('.pause-tab[data-tab="settings"]');
+  await wait(150);
+  await page.click('label[for="disable-mouse-input"]');
+  await wait(150);
+  await page.click('.pause-tab[data-tab="flight"]');
+  await wait(200);
+
   await clickAndCheck(
     '#achievements-btn',
     '#achievements-overlay',
