@@ -634,6 +634,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`flare`**: Lens flare strength when looking toward the sun (default `1`; `0` turns it off, `2` doubles it).
 - **`trip`**: `1` holds the trippy look you get from knocking over an alien mushroom (see [Knocking things over](#knocking-things-over)), for trying it anywhere.
 - **`tracks`**: `0` turns off the tire tracks and skid marks (`tire-tracks.js`).
+- **`textures`**: `0` turns off the procedural surface detail on highways, town streets, airport access roads, runways, concrete aprons, bridges, and close-range ground (`constants.js`, `terrain-geometry.js`).
 - **`grass`**: `0` turns off the tall grass and wheat (`grass.js`): blades swaying in the wind round the camera when it's low on green ground and golden wheat on the villages' wheat and barley fields, parted by the buggy and flattened by a low plane's prop wash, plus a gust sheen rolling across the fields. On by default at mid and up.
 - **`weather`**: Force weather conditions (options: `auto`, `none` or `clear`, `snow`, `rain`).
 - **`palette`**: Force a specific sky palette preset seed (e.g., `42`) or custom zenith,horizon[,day] hex colors (e.g., `1a2b3c,ff7e67` or `1a2b3c,ff7e67,4ca1f0`).

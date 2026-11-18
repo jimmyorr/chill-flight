@@ -707,10 +707,8 @@ export function createMaterial(params) {
          customWorldPosition = instanceMatrix * customWorldPosition;
        #endif
        customWorldPosition = modelMatrix * customWorldPosition;
-       #ifdef USE_FOG
-         vDistanceXZ = length(customWorldPosition.xz - uCameraPosXZ);
-         vWorldPosition = customWorldPosition.xyz;
-       #endif`
+       vDistanceXZ = length(customWorldPosition.xz - uCameraPosXZ);
+       vWorldPosition = customWorldPosition.xyz;`
     );
 
     shader.fragmentShader =
@@ -936,6 +934,197 @@ export function addRoadSnow(material) {
           // Only on faces that look up
           cover *= smoothstep(0.5, 0.8, vRoadSnowUp);
           diffuseColor.rgb = mix(diffuseColor.rgb, uRoadSnowColor, cover);
+        }`
+      );
+  };
+  material.customProgramCacheKey = () => key;
+  return material;
+}
+
+// Procedural surface detail for roads, town streets, runways, access roads
+// and concrete aprons/structures: wheel-track wear, shoulder shading,
+// expansion joints, touchdown skid marks and anti-aliased asphalt/concrete
+// grain that fades out with distance before it can shimmer.
+export function addRoadSurface(
+  material,
+  {
+    lanes = false,
+    street = false,
+    runway = false,
+    accessRoad = false,
+    concrete = false,
+    structure = false,
+  } = {}
+) {
+  if (ChillFlightLogic.TEXTURES === false) return material;
+  const base = material.onBeforeCompile;
+  const modeTag =
+    (lanes ? 'L' : '') +
+    (street ? 'S' : '') +
+    (runway ? 'R' : '') +
+    (accessRoad ? 'A' : '') +
+    (concrete ? 'C' : '') +
+    (structure ? 'B' : '');
+  const key = `roadSurface_${modeTag}_` + material.customProgramCacheKey();
+  const aimX = (ChillFlightLogic.RUNWAY_LENGTH / 2 - 110).toFixed(1);
+  material.onBeforeCompile = function (shader, renderer) {
+    base.call(this, shader, renderer);
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        'void main() {',
+        `varying vec3 vRoadLocal;
+        varying float vRoadUp;
+        void main() {`
+      )
+      .replace(
+        '#include <project_vertex>',
+        `#include <project_vertex>
+        {
+          vec3 rn = normal;
+          float rScaleX = 1.0;
+          #ifdef USE_INSTANCING
+            rn = mat3(instanceMatrix) * rn;
+            rScaleX = length(instanceMatrix[0].xyz);
+          #endif
+          vRoadUp = normalize(mat3(modelMatrix) * rn).y;
+          vRoadLocal = vec3(position.x, position.z, rScaleX);
+        }`
+      );
+
+    let modeBody;
+    if (concrete) {
+      modeBody = `
+        // Poured concrete apron slabs (10x10 units in airport frame)
+        vec2 slabCoord = vRoadLocal.xy / 10.0;
+        vec2 slabId = floor(slabCoord);
+        vec2 slabF = abs(fract(slabCoord) - 0.5);
+        float seamDist = (0.5 - max(slabF.x, slabF.y)) * 10.0;
+        float seamAA = max(length(fwidth(vRoadLocal.xy)) * 1.4, 0.08);
+        float seam = (1.0 - smoothstep(0.0, seamAA, seamDist)) * patchAA;
+        float slabTint = (roadHash(slabId) - 0.5) * 0.08;
+        float cPatch = (roadNoise(rwp * 0.085) - 0.5) * 0.11 * patchAA;
+        float cGrain = (roadNoise(rwp * 1.25 + 7.1) - 0.5) * 0.09 * grainAA;
+        float oilStain = exp(-pow((vRoadLocal.y - 46.0) / 11.0, 2.0))
+                       * smoothstep(0.42, 0.78, roadNoise(vRoadLocal.xy * 0.16 + 3.1)) * 0.14;
+        float surfMod = 1.0 + (slabTint + cPatch - oilStain - 0.18 * seam) * roadNear + cGrain * roadTop;
+        diffuseColor.rgb *= surfMod;
+      `;
+    } else if (structure) {
+      modeBody = `
+        // Cast concrete bridge girders, piers and railings: subtle formwork and weathering
+        float formSeam = 1.0 - smoothstep(0.0, 0.4, abs(fract(vWorldPosition.y / 6.0 + 0.5) - 0.5) * 6.0);
+        float cPatch = (roadNoise(vWorldPosition.xz * 0.08 + vWorldPosition.y * 0.05) - 0.5) * 0.12 * patchAA;
+        float cGrain = (roadNoise(vWorldPosition.xz * 1.1 + vWorldPosition.y * 0.7) - 0.5) * 0.08 * grainAA;
+        float nearStruct = 1.0 - smoothstep(200.0, 1100.0, vDistanceXZ);
+        diffuseColor.rgb *= 1.0 + (cPatch - 0.07 * formSeam * patchAA) * nearStruct + cGrain;
+      `;
+    } else {
+      let profileGlsl = '';
+      if (lanes) {
+        profileGlsl = `
+          float ax = abs(vRoadLocal.x);
+          if (vRoadLocal.z > 0.7) {
+            // 4-lane highway: lanes centered at |x| = 7.5 and 22.5, dual wheel tracks in each
+            float laneD = min(abs(ax - 7.5), abs(ax - 22.5));
+            float wheelD = abs(laneD - 2.6);
+            float trackWear = exp(-wheelD * wheelD * 0.45) * 0.8 + exp(-laneD * laneD * 0.07) * 0.2;
+            float streakN = 0.75 + 0.5 * roadNoise(vec2(vRoadLocal.x * 0.45, (rwp.x + rwp.y) * 0.035));
+            asphaltMod *= mix(1.0, 1.05 - 0.20 * trackWear * streakN, roadNear);
+            float shoulder = smoothstep(28.1, 29.2, ax) * (1.0 - smoothstep(30.4, 31.3, ax));
+            float curb = smoothstep(30.5, 31.8, ax);
+            asphaltMod *= 1.0 + (0.08 * shoulder - 0.15 * curb) * roadTop;
+          } else {
+            // Slip road: single-lane ramp wear
+            float slipTrack = exp(-pow(abs(ax - 8.5), 2.0) * 0.06);
+            asphaltMod *= mix(1.0, 1.04 - 0.15 * slipTrack, roadNear);
+          }
+          // Transverse segment joint every 30 units
+          float segJoint = smoothstep(14.1, 14.8, abs(vRoadLocal.y));
+          asphaltMod *= 1.0 - 0.11 * segJoint * roadNear * patchAA;
+        `;
+      } else if (street) {
+        profileGlsl = `
+          float sx = abs(vRoadLocal.x);
+          float sTrack = exp(-pow(abs(sx - 0.22) * 14.0, 2.0));
+          float sEdge = smoothstep(0.37, 0.43, sx) * (1.0 - smoothstep(0.45, 0.48, sx));
+          float sCurb = smoothstep(0.455, 0.495, sx);
+          asphaltMod *= 1.0 + (-0.13 * sTrack + 0.09 * sEdge - 0.16 * sCurb) * roadNear;
+        `;
+      } else if (accessRoad) {
+        profileGlsl = `
+          float az = abs(vRoadLocal.y);
+          float aLaneD = abs(az - 5.0);
+          float aWheelD = abs(aLaneD - 1.8);
+          float aTrack = exp(-aWheelD * aWheelD * 0.65) * 0.8 + exp(-aLaneD * aLaneD * 0.12) * 0.2;
+          float aShoulder = smoothstep(7.8, 8.7, az) * (1.0 - smoothstep(9.0, 9.6, az));
+          float aCurb = smoothstep(9.1, 9.9, az);
+          float aSeam = 1.0 - smoothstep(0.0, 0.45, abs(fract(vRoadLocal.x / 25.0 + 0.5) - 0.5) * 25.0);
+          asphaltMod *= 1.0 + (-0.16 * aTrack + 0.08 * aShoulder - 0.14 * aCurb - 0.09 * aSeam * patchAA) * roadNear;
+        `;
+      } else if (runway) {
+        profileGlsl = `
+          float rx = vRoadLocal.x;
+          float rz = vRoadLocal.y;
+          float aimDist = abs(rx) - ${aimX};
+          // Touchdown rubber skid marks around the aiming bars, trailing toward the middle
+          float tdZone = smoothstep(-95.0, -8.0, aimDist) * (1.0 - smoothstep(15.0, 48.0, aimDist));
+          float tdAcross = (exp(-pow((abs(rz) - 4.8) / 3.2, 2.0)) * 0.88
+                          + exp(-pow(rz / 2.8, 2.0)) * 0.55)
+                         * (1.0 - smoothstep(9.5, 13.0, abs(rz)));
+          float skid1 = roadNoise(vec2(rx * 0.045, rz * 1.8 + 3.7));
+          float skid2 = roadNoise(vec2(rx * 0.11 + 19.3, rz * 3.8));
+          float skidStreaks = smoothstep(0.25, 0.78, skid1 * 0.6 + skid2 * 0.4);
+          float tdFade = (1.0 - smoothstep(900.0, 2600.0, vDistanceXZ)) * roadTop;
+          float rubber = tdZone * tdAcross * (0.35 + 0.65 * skidStreaks) * tdFade;
+          // Centerline keel wear, shoulders, outer bevel and paving seams
+          float keelWear = exp(-pow(rz / 6.5, 2.0)) * 0.11;
+          float rShoulder = smoothstep(14.2, 15.8, abs(rz)) * (1.0 - smoothstep(16.6, 17.5, abs(rz)));
+          float rCurb = smoothstep(16.7, 17.9, abs(rz));
+          float rSeam = 1.0 - smoothstep(0.0, 0.5, abs(fract(rx / 25.0 + 0.5) - 0.5) * 25.0);
+          asphaltMod *= (1.0 - 0.40 * rubber)
+                      * (1.0 + (-keelWear + 0.07 * rShoulder - 0.14 * rCurb - 0.08 * rSeam * patchAA) * roadNear);
+        `;
+      }
+      modeBody = `
+        float patchN = roadNoise(rwp * 0.075) * 0.6 + roadNoise(rwp * 0.23 + 11.7) * 0.4;
+        float grainN = roadNoise(rwp * 1.35 + 5.3) * 0.65 + roadNoise(rwp * 3.1 - 19.1) * 0.35;
+        float asphaltMod = 1.0 + (patchN - 0.5) * 0.18 * roadNear * patchAA
+                               + (grainN - 0.5) * 0.15 * roadTop * grainAA;
+        ${profileGlsl}
+        diffuseColor.rgb *= asphaltMod;
+      `;
+    }
+
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        'void main() {',
+        `varying vec3 vRoadLocal;
+        varying float vRoadUp;
+        float roadHash(vec2 p) {
+          vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+          p3 += dot(p3, p3.yzx + 33.33);
+          return fract((p3.x + p3.y) * p3.z);
+        }
+        float roadNoise(vec2 p) {
+          vec2 i = floor(p);
+          vec2 f = fract(p);
+          f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(roadHash(i), roadHash(i + vec2(1.0, 0.0)), f.x),
+                     mix(roadHash(i + vec2(0.0, 1.0)), roadHash(i + vec2(1.0, 1.0)), f.x), f.y);
+        }
+        void main() {`
+      )
+      .replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+        {
+          vec2 rwp = vWorldPosition.xz;
+          float roadTop = smoothstep(0.5, 0.85, vRoadUp);
+          float roadNear = (1.0 - smoothstep(180.0, 1000.0, vDistanceXZ)) * roadTop;
+          float roadFoot = length(fwidth(vWorldPosition.xz));
+          float grainAA = (1.0 - smoothstep(0.35, 1.5, roadFoot)) * (1.0 - smoothstep(70.0, 300.0, vDistanceXZ));
+          float patchAA = 1.0 - smoothstep(2.5, 10.0, roadFoot);
+          ${modeBody}
         }`
       );
   };

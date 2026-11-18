@@ -70,6 +70,7 @@ import {
   WATER_LEVEL,
   addHeadlightPool,
   addRoadSnow,
+  addRoadSurface,
   createMaterial,
   terrainUniforms,
 } from './constants.js';
@@ -344,6 +345,7 @@ terrainMaterial.onBeforeCompile = (shader) => {
     `#include <color_fragment>
      float snowWhiteness = smoothstep(0.55, 0.85, min(diffuseColor.r, min(diffuseColor.g, diffuseColor.b)));
      diffuseColor.rgb *= mix(vec3(1.0), uSnowExposure, snowWhiteness);
+     ${ChillFlightLogic.TEXTURES !== false ? 'terrainSurfaceDetail(diffuseColor.rgb, snowWhiteness);' : ''}
      #ifdef GRASS_SHEEN
      {
        // Grass (green) and wheat fields (yellow, as in grass.js)
@@ -361,23 +363,57 @@ terrainMaterial.onBeforeCompile = (shader) => {
      #endif`
   );
 
+  shader.fragmentShader = shader.fragmentShader.replace(
+    'void main() {',
+    `float terrainHash(vec2 p) {
+      vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+      p3 += dot(p3, p3.yzx + 33.33);
+      return fract((p3.x + p3.y) * p3.z);
+    }
+    float terrainNoise(vec2 p) {
+      vec2 i = floor(p);
+      vec2 f = fract(p);
+      f = f * f * (3.0 - 2.0 * f);
+      return mix(mix(terrainHash(i), terrainHash(i + vec2(1.0, 0.0)), f.x),
+                 mix(terrainHash(i + vec2(0.0, 1.0)), terrainHash(i + vec2(1.0, 1.0)), f.x), f.y);
+    }
+    // Close-range ground and sand mottling, faded out with distance and
+    // clamped by screen-space derivative so distant terrain stays clean.
+    void terrainSurfaceDetail(inout vec3 c, float snowW) {
+      vec2 wp = vWorldPosition.xz;
+      vec3 faceN = normalize(cross(dFdx(vWorldPosition), dFdy(vWorldPosition)));
+      float upY = abs(faceN.y);
+      float nonSnow = 1.0 - snowW;
+      float green = smoothstep(0.015, 0.08, c.g - max(c.r, c.b));
+      float warmSand = smoothstep(0.02, 0.10, c.r - c.g) * smoothstep(0.04, 0.14, c.g - c.b);
+
+      // Close-range ground mottling (soil, rock, desert sand ripples & meadow patches)
+      float groundFade = (1.0 - smoothstep(350.0, 1800.0, vDistanceXZ)) * smoothstep(0.55, 0.80, upY) * nonSnow;
+      if (groundFade > 0.005) {
+        float foot = length(fwidth(wp));
+        float fineAA = 1.0 - smoothstep(0.8, 3.2, foot);
+        float medPatch = terrainNoise(wp * 0.028) * 0.6 + terrainNoise(wp * 0.095 + 5.7) * 0.4 - 0.5;
+        float fineGrain = (terrainNoise(wp * 0.32 + 13.4) - 0.5) * fineAA;
+        vec2 windD = vec2(0.85, 0.52);
+        vec2 windP = vec2(-0.52, 0.85);
+        float rippleCoord = dot(wp, windD) * 0.42 + (terrainNoise(wp * 0.08) - 0.5) * 3.5;
+        float sandRipple = sin(rippleCoord) * (0.5 + 0.5 * terrainNoise(vec2(dot(wp, windP) * 0.05, 2.1))) * fineAA;
+        #ifndef ANIME_TERRAIN
+          vec3 meadowTint = mix(vec3(0.93, 0.98, 1.04), vec3(1.07, 1.03, 0.91), smoothstep(-0.25, 0.25, medPatch));
+          c = mix(c, c * meadowTint, green * groundFade * 0.45);
+        #endif
+        float modAmt = medPatch * 0.13 + fineGrain * 0.10 + warmSand * sandRipple * 0.055;
+        c *= 1.0 + modAmt * groundFade;
+      }
+    }
+    void main() {`
+  );
+
   // Anime style: painterly variation in the greens
   if (ART_PAINTED) {
     shader.fragmentShader = shader.fragmentShader.replace(
       'void main() {',
       `#define ANIME_TERRAIN
-      float animeHash(vec2 p) {
-        vec3 p3 = fract(vec3(p.xyx) * 0.1031);
-        p3 += dot(p3, p3.yzx + 33.33);
-        return fract((p3.x + p3.y) * p3.z);
-      }
-      float animeNoise(vec2 p) {
-        vec2 i = floor(p);
-        vec2 f = fract(p);
-        f = f * f * (3.0 - 2.0 * f);
-        return mix(mix(animeHash(i), animeHash(i + vec2(1.0, 0.0)), f.x),
-                   mix(animeHash(i + vec2(0.0, 1.0)), animeHash(i + vec2(1.0, 1.0)), f.x), f.y);
-      }
       // Greens drift between warm yellow-green and cool blue-green in broad
       // washes, with smaller lighter and darker patches like uneven paint.
       // Only vegetation (green-dominant colors) changes, and the variation
@@ -386,11 +422,11 @@ terrainMaterial.onBeforeCompile = (shader) => {
         vec2 wp = vWorldPosition.xz;
         float fade = 1.0 - smoothstep(3000.0, 7000.0, vDistanceXZ);
         float green = smoothstep(0.02, 0.1, c.g - max(c.r, c.b)) * fade;
-        float wash = animeNoise(wp / 900.0) * 0.65 + animeNoise(wp / 330.0 + 7.3) * 0.35;
+        float wash = terrainNoise(wp / 900.0) * 0.65 + terrainNoise(wp / 330.0 + 7.3) * 0.35;
         vec3 warm = c * vec3(1.2, 1.1, 0.68);
         vec3 cool = c * vec3(0.8, 0.97, 1.15);
         c = mix(c, mix(cool, warm, smoothstep(0.25, 0.75, wash)), green * 0.85);
-        c *= mix(1.0, mix(0.88, 1.1, animeNoise(wp / 180.0 + 31.7)), green);
+        c *= mix(1.0, mix(0.88, 1.1, terrainNoise(wp / 180.0 + 31.7)), green);
       }
       void main() {`
     );
@@ -3144,13 +3180,23 @@ if (typeof window !== 'undefined') {
 }
 
 export var bridgeDeckMat = addRoadSnow(
-  addHeadlightPool(createMaterial({color: 0x4a4a4a, flatShading: true}), 2.2)
+  addHeadlightPool(
+    addRoadSurface(createMaterial({color: 0x4a4a4a, flatShading: true}), {
+      street: true,
+    }),
+    2.2
+  )
 ); // Asphalt gray
 // The highways' and slip roads' decks: white, so each segment's instance
 // colour sets its asphalt, weathered by the biome (terrain-chunks.js)
 // (and snow settles on them while it snows: addRoadSnow)
 export var highwayDeckMat = addRoadSnow(
-  addHeadlightPool(createMaterial({color: 0xffffff, flatShading: true}), 2.2)
+  addHeadlightPool(
+    addRoadSurface(createMaterial({color: 0xffffff, flatShading: true}), {
+      lanes: true,
+    }),
+    2.2
+  )
 );
 // (Colours made while the module loads are converted from sRGB, as the
 // heartland asphalt's is; the much lighter dusty and snowy ones are taken
@@ -3164,10 +3210,13 @@ export var ROAD_ASPHALT = {
 };
 // The highways' railings: white, coloured per piece like the decks. Grey
 // concrete, sun-bleached to sandstone in the desert and frosted in the north.
-export var highwayRailMat = createMaterial({
-  color: 0xffffff,
-  flatShading: true,
-});
+export var highwayRailMat = addRoadSurface(
+  createMaterial({
+    color: 0xffffff,
+    flatShading: true,
+  }),
+  {structure: true}
+);
 export var ROAD_RAIL = {
   base: new THREE.Color(0x626262),
   dust: new THREE.Color().setHex(0xb39d7c, THREE.LinearSRGBColorSpace),
@@ -3176,14 +3225,20 @@ export var ROAD_RAIL = {
 };
 // A town street's slab of asphalt (a unit box, scaled to each piece)
 export var townStreetGeo = new THREE.BoxGeometry(1, 1, 1);
-export var bridgePilingMat = createMaterial({
-  color: 0x626262,
-  flatShading: true,
-}); // Concrete gray
-export var bridgeGirderMat = createMaterial({
-  color: 0x555555,
-  flatShading: true,
-}); // Girder concrete gray
+export var bridgePilingMat = addRoadSurface(
+  createMaterial({
+    color: 0x626262,
+    flatShading: true,
+  }),
+  {structure: true}
+); // Concrete gray
+export var bridgeGirderMat = addRoadSurface(
+  createMaterial({
+    color: 0x555555,
+    flatShading: true,
+  }),
+  {structure: true}
+); // Girder concrete gray
 if (typeof window !== 'undefined') {
   window.bridgeGirderMat = bridgeGirderMat;
 }

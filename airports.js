@@ -7,7 +7,14 @@
 import * as THREE from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
-import {createMaterial, WATER_LEVEL, MOUNTAIN_LEVEL} from './constants.js';
+import {
+  addHeadlightPool,
+  addRoadSnow,
+  addRoadSurface,
+  createMaterial,
+  WATER_LEVEL,
+  MOUNTAIN_LEVEL,
+} from './constants.js';
 import {scene} from './scene.js';
 import {simplex} from './noise.js';
 import {getElevation, windUniforms} from './terrain-geometry.js';
@@ -31,8 +38,30 @@ import {
 // ({type: 'obj', object, role}), drawn by a copy of it when it falls.
 export const standaloneProps = [];
 
-const asphaltMat = createMaterial({color: 0x4f5155, flatShading: true});
-const concreteMat = createMaterial({color: 0x9a9890, flatShading: true});
+const runwayMat = addRoadSnow(
+  addHeadlightPool(
+    addRoadSurface(createMaterial({color: 0x4f5155, flatShading: true}), {
+      runway: true,
+    }),
+    2.2
+  )
+);
+const asphaltMat = addRoadSnow(
+  addHeadlightPool(
+    addRoadSurface(createMaterial({color: 0x4f5155, flatShading: true}), {
+      accessRoad: true,
+    }),
+    2.2
+  )
+);
+const concreteMat = addRoadSnow(
+  addHeadlightPool(
+    addRoadSurface(createMaterial({color: 0x9a9890, flatShading: true}), {
+      concrete: true,
+    }),
+    1.8
+  )
+);
 const markingMat = createMaterial({color: 0xf2f0e6, flatShading: true});
 const hangarMat = createMaterial({color: 0x8a9aa6, flatShading: true});
 const doorMat = createMaterial({color: 0x4a5560, flatShading: true});
@@ -206,7 +235,7 @@ function createRunway() {
   const length = ChillFlightLogic.RUNWAY_LENGTH;
   const width = ChillFlightLogic.RUNWAY_WIDTH;
   const group = new THREE.Group();
-  const pave = mesh([box(length, 0.6, width, 0, 0.3, 0)], asphaltMat);
+  const pave = mesh([box(length, 0.6, width, 0, 0.3, 0)], runwayMat);
   pave.castShadow = false;
   group.add(pave);
   const apron = mesh(
@@ -566,6 +595,9 @@ function createAccessRoad(road, a, fieldY) {
   const toLocal = new THREE.Matrix4()
     .makeRotationY(a.angle)
     .multiply(new THREE.Matrix4().makeTranslation(-a.x, -fieldY, -a.z));
+  const roadToLocal = toLocal
+    .clone()
+    .multiply(new THREE.Matrix4().makeTranslation(0, 0, z));
   const group = new THREE.Group();
 
   // A sign on the highway's shoulder each way, before the turn: traffic
@@ -593,9 +625,10 @@ function createAccessRoad(road, a, fieldY) {
       'position',
       new THREE.Float32BufferAttribute(positions, 3)
     );
-    geo.applyMatrix4(toLocal);
+    geo.translate(0, 0, -z);
     geo.computeVertexNormals();
     const m = new THREE.Mesh(geo, material);
+    m.applyMatrix4(roadToLocal);
     m.receiveShadow = true;
     group.add(m);
   }

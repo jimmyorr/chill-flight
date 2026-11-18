@@ -1770,6 +1770,10 @@ export const ChillFlightLogic = {};
   exports.GRASS = getParam('grass', '1') !== '0';
   // Tyre tracks and skid marks (tire-tracks.js), on unless ?tracks=0
   exports.TIRE_TRACKS = getParam('tracks', '1') !== '0';
+  // Procedural surface detail on roads, runways, aprons and close-range ground
+  // (constants.js, terrain-geometry.js); ?textures=0 turns it off
+  exports.TEXTURES =
+    (getSwitchParam('textures') ?? getSwitchParam('texture')) !== false;
   let continentSeed = null;
   let continentForced = null;
   // Sets `continent` for the current seed (and forced name), when they change
