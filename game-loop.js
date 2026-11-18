@@ -17,7 +17,10 @@ import {
   CEILING,
   ceilingClimbLimit,
   flightCeiling,
+  ROLL_EXIT,
+  rollExitTurns,
   sagClimbCap,
+  stepRollExit,
   thinAirAt,
 } from './flight-physics-logic.js';
 import {LANDMARKS} from './landmarks.js';
@@ -1008,6 +1011,9 @@ const BARREL_ROLL_EASE_IN = 0.25;
 // The roll in progress: 1 rolling left, -1 right, 0 none; and its rate (rad/s)
 let barrelRollDir = 0;
 let barrelRollRate = 0;
+// Letting go eases the roll to level (stepRollExit): its state, the whole
+// turns added to the level bank it is heading for, and how long it has run
+const rollExit = {active: false, roll: 0, rate: 0, accel: 0, turns: 0, t: 0};
 
 // Sharp turn (double-tap left or right and hold): steeper bank and faster
 // turn rate. It blends in over SHARP_TURN_EASE_IN seconds and back out over
@@ -1173,6 +1179,7 @@ function flyVRSimStick(delta, inAirGripTurn) {
   state.manualPitch = 0;
   barrelRollDir = 0;
   barrelRollRate = 0;
+  rollExit.active = false;
   manualPitchVel = 0;
   manualPitchActive = false;
   lastPitchMode = 0;
@@ -1456,6 +1463,7 @@ function updatePhysicsAndControls(delta, nowTime) {
     lastPitchMode = 0;
     loopActive = false;
     loopRecovering = false;
+    rollExit.active = false;
     if (scripted.loop) {
       planeGroup.rotation.x = scripted.pitch;
       planeGroup.rotation.z = scripted.roll;
@@ -1489,6 +1497,7 @@ function updatePhysicsAndControls(delta, nowTime) {
   ) {
     vrSimStickWereFlying = false;
     updateAutopilot(delta);
+    rollExit.active = false;
     manualPitchVel = 0;
     manualPitchActive = false;
     lastPitchMode = 0;
@@ -1500,6 +1509,7 @@ function updatePhysicsAndControls(delta, nowTime) {
     !state.isDoingImmelmann &&
     isVRSimStickFlying()
   ) {
+    rollExit.active = false;
     flyVRSimStick(delta, inAirGripTurn);
     return;
   } else if (!state.isFreeCamera && state.flightSpeedMultiplier > 0) {
@@ -1741,8 +1751,52 @@ function updatePhysicsAndControls(delta, nowTime) {
       else if (isRight && ttRight) rollHeld = -1;
     }
     if (rollHeld !== barrelRollDir) {
+      if (rollHeld !== 0) {
+        // Rolling again while easing out carries on from the rate it has
+        barrelRollRate = rollExit.active
+          ? Math.max(0, rollHeld * rollExit.rate)
+          : 0;
+        rollExit.active = false;
+      } else {
+        // Let go: ease to the level bank the roll's momentum carries it
+        // nearest, rather than springing there (which jolted, could swap
+        // which way it was heading as it passed upside down, and swung the
+        // heading round while the plane was still well over)
+        rollExit.active = true;
+        rollExit.roll = planeGroup.rotation.z;
+        rollExit.rate = barrelRollDir * barrelRollRate;
+        rollExit.accel = 0;
+        rollExit.turns = rollExitTurns(
+          rollExit.roll,
+          rollExit.rate,
+          state.targetRoll,
+          state.manualRollSpeed
+        );
+        rollExit.t = 0;
+        barrelRollRate = 0;
+      }
       barrelRollDir = rollHeld;
-      barrelRollRate = 0;
+    }
+    if (state.isDoingImmelmann) rollExit.active = false;
+    if (rollExit.active) {
+      rollExit.t += delta;
+      rollExit.roll = planeGroup.rotation.z;
+      const settled = stepRollExit(
+        rollExit,
+        state.targetRoll + rollExit.turns,
+        state.manualRollSpeed,
+        delta
+      );
+      planeGroup.rotation.z = rollExit.roll;
+      if (settled || rollExit.t > ROLL_EXIT.MAX_SECONDS) {
+        // Hand over to the usual roll, in its own range
+        rollExit.active = false;
+        planeGroup.rotation.z = wrapAngle(rollExit.roll);
+      } else {
+        // Still rolling: the camera stays with it and the plane doesn't
+        // turn until it is back near level
+        state.isBarrelRolling = true;
+      }
     }
     if (barrelRollDir !== 0) {
       barrelRollRate = Math.min(
@@ -1757,6 +1811,7 @@ function updatePhysicsAndControls(delta, nowTime) {
     vrSimStickWereFlying = false;
     barrelRollDir = 0;
     barrelRollRate = 0;
+    rollExit.active = false;
     manualPitchVel = 0;
     manualPitchActive = false;
     lastPitchMode = 0;
@@ -1885,9 +1940,11 @@ function updatePhysicsAndControls(delta, nowTime) {
       rollRate =
         barrelRollDir !== 0
           ? barrelRollDir * barrelRollRate
-          : delta > 0
-            ? (flightRot.roll - rollBefore) / delta
-            : 0;
+          : rollExit.active
+            ? rollExit.rate
+            : delta > 0
+              ? (flightRot.roll - rollBefore) / delta
+              : 0;
     }
 
     // Store calculated yaw to be applied later in the physics block

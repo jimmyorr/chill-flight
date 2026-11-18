@@ -222,3 +222,84 @@ export function airborneVerticalVelocity(
   );
   return Math.max(velocity, FLIGHT.TERMINAL_VELOCITY);
 }
+
+/**
+ * Letting go of a barrel roll: the roll eases to level instead of springing
+ * there. The roll stops at about BRAKE times the rate it eases in at
+ * (BARREL_ROLL_EASE_IN in game-loop.js, here EASE_OUT seconds from full
+ * rate), so it brakes about as firmly as it starts, and its acceleration
+ * blends over SMOOTH seconds, so nothing jolts. It rolls on to the level its
+ * momentum carries it nearest (rollExitTarget): past halfway it finishes the
+ * turn, short of that it rolls back, and it never changes its mind midway.
+ * Within SETTLE_ANGLE of the level it eases in exponentially (SETTLE per
+ * second) rather than stopping dead.
+ */
+export const ROLL_EXIT = {
+  EASE_OUT: 0.4,
+  BRAKE: 2,
+  SMOOTH: 0.06,
+  SETTLE: 4,
+  // How quickly (1/s) the rate is steered onto the eased one: gentle, so
+  // the braking doesn't overshoot it and wobble at the end
+  FOLLOW: 10,
+  // Done (hand over to the usual roll) this close, this slow
+  DONE_ANGLE: 0.02,
+  DONE_RATE: 0.1,
+  // Give up after this long (the player steering keeps moving the target)
+  MAX_SECONDS: 4,
+};
+
+// How hard (rad/s²) a roll at `maxRate` rad/s brakes on its way out
+export function rollExitBrake(maxRate) {
+  return (Math.max(maxRate, 0.1) / ROLL_EXIT.EASE_OUT) * ROLL_EXIT.BRAKE;
+}
+
+/**
+ * The winding (whole turns, as an angle) to add to the level bank `level`
+ * so the roll, at `roll` rolling at `rate` rad/s, ends on the copy of it
+ * nearest where it would come to a stop braking at rollExitBrake(maxRate)
+ */
+export function rollExitTurns(roll, rate, level, maxRate) {
+  const stop = roll + (rate * Math.abs(rate)) / (2 * rollExitBrake(maxRate));
+  return Math.PI * 2 * Math.round((stop - level) / (Math.PI * 2));
+}
+
+/**
+ * One frame of the roll easing to `target` (unwrapped, from rollExitTurns):
+ * `s` is {roll, rate, accel} (rad, rad/s, rad/s²) and is updated in place.
+ * Returns true once it has settled (within DONE_ANGLE, under DONE_RATE).
+ * Steps of at most 1/60 s keep it the same at any frame rate.
+ */
+export function stepRollExit(s, target, maxRate, delta) {
+  const brake = rollExitBrake(maxRate);
+  const ease = brake / ROLL_EXIT.BRAKE;
+  const steps = Math.max(1, Math.ceil(delta * 60 - 1e-6));
+  const dt = delta / steps;
+  for (let i = 0; i < steps; i++) {
+    const diff = target - s.roll;
+    const dist = Math.abs(diff);
+    // The rate that stops on the target braking a little gentler than the
+    // most it can, and eases in exponentially at the end
+    const want =
+      Math.sign(diff) *
+      Math.min(
+        maxRate,
+        Math.sqrt(2 * brake * 0.7 * dist),
+        ROLL_EXIT.SETTLE * dist
+      );
+    const change = want - s.rate;
+    // Slowing down brakes firmly; speeding up (rolling back) eases in
+    const limit = change * s.rate < 0 ? brake : ease;
+    const wantAccel = Math.max(
+      -limit,
+      Math.min(limit, change * ROLL_EXIT.FOLLOW)
+    );
+    s.accel += (wantAccel - s.accel) * (1 - Math.exp(-dt / ROLL_EXIT.SMOOTH));
+    s.rate += s.accel * dt;
+    s.roll += s.rate * dt;
+  }
+  return (
+    Math.abs(target - s.roll) < ROLL_EXIT.DONE_ANGLE &&
+    Math.abs(s.rate) < ROLL_EXIT.DONE_RATE
+  );
+}

@@ -6,7 +6,8 @@
  * throttleSpeed in flight-physics-logic.js): a dive speeds the plane up and a
  * climb slows it, by the same amount at any frame rate, a climb never slows
  * it toward a stall, and it settles back to the throttle once level. Also
- * the thin air at the top of the sky (CEILING).
+ * the thin air at the top of the sky (CEILING), and a barrel roll easing to
+ * level when let go (stepRollExit).
  */
 import {
   PLANE_HANDLING,
@@ -23,7 +24,9 @@ import {
   flightCeiling,
   underCloudsCeiling,
   pitchedTarget,
+  rollExitTurns,
   sagClimbCap,
+  stepRollExit,
   thinAirAt,
   throttleSpeed,
 } from '../flight-physics-logic.js';
@@ -191,6 +194,60 @@ check(
     high < low && high >= Math.min(cruise, floor) - 1e-9,
     `(${low.toFixed(3)} low, ${high.toFixed(3)} high)`
   );
+}
+
+// Letting go of a barrel roll: it eases to the level its momentum carries
+// it nearest, brakes no harder than about twice its ease-in, never turns
+// back once heading for a level ahead, and settles the same at any frame rate
+{
+  const TURN = Math.PI * 2;
+  for (const [name, h] of Object.entries(PLANE_HANDLING)) {
+    const rate = h.rollRate;
+    if (!rate) continue;
+    for (const deg of [10, 60, 100, 150, 220, 300, 350]) {
+      const results = [30, 60, 120].map((fps) => {
+        const s = {roll: TURN + (deg * Math.PI) / 180, rate, accel: 0};
+        const target = rollExitTurns(s.roll, s.rate, 0, rate);
+        let t = 0;
+        let done = false;
+        let peak = 0;
+        let turnedBack = false;
+        let over = 0;
+        while (!done && t < 4) {
+          const before = s.rate;
+          done = stepRollExit(s, target, rate, 1 / fps);
+          t += 1 / fps;
+          peak = Math.max(peak, Math.abs(s.rate - before) * fps);
+          // Heading for the level ahead, it never rolls back short of it
+          if (target > TURN && s.rate < -0.05 && s.roll < target - 0.05) {
+            turnedBack = true;
+          }
+          if (target > TURN) over = Math.max(over, s.roll - target);
+        }
+        return {target, t, peak, done, turnedBack, over};
+      });
+      const [a, b, c] = results;
+      const want = deg < 180 ? TURN : TURN * 2;
+      check(
+        `${name} let go ${deg}° round settles level ${deg < 180 ? 'back' : 'ahead'}`,
+        results.every(
+          (r) =>
+            r.done &&
+            r.target === want &&
+            !r.turnedBack &&
+            r.over < (25 * Math.PI) / 180
+        ),
+        `(${results.map((r) => r.t.toFixed(2)).join('/')} s)`
+      );
+      check(
+        `${name} let go ${deg}° round brakes gently and alike at 30/60/120 fps`,
+        results.every((r) => r.peak < (rate / 0.25) * 2.2) &&
+          Math.abs(a.t - b.t) < 0.25 &&
+          Math.abs(c.t - b.t) < 0.25,
+        `(peak ${b.peak.toFixed(1)} rad/s², ease-in ${(rate / 0.25).toFixed(1)})`
+      );
+    }
+  }
 }
 
 if (failed) {
