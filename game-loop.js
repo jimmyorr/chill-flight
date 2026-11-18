@@ -1008,6 +1008,10 @@ function updateDayNightCycle(delta) {
 // Barrel roll (triple-tap left or right and hold): the roll rate eases in
 // over BARREL_ROLL_EASE_IN seconds and the roll lasts as long as the hold
 const BARREL_ROLL_EASE_IN = 0.25;
+// The roll goes at this share of the plane's rollRate (PLANE_HANDLING), close
+// to how fast the joystick banks it, just carrying on round: a seaplane
+// takes about 4.5 s a turn
+const BARREL_ROLL_SPEED = 0.5;
 // The roll in progress: 1 rolling left, -1 right, 0 none; and its rate (rad/s)
 let barrelRollDir = 0;
 let barrelRollRate = 0;
@@ -1446,7 +1450,7 @@ function updatePhysicsAndControls(delta, nowTime) {
   state.isSteepPitch = false;
   state.isDoingFullLoop = false;
 
-  state.manualRollSpeed = planeHandling().rollRate;
+  state.manualRollSpeed = planeHandling().rollRate * BARREL_ROLL_SPEED;
 
   // A promo clip's scripted attitude takes over from the controls, the
   // autopilot and the manual maneuvers below (see promo-script.js)

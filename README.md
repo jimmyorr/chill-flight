@@ -293,10 +293,10 @@ There are four planes to fly, picked on the pause menu's Flight tab (or with **V
 
 | Plane    | Top speed | Falls below | Level from | Throttle (up / down, units/s²) | Agility | Barrel roll | Climb / dive |
 | -------- | --------- | ----------- | ---------- | ------------------------------ | ------- | ----------- | ------------ |
-| Biplane  | 140 kts   | 40 kts      | 57 kts     | 40 / 30                        | 1.3     | ~1.7 s      | 40%          |
-| Seaplane | 190 kts   | 46 kts      | 65 kts     | 50 / 30                        | 1       | ~2.2 s      | 35%          |
-| Twin     | 250 kts   | 50 kts      | 71 kts     | 60 / 20                        | 0.75    | ~2.8 s      | 30%          |
-| Jet      | 550 kts   | 55 kts      | 78 kts     | 95 / 35                        | 1       | ~2.1 s      | 30%          |
+| Biplane  | 140 kts   | 40 kts      | 57 kts     | 40 / 30                        | 1.3     | ~3.4 s      | 40%          |
+| Seaplane | 190 kts   | 46 kts      | 65 kts     | 50 / 30                        | 1       | ~4.5 s      | 35%          |
+| Twin     | 250 kts   | 50 kts      | 71 kts     | 60 / 20                        | 0.75    | ~5.6 s      | 30%          |
+| Jet      | 550 kts   | 55 kts      | 78 kts     | 95 / 35                        | 1       | ~4.2 s      | 30%          |
 
 - **Biplane:** slow and nimble, the one for aerobatics.
 - **Seaplane:** the all-rounder.
@@ -430,7 +430,7 @@ Multiple control methods are supported: keyboard, mouse or trackpad, and gamepad
 - **Double-tap arrow down and hold**: Perform a steep dive. It ramps down smoothly to a 70° dive and eases back to level flight on release.
 - **Triple-tap arrow down**: Perform an Immelmann turn (climbing half-loop followed by a half-roll into reverse heading). It carries on from the plane's pitch and pitch rate, rolls out any bank early in the pull-up, and can't start on the ground or mid-loop.
 - **Double-tap arrow left / right and hold**: Perform a sharp turn (steep 78° bank with accelerated turn rate and elevator back-pressure).
-- **Triple-tap arrow left / right and hold**: Perform a barrel roll. It eases in and rolls as long as you hold, about two seconds a roll (quicker in the biplane, slower in the twin).
+- **Triple-tap arrow left / right and hold**: Perform a barrel roll. It eases in and rolls as long as you hold, about four and a half seconds a roll, close to how fast the joystick banks the plane (quicker in the biplane, slower in the twin).
 
 #### Free camera mode (if active)
 
