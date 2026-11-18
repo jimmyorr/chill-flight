@@ -18,6 +18,7 @@ import {
   ceilingClimbLimit,
   flightCeiling,
   ROLL_EXIT,
+  joystickResponse,
   rollExitTurns,
   sagClimbCap,
   stepRollExit,
@@ -1316,8 +1317,19 @@ function updatePhysicsAndControls(delta, nowTime) {
   const maxPitch = Math.PI / 4;
   const maxRoll = Math.PI / 3;
   const steeringOn = state.mouseControlActive && !state.isFreeCamera;
-  let effMouseX = steeringOn ? stickResponse(state.mouseX) : 0;
-  let effMouseY = steeringOn ? stickResponse(state.mouseY) : 0;
+  // The phone joystick has its own response (joystickResponse): gentle in
+  // the middle like the other sticks, but the keyboard's hard turn at the rim
+  const im = inputManager.state;
+  const touchStick =
+    state.fullStick &&
+    im.controlScheme === 'joystick' &&
+    im.joystick.active &&
+    !im.gamepad.steeringActive;
+  const respond = touchStick
+    ? (v) => joystickResponse(v / inputManager.JOYSTICK_SENSITIVITY)
+    : stickResponse;
+  let effMouseX = steeringOn ? respond(state.mouseX) : 0;
+  let effMouseY = steeringOn ? respond(state.mouseY) : 0;
 
   // Logical inputs based on effective Y-axis inversion
   const invertY = inputManager.shouldInvertYAxis();

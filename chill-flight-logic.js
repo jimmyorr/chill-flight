@@ -225,6 +225,9 @@ export const ChillFlightLogic = {};
   const HINTS_PARAM = getSwitchParam('hints');
   // ?weightedRoll=0/1: the weighted roll off or on (game-loop.js)
   const WEIGHTED_ROLL_PARAM = getSwitchParam('weightedRoll');
+  // ?fullStick=0: the phone joystick's old gentle response, capped at half
+  // the keyboard's bank (joystickResponse in flight-physics-logic.js)
+  const FULL_STICK_PARAM = getSwitchParam('fullStick');
   // ?vrStick=chill or ?vrStick=sim: VR flight stick handling mode
   const _vrStickRaw = getParam('vrStick', getParam('vrstick', null));
   const VR_STICK_PARAM =
@@ -7263,6 +7266,7 @@ export const ChillFlightLogic = {};
   exports.ADAPTIVE_QUALITY = ADAPTIVE_QUALITY;
   exports.TRAFFIC_PARAM = TRAFFIC_PARAM;
   exports.WEIGHTED_ROLL_PARAM = WEIGHTED_ROLL_PARAM;
+  exports.FULL_STICK_PARAM = FULL_STICK_PARAM;
   exports.VR_STICK_PARAM = VR_STICK_PARAM;
   exports.VR_ONLY_PARAM = VR_ONLY_PARAM;
   exports.PERF_HUD = PERF_HUD;

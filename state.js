@@ -72,6 +72,9 @@ export const state = {
   cloudMoodOverride: ChillFlightLogic.START_CLOUD_MOOD,
   // The weighted roll (game-loop.js), on unless ?weightedRoll=0
   weightedRoll: ChillFlightLogic.WEIGHTED_ROLL_PARAM ?? true,
+  // The phone joystick reaching the keyboard's full bank at its rim
+  // (game-loop.js), on unless ?fullStick=0
+  fullStick: ChillFlightLogic.FULL_STICK_PARAM ?? true,
   cloudDayOffset: 0,
   PROP_LOD_DISTANCE: 4200,
 

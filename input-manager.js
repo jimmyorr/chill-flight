@@ -125,9 +125,11 @@ export class InputManager {
     };
     this.DOUBLE_TAP_MS = 400;
     this.JOYSTICK_MAX_RADIUS = 50;
-    // Full stick reads 0.72, which the controls' response curve
-    // (stickResponse in game-loop.js) turns into half deflection: 37° of
-    // bank and 22° of pitch, with the dead zone the first ~10 px
+    // Full stick reads 0.72 (the buggy's steering expects that). A plane
+    // undoes it and uses joystickResponse (flight-physics-logic.js): gentle
+    // in the middle, the keyboard's 75° of bank at the rim, the first ~10 px
+    // dead. With ?fullStick=0, stickResponse (game-loop.js) caps it at half
+    // deflection: 37° of bank and 22° of pitch
     this.JOYSTICK_SENSITIVITY = 0.7167;
     this._windowJustFocused = false;
     this._isVRHeadset =

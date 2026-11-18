@@ -29,6 +29,26 @@ export const FLIGHT = {
 
 const KTS_PER_MULT = BASE_FLIGHT_SPEED * 60;
 
+// The phone joystick's response, from its throw (0 at the centre to 1 at the
+// 50 px rim, either way) to the controls (1 is what holding an arrow key
+// asks for: 75° of bank). Up to about 60% of the throw it matches the old
+// gentle stick (a fine middle that doesn't feel out of control), then rises
+// faster to the keyboard's hard turn at the rim, where it used to stop at
+// half (37°). The first ~10 px do nothing, as before.
+export const JOYSTICK = {
+  DEAD_ZONE: 0.21,
+  CUBIC: 0.75, // share of the response that's cubic
+};
+export function joystickResponse(throw_) {
+  if (!Number.isFinite(throw_)) return 0;
+  const a = Math.abs(throw_);
+  if (a < JOYSTICK.DEAD_ZONE) return 0;
+  const u = Math.min(1, (a - JOYSTICK.DEAD_ZONE) / (1 - JOYSTICK.DEAD_ZONE));
+  return (
+    Math.sign(throw_) * ((1 - JOYSTICK.CUBIC) * u + JOYSTICK.CUBIC * u * u * u)
+  );
+}
+
 // The top of the sky (#176) sits just under the cloud deck (whose flat layer
 // would give itself away from above) and moves with it (?cloudHeight=).
 // Climbing up to it is "thin air": over the last THIN_AIR units the steepest

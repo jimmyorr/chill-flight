@@ -27,6 +27,7 @@ import {
   rollExitTurns,
   sagClimbCap,
   stepRollExit,
+  joystickResponse,
   thinAirAt,
   throttleSpeed,
 } from '../flight-physics-logic.js';
@@ -249,6 +250,35 @@ check(
       );
     }
   }
+}
+
+// The phone joystick (joystickResponse): the old gentle stick through the
+// middle, the keyboard's full bank at the rim
+{
+  const SENS = 0.7167;
+  const old = (d) => {
+    const a = Math.abs(d * SENS);
+    if (a < 0.15) return 0;
+    const u = (a - 0.15) / 0.85;
+    return 0.55 * u + 0.45 * u * u * u;
+  };
+  const near = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6].every(
+    (d) => Math.abs(joystickResponse(d) - old(d)) < 0.035
+  );
+  check('joystick: up to 60% throw feels like the old stick', near);
+  check(
+    'joystick: dead first ~10 px, as before',
+    joystickResponse(0.2) === 0 && old(0.2) === 0 && joystickResponse(0.22) > 0
+  );
+  check(
+    'joystick: the rim asks for what an arrow key does',
+    joystickResponse(1) === 1 && joystickResponse(-1) === -1 && old(1) < 0.51
+  );
+  let rising = true;
+  for (let d = 0.21; d < 1; d += 0.01) {
+    if (joystickResponse(d + 0.01) <= joystickResponse(d)) rising = false;
+  }
+  check('joystick: rises all the way to the rim', rising);
 }
 
 if (failed) {
