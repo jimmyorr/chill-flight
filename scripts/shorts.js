@@ -11,6 +11,7 @@
 //   9. short-20261112-aerobatic-cut.mp4 - 12s rose biplane loop, climbing roll & dive across 4 biomes (seed 20261112)
 //  10. short-20261114-bayou-cut.mp4  - 12s coral seaplane roll through 2 rock arches across 4 biomes (seed 20261114)
 //  11. short-20261116-twin-cut.mp4   - 12s purple twin-prop roll across volcano, pyramids, arctic arch & alien pillars (seed 20261116)
+//  12. short-20261117-orbit-cut.mp4  - 12s staggered 2-jet 360-degree orbit & wormhole warp across 4 biomes (seed 20261117)
 //
 // Usage:
 //   node scripts/shorts.js [short-id | meta | check] [--preview] [--check]
@@ -110,7 +111,9 @@ function downloadTrack(slug) {
 const step = (page, dt = 1000 / FPS) => stepPromoFrame(page, dt);
 
 function openWorld(browser, query, preroll = PREROLL, beforePreroll = null) {
-  return openPromoWorld(browser, `${BASE_URL}?${COMMON}&${query}`, {
+  const merged = new URLSearchParams(COMMON);
+  for (const [k, v] of new URLSearchParams(query)) merged.set(k, v);
+  return openPromoWorld(browser, `${BASE_URL}?${merged.toString()}`, {
     width: VIEWPORT.width,
     height: VIEWPORT.height,
     scale: PREVIEW ? 1 : VIEWPORT.scale,
@@ -2229,6 +2232,129 @@ async function renderTwinWondersCutShort(browser, seed = 20261116) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Prototype 12: Staggered 2-Jet 360° Orbit + Live Wormhole Warp (Seed 20261117)
+// ---------------------------------------------------------------------------
+async function renderOrbitFormationCutShort(browser, seed = 20261117) {
+  const speedMult = 1.42;
+  await renderMatchCutClip(browser, {
+    id: 'orbit-cut',
+    banner: `Staggered 2-Jet 360° Orbit & Wormhole Cut (Seed ${seed})`,
+    seed,
+    speedMult,
+    direct: true,
+    camFrame: 'yaw-lock',
+    cam:
+      `plane=jet&livery=teal&smoke=1&speed=${speedMult}` +
+      '&camOffset=0,18,84&camLook=0,-1,11&fov=54',
+    camMoves: [
+      [0.0, 0, 18, 84, 0, -1, 11, 54, 0, 0],
+      [12.0, 0, 18, 84, 0, -1, 11, 54, 360, 0],
+    ],
+    // Loose staggered Coral wingman in yaw-space with ~0.45s reaction lag,
+    // natural spacing drift, and a mid-flight cross-under (returns to [0] pose at 12s)
+    wingmen: [
+      {
+        plane: 'jet',
+        livery: 'coral',
+        smoke: 'white',
+        frame: 'yaw',
+        offset: [-10, 4, 22],
+        offsetMoves: [
+          [0.0, -10, 4, 22, 0, 0, 0],
+          [1.6, -9, 5, 21, 2, 0.5, 0],
+          [2.1, -12, 3, 23, -4, 1, -1],
+          [3.45, -14, 1, 25, 28, 3, -2],
+          [5.1, -8, -3, 22, 14, 1, -3],
+          [6.55, 11, -4, 21, -25, -1, 2],
+          [8.1, 14, 3, 24, -18, 2, 2],
+          [9.5, 5, 5, 23, 26, 2, -2],
+          [11.0, -9, 4, 22, -8, 1, 0],
+          [11.6, -10, 4, 22, 0, 0, 0],
+          [12.0, -10, 4, 22, 0, 0, 0],
+        ],
+      },
+    ],
+    moves: [
+      [0.0, 0, 0, 0],
+      [1.4, 0, 0, 0],
+      [3.0, 24, 2, -6],
+      [4.6, 18, 1, -12],
+      [6.0, -20, 0, -10],
+      [7.6, -24, 2, -6],
+      [9.0, 22, 1, -8],
+      [10.6, -12, 1, -10],
+      [11.5, 0, 0, -10],
+      [12.0, 0, 0, -10],
+    ],
+    segments: [
+      {
+        label: 'Xen Wormhole · 0.1°S, 11.4°E',
+        landmark: {
+          kind: 'portal',
+          side: 'east',
+          direction: 1,
+          heightAboveBase: 76,
+        },
+        hitFrame: 34,
+        badges: [[36, 'Westworld Portal · 0.4°S, 13.0°W']],
+        extra: 'tod=0.34&weather=none&cloudMood=busy',
+        startFrame: 0,
+        endFrame: 90,
+      },
+      {
+        label: 'Twin Falls · 0.9°N, 0.0°E',
+        tx: 90,
+        ty: 475,
+        tz: -4420,
+        heading: 172,
+        hitFrame: 98,
+        extra: 'tod=0.31&weather=none&cloudMood=fair',
+        startFrame: 90,
+        endFrame: 180,
+      },
+      {
+        label: 'Coral Sea Arch · 1.8°S, 9.1°E',
+        tx: 45482,
+        ty: 108,
+        tz: 8757,
+        heading: 130,
+        hitFrame: 185,
+        extra: 'tod=0.52&weather=none&cloudMood=fair',
+        startFrame: 180,
+        endFrame: 270,
+      },
+      {
+        label: 'Christmas Village · 3.6°N, 1.0°W',
+        tx: -4810,
+        ty: 172,
+        tz: -17890,
+        heading: 55,
+        hitFrame: 355,
+        xmas: 'full',
+        extra: 'tod=0.79&headlight=1&weather=snow&cloudMood=high',
+        startFrame: 270,
+        endFrame: 360,
+      },
+    ],
+    outBaseName: `short-${seed}-orbit-cut`,
+    trackSlug: 'purrple-cat-fourth-dimension',
+    musicStart: 18,
+    meta: {
+      title: '2 jets in a 360° orbit through a wormhole and 4 biomes ✈️',
+      tiktokQuestion:
+        'Alien wormhole, waterfall, coral arch, or snowy village?',
+      stops: [
+        '0:00 Xen to Westworld Wormhole (0.1°S, 11.4°E)',
+        '0:03 Twin Falls (0.9°N, 0.0°E)',
+        '0:06 Coral Sea Arch (1.8°S, 9.1°E)',
+        '0:09 Christmas Village (3.6°N, 1.0°W)',
+      ],
+      trackTitle: 'Fourth Dimension',
+    },
+  });
+}
+
 async function main() {
   const cliArgs = process.argv.slice(2).filter((a) => !a.startsWith('--'));
   const isCheck = CHECK_ONLY || cliArgs[0] === 'check';
@@ -2355,6 +2481,18 @@ async function main() {
       ],
       trackTitle: 'Wonderment',
     });
+    writeShortMetadata(path.join(OUT, 'short-20261117-orbit-cut.mp4'), {
+      title: '2 jets in a 360° orbit through a wormhole and 4 biomes ✈️',
+      tiktokQuestion:
+        'Alien wormhole, waterfall, coral arch, or snowy village?',
+      stops: [
+        '0:00 Xen to Westworld Wormhole (0.1°S, 11.4°E)',
+        '0:03 Twin Falls (0.9°N, 0.0°E)',
+        '0:06 Coral Sea Arch (1.8°S, 9.1°E)',
+        '0:09 Christmas Village (3.6°N, 1.0°W)',
+      ],
+      trackTitle: 'Fourth Dimension',
+    });
     return;
   }
   const browser = isCheck
@@ -2395,6 +2533,9 @@ async function main() {
     }
     if (!filter || filter === 'twin-cut') {
       await renderTwinWondersCutShort(browser, 20261116);
+    }
+    if (!filter || filter === 'orbit-cut') {
+      await renderOrbitFormationCutShort(browser, 20261117);
     }
     if (!filter || filter === 'daily-postcard') {
       await renderDailyPostcardShort(browser, 20261108);
