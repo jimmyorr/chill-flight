@@ -16,6 +16,7 @@ import {
   getAudioContext,
   getSfxBus,
   prebakedBuffer,
+  sfxEnabled,
 } from './sfx.js';
 
 export const SFX_EVENTS = [
@@ -148,17 +149,18 @@ function build() {
   startedAt = ctx.currentTime;
 }
 
-/** Returns the context once the sound effects graph is up, else null. */
-function ready() {
+/** Returns the context once the sound effects graph is running, else null. */
+function ready(force = false) {
+  if (!force && !sfxEnabled) return null;
   if (!ctx) {
-    ctx = getAudioContext();
-    bus = getSfxBus();
-    if (!ctx || !bus) {
-      ctx = null;
-      return null;
-    }
+    const c = getAudioContext();
+    const b = getSfxBus();
+    if (!c || !b || (!force && c.state !== 'running')) return null;
+    ctx = c;
+    bus = b;
     build();
   }
+  if (!force && ctx.state !== 'running') return null;
   return ctx;
 }
 
@@ -222,7 +224,7 @@ function tone(t, {type = 'sine', freq, freqEnd, gain, attack, decay, lowpass}) {
 // the sound is switched off, for auditioning in the sound lab.
 
 export function playTouchdown(strength = 0.6, force = false) {
-  if ((!force && !isSfxEventEnabled('touchdown')) || !ready()) return;
+  if ((!force && !isSfxEventEnabled('touchdown')) || !ready(force)) return;
   const s = THREE.MathUtils.clamp(strength, 0.2, 1);
   const t = ctx.currentTime;
   // Low thump of the wheels taking the weight, and a scuff of tyres
@@ -238,7 +240,7 @@ export function playTouchdown(strength = 0.6, force = false) {
 }
 
 export function playSplash(strength = 0.6, force = false) {
-  if ((!force && !isSfxEventEnabled('splash')) || !ready()) return;
+  if ((!force && !isSfxEventEnabled('splash')) || !ready(force)) return;
   const s = THREE.MathUtils.clamp(strength, 0.2, 1);
   const t = ctx.currentTime;
   noiseBurst(t, {
@@ -259,7 +261,7 @@ const GEAR_WHIR = false;
 
 // down: gear extending (true) or retracting (false)
 export function playGear(down = true, force = false) {
-  if ((!force && !isSfxEventEnabled('gear')) || !ready()) return;
+  if ((!force && !isSfxEventEnabled('gear')) || !ready(force)) return;
   const t = ctx.currentTime;
   // As long as the gear takes to move (game-loop.js eases it at 0.5/s down
   // and 0.4/s up)
@@ -306,7 +308,7 @@ export function playGear(down = true, force = false) {
 // One blip of typed dialog. voice is any string (the speaker's name) and
 // picks a pitch, so each person sounds a little different.
 export function playDialogBlip(voice = '', force = false) {
-  if ((!force && !isSfxEventEnabled('dialog')) || !ready()) return;
+  if ((!force && !isSfxEventEnabled('dialog')) || !ready(force)) return;
   let hash = 0;
   for (let i = 0; i < voice.length; i++) {
     hash = (hash * 31 + voice.charCodeAt(i)) >>> 0;
@@ -325,7 +327,7 @@ export function playDialogBlip(voice = '', force = false) {
 
 // Two soft bell notes, for a job step done or a waypoint reached
 export function playChime(force = false) {
-  if ((!force && !isSfxEventEnabled('chime')) || !ready()) return;
+  if ((!force && !isSfxEventEnabled('chime')) || !ready(force)) return;
   const t = ctx.currentTime;
   for (const [i, freq] of [659.25, 987.77].entries()) {
     const start = t + i * 0.14;
@@ -338,7 +340,7 @@ export function playChime(force = false) {
 // A race's countdown (multiplayer.js): a soft beep for 3, 2 and 1, and a
 // higher, longer one for go
 export function playRaceBeep(go = false, force = false) {
-  if ((!force && !isSfxEventEnabled('race')) || !ready()) return;
+  if ((!force && !isSfxEventEnabled('race')) || !ready(force)) return;
   const freq = go ? 880 : 523.25;
   tone(ctx.currentTime, {
     type: 'triangle',
@@ -358,7 +360,7 @@ export function playRaceBeep(go = false, force = false) {
 // Bumping into another plane or buggy (bumps.js): a dull knock of panels
 // and a low thud. loud is 0..1 (how near it was)
 export function playBump(loud = 1, force = false) {
-  if ((!force && !isSfxEventEnabled('bump')) || !ready()) return;
+  if ((!force && !isSfxEventEnabled('bump')) || !ready(force)) return;
   const s = THREE.MathUtils.clamp(loud, 0, 1);
   if (s < 0.02) return;
   const t = ctx.currentTime;
@@ -385,7 +387,7 @@ export function playBump(loud = 1, force = false) {
 // A wingtip or the nose scraping rock (wall-scrape.js): a gritty rasp with
 // a thin metal squeal; `hit` adds a knock for the first touch. loud is 0..1
 export function playScrape(loud = 1, hit = false, force = false) {
-  if ((!force && !isSfxEventEnabled('scrape')) || !ready()) return;
+  if ((!force && !isSfxEventEnabled('scrape')) || !ready(force)) return;
   const s = THREE.MathUtils.clamp(loud, 0, 1);
   if (s < 0.02) return;
   const t = ctx.currentTime;
@@ -419,7 +421,7 @@ const THUNDER_LEVEL = 1.6;
 // farther strikes arrive later, quieter and duller, with less crack. pan is
 // -1..1 (left to right of the camera), toward the flash.
 export function playThunder(distance = 0.5, force = false, pan = 0) {
-  if ((!force && !isSfxEventEnabled('thunder')) || !ready()) return;
+  if ((!force && !isSfxEventEnabled('thunder')) || !ready(force)) return;
   const d = THREE.MathUtils.clamp(distance, 0, 1);
   // Far thunder spreads out, so it's placed less sharply than a near crack
   let out = bus;
@@ -474,7 +476,7 @@ export function playSmash(
   fallTime = 0.9,
   force = false
 ) {
-  if ((!force && !isSfxEventEnabled('smash')) || !ready()) return;
+  if ((!force && !isSfxEventEnabled('smash')) || !ready(force)) return;
   const g = THREE.MathUtils.clamp(loud, 0, 1);
   if (g < 0.02) return;
   const t = ctx.currentTime;
@@ -544,7 +546,7 @@ export function playSmash(
 // pentatonic scale, so any run of them sounds pleasant). loud is 0..1.
 const SHATTER_NOTES = [1318.5, 1480, 1661.2, 1975.5, 2217.5, 2637];
 export function playShatter(loud = 1, force = false) {
-  if ((!force && !isSfxEventEnabled('smash')) || !ready()) return;
+  if ((!force && !isSfxEventEnabled('smash')) || !ready(force)) return;
   const g = THREE.MathUtils.clamp(loud, 0, 1);
   if (g < 0.02) return;
   const t = ctx.currentTime;
@@ -572,7 +574,7 @@ export function playShatter(loud = 1, force = false) {
 // trails off across the jump.
 const PORTAL_CHORD = [220, 329.63, 440, 554.37, 659.25, 830.61, 987.77];
 export function playPortalWarp(force = false) {
-  if ((!force && !isSfxEventEnabled('portal')) || !ready()) return;
+  if ((!force && !isSfxEventEnabled('portal')) || !ready(force)) return;
   const t = ctx.currentTime;
   noiseBurst(t, {
     type: 'bandpass',
@@ -707,7 +709,15 @@ function placeListener() {
 // rain: 0..1 how hard it's raining. Detects touchdowns, splashes and gear
 // changes from state, and sets the loops' levels.
 export function updateSfxEvents(delta, rain = 0) {
-  if (!ready() || delta <= 0) return;
+  const anyPreview = SFX_LOOP_KEYS.some((k) => preview[k]);
+  if (delta <= 0 || !ready(anyPreview)) {
+    lastGround = state.isOnGround;
+    lastWater = state.isOnWater;
+    lastGear = state.gearWanted;
+    lastY = planeGroup.position.y;
+    lastSpeed = Math.max(0, state.flightSpeedMultiplier || 0);
+    return;
+  }
   const paused = state.isPaused;
   const speed = Math.max(0, state.flightSpeedMultiplier || 0);
   const onGround = state.isOnGround;

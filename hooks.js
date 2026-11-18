@@ -10,6 +10,7 @@ export const hooks = {
   pollVRVirtualControls: null, // vr-manager.js: (delta, controllers) => object
   resetSteering: null, // game-ui.js
   onTrackChange: null, // game-audio-integration.js: (trackName) => void
+  onAudioUnlocked: null, // sfx.js: called when media autoplay succeeds on load
   fullscreenMap: null, // minimap.js: {open, close, toggle, isOpen, syncUrlParams}
   vrMap: null, // minimap.js: in-VR 3D world map controller
   minimap: null, // minimap.js: {toggle, isVisible}

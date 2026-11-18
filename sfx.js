@@ -3,7 +3,13 @@ import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {state} from './state.js';
 import {activePlaneType, planeGroup} from './airplane.js';
-import {UNLOCK_EVENTS, musicEnabled} from './audio.js';
+import {
+  UNLOCK_EVENTS,
+  canStartAudio,
+  isUnlockGesture,
+  musicEnabled,
+} from './audio.js';
+import {hooks} from './hooks.js';
 import {log} from './logger.js';
 import {PLANE_HANDLING} from './constants.js';
 import {simplex} from './noise.js';
@@ -581,9 +587,35 @@ export function prebakedBuffer(name, context, make) {
   return buffer;
 }
 
+let initUnlockArmed = false;
+let disarmInitUnlock = null;
+
+function armDeferredAudioInit(onUnlocked) {
+  if (initUnlockArmed || typeof window === 'undefined') return;
+  initUnlockArmed = true;
+  const onGesture = (event) => {
+    if (!isUnlockGesture(event)) return;
+    disarmInitUnlock?.();
+    onUnlocked();
+  };
+  disarmInitUnlock = () => {
+    if (!initUnlockArmed) return;
+    initUnlockArmed = false;
+    disarmInitUnlock = null;
+    for (const type of UNLOCK_EVENTS) {
+      window.removeEventListener(type, onGesture);
+    }
+  };
+  for (const type of UNLOCK_EVENTS) {
+    window.addEventListener(type, onGesture, {passive: true});
+  }
+}
+
 /**
  * Initializes the Web Audio graph for sound effects.
- * Safe to call repeatedly; initializes only once.
+ * Safe to call repeatedly; initializes only once. When called before a user
+ * gesture (and autoplay is not yet allowed), defers creating the AudioContext
+ * until the first gesture so browsers don't log autoplay warnings.
  */
 export function initAudioContext() {
   if (isInitialized || typeof window === 'undefined') {
@@ -593,6 +625,12 @@ export function initAudioContext() {
 
   const AudioContextClass = window.AudioContext;
   if (!AudioContextClass) return null;
+
+  if (!canStartAudio()) {
+    armDeferredAudioInit(initAudioContext);
+    return null;
+  }
+  disarmInitUnlock?.();
 
   try {
     audioCtx = new AudioContextClass();
@@ -754,8 +792,10 @@ export function initAudioContext() {
 
   // Resume suspended AudioContext on user interaction (autoplay policy).
   // Browsers only count some events as a gesture: a touch counts when it
-  // ends (pointerup/touchend), not when it starts, so listen for both ends.
-  const unlockAudio = () => syncSfxState();
+  // ends (pointerup/touchend), not when it starts, so filter with isUnlockGesture.
+  const unlockAudio = (event) => {
+    if (isUnlockGesture(event)) syncSfxState();
+  };
   for (const type of UNLOCK_EVENTS) {
     window.addEventListener(type, unlockAudio, {passive: true});
   }
@@ -768,6 +808,13 @@ export function initAudioContext() {
 
   return audioCtx;
 }
+
+hooks.onAudioUnlocked = () => {
+  if (initUnlockArmed) {
+    disarmInitUnlock?.();
+    initAudioContext();
+  }
+};
 
 /**
  * Toggles or sets the sound effects enabled state.
@@ -790,7 +837,9 @@ export function setSfxEnabled(enabled) {
     sfxToggle.checked = enabled;
   }
 
-  if (enabled && !isInitialized) {
+  if (!enabled) {
+    disarmInitUnlock?.();
+  } else if (!isInitialized) {
     initAudioContext();
   }
 
@@ -808,7 +857,7 @@ export function updateSfx() {
   if (runningActive !== wasActive) {
     syncSfxState();
   }
-  if (!active) return;
+  if (!runningActive) return;
 
   const speed = Math.max(0, state.flightSpeedMultiplier || 0);
   const targetSpeed = Math.max(0, state.targetFlightSpeed || 0);

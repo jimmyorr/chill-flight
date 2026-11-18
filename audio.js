@@ -59,6 +59,64 @@ export const UNLOCK_EVENTS = [
   'keydown',
 ];
 
+// Whether unmuted audio is known to be allowed for this page (either via
+// successful media autoplay on load, or a real user gesture).
+export let autoplayUnlocked = false;
+let gestureSeen = false;
+
+function markAutoplayUnlocked() {
+  if (autoplayUnlocked) return;
+  autoplayUnlocked = true;
+  hooks.onAudioUnlocked?.();
+}
+
+// Whether an UNLOCK_EVENTS event counts as a user activation gesture.
+// Touch starts (pointerdown with pointerType 'touch') and Escape keydowns
+// never activate audio in browsers; gating on userActivation avoids
+// premature play()/AudioContext attempts before a real gesture arrives.
+export function isUnlockGesture(event) {
+  if (event?.type === 'pointerdown' && event.pointerType === 'touch') {
+    return false;
+  }
+  if (typeof navigator !== 'undefined' && navigator.userActivation) {
+    return (
+      navigator.userActivation.isActive ||
+      navigator.userActivation.hasBeenActive
+    );
+  }
+  if (event?.type === 'keydown' && event.key === 'Escape') {
+    return false;
+  }
+  return Boolean(event);
+}
+
+export function canStartAudio() {
+  if (autoplayUnlocked || gestureSeen) return true;
+  if (typeof navigator !== 'undefined' && navigator.userActivation) {
+    return (
+      navigator.userActivation.isActive ||
+      navigator.userActivation.hasBeenActive
+    );
+  }
+  return false;
+}
+
+if (typeof window !== 'undefined') {
+  const recordGesture = (event) => {
+    if (!isUnlockGesture(event)) return;
+    gestureSeen = true;
+    for (const type of UNLOCK_EVENTS) {
+      window.removeEventListener(type, recordGesture, true);
+    }
+  };
+  for (const type of UNLOCK_EVENTS) {
+    window.addEventListener(type, recordGesture, {
+      capture: true,
+      passive: true,
+    });
+  }
+}
+
 export let purrpleCatAudio = new Audio();
 purrpleCatAudio.volume = MUSIC_VOLUME;
 
@@ -578,11 +636,12 @@ function armResumeOnInteraction() {
       window.removeEventListener(type, resumeOnInteraction);
     }
   };
-  const resumeOnInteraction = () => {
+  const resumeOnInteraction = (event) => {
     if (!musicEnabled) {
       disarm();
       return;
     }
+    if (!isUnlockGesture(event)) return;
     if (resumeInFlight) return;
     if (!purrpleCatAudio.paused) {
       disarm();
@@ -598,6 +657,7 @@ function armResumeOnInteraction() {
         log.info('Audio resumed on interaction');
         isMusicInternalAction = false;
         disarm();
+        markAutoplayUnlocked();
         fadeInMusicVolume();
         updateMediaMetadata();
       })
@@ -638,6 +698,7 @@ export async function updateAudioPlayer(enabled) {
       .play()
       .then(() => {
         isMusicInternalAction = false;
+        markAutoplayUnlocked();
         if (purrpleCatAudio.volume === 0) fadeInMusicVolume();
         updateMediaMetadata();
       })

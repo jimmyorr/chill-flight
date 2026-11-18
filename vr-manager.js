@@ -10,7 +10,7 @@ import {
   updateVRHandsInstancedMesh,
 } from './vr-models.js';
 import {MUSIC_VOLUME, handleMusicVisibility, setMusicVolume} from './audio.js';
-import {initAudioContext, syncSfxState} from './sfx.js';
+import {initAudioContext, sfxEnabled, syncSfxState} from './sfx.js';
 import {renderFrame} from './outline-pass.js';
 import {
   _currentLookTarget,
@@ -1927,7 +1927,7 @@ if (renderer && renderer.xr) {
       }
       setMusicVolume(MUSIC_VOLUME);
       syncSfxState();
-      initAudioContext();
+      if (sfxEnabled) initAudioContext();
       clearInputState();
       hooks.onResume?.();
     }

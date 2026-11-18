@@ -82,6 +82,32 @@ const failPage = (tag, msg) => errors.push(`[${tag}] ${msg}`);
 // world (pages that set their own seed keep it).
 const TEST_SEED = '20260101';
 
+// Puppeteer's page.evaluate / page.waitForFunction sets userGesture: true in
+// CDP Runtime.evaluate, which would unlock Web Audio before any real input.
+// Poll with userGesture: false so loading and initial flight run under the
+// same unactivated state a player's browser starts in.
+async function waitForLoadWithoutGesture(page, timeoutMs = 60000) {
+  const client = await page.createCDPSession();
+  try {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const {result} = await client.send('Runtime.evaluate', {
+        expression: `(() => {
+          const el = document.getElementById('loading-overlay');
+          return Boolean(el && getComputedStyle(el).display === 'none');
+        })()`,
+        returnByValue: true,
+        userGesture: false,
+      });
+      if (result?.value === true) return;
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    throw new Error(`Waiting failed: ${timeoutMs}ms exceeded`);
+  } finally {
+    await client.detach().catch(() => {});
+  }
+}
+
 async function checkPage(
   browser,
   {path, fly, blackhole, presetSwitch, waitForLoad}
@@ -137,12 +163,12 @@ async function checkPage(
     errors.push(`[${tag}] pageerror: ${err.message}`)
   );
   page.on('console', (msg) => {
+    const text = msg.text();
     // Ignore the noise from our own analytics blocking above.
-    if (
-      msg.type() === 'error' &&
-      !msg.text().includes('ERR_BLOCKED_BY_CLIENT')
-    ) {
-      errors.push(`[${tag}] console.error: ${msg.text()}`);
+    if (msg.type() === 'error' && !text.includes('ERR_BLOCKED_BY_CLIENT')) {
+      errors.push(`[${tag}] console.error: ${text}`);
+    } else if (text.includes('AudioContext was not allowed to start')) {
+      errors.push(`[${tag}] autoplay warning: ${text}`);
     }
   });
   page.on('requestfailed', (req) => {
@@ -205,13 +231,7 @@ async function checkPage(
   if (blackhole) {
     // Generous deadlines: a busy machine can be slow, but a real black
     // screen never paints at all.
-    await page.waitForFunction(
-      () => {
-        const el = document.getElementById('loading-overlay');
-        return el && getComputedStyle(el).display === 'none';
-      },
-      {timeout: 60000}
-    );
+    await waitForLoadWithoutGesture(page, 60000);
     // A screenshot needs a painted frame; if a render-blocking third-party
     // resource hangs, the page never paints (a black screen).
     const painted = await Promise.race([
@@ -244,13 +264,7 @@ async function checkPage(
   }
 
   if (presetSwitch) {
-    await page.waitForFunction(
-      () => {
-        const el = document.getElementById('loading-overlay');
-        return el && getComputedStyle(el).display === 'none';
-      },
-      {timeout: 60000}
-    );
+    await waitForLoadWithoutGesture(page, 60000);
     await new Promise((r) => setTimeout(r, 500));
     const beforeSwitch = await page.evaluate(() => {
       const gl = [...document.querySelectorAll('canvas')]
@@ -307,13 +321,7 @@ async function checkPage(
 
   if (!fly) {
     if (waitForLoad) {
-      await page.waitForFunction(
-        () => {
-          const el = document.getElementById('loading-overlay');
-          return el && getComputedStyle(el).display === 'none';
-        },
-        {timeout: 60000}
-      );
+      await waitForLoadWithoutGesture(page, 60000);
     }
     await new Promise((r) => setTimeout(r, DEBUG_PAGE_MS));
     if (path === 'debug/debug-models.html') {
@@ -341,13 +349,7 @@ async function checkPage(
 
   // Wait for the loading screen to dismiss so flight begins.
   try {
-    await page.waitForFunction(
-      () => {
-        const el = document.getElementById('loading-overlay');
-        return el && getComputedStyle(el).display === 'none';
-      },
-      {timeout: 60000}
-    );
+    await waitForLoadWithoutGesture(page, 60000);
   } catch (err) {
     errors.push(`[${tag}] loading screen did not dismiss: ${err.message}`);
   }
@@ -778,8 +780,9 @@ async function exerciseControls(page, tag) {
 const browser = await launch({
   args: [
     ...GL_ARGS,
-    // Let music start without a real user gesture.
-    '--autoplay-policy=no-user-gesture-required',
+    // Match real desktop/mobile Chrome so blocked autoplay on load (and
+    // gesture-unlocked audio once steering begins) is exercised here too.
+    '--autoplay-policy=document-user-activation-required',
   ],
   // Fail instead of hanging if a page stops responding (e.g. a stuck loop).
   protocolTimeout: 60000,

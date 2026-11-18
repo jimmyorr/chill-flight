@@ -37,7 +37,12 @@ import {
   setMusicEnabled,
   setMusicVolume,
 } from './audio.js';
-import {initAudioContext, prebakeSfxBuffers, setSfxEnabled} from './sfx.js';
+import {
+  initAudioContext,
+  prebakeSfxBuffers,
+  setSfxEnabled,
+  sfxEnabled,
+} from './sfx.js';
 import {updatePauseMenuMusicInfo} from './game-audio-integration.js';
 import {state} from './state.js';
 import {
@@ -546,8 +551,8 @@ if (overlay && renderer) {
     setMusicEnabled(startWithMusic);
     if (mutedOnTitle) setSfxEnabled(false);
 
-    // Initialize sound effects audio graph on first user start
-    initAudioContext();
+    // Initialize sound effects audio graph (defers until first gesture if blocked)
+    if (sfxEnabled) initAudioContext();
 
     // Telemetry: track flight start and transition active screen to flight
     trackFlightStart({start_with_music: startWithMusic});
@@ -589,7 +594,7 @@ if (overlay && renderer) {
       setMusicEnabled(startWithMusic);
       if (mutedOnTitle) setSfxEnabled(false);
       setMusicVolume(MUSIC_PAUSED_VOLUME);
-      initAudioContext();
+      if (sfxEnabled) initAudioContext();
       updatePauseMenuMusicInfo();
       const pauseOverlayEl = document.getElementById('pause-overlay');
       if (pauseOverlayEl) pauseOverlayEl.style.display = 'flex';
