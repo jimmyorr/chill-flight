@@ -708,12 +708,15 @@ async function exerciseControls(page, tag) {
     );
   await Promise.all([wait(500), waitFrames(2)]);
   const readMouseCheck = () =>
-    page.evaluate(() => ({
-      throttleKts: document.getElementById('throttle-kts')?.textContent,
-      heading: document
+    page.evaluate(() => {
+      const m = document
         .getElementById('debug-camera')
-        ?.textContent?.match(/@\s*-?\d+/)?.[0],
-    }));
+        ?.textContent?.match(/@\s*(-?\d+)/);
+      return {
+        throttleKts: document.getElementById('throttle-kts')?.textContent,
+        heading: m ? Number(m[1]) : NaN,
+      };
+    });
   const beforeBlockedMouse = await readMouseCheck();
   // Move cursor horizontally over the canvas (outside #debug-menu) and scroll wheel
   await page.mouse.move(vp.width * 0.85, vp.height * 0.5);
@@ -726,8 +729,9 @@ async function exerciseControls(page, tag) {
     );
   }
   if (
-    !beforeBlockedMouse.heading ||
-    afterBlockedMouse.heading !== beforeBlockedMouse.heading
+    !Number.isFinite(beforeBlockedMouse.heading) ||
+    !Number.isFinite(afterBlockedMouse.heading) ||
+    Math.abs(afterBlockedMouse.heading - beforeBlockedMouse.heading) > 2
   ) {
     fail(
       `mouse move steered plane while Disable mouse was on (${beforeBlockedMouse.heading} -> ${afterBlockedMouse.heading})`

@@ -16,7 +16,11 @@ import path from 'path';
 import {fileURLToPath} from 'url';
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {simplex} from '../noise.js';
-import {generateChunkData} from '../terrain-gen.js';
+import {
+  LIGHTHOUSE_PALETTES,
+  generateChunkData,
+  lighthouseChunkWins,
+} from '../terrain-gen.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1106,6 +1110,96 @@ console.log(
 }
 console.log(
   '  Passed: mushroom cottages stay out of the snowy north and appear in eastern groves'
+);
+
+// --- MONTAUK VS HEADLAND LIGHTHOUSE NAUTICAL PALETTES ---
+// Montauk (chunk 5, 2 at X=7500, Z=3000 / 0.6 South, 1.5 East) always uses
+// palette 0 (harbour-red), while procedural headland lighthouses pick
+// deterministically from non-red nautical palettes (1..LIGHTHOUSE_PALETTES-1).
+{
+  useSeed(20260101);
+  const elevParams = {
+    WATER_LEVEL: 40,
+    MOUNTAIN_LEVEL: 180,
+    MAP_WORLD_SIZE: 10000,
+    MAP_HEIGHT_SCALE: 400,
+  };
+  const {result: montauk} = generateChunkData({
+    chunkX: 5,
+    chunkZ: 2,
+    chunkSize: 1500,
+    segments: 20,
+    elevParams,
+    worldSeed: 20260101,
+    enableObjects: true,
+  });
+  const mp = montauk.chunkProps.lighthousePos;
+  if (!mp || mp.headland || mp.colorIndex !== 0) {
+    console.error(
+      `FAIL: Montauk lighthouse expected !headland and colorIndex=0, got ${JSON.stringify(mp)}`
+    );
+    process.exit(1);
+  }
+  const seenHeadlandPalettes = new Set();
+  let headlandCount = 0;
+  for (const seed of [20260101, 20261025, 20261116, 42]) {
+    useSeed(seed);
+    for (let cx = -35; cx <= 20; cx++) {
+      for (let cz = -28; cz <= 10; cz++) {
+        if ((cx === 5 && cz === 2) || !lighthouseChunkWins(cx, cz)) continue;
+        const {result} = generateChunkData({
+          chunkX: cx,
+          chunkZ: cz,
+          chunkSize: 1500,
+          segments: 40,
+          elevParams,
+          worldSeed: seed,
+          enableObjects: true,
+        });
+        const lp = result.chunkProps.lighthousePos;
+        if (!lp) continue;
+        headlandCount++;
+        if (
+          !lp.headland ||
+          !Number.isInteger(lp.colorIndex) ||
+          lp.colorIndex < 1 ||
+          lp.colorIndex >= LIGHTHOUSE_PALETTES.length
+        ) {
+          console.error(
+            `FAIL: headland lighthouse at chunk (${cx}, ${cz}) got invalid palette ${JSON.stringify(lp)}`
+          );
+          process.exit(1);
+        }
+        // Re-running the same chunk produces the exact same palette
+        const {result: repeat} = generateChunkData({
+          chunkX: cx,
+          chunkZ: cz,
+          chunkSize: 1500,
+          segments: 40,
+          elevParams,
+          worldSeed: seed,
+          enableObjects: true,
+        });
+        if (repeat.chunkProps.lighthousePos?.colorIndex !== lp.colorIndex) {
+          console.error(
+            `FAIL: non-deterministic headland lighthouse colorIndex at chunk (${cx}, ${cz})`
+          );
+          process.exit(1);
+        }
+        seenHeadlandPalettes.add(lp.colorIndex);
+      }
+    }
+  }
+  if (headlandCount < 8 || seenHeadlandPalettes.size < 4) {
+    console.error(
+      `FAIL: expected >=8 headland lighthouses across >=4 nautical palettes, got count=${headlandCount}, palettes=${[...seenHeadlandPalettes].join(',')}`
+    );
+    process.exit(1);
+  }
+  useSeed(20260101);
+}
+console.log(
+  '  Passed: Montauk stays classic red and headland lighthouses pick deterministic nautical palettes'
 );
 
 console.log('All terrain invariant tests passed successfully!');

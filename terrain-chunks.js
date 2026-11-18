@@ -2856,7 +2856,9 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   // 2.9 Generate Lighthouse
   if (lighthousePos) {
     const pos = lighthousePos;
-    const structure = ModelAssembler.getStructure('lighthouse', pos.rotY || 0);
+    const structure = ModelAssembler.getStructure('lighthouse', pos.rotY || 0, {
+      colorIndex: pos.colorIndex ?? 0,
+    });
     const lighthouseGroup = new THREE.Group();
 
     structure.forEach((part) => {

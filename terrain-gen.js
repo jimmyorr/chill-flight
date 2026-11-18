@@ -614,7 +614,7 @@ function lighthouseRoll(cx, cz) {
   }
   return fieldHash(cx, cz, 197 + (ChillFlightLogic.WORLD_SEED % 100003));
 }
-function lighthouseChunkWins(cx, cz) {
+export function lighthouseChunkWins(cx, cz) {
   const roll = lighthouseRoll(cx, cz);
   if (roll >= LIGHTHOUSE_CHUNK_CHANCE) return false;
   for (let dz = -LIGHTHOUSE_SPACING; dz <= LIGHTHOUSE_SPACING; dz++) {
@@ -1363,6 +1363,16 @@ export const HOUSE_ROOF_COLORS = [
   0x56606b, // Blue slate
   // Adobe's flat roof (6)
   0xc4956a, // Clay
+];
+// Palette 0 is Montauk's classic harbour-red; 1..5 are headland liveries
+// pairing nautical colors with crisp whitewash stripes.
+export const LIGHTHOUSE_PALETTES = [
+  {name: 'harbour-red', stripe: '#8f2f33', band: '#e3d8b8', flag: '#c62828'},
+  {name: 'navy-coast', stripe: '#26466d', band: '#f2efe8', flag: '#26466d'},
+  {name: 'storm-black', stripe: '#2f3337', band: '#f2efe8', flag: '#2f3337'},
+  {name: 'sea-green', stripe: '#2f6b55', band: '#f2efe8', flag: '#2f6b55'},
+  {name: 'cerulean', stripe: '#2b6f8a', band: '#f2efe8', flag: '#2b6f8a'},
+  {name: 'ochre', stripe: '#b88428', band: '#f2efe8', flag: '#b88428'},
 ];
 const _houseBodyColors = HOUSE_BODY_COLORS.map((hex) => new Color(hex));
 const _houseRoofColors = HOUSE_ROOF_COLORS.map((hex) => new Color(hex));
@@ -5213,6 +5223,16 @@ export function generateChunkData({
             Math.PI *
             2,
           headland: true,
+          colorIndex:
+            1 +
+            Math.floor(
+              fireHash(
+                chunkX,
+                chunkZ,
+                (ChillFlightLogic.WORLD_SEED ^ 0x51ea77e) | 0
+              ) *
+                (LIGHTHOUSE_PALETTES.length - 1)
+            ),
         };
       }
     }
@@ -6672,6 +6692,7 @@ export function generateChunkData({
       y: getElevation(7500, 3000, elevParams),
       z: 0,
       rotY: rng() * Math.PI * 2,
+      colorIndex: 0,
     };
   }
 

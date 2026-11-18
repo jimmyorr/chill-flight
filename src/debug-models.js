@@ -407,6 +407,7 @@ function viewModel(type, e, colorSeed = 0) {
   const supportsColors = [
     'house',
     'two_story_house',
+    'lighthouse',
     'tent',
     'sailboat',
     'pirateship',

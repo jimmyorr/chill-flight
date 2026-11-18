@@ -7,6 +7,7 @@ import {
   HOUSE_BODY_COLORS,
   HOUSE_ROOF_COLORS,
   HOUSE_WINDOW_POOLS,
+  LIGHTHOUSE_PALETTES,
   WIND_DIR_X,
   WIND_DIR_Z,
   WINDMILL_ROT_Y,
@@ -3023,9 +3024,68 @@ export function createDolphinModel(variant = 0.5) {
 export const LIGHTHOUSE_TOWER_PARTS = 3;
 
 var flagpoleGeo = new THREE.CylinderGeometry(0.2, 0.2, 20, 4);
-var flagGeo = new THREE.BoxGeometry(4, 3, 0.1);
 
-var lighthouseRedMat = createMaterial({color: 0xc62828, flatShading: true});
+function recolorLighthouseTower(baseGeo, baseStripeHex, baseBandHex, palette) {
+  const src = baseGeo.getAttribute('color');
+  const dst = new Float32Array(src.array.length);
+  dst.set(src.array);
+  const stripeCol = new THREE.Color(palette.stripe);
+  const bandCol = new THREE.Color(palette.band);
+  const tmp = new THREE.Color();
+  for (let i = 0; i < src.count; i++) {
+    tmp.fromBufferAttribute(src, i);
+    const hex = tmp.getHexString();
+    if (hex === baseStripeHex) {
+      dst[i * 3] = stripeCol.r;
+      dst[i * 3 + 1] = stripeCol.g;
+      dst[i * 3 + 2] = stripeCol.b;
+    } else if (hex === baseBandHex) {
+      dst[i * 3] = bandCol.r;
+      dst[i * 3 + 1] = bandCol.g;
+      dst[i * 3 + 2] = bandCol.b;
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', baseGeo.getAttribute('position'));
+  geo.setAttribute('normal', baseGeo.getAttribute('normal'));
+  geo.setAttribute('color', new THREE.BufferAttribute(dst, 3));
+  geo.boundingSphere = baseGeo.boundingSphere;
+  return geo;
+}
+
+function buildLighthouseFlagGeo(hex) {
+  const geo = new THREE.BoxGeometry(4, 3, 0.1);
+  const count = geo.attributes.position.count;
+  const col = new THREE.Color(hex);
+  const arr = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    arr[i * 3] = col.r;
+    arr[i * 3 + 1] = col.g;
+    arr[i * 3 + 2] = col.b;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+  return geo;
+}
+
+var _baseLighthouseStripeHex = new THREE.Color(
+  LIGHTHOUSE_PALETTES[0].stripe
+).getHexString();
+var _baseLighthouseBandHex = new THREE.Color(
+  LIGHTHOUSE_PALETTES[0].band
+).getHexString();
+var lighthouseTowerGeos = LIGHTHOUSE_PALETTES.map((palette, idx) =>
+  idx === 0
+    ? lighthouseParts.tower
+    : recolorLighthouseTower(
+        lighthouseParts.tower,
+        _baseLighthouseStripeHex,
+        _baseLighthouseBandHex,
+        palette
+      )
+);
+var lighthouseFlagGeos = LIGHTHOUSE_PALETTES.map((palette) =>
+  buildLighthouseFlagGeo(palette.flag)
+);
 
 // Polyfork's pier deck sections (building-models.js), in buildingMat
 export var pierDeckGeo = buildPierGeo();
@@ -4394,6 +4454,9 @@ export const ModelAssembler = {
         ];
       }
       case 'lighthouse': {
+        const n = LIGHTHOUSE_PALETTES.length;
+        const colorIndex =
+          (((opts.colorIndex ?? opts.bodyId ?? 0) % n) + n) % n;
         // Keeper's house and flagpole stand clear of the rock islet
         const houseOffset = new THREE.Vector3(26, 0, 0).applyAxisAngle(
           yAxis,
@@ -4407,7 +4470,12 @@ export const ModelAssembler = {
         const rot = [0, rotY, 0];
         return [
           // Tower (LIGHTHOUSE_TOWER_PARTS)
-          {geo: lighthouseParts.tower, mat: lighthouseVertexMat, pos: at, rot},
+          {
+            geo: lighthouseTowerGeos[colorIndex],
+            mat: lighthouseVertexMat,
+            pos: at,
+            rot,
+          },
           {geo: lighthouseParts.glass, mat: lighthouseLampMat, pos: at, rot},
           {geo: lighthouseParts.window, mat: houseWindowMats[0], pos: at, rot},
           // Rock islet
@@ -4433,8 +4501,8 @@ export const ModelAssembler = {
             rot: [0, rotY, 0],
           },
           {
-            geo: flagGeo,
-            mat: lighthouseRedMat,
+            geo: lighthouseFlagGeos[colorIndex],
+            mat: lighthouseVertexMat,
             pos: [flagpoleOffset.x, 20, flagpoleOffset.z],
             rot: [0, rotY, 0],
           },
