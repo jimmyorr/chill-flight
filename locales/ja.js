@@ -164,7 +164,6 @@ export default {
   Buggy: 'バギー',
   Speed: 'スピード',
   Agility: '機動性',
-  Float: '滑空',
   Music: '音楽',
   'Now playing:': '再生中:',
   'Sound effects': '効果音',

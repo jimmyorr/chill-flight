@@ -140,7 +140,6 @@ export const PLANE_HANDLING = {
   },
   // The buggy (buggy.js) drives rather than flies: only its top speed
   // forward is used (300 units/s, shown as 161 KM/H), and it never stalls.
-  // In the pause menu its hop and hover give it a float rating.
   buggy: {
     topKts: 300,
     stallKts: 0,
@@ -150,7 +149,6 @@ export const PLANE_HANDLING = {
     diveGain: 0,
     agility: 1,
     rollRate: 0,
-    float: 0.5,
   },
 };
 

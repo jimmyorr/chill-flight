@@ -168,7 +168,6 @@ export default {
   Buggy: 'Buggy',
   Speed: 'Kecepatan',
   Agility: 'Kelincahan',
-  Float: 'Melayang',
   Music: 'Musik',
   'Now playing:': 'Sedang diputar:',
   'Sound effects': 'Efek suara',

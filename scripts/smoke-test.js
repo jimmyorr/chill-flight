@@ -616,15 +616,14 @@ async function exerciseControls(page, tag) {
       agility: el
         ?.querySelector('[data-stat="agility"]')
         ?.style.getPropertyValue('--v'),
-      float: el
-        ?.querySelector('[data-stat="float"]')
-        ?.style.getPropertyValue('--v'),
+      hasFloat: !!el?.querySelector('[data-stat="float"]'),
       unit: document.getElementById('throttle-unit')?.textContent,
     };
   });
   if (
     buggyStats.speed !== '0.273' ||
-    buggyStats.float !== '0.500' ||
+    buggyStats.agility !== '0.769' ||
+    buggyStats.hasFloat ||
     buggyStats.unit !== 'KM/H'
   ) {
     fail(`buggy stats mismatch: ${JSON.stringify(buggyStats)}`);
@@ -640,15 +639,12 @@ async function exerciseControls(page, tag) {
       agility: el
         ?.querySelector('[data-stat="agility"]')
         ?.style.getPropertyValue('--v'),
-      float: el
-        ?.querySelector('[data-stat="float"]')
-        ?.style.getPropertyValue('--v'),
       unit: document.getElementById('throttle-unit')?.textContent,
     };
   });
   if (
     biplaneStats.speed !== '0.255' ||
-    biplaneStats.float !== '1.000' ||
+    biplaneStats.agility !== '1.000' ||
     biplaneStats.unit !== 'KTS'
   ) {
     fail(`biplane stats mismatch: ${JSON.stringify(biplaneStats)}`);
@@ -697,25 +693,42 @@ async function exerciseControls(page, tag) {
   await page.click('label[for="disable-mouse-input"]');
   await wait(150);
   await page.click('#resume-btn');
-  await wait(500);
-  const beforeBlockedMouse = await page.evaluate(() => ({
-    throttleKts: document.getElementById('throttle-kts')?.textContent,
-    heading: document.getElementById('debug-camera')?.textContent,
-  }));
-  // Move cursor over the canvas (outside #debug-menu) and scroll wheel
+  const waitFrames = (n) =>
+    page.evaluate(
+      (count) =>
+        new Promise((resolve) => {
+          let left = count;
+          const tick = () => {
+            if (--left <= 0) resolve();
+            else requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        }),
+      n
+    );
+  await Promise.all([wait(500), waitFrames(2)]);
+  const readMouseCheck = () =>
+    page.evaluate(() => ({
+      throttleKts: document.getElementById('throttle-kts')?.textContent,
+      heading: document
+        .getElementById('debug-camera')
+        ?.textContent?.match(/@\s*-?\d+/)?.[0],
+    }));
+  const beforeBlockedMouse = await readMouseCheck();
+  // Move cursor horizontally over the canvas (outside #debug-menu) and scroll wheel
   await page.mouse.move(vp.width * 0.85, vp.height * 0.5);
   await page.mouse.wheel({deltaY: -300});
-  await wait(500);
-  const afterBlockedMouse = await page.evaluate(() => ({
-    throttleKts: document.getElementById('throttle-kts')?.textContent,
-    heading: document.getElementById('debug-camera')?.textContent,
-  }));
+  await Promise.all([wait(500), waitFrames(2)]);
+  const afterBlockedMouse = await readMouseCheck();
   if (afterBlockedMouse.throttleKts !== beforeBlockedMouse.throttleKts) {
     fail(
       `scroll wheel changed throttle while Disable mouse was on (${beforeBlockedMouse.throttleKts} -> ${afterBlockedMouse.throttleKts})`
     );
   }
-  if (afterBlockedMouse.heading !== beforeBlockedMouse.heading) {
+  if (
+    !beforeBlockedMouse.heading ||
+    afterBlockedMouse.heading !== beforeBlockedMouse.heading
+  ) {
     fail(
       `mouse move steered plane while Disable mouse was on (${beforeBlockedMouse.heading} -> ${afterBlockedMouse.heading})`
     );

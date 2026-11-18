@@ -167,7 +167,6 @@ export default {
   Buggy: 'Buggy',
   Speed: 'Velocità',
   Agility: 'Agilità',
-  Float: 'Planata',
   Music: 'Musica',
   'Now playing:': 'In riproduzione:',
   'Sound effects': 'Effetti sonori',

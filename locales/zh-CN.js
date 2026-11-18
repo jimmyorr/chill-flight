@@ -158,7 +158,6 @@ export default {
   Buggy: '越野车',
   Speed: '速度',
   Agility: '灵活',
-  Float: '滑翔',
   Music: '音乐',
   'Now playing:': '正在播放：',
   'Sound effects': '音效',

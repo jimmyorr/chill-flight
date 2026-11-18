@@ -289,7 +289,7 @@ The world is populated with dynamic, procedural wildlife that adds life to the e
 
 ## Planes
 
-There are four planes to fly, picked on the pause menu's Flight tab (or with **V**). Each has its own speed and handling, kept close enough that every one still flies gently (`PLANE_HANDLING` in `constants.js`). Under the plane buttons, three bars compare the chosen plane's top speed, agility and float (how slowly it can fly) with the best of the four.
+There are four planes to fly, picked on the pause menu's Flight tab (or with **V**). Each has its own speed and handling, kept close enough that every one still flies gently (`PLANE_HANDLING` in `constants.js`). Under the vehicle buttons, two bars compare the chosen vehicle's top speed and agility with the best.
 
 | Plane    | Top speed | Falls below | Level from | Throttle (up / down, units/s²) | Agility | Barrel roll | Climb / dive |
 | -------- | --------- | ----------- | ---------- | ------------------------------ | ------- | ----------- | ------------ |

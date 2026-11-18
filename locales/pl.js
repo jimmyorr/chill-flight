@@ -163,7 +163,6 @@ export default {
   Buggy: 'Buggy',
   Speed: 'Prędkość',
   Agility: 'Zwrotność',
-  Float: 'Szybowanie',
   Music: 'Muzyka',
   'Now playing:': 'Teraz gra:',
   'Sound effects': 'Efekty dźwiękowe',

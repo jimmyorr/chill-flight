@@ -1124,12 +1124,9 @@ check(
 // --- 8. HANDLING STATS ---
 {
   check(
-    'Buggy has defined top speed, agility and float ratings',
-    PLANE_HANDLING.buggy.topKts === 300 &&
-      PLANE_HANDLING.buggy.agility === 1 &&
-      PLANE_HANDLING.buggy.float > 0 &&
-      PLANE_HANDLING.buggy.float <= 1,
-    `speed: ${PLANE_HANDLING.buggy.topKts}, agility: ${PLANE_HANDLING.buggy.agility}, float: ${PLANE_HANDLING.buggy.float}`
+    'Buggy has defined top speed and agility ratings',
+    PLANE_HANDLING.buggy.topKts === 300 && PLANE_HANDLING.buggy.agility === 1,
+    `speed: ${PLANE_HANDLING.buggy.topKts}, agility: ${PLANE_HANDLING.buggy.agility}`
   );
 }
 

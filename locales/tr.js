@@ -166,7 +166,6 @@ export default {
   Buggy: 'Buggy',
   Speed: 'Hız',
   Agility: 'Çeviklik',
-  Float: 'Süzülme',
   Music: 'Müzik',
   'Now playing:': 'Şimdi çalıyor:',
   'Sound effects': 'Ses efektleri',

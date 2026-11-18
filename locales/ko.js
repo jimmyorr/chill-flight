@@ -160,7 +160,6 @@ export default {
   Buggy: '버기',
   Speed: '속도',
   Agility: '민첩성',
-  Float: '활공',
   Music: '음악',
   'Now playing:': '재생 중:',
   'Sound effects': '효과음',

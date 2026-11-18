@@ -165,7 +165,6 @@ export default {
   Buggy: 'Багі',
   Speed: 'Швидкість',
   Agility: 'Маневр',
-  Float: 'Планерування',
   Music: 'Музика',
   'Now playing:': 'Зараз грає:',
   'Sound effects': 'Звукові ефекти',
