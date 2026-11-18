@@ -159,7 +159,7 @@ function shash(k, n, seed) {
 }
 
 function prep(geo, hex) {
-  geo = geo.toNonIndexed();
+  if (geo.index) geo = geo.toNonIndexed();
   if (geo.attributes.uv) geo.deleteAttribute('uv');
   if (geo.attributes.normal) geo.deleteAttribute('normal');
   const c = new THREE.Color(hex);

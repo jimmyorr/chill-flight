@@ -1924,7 +1924,7 @@ function createMushroomGeometry() {
       new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), n)
     );
     spot.translate(out.x * d, y - 0.05, out.z * d);
-    spots.push(spot.toNonIndexed());
+    spots.push(spot.index ? spot.toNonIndexed() : spot);
   }
   const cap = lathe(CAP_OUTLINE, 12);
   return {

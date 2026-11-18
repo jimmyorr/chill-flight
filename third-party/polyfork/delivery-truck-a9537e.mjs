@@ -210,7 +210,7 @@ const RAKE_ANG = -Math.atan2(0.20, 0.68);
 const rakePt = (y, d) => [y - d * RAKE_NY, rakeZ(y) - d * RAKE_NZ];
 
 function prep(geo, hex) {
-  geo = geo.toNonIndexed();
+  if (geo.index) geo = geo.toNonIndexed();
   geo.deleteAttribute('uv');
   geo.deleteAttribute('normal');
   const c = new THREE.Color(hex);

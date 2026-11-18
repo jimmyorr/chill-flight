@@ -155,7 +155,7 @@ const num = (v, d) => { const x = +v; return Number.isFinite(x) ? x : d; };
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 
 function prep(geo, hex) {
-  geo = geo.toNonIndexed();
+  if (geo.index) geo = geo.toNonIndexed();
   geo.deleteAttribute('uv');
   geo.deleteAttribute('normal');
   const c = new THREE.Color(hex);

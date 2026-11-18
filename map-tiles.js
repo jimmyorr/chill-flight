@@ -13,6 +13,8 @@ const BASE_UPP = 2;
 export const MAX_LEVEL = 8;
 // About 40 MB of 256x256 tiles
 const MAX_TILES = 160;
+// Rows drawn per main-thread tick if workers are unavailable
+const MAIN_THREAD_ROWS = 16;
 
 const createMapWorker = () =>
   new Worker(new URL('./map-worker.js', import.meta.url), {type: 'module'});
@@ -32,6 +34,7 @@ export class MapTiles {
     this.worldKey = null;
     this.sentCustomMap = null;
     this.mainThreadTimer = null;
+    this.mainThreadJob = null;
     this.version = 0;
   }
 
@@ -76,6 +79,10 @@ export class MapTiles {
     if (key !== this.worldKey) {
       this.worldKey = key;
       this.cache.clear();
+      if (this.mainThreadJob) {
+        this.inFlight.delete(this.mainThreadJob.key);
+        this.mainThreadJob = null;
+      }
       this.version++;
     }
   }
@@ -83,6 +90,7 @@ export class MapTiles {
   startWorkers() {
     if (this.workers) return;
     this.workers = [];
+    if (typeof Worker === 'undefined') return;
     const count = Math.max(
       1,
       Math.min(4, (navigator.hardwareConcurrency || 4) - 1)
@@ -92,11 +100,18 @@ export class MapTiles {
         const worker = createMapWorker();
         worker.onmessage = (e) => this.onResult(worker, e.data);
         worker.onerror = (e) => {
+          if (this.workers.length === 0) return;
           log.warn('Map worker failed; drawing the map on the main thread', e);
+          for (const w of this.workers) w.terminate();
           this.workers = [];
           this.idle = [];
-          for (const job of this.jobs.values()) this.inFlight.delete(job.key);
+          const retry = [];
+          for (const job of this.jobs.values()) {
+            this.inFlight.delete(job.key);
+            retry.push([job.level, job.tx, job.tz]);
+          }
           this.jobs.clear();
+          this.queue.unshift(...retry);
           this.pump();
         };
         this.workers.push(worker);
@@ -129,21 +144,49 @@ export class MapTiles {
       const key = `${level}:${tx}:${tz}`;
       const id = this.nextId++;
       this.inFlight.add(key);
-      this.jobs.set(id, {key});
+      this.jobs.set(id, {key, level, tx, tz});
       this.idle.pop().postMessage(this.jobFor(id, level, tx, tz));
     }
   }
 
   pumpMainThread() {
-    if (this.mainThreadTimer || this.queue.length === 0) return;
+    if (
+      this.mainThreadTimer ||
+      (!this.mainThreadJob && this.queue.length === 0)
+    ) {
+      return;
+    }
     this.mainThreadTimer = setTimeout(() => {
       this.mainThreadTimer = null;
-      const next = this.queue.shift();
-      if (!next) return;
-      const [level, tx, tz] = next;
-      const job = this.jobFor(0, level, tx, tz);
-      job.simplex = simplex;
-      this.store(`${level}:${tx}:${tz}`, renderMapRows(job));
+      if (!this.mainThreadJob) {
+        const next = this.queue.shift();
+        if (!next) return;
+        const [level, tx, tz] = next;
+        const key = `${level}:${tx}:${tz}`;
+        if (this.cache.has(key)) {
+          this.pumpMainThread();
+          return;
+        }
+        const job = this.jobFor(0, level, tx, tz);
+        job.simplex = simplex;
+        this.inFlight.add(key);
+        this.mainThreadJob = {
+          key,
+          job,
+          pixels: new Uint8ClampedArray(TILE_PX * TILE_PX * 4),
+          row: 0,
+        };
+      }
+      const cur = this.mainThreadJob;
+      cur.job.rowStart = cur.row;
+      cur.job.rowEnd = Math.min(TILE_PX, cur.row + MAIN_THREAD_ROWS);
+      cur.pixels.set(renderMapRows(cur.job), cur.row * TILE_PX * 4);
+      cur.row = cur.job.rowEnd;
+      if (cur.row >= TILE_PX) {
+        this.mainThreadJob = null;
+        this.inFlight.delete(cur.key);
+        this.store(cur.key, cur.pixels);
+      }
       this.pumpMainThread();
     }, 0);
   }

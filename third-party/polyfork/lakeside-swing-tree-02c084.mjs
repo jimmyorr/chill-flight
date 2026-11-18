@@ -226,7 +226,7 @@ function lobeTris(center, r, rand) {
     x *= k; y *= k * flat; z *= k;
     p.setXYZ(i, center.x + x * cr - z * sr, center.y + y, center.z + x * sr + z * cr);
   }
-  g = g.toNonIndexed();
+  if (g.index) g = g.toNonIndexed();
   return Array.from(g.attributes.position.array);
 }
 

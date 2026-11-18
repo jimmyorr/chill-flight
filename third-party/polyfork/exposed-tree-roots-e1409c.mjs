@@ -356,7 +356,7 @@ export function createAsset(input = {}) {
     { x: 0.11, z: 0.36, s: [0.09, 0.07, 0.08], ry: 2.2 },
     { x: 0.61, z: -0.13, s: [0.09, 0.085, 0.08], ry: 0.9 },
   ];
-  const ico = new THREE.IcosahedronGeometry(1, 0).toNonIndexed().attributes.position;
+  const ico = new THREE.IcosahedronGeometry(1, 0).attributes.position;
   STONES.forEach((st, si) => {
     const rand = prng(500 + si * 31);
     const jit = new Map();
