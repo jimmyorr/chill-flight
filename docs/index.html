@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <script>window.__APP_VERSION__ = "1.2.11";
-window.__COMMIT_HASH__ = "3dcd41f";
+    <script>window.__APP_VERSION__ = "1.2.12";
+window.__COMMIT_HASH__ = "56405d1";
 window.__IS_DIRTY__ = false;</script>
 
     <meta charset="UTF-8" />
@@ -76,10 +76,10 @@ window.__IS_DIRTY__ = false;</script>
       }
     </script>
     <!-- sync-end:description -->
-    <script type="module" crossorigin src="./assets/main-C76UpPc0.js"></script>
+    <script type="module" crossorigin src="./assets/main-BODCDZfT.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/three-B-vTpZCg.js">
     <link rel="modulepreload" crossorigin href="./assets/definitions-DzrWiD94.js">
-    <link rel="stylesheet" crossorigin href="./assets/main-B1I-KGJJ.css">
+    <link rel="stylesheet" crossorigin href="./assets/main-DifTLl18.css">
   </head>
 
   <body>
@@ -241,7 +241,7 @@ window.__IS_DIRTY__ = false;</script>
                 <option value="zh-TW" data-no-translate>繁體中文</option>
               </select>
             </div>
-            <div class="pause-row">
+            <div class="pause-row" style="display: none">
               <span class="pause-row-text">
                 <span class="pause-row-title">Music mode</span>
                 <span class="pause-row-sub">By album or how you fly</span>
@@ -283,6 +283,22 @@ window.__IS_DIRTY__ = false;</script>
             </label>
             <label
               class="pause-row"
+              for="disable-mouse-input"
+              id="disable-mouse-row"
+              style="display: none"
+            >
+              <span class="pause-row-text">
+                <span class="pause-row-title">Disable mouse</span>
+                <span class="pause-row-sub">Keyboard controls only</span>
+              </span>
+              <input
+                type="checkbox"
+                id="disable-mouse-input"
+                class="pause-switch"
+              />
+            </label>
+            <label
+              class="pause-row"
               for="haptics-input"
               id="haptics-row"
               style="display: none"
@@ -299,9 +315,7 @@ window.__IS_DIRTY__ = false;</script>
             <label class="pause-row" for="hints-off-input">
               <span class="pause-row-text">
                 <span class="pause-row-title">Disable hints</span>
-                <span class="pause-row-sub"
-                  >No tap move tips while you play</span
-                >
+                <span class="pause-row-sub">Hide control tips</span>
               </span>
               <input
                 type="checkbox"
@@ -329,9 +343,31 @@ window.__IS_DIRTY__ = false;</script>
                 <button id="fly-invite-btn" class="fly-btn">
                   Invite friends
                 </button>
-                <button id="fly-bots-btn" class="fly-btn fly-btn-quiet">
-                  Fly with bots
-                </button>
+                <div class="fly-bots-launch">
+                  <button id="fly-bots-btn" class="fly-btn fly-btn-quiet">
+                    Fly with bots
+                  </button>
+                  <div
+                    id="fly-solo-bot-count"
+                    class="scheme-btn-group fly-bot-count"
+                    role="group"
+                    aria-label="Bots"
+                  >
+                    <button type="button" class="scheme-btn" data-bots="1">
+                      1
+                    </button>
+                    <button type="button" class="scheme-btn" data-bots="2">
+                      2
+                    </button>
+                    <button
+                      type="button"
+                      class="scheme-btn active"
+                      data-bots="3"
+                    >
+                      3
+                    </button>
+                  </div>
+                </div>
               </div>
               <div class="fly-group">
                 <div class="fly-or">or join a friend's flight</div>
@@ -377,6 +413,29 @@ window.__IS_DIRTY__ = false;</script>
                   </span>
                 </label>
                 <div id="fly-players" class="fly-players"></div>
+              </div>
+              <div
+                id="fly-local-bots-row"
+                class="fly-bots-row fly-local-bots-row"
+                hidden
+              >
+                <span>Bots</span>
+                <div
+                  id="fly-room-bot-count"
+                  class="scheme-btn-group fly-bot-count"
+                  role="group"
+                  aria-label="Bots"
+                >
+                  <button type="button" class="scheme-btn" data-bots="1">
+                    1
+                  </button>
+                  <button type="button" class="scheme-btn" data-bots="2">
+                    2
+                  </button>
+                  <button type="button" class="scheme-btn active" data-bots="3">
+                    3
+                  </button>
+                </div>
               </div>
               <label
                 id="fly-bots-row"
@@ -739,6 +798,12 @@ window.__IS_DIRTY__ = false;</script>
                 "
               ></div>
             </div>
+            <div id="splash-stuck" hidden>
+              <div>Taking a long time to load.</div>
+              <button id="splash-stuck-btn" class="btn" type="button">
+                Retry on low graphics
+              </button>
+            </div>
           </div>
           <div id="splash-btn-container" class="splash-fade-item hidden">
             <button id="begin-btn" class="btn">Start</button>
@@ -779,6 +844,51 @@ window.__IS_DIRTY__ = false;</script>
             </div>
           </div>
         </div>
+        <script>
+          // Loading watchdog: if loading hasn't finished after 20 seconds on
+          // screen (a stuck load, or a phone that ran out of memory and
+          // reloaded), offer a reload on low graphics. Plain script so it
+          // still works if the game's modules fail to load.
+          (() => {
+            const LIMIT_MS = 20000;
+            const STEP_MS = 1000;
+            let shownFor = 0;
+            const timer = setInterval(() => {
+              const overlay = document.getElementById('loading-overlay');
+              const progress = document.getElementById(
+                'splash-progress-container'
+              );
+              const loaded =
+                !overlay ||
+                overlay.style.display === 'none' ||
+                !progress?.classList.contains('visible');
+              if (loaded) {
+                clearInterval(timer);
+                return;
+              }
+              if (document.visibilityState !== 'visible') return;
+              shownFor += STEP_MS;
+              if (shownFor < LIMIT_MS) return;
+              clearInterval(timer);
+              const stuck = document.getElementById('splash-stuck');
+              if (stuck) stuck.hidden = false;
+            }, STEP_MS);
+            document
+              .getElementById('splash-stuck-btn')
+              ?.addEventListener('click', () => {
+                try {
+                  localStorage.setItem('chill_flight_graphics_preset', 'low');
+                  localStorage.setItem(
+                    'chill_flight_graphics_preset_manual',
+                    '1'
+                  );
+                } catch {
+                  /* reload anyway */
+                }
+                location.reload();
+              });
+          })();
+        </script>
         <div
           id="loading-music-attribution"
           class="pause-metadata"

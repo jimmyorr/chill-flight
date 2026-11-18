@@ -1,5 +1,11 @@
 # Release notes
 
+## [1.2.12](https://v1-2-12.chill-flight.pages.dev)
+
+- **Flight & controls:** Smoother barrel rolls with natural exit rocking, leveled recovery, and a Disable mouse steer setting.
+- **World & scenery:** Coastal sea stacks, beach granite boulders, procedural surface micro-detail, and cleaner cliff walls.
+- **Graphics & performance:** Full-sharpness High preset, clouds and distant terrain on Low preset, and pre-warmed loading shaders.
+
 ## [1.2.11](https://v1-2-11.chill-flight.pages.dev)
 
 - **Flight & clouds:** Climb through and above 3D cloud decks with whiteout mist, engine contrails, and tree-bending prop wash.
