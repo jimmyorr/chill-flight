@@ -6,6 +6,9 @@
  * their values, ease between them, hold after the last one, and convert from
  * degrees to radians.
  */
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {
   attitudeAt,
   cameraAt,
@@ -22,7 +25,16 @@ import {
   buildSegmentQuery,
   resolveLandmarkTarget,
   verifySegmentCorridor,
+  writeShortMetadata,
 } from './shorts.js';
+import {
+  DEFAULT_RELATED_VIDEO,
+  extractYouTubeVideoId,
+  parseRelatedVideoSpec,
+  parseShortMetadataFile,
+  pickBestRelatedCardIndex,
+  resolveRelatedVideo,
+} from './post-short.js';
 
 console.log(
   'Testing scripted flight, camera, drive, replay, and corridor checks...'
@@ -290,6 +302,116 @@ check(
   'verifySegmentCorridor catches terrain/water collisions before rendering',
   !crashCorridor.ok && crashCorridor.violations.length > 0
 );
+
+// YouTube Short "Related video" metadata, URL/ID parsing, and picker matching
+check(
+  'extractYouTubeVideoId handles watch, youtu.be, shorts, studio, and bare 11-char IDs',
+  extractYouTubeVideoId('https://www.youtube.com/watch?v=H4NvDp-tQb4&t=12s') ===
+    'H4NvDp-tQb4' &&
+    extractYouTubeVideoId('https://youtu.be/S71d0JFVuM8') === 'S71d0JFVuM8' &&
+    extractYouTubeVideoId('https://youtube.com/shorts/9TxYMm-RhbI') ===
+      '9TxYMm-RhbI' &&
+    extractYouTubeVideoId(
+      'https://studio.youtube.com/video/AbCdEfGh123/edit'
+    ) === 'AbCdEfGh123' &&
+    extractYouTubeVideoId('AbCdEfGh123') === 'AbCdEfGh123' &&
+    extractYouTubeVideoId(DEFAULT_RELATED_VIDEO) === null
+);
+
+const defaultSpec = parseRelatedVideoSpec(DEFAULT_RELATED_VIDEO);
+const urlSpec = parseRelatedVideoSpec('https://youtu.be/H4NvDp-tQb4');
+check(
+  'parseRelatedVideoSpec distinguishes title queries, video URLs, and none/off',
+  defaultSpec?.query === DEFAULT_RELATED_VIDEO &&
+    defaultSpec?.videoId === null &&
+    urlSpec?.videoId === 'H4NvDp-tQb4' &&
+    urlSpec?.query === '' &&
+    parseRelatedVideoSpec('none') === null &&
+    parseRelatedVideoSpec('off') === null
+);
+
+const mockCards = [
+  {
+    videoId: '9TxYMm-RhbI',
+    title: '9 months of building Chill Flight (Short clip)',
+    text: '9 months of building Chill Flight (Short clip)\n0:12',
+  },
+  {
+    videoId: 'Evo9MoVideo',
+    title: '9 months of building Chill Flight: from prototype to v1.2.12',
+    text: '9 months of building Chill Flight: from prototype to v1.2.12\n3:19',
+  },
+  {
+    videoId: 'TrailerVid1',
+    title: 'Chill Flight Official Trailer',
+    text: 'Chill Flight Official Trailer\n1:15',
+  },
+];
+check(
+  'pickBestRelatedCardIndex matches prefix title, exact videoId, and excludes current Short',
+  pickBestRelatedCardIndex(mockCards, defaultSpec, '9TxYMm-RhbI') === 1 &&
+    pickBestRelatedCardIndex(
+      mockCards,
+      parseRelatedVideoSpec('https://youtu.be/TrailerVid1'),
+      '9TxYMm-RhbI'
+    ) === 2 &&
+    pickBestRelatedCardIndex(
+      mockCards,
+      parseRelatedVideoSpec('Nonexistent Video Title'),
+      '9TxYMm-RhbI'
+    ) === -1
+);
+
+const tmpMetaDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cf-short-meta-'));
+try {
+  const sampleMp4 = path.join(tmpMetaDir, 'short-test.mp4');
+  const sampleTxt = path.join(tmpMetaDir, 'short-test.txt');
+  writeShortMetadata(sampleMp4, {
+    title: 'Test Short across 4 biomes',
+    tiktokQuestion: 'Which biome?',
+    stops: ['0:00 Twin Falls (0.9°N, 0.0°E)'],
+    trackTitle: 'Sky Lake',
+  });
+  const parsedNew = parseShortMetadataFile(sampleTxt);
+  check(
+    'writeShortMetadata + parseShortMetadataFile round-trip Related video cleanly without polluting Description',
+    parsedNew.youtube.relatedVideo === DEFAULT_RELATED_VIDEO &&
+      !parsedNew.youtube.description.includes('Related video:') &&
+      parsedNew.youtube.description.startsWith(
+        'Play Chill Flight free in your browser'
+      )
+  );
+
+  // Legacy .txt without "Related video:" still falls back to DEFAULT_RELATED_VIDEO
+  const legacyTxt = path.join(tmpMetaDir, 'legacy.txt');
+  fs.writeFileSync(
+    legacyTxt,
+    [
+      '=== YouTube Shorts ===',
+      'Title:',
+      'Legacy Short (Play free: chillflight.app)',
+      '',
+      'Description:',
+      'Play Chill Flight free!',
+      '',
+      '=== TikTok ===',
+      'Caption:',
+      'Legacy Short',
+    ].join('\n')
+  );
+  const parsedLegacy = parseShortMetadataFile(legacyTxt);
+  check(
+    'resolveRelatedVideo defaults legacy .txt to 9 months progression video and honors --related overrides',
+    parsedLegacy.youtube.relatedVideo === null &&
+      resolveRelatedVideo({}, parsedLegacy, '')?.raw ===
+        DEFAULT_RELATED_VIDEO &&
+      resolveRelatedVideo({related: 'Chill Flight Official Trailer'}, parsedNew)
+        ?.raw === 'Chill Flight Official Trailer' &&
+      resolveRelatedVideo({related: 'none'}, parsedNew) === null
+  );
+} finally {
+  fs.rmSync(tmpMetaDir, {recursive: true, force: true});
+}
 
 console.log(
   failed ? 'Scripted flight test failed' : 'Scripted flight test passed'

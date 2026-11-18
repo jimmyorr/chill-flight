@@ -31,6 +31,7 @@ import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {simplex} from '../noise.js';
 import {ARCH, archBlocks, archCeiling, archSites} from '../arches-logic.js';
 import {solveStartCoords, traceScriptedTrajectory} from '../promo-script.js';
+import {DEFAULT_RELATED_VIDEO} from './post-short.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'promo');
@@ -227,9 +228,15 @@ function muxWithMusic(rawMp4, outMp4, musicFile, startSec, durationSec) {
   ]);
 }
 
-function writeShortMetadata(
+export function writeShortMetadata(
   outMp4,
-  {title, tiktokQuestion, stops, trackTitle}
+  {
+    title,
+    tiktokQuestion,
+    stops = [],
+    trackTitle,
+    relatedVideo = DEFAULT_RELATED_VIDEO,
+  }
 ) {
   const txtPath = outMp4.replace(/\.mp4$/, '.txt');
   const stopBlock = stops.length ? ['', ...stops] : [];
@@ -238,6 +245,15 @@ function writeShortMetadata(
     .replace(/\s*#shorts$/i, '')
     .trim();
   const youtubeTitle = `${cleanTitle} (Play free: chillflight.app)`;
+  const hasRelated =
+    relatedVideo !== null &&
+    relatedVideo !== undefined &&
+    relatedVideo !== false &&
+    !/^(none|off)$/i.test(String(relatedVideo).trim()) &&
+    String(relatedVideo).trim().length > 0;
+  const relatedBlock = hasRelated
+    ? ['', 'Related video:', String(relatedVideo).trim()]
+    : [];
   const tiktokFirstLine = `${cleanTitle} Play free at chillflight.app (or "Chill Flight" on App Store)`;
   const tiktokBlock = tiktokQuestion
     ? [tiktokFirstLine, tiktokQuestion]
@@ -246,6 +262,7 @@ function writeShortMetadata(
     '=== YouTube Shorts ===',
     'Title:',
     youtubeTitle,
+    ...relatedBlock,
     '',
     'Description:',
     'Play Chill Flight free in your browser at chillflight.app or search "Chill Flight" on the iOS App Store!',

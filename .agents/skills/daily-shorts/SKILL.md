@@ -186,8 +186,11 @@ ffmpeg -y -loglevel error -i promo/<outBaseName>.mp4 \
 
 ### Step 4: Publish to YouTube Shorts
 
-Use [scripts/post-short.js](../../../scripts/post-short.js) to upload, verify the exact read-back YouTube Title (`<= 100` chars), confirm any `"Publish anyway"` dialog, and publish to YouTube Shorts:
+Use [scripts/post-short.js](../../../scripts/post-short.js) to upload, verify the exact read-back YouTube Title (`<= 100` chars), attach the **Related video** link, confirm any `"Publish anyway"` dialog, and publish to YouTube Shorts:
 
 ```bash
 node scripts/post-short.js promo/<outBaseName>.mp4
 ```
+
+- **Always attach a "Related video" link on every Short**: YouTube Short descriptions don't render clickable URLs in the player, whereas the **Related video** field places a clickable pill right above the Short's title so hooked viewers have a one-tap path to a long-form video (such as the `"9 months of building Chill Flight"` progression video or the official trailer) without leaving the player.
+- `writeShortMetadata` writes `Related video: 9 months of building Chill Flight` into each `.txt` sidecar by default (overridable via `meta.relatedVideo`), and [scripts/post-short.js](../../../scripts/post-short.js) automatically selects it in YouTube Studio on the **Video elements** upload step (falling back to `/video/<id>/edit` right after publish if SD Shorts detection was still running). Override per upload with `--related="<title, URL, or video ID>"` (or `--related=none` to skip).

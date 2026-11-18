@@ -7,8 +7,10 @@
 //
 // Options:
 //   --login                        Open Chrome to sign into YouTube & TikTok once
-//   --platform=all|youtube|tiktok  Which platform(s) to upload to (default: all)
+//   --platform=all|youtube|tiktok  Which platform(s) to upload to (default: youtube)
 //   --visibility=public|unlisted|private  YouTube visibility (default: public)
+//   --related=<title|url|id|none>  YouTube Short "Related video" link
+//                                  (default: "9 months of building Chill Flight")
 //   --publish                      Automatically click the final Publish/Post button (default)
 //   --review                       Stop on the final Publish/Post button for manual review
 //   --dry-run                      Parse and print the .txt metadata without opening Chrome
@@ -17,7 +19,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import {pathToFileURL} from 'node:url';
 import puppeteer from 'puppeteer-core';
+
+export const DEFAULT_RELATED_VIDEO = '9 months of building Chill Flight';
 
 const PROFILE_DIR =
   process.env.SOCIAL_PROFILE_DIR ||
@@ -41,12 +46,99 @@ function findChrome() {
   return found;
 }
 
+export function extractYouTubeVideoId(text) {
+  if (!text) return null;
+  const s = String(text).trim();
+  const urlMatch = s.match(
+    /(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|studio\.youtube\.com\/video\/)([A-Za-z0-9_-]{11})(?:[^A-Za-z0-9_-]|$)/
+  );
+  if (urlMatch) return urlMatch[1];
+  if (/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
+  return null;
+}
+
+export function parseRelatedVideoSpec(raw) {
+  if (raw === null || raw === undefined) return null;
+  const trimmed = String(raw).trim();
+  if (!trimmed || /^(none|off|false)$/i.test(trimmed)) return null;
+
+  const videoId = extractYouTubeVideoId(trimmed);
+  const strippedTitle = trimmed
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/[()[\]]/g, '')
+    .trim();
+  const query = videoId
+    ? strippedTitle && strippedTitle !== videoId
+      ? strippedTitle
+      : ''
+    : trimmed;
+
+  return {raw: trimmed, videoId, query};
+}
+
+export function pickBestRelatedCardIndex(cards, spec, excludeVideoId = null) {
+  if (!spec || !Array.isArray(cards) || cards.length === 0) return -1;
+  const eligible = cards.map((card, index) => ({
+    index,
+    videoId: card?.videoId || null,
+    title: String(card?.title || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase(),
+    text: String(card?.text || card?.title || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase(),
+  }));
+
+  const isAllowed = (item) =>
+    !excludeVideoId || !item.videoId || item.videoId !== excludeVideoId;
+
+  if (spec.videoId) {
+    const idHit = eligible.find(
+      (item) => isAllowed(item) && item.videoId === spec.videoId
+    );
+    if (idHit) return idHit.index;
+    if (!spec.query) return -1;
+  }
+
+  const q = String(spec.query || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+  if (!q) return -1;
+
+  const prefixHit = eligible.find(
+    (item) => isAllowed(item) && item.title.startsWith(q)
+  );
+  if (prefixHit) return prefixHit.index;
+
+  const titleHit = eligible.find(
+    (item) => isAllowed(item) && item.title.includes(q)
+  );
+  if (titleHit) return titleHit.index;
+
+  const textHit = eligible.find(
+    (item) => isAllowed(item) && item.text.includes(q)
+  );
+  return textHit ? textHit.index : -1;
+}
+
 export function parseShortMetadataFile(txtPath) {
   const raw = fs.readFileSync(txtPath, 'utf8').replace(/\r\n/g, '\n');
-  const [ytSection, ttSection = ''] = raw.split(/^===\s*TikTok\s*===$/m);
+  const [ytSectionRaw, ttSection = ''] = raw.split(/^===\s*TikTok\s*===$/m);
+
+  let relatedVideo = null;
+  const ytSection = ytSectionRaw.replace(
+    /\n*Related video:\n([^\n]*)\n*/i,
+    (_m, val) => {
+      relatedVideo = val.trim();
+      return '\n\n';
+    }
+  );
 
   const titleMatch = ytSection.match(
-    /^Title:\n([\s\S]*?)\n\nDescription:\n([\s\S]*)$/m
+    /^Title:\n([\s\S]*?)\n\n+Description:\n([\s\S]*)$/m
   );
   if (!titleMatch) {
     throw new Error(`Could not parse Title/Description in ${txtPath}`);
@@ -67,11 +159,29 @@ export function parseShortMetadataFile(txtPath) {
     youtube: {
       title: youtubeTitle,
       description: youtubeDescription,
+      relatedVideo,
     },
     tiktok: {
       caption: tiktokCaption,
     },
   };
+}
+
+export function resolveRelatedVideo(
+  opts = {},
+  meta = null,
+  envRelated = process.env.YOUTUBE_RELATED_VIDEO
+) {
+  const chosen =
+    opts.related !== undefined
+      ? opts.related
+      : envRelated !== undefined && envRelated !== ''
+        ? envRelated
+        : meta?.youtube?.relatedVideo !== null &&
+            meta?.youtube?.relatedVideo !== undefined
+          ? meta.youtube.relatedVideo
+          : DEFAULT_RELATED_VIDEO;
+  return parseRelatedVideoSpec(chosen);
 }
 
 function parseArgs(argv) {
@@ -81,6 +191,7 @@ function parseArgs(argv) {
     publish: true,
     platform: 'youtube',
     visibility: 'public',
+    related: undefined,
     videoPath: null,
   };
   for (const arg of argv) {
@@ -92,6 +203,10 @@ function parseArgs(argv) {
       opts.platform = arg.slice('--platform='.length).toLowerCase();
     } else if (arg.startsWith('--visibility=')) {
       opts.visibility = arg.slice('--visibility='.length).toLowerCase();
+    } else if (arg.startsWith('--related=')) {
+      opts.related = arg.slice('--related='.length);
+    } else if (arg === '--no-related') {
+      opts.related = 'none';
     } else if (arg === '--help' || arg === '-h') {
       opts.help = true;
     } else if (!arg.startsWith('-')) {
@@ -114,6 +229,7 @@ function printUsage() {
       '  --login                        Open Chrome to sign into YouTube Studio once',
       '  --platform=youtube|tiktok|all  Which platform(s) to upload to (default: youtube)',
       '  --visibility=public|unlisted|private  YouTube visibility (default: public)',
+      `  --related=<title|url|id|none>  YouTube Short Related video (default: "${DEFAULT_RELATED_VIDEO}")`,
       '  --publish                      Automatically click the final Publish button (default)',
       '  --review                       Fill everything and pause on final Publish button',
       '  --dry-run                      Print parsed metadata without launching Chrome',
@@ -217,7 +333,383 @@ async function clearAndSetTextbox(page, selector, text) {
   throw new Error(`Failed to set textbox ${selector} to expected value`);
 }
 
-async function uploadToYouTube(browser, mp4Path, meta, opts) {
+async function readUploadedShortId(page) {
+  const href = await page.evaluate(() => {
+    const link = document.querySelector(
+      'ytcp-uploads-dialog a[href*="youtube.com/shorts/"], ' +
+        'ytcp-uploads-dialog a[href*="youtu.be/"], ' +
+        'ytcp-video-info a[href*="youtube.com/shorts/"], ' +
+        'ytcp-video-info a[href*="youtu.be/"]'
+    );
+    return link ? link.href : null;
+  });
+  return extractYouTubeVideoId(href);
+}
+
+async function dismissVideoPickerDialog(page) {
+  const isOpen = await page.evaluate(() => {
+    const dlg = document.querySelector(
+      'ytcp-dialog.ytcp-video-pick-dialog tp-yt-paper-dialog[opened], ' +
+        'ytcp-video-pick-dialog tp-yt-paper-dialog[opened]'
+    );
+    if (!dlg) return false;
+    const rect = dlg.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  });
+  if (!isOpen) return;
+
+  const closeBtn = await page.$(
+    'ytcp-dialog.ytcp-video-pick-dialog #close-button, ytcp-video-pick-dialog #close-button'
+  );
+  if (closeBtn) {
+    await closeBtn.click().catch(() => {});
+  } else {
+    await page.keyboard.press('Escape').catch(() => {});
+  }
+  await sleep(500);
+}
+
+async function readVisiblePickerCards(page) {
+  return page.evaluate(() => {
+    const dialog =
+      document.querySelector(
+        'ytcp-dialog.ytcp-video-pick-dialog, ytcp-video-pick-dialog'
+      ) ||
+      [...document.querySelectorAll('tp-yt-paper-dialog[opened]')].find((d) =>
+        d.querySelector('ytcp-entity-card, input#search-yours')
+      );
+    if (!dialog) return [];
+
+    const nodes = [
+      ...dialog.querySelectorAll(
+        'ytcp-entity-card, .entity-card, ytcp-video-row'
+      ),
+    ].filter((el) => {
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    });
+
+    return nodes.map((el) => {
+      const html = el.innerHTML || '';
+      const thumbMatch = html.match(
+        /\/vi(?:_webp)?\/([A-Za-z0-9_-]{11})\/|(?:watch\?v=|shorts\/|\/video\/)([A-Za-z0-9_-]{11})/
+      );
+      const videoId = thumbMatch ? thumbMatch[1] || thumbMatch[2] : null;
+      const titleEl = el.querySelector(
+        '.title, #video-title, .video-title, [id*="title"]'
+      );
+      const rawLines = (el.innerText || '')
+        .split('\n')
+        .map((s) => s.trim())
+        .filter((s) => s && !/^\d+:\d{2}(?::\d{2})?$/.test(s));
+      const title = (titleEl?.textContent || rawLines[0] || '').trim();
+      return {
+        videoId,
+        title,
+        text: (el.innerText || '').trim(),
+      };
+    });
+  });
+}
+
+async function clickVisiblePickerCardAt(page, targetIndex) {
+  const handles = await page.$$(
+    'ytcp-dialog.ytcp-video-pick-dialog ytcp-entity-card, ' +
+      'ytcp-video-pick-dialog ytcp-entity-card, ' +
+      'tp-yt-paper-dialog[opened] ytcp-entity-card, ' +
+      'ytcp-dialog.ytcp-video-pick-dialog .entity-card, ' +
+      'ytcp-dialog.ytcp-video-pick-dialog ytcp-video-row'
+  );
+  const visibleHandles = [];
+  for (const h of handles) {
+    const vis = await h.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    });
+    if (vis) visibleHandles.push(h);
+  }
+  const chosen = visibleHandles[targetIndex];
+  if (!chosen) return false;
+  await chosen.evaluate((el) => el.scrollIntoView({block: 'center'}));
+  await sleep(150);
+  await chosen.click();
+  return true;
+}
+
+async function typeIntoPickerSearch(page, text) {
+  const searchSel =
+    'ytcp-dialog.ytcp-video-pick-dialog input, ' +
+    'ytcp-video-pick-dialog input, ' +
+    'tp-yt-paper-dialog[opened] input#search-yours, ' +
+    'tp-yt-paper-dialog[opened] input[placeholder*="video" i], ' +
+    'tp-yt-paper-dialog[opened] input[placeholder*="search" i]';
+  const input = await page.$(searchSel);
+  if (!input) return false;
+  const vis = await input.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  });
+  if (!vis) return false;
+
+  await input.click({clickCount: 3});
+  await sleep(80);
+  await page.keyboard.press('Backspace');
+  await sleep(80);
+  await page.keyboard.type(text.slice(0, 50), {delay: 15});
+  await sleep(1500);
+  return true;
+}
+
+async function selectRelatedVideoInPicker(page, spec, excludeVideoId) {
+  const pickerSel =
+    'ytcp-dialog.ytcp-video-pick-dialog tp-yt-paper-dialog[opened], ' +
+    'ytcp-video-pick-dialog tp-yt-paper-dialog[opened], ' +
+    'tp-yt-paper-dialog[opened] ytcp-entity-card, ' +
+    'tp-yt-paper-dialog[opened] input#search-yours';
+
+  try {
+    await page.waitForSelector(pickerSel, {visible: true, timeout: 15000});
+  } catch {
+    return null;
+  }
+  await sleep(1000);
+
+  if (spec.query) {
+    await typeIntoPickerSearch(page, spec.query);
+  }
+
+  let cards = await readVisiblePickerCards(page);
+  let bestIdx = pickBestRelatedCardIndex(cards, spec, excludeVideoId);
+
+  if (bestIdx < 0 && spec.videoId && !spec.query) {
+    const searched = await typeIntoPickerSearch(page, spec.videoId);
+    if (searched) {
+      cards = await readVisiblePickerCards(page);
+      bestIdx = pickBestRelatedCardIndex(cards, spec, excludeVideoId);
+    }
+  }
+
+  if (bestIdx < 0) {
+    await dismissVideoPickerDialog(page);
+    return null;
+  }
+
+  const matchedTitle = cards[bestIdx].title || spec.raw;
+  const clicked = await clickVisiblePickerCardAt(page, bestIdx);
+  if (!clicked) {
+    await dismissVideoPickerDialog(page);
+    return null;
+  }
+
+  await page
+    .waitForFunction(
+      () => {
+        const dlg = document.querySelector(
+          'ytcp-dialog.ytcp-video-pick-dialog tp-yt-paper-dialog[opened], ' +
+            'ytcp-video-pick-dialog tp-yt-paper-dialog[opened]'
+        );
+        if (!dlg) return true;
+        const r = dlg.getBoundingClientRect();
+        return r.width === 0 || r.height === 0;
+      },
+      {timeout: 12000}
+    )
+    .catch(() => {});
+  await sleep(600);
+  return matchedTitle;
+}
+
+async function inspectAndClickRelatedTrigger(page) {
+  // Tag the matching trigger element cleanly in DOM so Puppeteer can click it
+  // with trusted mouse events
+  const state = await page.evaluate(() => {
+    for (const old of document.querySelectorAll('[data-cf-related-trigger]')) {
+      old.removeAttribute('data-cf-related-trigger');
+    }
+    const isVisible = (el) => {
+      if (!el) return false;
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    };
+    const isDisabled = (el) =>
+      Boolean(
+        el.hasAttribute('disabled') ||
+        el.getAttribute('aria-disabled') === 'true' ||
+        el.closest('[disabled], [aria-disabled="true"]')
+      );
+
+    // 1. Dropdown trigger style (Details sidepanel or /video/<id>/edit page)
+    const dropdowns = [
+      ...document.querySelectorAll('ytcp-dropdown-trigger'),
+    ].filter(isVisible);
+    for (const dd of dropdowns) {
+      const label = (
+        dd.querySelector('.label-text')?.textContent ||
+        dd.innerText ||
+        ''
+      ).trim();
+      if (/related video/i.test(label)) {
+        if (isDisabled(dd)) return {status: 'disabled'};
+        dd.scrollIntoView({block: 'center'});
+        dd.setAttribute('data-cf-related-trigger', '1');
+        return {status: 'ready'};
+      }
+    }
+
+    // 2. Upload wizard "Video elements" row card ("Add related video" + Add button)
+    const directBtns = [
+      ...document.querySelectorAll(
+        '#related-video-button, [id*="related-video"] ytcp-button, [id*="related-video"] button, ytcp-button[aria-label*="related video" i], button[aria-label*="related video" i]'
+      ),
+    ].filter(isVisible);
+    for (const btn of directBtns) {
+      if (isDisabled(btn)) return {status: 'disabled'};
+      btn.scrollIntoView({block: 'center'});
+      btn.setAttribute('data-cf-related-trigger', '1');
+      return {status: 'ready'};
+    }
+
+    const containers = [
+      ...document.querySelectorAll(
+        'ytcp-uploads-video-elements .ytcp-uploads-video-elements, ' +
+          'ytcp-uploads-video-elements ytcp-video-elements-dialog-row, ' +
+          'ytcp-uploads-video-elements div, ' +
+          'ytcp-video-elements div'
+      ),
+    ].filter((el) => {
+      if (!isVisible(el)) return false;
+      const txt = (el.innerText || '').trim();
+      return /add related video|related video/i.test(txt) && txt.length < 320;
+    });
+    // Sort smallest container first so we grab the exact row rather than the whole step
+    containers.sort(
+      (a, b) => (a.innerText || '').length - (b.innerText || '').length
+    );
+    for (const row of containers) {
+      const btns = [
+        ...row.querySelectorAll('ytcp-button, button, [role="button"]'),
+      ].filter(isVisible);
+      if (btns.length === 0) continue;
+      const enabledBtn = btns.find((b) => !isDisabled(b));
+      if (!enabledBtn) return {status: 'disabled'};
+      enabledBtn.scrollIntoView({block: 'center'});
+      enabledBtn.setAttribute('data-cf-related-trigger', '1');
+      return {status: 'ready'};
+    }
+
+    return {status: 'missing'};
+  });
+
+  if (state.status !== 'ready') return state.status;
+  const handle = await page.$('[data-cf-related-trigger="1"]');
+  if (!handle) return 'missing';
+  await sleep(150);
+  await handle.click();
+  return 'clicked';
+}
+
+async function tryAttachRelatedVideoInWizard(page, spec, excludeVideoId) {
+  const started = Date.now();
+  let sawDisabled = false;
+  while (Date.now() - started < 15000) {
+    const triggerStatus = await inspectAndClickRelatedTrigger(page);
+    if (triggerStatus === 'clicked') {
+      const matched = await selectRelatedVideoInPicker(
+        page,
+        spec,
+        excludeVideoId
+      );
+      if (matched) {
+        console.log(`  Attached YouTube Related video: ${matched}`);
+        return true;
+      }
+      console.warn(
+        `  Could not match Related video "${spec.raw}" in YouTube Studio picker.`
+      );
+      return false;
+    }
+    if (triggerStatus === 'disabled') {
+      sawDisabled = true;
+    } else if (!sawDisabled && Date.now() - started > 2500) {
+      // No Related video control rendered on this wizard step
+      return false;
+    }
+    await sleep(800);
+  }
+  return false;
+}
+
+async function attachRelatedVideoOnEditPage(page, shortId, spec) {
+  const editUrl = `${YOUTUBE_STUDIO_URL}/video/${shortId}/edit`;
+  console.log(
+    `  Opening Studio editor (${shortId}) to attach Related video...`
+  );
+  const onDialog = (d) => d.accept().catch(() => {});
+  page.on('dialog', onDialog);
+  try {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await page.goto(editUrl, {
+          waitUntil: 'domcontentloaded',
+          timeout: 45000,
+        });
+        break;
+      } catch (err) {
+        if (!String(err.message || '').includes('interrupted') || attempt === 3)
+          throw err;
+        await sleep(2500);
+      }
+    }
+
+    const started = Date.now();
+    let clicked = false;
+    while (Date.now() - started < 25000) {
+      const status = await inspectAndClickRelatedTrigger(page);
+      if (status === 'clicked') {
+        clicked = true;
+        break;
+      }
+      await sleep(800);
+    }
+    if (!clicked) {
+      console.warn(
+        `  Related video field did not appear on ${editUrl}; skipping.`
+      );
+      return false;
+    }
+
+    const matched = await selectRelatedVideoInPicker(page, spec, shortId);
+    if (!matched) {
+      console.warn(
+        `  Could not match Related video "${spec.raw}" in Studio editor picker.`
+      );
+      return false;
+    }
+
+    const saveSel = 'ytcp-button#save:not([aria-disabled="true"])';
+    await page.waitForSelector(saveSel, {visible: true, timeout: 15000});
+    await page.click(saveSel);
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('ytcp-button#save')
+          ?.getAttribute('aria-disabled') === 'true',
+      {timeout: 30000}
+    );
+    await sleep(1000);
+    console.log(`  Saved YouTube Related video on Short: ${matched}`);
+    return true;
+  } catch (err) {
+    console.warn(
+      `  Post-publish Related video step failed (${err.message}); Short is already published.`
+    );
+    return false;
+  } finally {
+    page.off('dialog', onDialog);
+  }
+}
+
+async function uploadToYouTube(browser, mp4Path, meta, opts, relatedSpec) {
   console.log('\n=== Uploading to YouTube Studio ===');
   const page = await browser.newPage();
   await page.goto(YOUTUBE_STUDIO_URL, {
@@ -309,11 +801,24 @@ async function uploadToYouTube(browser, mp4Path, meta, opts) {
   await page.click(notForKidsSel);
   await sleep(500);
 
-  // Click Next 3 times (Details -> Video elements -> Checks -> Visibility)
+  let shortId = await readUploadedShortId(page);
+  let relatedAttached = false;
+
+  // Click Next 3 times (Details -> Video elements -> Checks -> Visibility),
+  // attaching the Related video on Step 2 (Video elements) when enabled
   for (let step = 0; step < 3; step++) {
     await page.waitForSelector('#next-button', {visible: true, timeout: 30000});
     await page.click('#next-button');
-    await sleep(800);
+    await sleep(900);
+
+    if (step === 0 && relatedSpec && !relatedAttached) {
+      shortId = shortId || (await readUploadedShortId(page));
+      relatedAttached = await tryAttachRelatedVideoInWizard(
+        page,
+        relatedSpec,
+        shortId
+      );
+    }
   }
 
   // Select visibility radio button
@@ -410,11 +915,21 @@ async function uploadToYouTube(browser, mp4Path, meta, opts) {
     }
 
     if (publishedUrl) {
+      shortId = shortId || extractYouTubeVideoId(publishedUrl);
       console.log(`  YouTube Short published: ${publishedUrl}`);
     } else {
       console.log('  YouTube Short publish flow completed.');
     }
+
+    if (relatedSpec && !relatedAttached && shortId) {
+      await attachRelatedVideoOnEditPage(page, shortId, relatedSpec);
+    }
   } else {
+    if (relatedSpec && !relatedAttached) {
+      console.log(
+        `  Note: Related video "${relatedSpec.raw}" was not yet selectable on Video elements; verify it in Chrome before or after publishing.`
+      );
+    }
     console.log(
       '  YouTube Studio is ready on the final Visibility screen (click "Publish" in Chrome).'
     );
@@ -569,9 +1084,11 @@ async function main() {
   }
 
   const meta = parseShortMetadataFile(txtPath);
+  const relatedSpec = resolveRelatedVideo(opts, meta);
   console.log(`Loaded metadata from ${path.basename(txtPath)}:`);
-  console.log(`  YouTube Title: ${meta.youtube.title}`);
-  console.log(`  TikTok Hook:   ${meta.tiktok.caption.split('\n')[0]}`);
+  console.log(`  YouTube Title:   ${meta.youtube.title}`);
+  console.log(`  YouTube Related: ${relatedSpec ? relatedSpec.raw : '(none)'}`);
+  console.log(`  TikTok Hook:     ${meta.tiktok.caption.split('\n')[0]}`);
 
   if (opts.dryRun) {
     console.log('\n--- YouTube Description ---\n' + meta.youtube.description);
@@ -582,7 +1099,7 @@ async function main() {
   const browser = await launchPersistentBrowser();
   try {
     if (opts.platform === 'all' || opts.platform === 'youtube') {
-      await uploadToYouTube(browser, mp4Path, meta.youtube, opts);
+      await uploadToYouTube(browser, mp4Path, meta.youtube, opts, relatedSpec);
     }
     if (opts.platform === 'all' || opts.platform === 'tiktok') {
       await uploadToTikTok(browser, mp4Path, meta.tiktok, opts);
@@ -604,6 +1121,9 @@ async function main() {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href
+) {
   main();
 }
