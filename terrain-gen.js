@@ -268,6 +268,10 @@ const ROCK_SIZE = 2;
 // No boulders on ground steeper than this slopeFactor (about 31 degrees):
 // they'd hang on the side of a wall
 const ROCK_MAX_SLOPE = 0.3;
+// No trees or bushes where the ground under them is steeper than this
+// slopeFactor (about 39 degrees): they'd stand on the face of a cliff. Measured
+// at the plant's own spot, as it sits off the vertex grid
+const TREE_MAX_SLOPE = 0.4;
 // Big granite boulders (Boulders Beach): the chance per grid point in a
 // group on the shore and in the shallows, and out on the lowlands, and their
 // size (radius, m) before the odd much bigger one
@@ -6622,6 +6626,44 @@ export function generateChunkData({
       xmasYardPositions,
     ].forEach(keepOffPyramids);
   }
+
+  // Trees and bushes off cliff faces. Dropped here, after all the rolls, so
+  // nothing else moves
+  const keepOffWalls = (arr) => {
+    const d = 4;
+    let kept = 0;
+    for (const p of arr) {
+      const sx =
+        (heightAtLocal(p.x + d, p.z) - heightAtLocal(p.x - d, p.z)) / (2 * d);
+      const sz =
+        (heightAtLocal(p.x, p.z + d) - heightAtLocal(p.x, p.z - d)) / (2 * d);
+      if (Math.sqrt(sx * sx + sz * sz) * 0.5 < TREE_MAX_SLOPE) arr[kept++] = p;
+    }
+    arr.length = kept;
+  };
+  [
+    treePositions,
+    deciduousTreePositions,
+    tallDeciduousTreePositions,
+    palmTreePositions,
+    deadTreePositions,
+    joshuaTreePositions,
+    snowTreePositions,
+    autumnTree1Positions,
+    autumnTree2Positions,
+    autumnTree3Positions,
+    cherryTreePositions,
+    yellowCortezTreePositions,
+    japaneseMapleTreePositions,
+    sculptedPineTreePositions,
+    birchTreePositions,
+    broadleafOakTreePositions,
+    oakTreePositions,
+    magnoliaTreePositions,
+    swampTreePositions,
+    ...fruitTreeLists,
+    bushPositions,
+  ].forEach(keepOffWalls);
 
   // Montauk chunk lighthouse
   if (chunkX === 5 && chunkZ === 2) {
