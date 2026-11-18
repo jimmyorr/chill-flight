@@ -258,12 +258,16 @@ const DESERT_WASH_NEAR = 120;
 const DESERT_WASH_FAR = 300;
 const DESERT_STANDOUT = 0.1;
 // Boulders (rockinessAt): scale to keep their count about what it was when
-// they were spread evenly, and the share drawn much bigger
-const ROCK_SCALE = 0.93;
+// they were spread evenly (with steep walls left bare, ROCK_MAX_SLOPE), and
+// the share drawn much bigger
+const ROCK_SCALE = 1.6;
 const ROCK_BIG_SHARE = 0.08;
 // Boulders are drawn this much bigger than their 3 m model, so they read
 // from the air
 const ROCK_SIZE = 2;
+// No boulders on ground steeper than this slopeFactor (about 31 degrees):
+// they'd hang on the side of a wall
+const ROCK_MAX_SLOPE = 0.3;
 // Big granite boulders (Boulders Beach): the chance per grid point in a
 // group on the shore and in the shallows, and out on the lowlands, and their
 // size (radius, m) before the odd much bigger one
@@ -4519,9 +4523,13 @@ export function generateChunkData({
           z: rz,
           big: fieldHash(gx, gz, 1505) < ROCK_BIG_SHARE,
         };
-        if (snowFactor > 0.4) snowRockPositions.push(rock);
-        else if (desertFactor > 0.4) desertRockPositions.push(rock);
-        else if (swampFactor < 0.4) rockPositions.push(rock);
+        // Not stuck on the side of a steep wall. Checked after the roll, so
+        // the other props in the chunk keep their places.
+        if (slopeFactor < ROCK_MAX_SLOPE) {
+          if (snowFactor > 0.4) snowRockPositions.push(rock);
+          else if (desertFactor > 0.4) desertRockPositions.push(rock);
+          else if (swampFactor < 0.4) rockPositions.push(rock);
+        }
       }
 
       if (
@@ -4619,7 +4627,7 @@ export function generateChunkData({
       snowFactor < 0.4 &&
       height > WATER_LEVEL - 7 &&
       height < treeLine &&
-      slopeFactor < 0.5 &&
+      slopeFactor < ROCK_MAX_SLOPE &&
       villageNoise < 0.1 &&
       !ChillFlightLogic.isOnAirport(worldX, worldZ, 150) &&
       ChillFlightLogic.highwayDistance(worldX, worldZ) > 70
