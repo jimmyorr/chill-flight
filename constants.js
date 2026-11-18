@@ -942,9 +942,9 @@ export function addRoadSnow(material) {
 }
 
 // Procedural surface detail for roads, town streets, runways, access roads
-// and concrete aprons/structures: wheel-track wear, shoulder shading,
-// expansion joints, touchdown skid marks and anti-aliased asphalt/concrete
-// grain that fades out with distance before it can shimmer.
+// and concrete aprons/structures: shoulder shading, expansion joints,
+// touchdown skid marks and anti-aliased asphalt/concrete grain that fades out
+// with distance before it can shimmer.
 export function addRoadSurface(
   material,
   {
@@ -1024,19 +1024,9 @@ export function addRoadSurface(
         profileGlsl = `
           float ax = abs(vRoadLocal.x);
           if (vRoadLocal.z > 0.7) {
-            // 4-lane highway: lanes centered at |x| = 7.5 and 22.5, dual wheel tracks in each
-            float laneD = min(abs(ax - 7.5), abs(ax - 22.5));
-            float wheelD = abs(laneD - 2.6);
-            float trackWear = exp(-wheelD * wheelD * 0.45) * 0.8 + exp(-laneD * laneD * 0.07) * 0.2;
-            float streakN = 0.75 + 0.5 * roadNoise(vec2(vRoadLocal.x * 0.45, (rwp.x + rwp.y) * 0.035));
-            asphaltMod *= mix(1.0, 1.05 - 0.20 * trackWear * streakN, roadNear);
             float shoulder = smoothstep(28.1, 29.2, ax) * (1.0 - smoothstep(30.4, 31.3, ax));
             float curb = smoothstep(30.5, 31.8, ax);
             asphaltMod *= 1.0 + (0.08 * shoulder - 0.15 * curb) * roadTop;
-          } else {
-            // Slip road: single-lane ramp wear
-            float slipTrack = exp(-pow(abs(ax - 8.5), 2.0) * 0.06);
-            asphaltMod *= mix(1.0, 1.04 - 0.15 * slipTrack, roadNear);
           }
           // Transverse segment joint every 30 units
           float segJoint = smoothstep(14.1, 14.8, abs(vRoadLocal.y));
@@ -1045,21 +1035,17 @@ export function addRoadSurface(
       } else if (street) {
         profileGlsl = `
           float sx = abs(vRoadLocal.x);
-          float sTrack = exp(-pow(abs(sx - 0.22) * 14.0, 2.0));
           float sEdge = smoothstep(0.37, 0.43, sx) * (1.0 - smoothstep(0.45, 0.48, sx));
           float sCurb = smoothstep(0.455, 0.495, sx);
-          asphaltMod *= 1.0 + (-0.13 * sTrack + 0.09 * sEdge - 0.16 * sCurb) * roadNear;
+          asphaltMod *= 1.0 + (0.09 * sEdge - 0.16 * sCurb) * roadNear;
         `;
       } else if (accessRoad) {
         profileGlsl = `
           float az = abs(vRoadLocal.y);
-          float aLaneD = abs(az - 5.0);
-          float aWheelD = abs(aLaneD - 1.8);
-          float aTrack = exp(-aWheelD * aWheelD * 0.65) * 0.8 + exp(-aLaneD * aLaneD * 0.12) * 0.2;
           float aShoulder = smoothstep(7.8, 8.7, az) * (1.0 - smoothstep(9.0, 9.6, az));
           float aCurb = smoothstep(9.1, 9.9, az);
           float aSeam = 1.0 - smoothstep(0.0, 0.45, abs(fract(vRoadLocal.x / 25.0 + 0.5) - 0.5) * 25.0);
-          asphaltMod *= 1.0 + (-0.16 * aTrack + 0.08 * aShoulder - 0.14 * aCurb - 0.09 * aSeam * patchAA) * roadNear;
+          asphaltMod *= 1.0 + (0.08 * aShoulder - 0.14 * aCurb - 0.09 * aSeam * patchAA) * roadNear;
         `;
       } else if (runway) {
         profileGlsl = `
