@@ -618,7 +618,12 @@ if (overlay && renderer) {
   const compileAll = async () => {
     state.isWarmingUp = true;
     try {
-      await renderer.compileAsync(scene, camera);
+      if (renderer.extensions.has('KHR_parallel_shader_compile')) {
+        await renderer.compileAsync(scene, camera);
+      } else {
+        renderer.compile(scene, camera);
+        await new Promise((r) => setTimeout(r, 10));
+      }
       let sliceStart = performance.now();
       for (const program of renderer.info.programs) {
         program.getUniforms();

@@ -169,6 +169,8 @@ async function checkPage(
       errors.push(`[${tag}] console.error: ${text}`);
     } else if (text.includes('AudioContext was not allowed to start')) {
       errors.push(`[${tag}] autoplay warning: ${text}`);
+    } else if (text.includes('extension not supported')) {
+      errors.push(`[${tag}] webgl warning: ${text}`);
     }
   });
   page.on('requestfailed', (req) => {
