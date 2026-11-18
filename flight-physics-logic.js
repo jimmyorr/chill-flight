@@ -231,8 +231,9 @@ export function airborneVerticalVelocity(
  * blends over SMOOTH seconds, so nothing jolts. It rolls on to the level its
  * momentum carries it nearest (rollExitTarget): past halfway it finishes the
  * turn, short of that it rolls back, and it never changes its mind midway.
- * Within SETTLE_ANGLE of the level it eases in exponentially (SETTLE per
- * second) rather than stopping dead.
+ * Coming up to level it hands over to a soft spring (SPRING_*) that lets the
+ * wings swing a little past and rock back once, the way a plane settles,
+ * rather than stopping dead on the level.
  */
 export const ROLL_EXIT = {
   EASE_OUT: 0.4,
@@ -242,8 +243,15 @@ export const ROLL_EXIT = {
   // How quickly (1/s) the rate is steered onto the eased one: gentle, so
   // the braking doesn't overshoot it and wobble at the end
   FOLLOW: 10,
+  // The settling spring: stiffness (rad/s) and damping ratio, about 8°
+  // past level and 2° back. It takes over from SPRING_FROM to SPRING_TO
+  // (radians from level)
+  SPRING_OMEGA: 5,
+  SPRING_DAMPING: 0.5,
+  SPRING_FROM: 0.6,
+  SPRING_TO: 0.2,
   // Done (hand over to the usual roll) this close, this slow
-  DONE_ANGLE: 0.02,
+  DONE_ANGLE: 0.025,
   DONE_RATE: 0.1,
   // Give up after this long (the player steering keeps moving the target)
   MAX_SECONDS: 4,
@@ -290,10 +298,21 @@ export function stepRollExit(s, target, maxRate, delta) {
     const change = want - s.rate;
     // Slowing down brakes firmly; speeding up (rolling back) eases in
     const limit = change * s.rate < 0 ? brake : ease;
-    const wantAccel = Math.max(
-      -limit,
-      Math.min(limit, change * ROLL_EXIT.FOLLOW)
+    const eased = Math.max(-limit, Math.min(limit, change * ROLL_EXIT.FOLLOW));
+    const w = ROLL_EXIT.SPRING_OMEGA;
+    const spring = Math.max(
+      -brake,
+      Math.min(brake, w * w * diff - 2 * ROLL_EXIT.SPRING_DAMPING * w * s.rate)
     );
+    const t = Math.max(
+      0,
+      Math.min(
+        1,
+        (ROLL_EXIT.SPRING_FROM - dist) /
+          (ROLL_EXIT.SPRING_FROM - ROLL_EXIT.SPRING_TO)
+      )
+    );
+    const wantAccel = eased + (spring - eased) * t * t * (3 - 2 * t);
     s.accel += (wantAccel - s.accel) * (1 - Math.exp(-dt / ROLL_EXIT.SMOOTH));
     s.rate += s.accel * dt;
     s.roll += s.rate * dt;

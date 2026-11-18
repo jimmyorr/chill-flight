@@ -219,7 +219,8 @@ check(
           t += 1 / fps;
           peak = Math.max(peak, Math.abs(s.rate - before) * fps);
           // Heading for the level ahead, it never rolls back short of it
-          if (target > TURN && s.rate < -0.05 && s.roll < target - 0.05) {
+          // (beyond the few degrees it rocks back after swinging past)
+          if (target > TURN && s.rate < -0.05 && s.roll < target - 0.15) {
             turnedBack = true;
           }
           if (target > TURN) over = Math.max(over, s.roll - target);
