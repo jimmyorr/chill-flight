@@ -176,10 +176,7 @@ hooks.warmUps.push(async (at) => {
   const sock = createWindsock();
   sock.position.copy(at);
   scene.add(sock);
-  return () => {
-    scene.remove(sock);
-    sock.traverse((o) => o.geometry?.dispose());
-  };
+  return () => scene.remove(sock);
 });
 
 // The airport windsocks in the world, each {swivel, sock, parentYaw, phase,

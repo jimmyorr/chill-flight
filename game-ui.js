@@ -616,6 +616,7 @@ if (overlay && renderer) {
   // end for anything new. No frames meanwhile: the screen is covered, and
   // drawing them would only compete with the compiling
   const compileAll = async () => {
+    const wasWarming = state.isWarmingUp;
     state.isWarmingUp = true;
     try {
       if (renderer.extensions.has('KHR_parallel_shader_compile')) {
@@ -634,15 +635,15 @@ if (overlay && renderer) {
       }
     } catch (e) {
       log.warn('Shader warm-up failed', e);
+    } finally {
+      state.isWarmingUp = wasWarming;
     }
-    state.isWarmingUp = false;
   };
   let earlyCompile = null;
   // Things that only appear later in flight (road cars, other planes, the
-  // lens flare) set out by the plane until the last warm-up frame
-  // (hooks.warmUps). Started with the early compile, so the road cars'
-  // models build while the rest of the terrain loads
-  let warmSetUp = null;
+  // lens flare) set out by the plane strictly for the final warm-up pass
+  // (hooks.warmUps), while CPU-only prep (hooks.earlyWarmUps) runs alongside
+  // the early terrain compile so temporary props never appear mid-load
   const setUpWarmUps = async () => {
     const undos = [];
     for (const warm of hooks.warmUps) {
@@ -660,36 +661,42 @@ if (overlay && renderer) {
     await earlyCompile;
     const tEarly = performance.now();
     const early = renderer.info.programs.length;
-    const undos = (await warmSetUp) || [];
-    // Anything the later chunks added, and those
-    await compileAll();
-    // One frame drawn with them, shadows included: compileAll doesn't reach
-    // the shadow pass's shaders, or the flare's (drawn inside its own
-    // onBeforeRender). The sun's shadow box only follows the plane in
-    // flight, so it's centred on the plane for this frame
-    const sunPos = dirLight.position.clone();
-    const sunTarget = dirLight.target.position.clone();
+    state.isWarmingUp = true;
+    let undos = [];
     try {
-      // 4000 units sunward, as updateShadowSnapping (game-loop.js) puts it
-      const toSun = sunPos.clone().sub(sunTarget);
-      if (toSun.lengthSq() < 1e-6) toSun.set(0, 1, 0);
-      dirLight.target.position.copy(planeGroup.position);
-      dirLight.position
-        .copy(planeGroup.position)
-        .addScaledVector(toSun.normalize(), 4000);
-      dirLight.updateMatrixWorld();
-      dirLight.target.updateMatrixWorld();
-      renderer.shadowMap.needsUpdate = true;
-      renderFrame(scene, camera);
-    } catch (e) {
-      log.warn('Warm-up frame failed', e);
+      undos = await setUpWarmUps();
+      // Anything the later chunks added, and those
+      await compileAll();
+      // One frame drawn with them, shadows included: compileAll doesn't reach
+      // the shadow pass's shaders, or the flare's (drawn inside its own
+      // onBeforeRender). The sun's shadow box only follows the plane in
+      // flight, so it's centred on the plane for this frame
+      const sunPos = dirLight.position.clone();
+      const sunTarget = dirLight.target.position.clone();
+      try {
+        // 4000 units sunward, as updateShadowSnapping (game-loop.js) puts it
+        const toSun = sunPos.clone().sub(sunTarget);
+        if (toSun.lengthSq() < 1e-6) toSun.set(0, 1, 0);
+        dirLight.target.position.copy(planeGroup.position);
+        dirLight.position
+          .copy(planeGroup.position)
+          .addScaledVector(toSun.normalize(), 4000);
+        dirLight.updateMatrixWorld();
+        dirLight.target.updateMatrixWorld();
+        renderer.shadowMap.needsUpdate = true;
+        renderFrame(scene, camera);
+      } catch (e) {
+        log.warn('Warm-up frame failed', e);
+      } finally {
+        dirLight.position.copy(sunPos);
+        dirLight.target.position.copy(sunTarget);
+        dirLight.updateMatrixWorld();
+        dirLight.target.updateMatrixWorld();
+      }
     } finally {
-      dirLight.position.copy(sunPos);
-      dirLight.target.position.copy(sunTarget);
-      dirLight.updateMatrixWorld();
-      dirLight.target.updateMatrixWorld();
+      for (const undo of undos) undo();
+      state.isWarmingUp = false;
     }
-    for (const undo of undos) undo();
     const tShaders = performance.now();
     performanceMonitor.reset();
     try {
@@ -742,8 +749,12 @@ if (overlay && renderer) {
       }
 
       if (progress >= 0.25 && !earlyCompile) {
-        warmSetUp = setUpWarmUps();
-        earlyCompile = warmSetUp.then(compileAll);
+        earlyCompile = Promise.all([
+          compileAll(),
+          ...hooks.earlyWarmUps.map((fn) =>
+            fn().catch((e) => log.warn('Early warm-up step failed', e))
+          ),
+        ]);
       }
 
       if (progress >= 1.0) {

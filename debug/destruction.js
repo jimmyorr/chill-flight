@@ -52,6 +52,7 @@ export const destructibleTypes = new Set([
   'crystal',
   'cactus',
   'rock',
+  'granite',
   'snowman',
   // Structures
   'house',
@@ -277,6 +278,7 @@ export function startDestruction(type, previewGroup, mats = {}) {
   else if (
     [
       'rock',
+      'granite',
       'pier',
       'iceberg',
       'iceFloe',

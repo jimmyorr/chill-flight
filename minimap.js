@@ -1305,6 +1305,9 @@ import {IMPERIAL, joinList, t} from './i18n.js';
       }
       state._nextYaw = yaw;
     }
+    if (!keepAttitude) {
+      hooks.resetManeuvers?.();
+    }
     if (speed !== undefined) {
       state.flightSpeedMultiplier = speed;
       state.targetFlightSpeed = speed;

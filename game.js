@@ -90,28 +90,35 @@ export const CINEMATIC_CONFIGS = [
 // world-track with camX/camY/camZ), prepends a custom cinematic view so
 // cinematic mode starts on it.
 const startWorldTrackPos =
-  ChillFlightLogic.START_CAM_FRAME === 'world-track' &&
-  ChillFlightLogic.START_CAM_X !== null &&
-  ChillFlightLogic.START_CAM_Y !== null &&
-  ChillFlightLogic.START_CAM_Z !== null
+  ChillFlightLogic.START_CAM_FRAME === 'world-track'
     ? [
-        ChillFlightLogic.START_CAM_X,
-        ChillFlightLogic.START_CAM_Y,
-        ChillFlightLogic.START_CAM_Z,
+        ChillFlightLogic.START_CAM_X ??
+          planeGroup.position.x +
+            (ChillFlightLogic.START_CAM_OFFSET?.[0] ??
+              CINEMATIC_CONFIGS[0].offset.x),
+        ChillFlightLogic.START_CAM_Y ??
+          planeGroup.position.y +
+            (ChillFlightLogic.START_CAM_OFFSET?.[1] ??
+              CINEMATIC_CONFIGS[0].offset.y),
+        ChillFlightLogic.START_CAM_Z ??
+          planeGroup.position.z +
+            (ChillFlightLogic.START_CAM_OFFSET?.[2] ??
+              CINEMATIC_CONFIGS[0].offset.z),
       ]
     : null;
 if (ChillFlightLogic.START_CAM_OFFSET || ChillFlightLogic.START_CAM_FRAME) {
   const fallbackOffset = CINEMATIC_CONFIGS[0].offset;
   CINEMATIC_CONFIGS.unshift({
-    offset: ChillFlightLogic.START_CAM_OFFSET
-      ? new THREE.Vector3(...ChillFlightLogic.START_CAM_OFFSET)
-      : startWorldTrackPos
-        ? new THREE.Vector3(...startWorldTrackPos)
+    offset: startWorldTrackPos
+      ? new THREE.Vector3(...startWorldTrackPos)
+      : ChillFlightLogic.START_CAM_OFFSET
+        ? new THREE.Vector3(...ChillFlightLogic.START_CAM_OFFSET)
         : fallbackOffset.clone(),
     lookOffset: new THREE.Vector3(
       ...(ChillFlightLogic.START_CAM_LOOK || [0, 0, 0])
     ),
     fov: ChillFlightLogic.START_FOV ?? 65,
+    isWorldPos: Boolean(startWorldTrackPos),
   });
 }
 const startCinematicConfig =

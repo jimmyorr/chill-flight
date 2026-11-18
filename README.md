@@ -455,7 +455,7 @@ Full gamepad support mapped to standard flight controls.
 
 When playing on a touch device, specialized UI and controls become available:
 
-- **Virtual joystick:** A premium, floating virtual joystick appears on screen for smooth, thumb-based flight control. It remains active and visible during double-tap-and-hold gestures (such as sharp turns, steep climbs, dives, and barrel rolls), allowing continuous steering throughout maneuvers. Full stick asks for a gentle 37° bank and 22° climb or dive (double-tap for more); the first 10 px or so do nothing, so taps for stunts don't steer, and past that the response rises from zero along a gentle curve that's finest near the middle. The mouse, gamepad sticks and tilt steering share the same curve (`stickResponse` in `game-loop.js`).
+- **Virtual joystick:** A premium, floating virtual joystick appears on screen for smooth, thumb-based flight control. It remains active and visible during double-tap-and-hold gestures (such as sharp turns, steep climbs, dives, and barrel rolls), allowing continuous steering throughout maneuvers. The first 10 px or so do nothing, so taps for stunts don't steer; through the first ~60% of throw the response matches the gentle curve shared with mouse, gamepad sticks and tilt steering (`stickResponse` in `game-loop.js`), then rises smoothly to the keyboard's full 75° bank at the rim while pitch holds a gentle 22° climb or dive (`joystickResponse` in `flight-physics-logic.js`, or `?fullStick=0` for the old 37° cap; double-tap for steep climbs and dives).
 - **Control schemes:** The Controls setting on the pause menu's Settings tab lets you choose between virtual joystick, device tilt (gyroscope), or directional button steering.
 - **Throttle:** The slider next to the quick menu sets your speed: drag or tap anywhere on it, from a stop on the left to the plane's top speed (**MAX**) on the right. The knob shows the speed you've set in knots: amber where the plane sinks (50 to 100 knots in the seaplane), and red where it falls out of the sky (the striped band on the left marks where the fall starts, at 55 knots in the seaplane; see [Planes](#planes)). Left alone for about four seconds, the throttle fades back until you use it again (not while it's at zero, so it's easy to find after landing). Keys, the scroll wheel and a gamepad move the knob too. The plane follows at a steady rate (in the seaplane, speeding up about 50 knots a second and slowing about 30), easing in over the last few knots, while the SPD readout shows its actual speed. On a desktop it works with the mouse.
 - **Pinch to zoom:** Put two fingers on the view together and pinch to zoom the follow, bird's eye or cinematic camera in and out (each keeps its own zoom). In the cinematic camera, dragging the two fingers also swings the shot around the plane (it stays where you leave it), while one finger steers as in every other view (a gamepad's stick still swings the shot there). While they're down they don't steer or count as taps; a finger left down after the pinch does nothing until it lifts. A second finger that comes down later (tapping a stunt while steering) still works as before.
@@ -526,14 +526,14 @@ What the anime style changes:
 
 Differences by preset and mode:
 
-|                                  | Low                        | Mid | High / Ultra | VR  |
-| :------------------------------- | :------------------------- | :-- | :----------- | :-- |
-| Light, color, land, trees, water | Yes                        | Yes | Yes          | Yes |
-| Anime clouds and horizon towers  | No (low has no sky clouds) | Yes | Yes          | Yes |
-| Ink outlines and haze            | Yes                        | Yes | Yes          | No  |
-| Glow                             | Yes                        | Yes | Yes          | No  |
-| Brushstroke (Kuwahara) filter    | No                         | Yes | Yes          | No  |
-| FXAA edge smoothing              | No                         | No  | Yes          | No  |
+|                                  | Low | Mid | High / Ultra | VR  |
+| :------------------------------- | :-- | :-- | :----------- | :-- |
+| Light, color, land, trees, water | Yes | Yes | Yes          | Yes |
+| Anime clouds and horizon towers  | Yes | Yes | Yes          | Yes |
+| Ink outlines and haze            | Yes | Yes | Yes          | No  |
+| Glow                             | Yes | Yes | Yes          | No  |
+| Brushstroke (Kuwahara) filter    | No  | Yes | Yes          | No  |
+| FXAA edge smoothing              | No  | No  | Yes          | No  |
 
 Cost: on an M1 MacBook Air at the mid preset, the anime style takes about 12.7 ms of GPU time per frame against 9.1 ms for low poly (+39%, over `npm run bench`'s four views with the clock pinned), a steady 3–4 ms in every view and still inside a 60 fps frame. The biggest single part is the brushstroke filter (about 1.5 ms). The horizon towers cost under 1 ms even when they fill the horizon: `updateTowerSlices()` in `sky-uniforms.js` draws their outline into a small texture when they change, and the sky reads it, instead of testing every puff shape per pixel, which cost 10–13 ms. The offscreen target isn't multisampled: antialiasing it cost about 3 ms. `QUERY=style=anime npm run bench` times the anime style.
 
@@ -656,6 +656,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`debug`**: Set to `true` (or include `?debug` or `?debug=1`) to start with the debug menu and telemetry overlay visible and enable diagnostic console logging. The debug menu's copy URL buttons (at the plane, or at the free camera) write every parameter of the current view, including the camera, livery, headlight, clouds, `clock` and `cloudTime`, so a link reproduces the picture. Debug mode also adds a 30 Hz pose recorder (**Record take** / **Shift+R**) that copies a deterministic JSON trajectory (`state.lastRecordedReplay`) for promo replay.
 - **`record`**: Set to `1` (`true`) to arm or immediately begin 30 Hz pose recording (**Shift+R** toggles start/stop) for replaying hand-flown water skims, landings, or buggy drifts in promo scripts.
 - **`weightedRoll`**: Set to `0` to turn off the weighted roll and get the old one back, where the bank starts at full rate and creeps into the last few degrees. The weighted roll (the default) eases in and stops cleanly, like a spring, settling in about the same time; it gives the heavier planes, like the twin, a sense of weight. Also a switch in the debug menu.
+- **`fullStick`**: Set to `0` to cap the touch virtual joystick at half the keyboard's bank (`37°`) instead of rising to the full `75°` bank at the rim (`joystickResponse` in `flight-physics-logic.js`).
 - **`vrStick`**: Set to `sim` or `chill` to start VR plane flight in rate-command Sim stick mode or auto-leveling Chill stick mode for this visit, overriding the saved VR pause card choice.
 - **`vrOnly`**: Set to `0` (`false`) to allow 2D browser-window flying on standalone VR headsets, or `1` (`true`) to test the headset VR-only title and pause flow on a desktop WebXR browser.
 - **`perf`**: Set to `1` for a small three-line readout under the top bar that fits on a phone: frames per second and the slowest frame in the last half second, CPU time per frame, render resolution, and the draw calls and triangles of the last render (`perf-hud.js`).

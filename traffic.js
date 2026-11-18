@@ -94,6 +94,7 @@ function addNavLight(group, mat, x, y, z) {
   const sprite = new THREE.Sprite(mat);
   sprite.scale.set(NAV_LIGHT_SIZE, NAV_LIGHT_SIZE, 1);
   sprite.position.set(x, y, z);
+  sprite.renderOrder = 3;
   group.add(sprite);
   return sprite;
 }
@@ -132,7 +133,7 @@ function disposePlane(group) {
   scene.remove(group);
   const shared = new Set(Object.values(navMats));
   group.traverse((child) => {
-    if (child.geometry) child.geometry.dispose();
+    if (!child.isSprite && child.geometry) child.geometry.dispose();
     if (
       child.material &&
       !shared.has(child.material) &&

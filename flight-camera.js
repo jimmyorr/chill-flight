@@ -574,9 +574,15 @@ export function updateFlightCamera(delta, nowTime) {
     }
     if (state.cameraMode === 'cinematic') {
       if (isWorldTrack && !_wasWorldTrack) {
-        _cinematicOffsetCurrent.copy(camera.position);
+        _cinematicOffsetCurrent.copy(
+          cinematicConfig.isWorldPos ? cinematicConfig.offset : camera.position
+        );
       } else if (!isWorldTrack && _wasWorldTrack) {
-        _cinematicOffsetCurrent.copy(cinematicConfig.offset);
+        _cinematicOffsetCurrent.copy(
+          cinematicConfig.isWorldPos
+            ? CINEMATIC_CONFIGS[1]?.offset || cinematicConfig.offset
+            : cinematicConfig.offset
+        );
       }
       _wasWorldTrack = isWorldTrack;
 
@@ -590,10 +596,7 @@ export function updateFlightCamera(delta, nowTime) {
           _cinematicLookTargetCurrent.y = scriptedCam.ly;
         if (scriptedCam.lz !== null)
           _cinematicLookTargetCurrent.z = scriptedCam.lz;
-      } else if (
-        !isWorldTrack ||
-        ChillFlightLogic.START_CAM_FRAME === 'world-track'
-      ) {
+      } else if (Boolean(cinematicConfig.isWorldPos) === isWorldTrack) {
         // Smoothen the switches between cinematic offsets
         const hasOffsetJumped =
           _cinematicOffsetCurrent.distanceToSquared(cinematicConfig.offset) >
@@ -973,13 +976,15 @@ export function updateFlightCamera(delta, nowTime) {
       if (activeCamTarget.position.y < actualTerrainHeight + 1.0) {
         activeCamTarget.position.y = actualTerrainHeight + 1.0;
       }
-      activeCamTarget.position.y = archCameraY(
-        arches,
-        activeCamTarget.position.x,
-        activeCamTarget.position.z,
-        activeCamTarget.position.y,
-        planeGroup.position.y
-      );
+      if (!isWorldTrack) {
+        activeCamTarget.position.y = archCameraY(
+          arches,
+          activeCamTarget.position.x,
+          activeCamTarget.position.z,
+          activeCamTarget.position.y,
+          planeGroup.position.y
+        );
+      }
     }
 
     const upLock = isPlaneMount ? 1 : loopLock;

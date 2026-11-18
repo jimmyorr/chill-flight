@@ -520,8 +520,11 @@ function performFrame(timestamp) {
         else updateDrivingAutopilot(delta);
       }
       updateBuggy(delta);
+      hooks.resetManeuvers?.();
     } else if (!state.isCrashed) {
       updatePhysicsAndControls(delta, nowTime);
+    } else {
+      hooks.resetManeuvers?.();
     }
   }
   // --- MANEUVER & PITCH ACHIEVEMENTS ---
@@ -1158,6 +1161,41 @@ const _vrSimStickQuat = {x: 0, y: 0, z: 0, w: 1};
 const _vrSimLastPos = new THREE.Vector3(NaN, NaN, NaN);
 let vrSimStickWereFlying = false;
 
+function resetFlightManeuvers() {
+  if (barrelRollDir !== 0 || rollExit.active) {
+    planeGroup.rotation.z = wrapAngle(planeGroup.rotation.z);
+  }
+  barrelRollDir = 0;
+  barrelRollRate = 0;
+  rollExit.active = false;
+  rollExit.roll = 0;
+  rollExit.rate = 0;
+  rollExit.accel = 0;
+  rollExit.turns = 0;
+  rollExit.t = 0;
+  sharpTurnRamp = 0;
+  sharpTurnDir = 0;
+  sharpTurnAmount = 0;
+  state.sharpTurnAmount = 0;
+  rollRate = 0;
+  manualPitchVel = 0;
+  manualPitchActive = false;
+  lastPitchMode = 0;
+  state.manualPitch = 0;
+  loopActive = false;
+  loopPitchRate = 0;
+  loopSpeed = 0;
+  loopRecovering = false;
+  vrSimStickWereFlying = false;
+  state.isDoingImmelmann = false;
+  state.immelmannProgress = 0;
+  state.isLooping = false;
+  state.isDoingFullLoop = false;
+  state.isBarrelRolling = false;
+  state.isDoingFullBarrelRoll = false;
+}
+hooks.resetManeuvers = resetFlightManeuvers;
+
 function isVRSimStickFlying() {
   return Boolean(
     state.isVRPresenting &&
@@ -1469,6 +1507,9 @@ function updatePhysicsAndControls(delta, nowTime) {
   const scripted = !state.isFreeCamera && state.scriptedFlight?.(nowTime);
   if (!scripted) state.scriptedSpeed = null;
   if (scripted) {
+    if (!scripted.loop && (barrelRollDir !== 0 || rollExit.active)) {
+      planeGroup.rotation.z = wrapAngle(planeGroup.rotation.z);
+    }
     vrSimStickWereFlying = false;
     state.isDoingImmelmann = false;
     state.targetPitch = scripted.pitch;
@@ -1479,6 +1520,8 @@ function updatePhysicsAndControls(delta, nowTime) {
     lastPitchMode = 0;
     loopActive = false;
     loopRecovering = false;
+    barrelRollDir = 0;
+    barrelRollRate = 0;
     rollExit.active = false;
     if (scripted.loop) {
       planeGroup.rotation.x = scripted.pitch;
@@ -1511,8 +1554,13 @@ function updatePhysicsAndControls(delta, nowTime) {
     state.autopilotEnabled &&
     state.flightSpeedMultiplier > 0
   ) {
+    if (barrelRollDir !== 0 || rollExit.active) {
+      planeGroup.rotation.z = wrapAngle(planeGroup.rotation.z);
+    }
     vrSimStickWereFlying = false;
     updateAutopilot(delta);
+    barrelRollDir = 0;
+    barrelRollRate = 0;
     rollExit.active = false;
     manualPitchVel = 0;
     manualPitchActive = false;
@@ -1525,6 +1573,11 @@ function updatePhysicsAndControls(delta, nowTime) {
     !state.isDoingImmelmann &&
     isVRSimStickFlying()
   ) {
+    if (barrelRollDir !== 0 || rollExit.active) {
+      planeGroup.rotation.z = wrapAngle(planeGroup.rotation.z);
+    }
+    barrelRollDir = 0;
+    barrelRollRate = 0;
     rollExit.active = false;
     flyVRSimStick(delta, inAirGripTurn);
     return;

@@ -212,8 +212,8 @@ const material = new THREE.ShaderMaterial({
 
 const mesh = new THREE.Mesh(geometry, material);
 mesh.frustumCulled = false;
-// After the water and terrain, so puffs blend over them
-mesh.renderOrder = 2;
+// After water, waterfalls, and cloud-deck domes, so puffs above clouds draw cleanly
+mesh.renderOrder = 3;
 mesh.visible = false;
 scene.add(mesh);
 

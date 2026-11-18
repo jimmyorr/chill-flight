@@ -9,6 +9,7 @@ export const hooks = {
   closeVRPauseMenu: null, // vr-manager.js
   pollVRVirtualControls: null, // vr-manager.js: (delta, controllers) => object
   resetSteering: null, // game-ui.js
+  resetManeuvers: null, // game-loop.js: clears barrel roll, rollExit, loop, and Immelmann state
   onTrackChange: null, // game-audio-integration.js: (trackName) => void
   onAudioUnlocked: null, // sfx.js: called when media autoplay succeeds on load
   fullscreenMap: null, // minimap.js: {open, close, toggle, isOpen, syncUrlParams}
@@ -27,6 +28,8 @@ export const hooks = {
   checkDiveCrash: null, // crash.js: (pitch, kts, verticalVelocity) => boolean
   onBackground: null, // analytics.js: called when mobile app is backgrounded
   onForeground: null, // analytics.js: called when mobile app comes back
+  // Background CPU prep steps started at 25% terrain load without touching scene
+  earlyWarmUps: [],
   // Loading screen warm-up steps (game-ui.js): each async (at) => undo or
   // null. Each sets out something that only appears later in flight (road
   // cars, other planes, the lens flare) by the plane (at, a Vector3) for one

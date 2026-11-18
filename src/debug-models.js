@@ -158,6 +158,9 @@ import {
   pierDeckLGeo,
   pierDeckMat,
   plumTreeGeos,
+  graniteFarGeo,
+  graniteGeo,
+  graniteMat,
   rockGeo,
   rockMat,
   sculptedPineGeos,
@@ -292,6 +295,7 @@ const TWO_BAND_LOD_TYPES = new Set([
   'swamp_trees',
   'bush',
   'cactus',
+  'granite',
   'house',
   'two_story_house',
   'straw_hut',
@@ -1318,6 +1322,31 @@ function viewModel(type, e, colorSeed = 0) {
       case 'rock':
         previewGroup.add(new THREE.Mesh(rockGeo, rockMat));
         break;
+      case 'granite': {
+        const bands =
+          lod === 'all'
+            ? [
+                ['near', -16, 8, 1.05, 0.72, 0.95, 0.4],
+                ['far', 16, 8, 1.05, 0.72, 0.95, 0.4],
+              ]
+            : [
+                [lod, -20, 7, 1.1, 0.65, 0.9, 0.2],
+                [lod, 0, 11, 1.0, 0.75, 1.05, 1.3],
+                [lod, 22, 8.5, 0.95, 0.68, 1.15, 2.5],
+              ];
+        bands.forEach(([band, xOffset, size, sx, sy, sz, rotY]) => {
+          const mesh = new THREE.Mesh(
+            band === 'far' ? graniteFarGeo : graniteGeo,
+            graniteMat
+          );
+          mesh.scale.set(size * sx, size * sy, size * sz);
+          mesh.position.set(xOffset, 0.35 * size * sy, 0);
+          mesh.rotation.y = rotY;
+          mesh.userData.lodBand = band;
+          previewGroup.add(mesh);
+        });
+        break;
+      }
       case 'rock_arch': {
         const geos = createRockArchGeometries(ChillFlightLogic.mulberry32(42));
         previewGroup.userData.blocks = geos.blocks;

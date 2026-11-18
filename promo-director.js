@@ -99,6 +99,7 @@ function addNavSprite(group, mat, x, y, z) {
   const sprite = new THREE.Sprite(mat);
   sprite.scale.set(NAV_LIGHT_SIZE, NAV_LIGHT_SIZE, 1);
   sprite.position.set(x, y, z);
+  sprite.renderOrder = 3;
   group.add(sprite);
   return sprite;
 }
@@ -142,7 +143,7 @@ function disposeWingman(w) {
   scene.remove(w.group);
   const shared = navMats ? new Set(Object.values(navMats)) : null;
   w.group.traverse((child) => {
-    if (child.geometry) child.geometry.dispose();
+    if (!child.isSprite && child.geometry) child.geometry.dispose();
     if (
       child.material &&
       (!shared || !shared.has(child.material)) &&
@@ -242,10 +243,11 @@ export function spawnPromoWingmen(specs, startMs = performance.now()) {
 
   specs.forEach((spec, index) => {
     if (!spec) return;
-    const rawType = ChillFlightLogic.PLANE_TYPES.includes(spec.plane)
-      ? spec.plane
-      : spec.plane && PLANE_BUILDERS[spec.plane]
-        ? spec.plane
+    const requestedType = spec.plane || spec.type;
+    const rawType = ChillFlightLogic.PLANE_TYPES.includes(requestedType)
+      ? requestedType
+      : requestedType && PLANE_BUILDERS[requestedType]
+        ? requestedType
         : activePlaneType && PLANE_BUILDERS[activePlaneType]
           ? activePlaneType
           : 'biplane';

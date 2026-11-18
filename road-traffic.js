@@ -310,13 +310,20 @@ function disposeCar(group) {
 // now (each takes up to ~175 ms on a slow CPU, a dropped frame or several if
 // built in flight), then puts one car by the player's plane, lamps lit, so
 // its shaders (and its shadow's) compile then rather than at the first car
-hooks.warmUps.push(async () => {
-  if (!trafficEnabled() || !state._enableObjects) return null;
+// Pre-build road vehicle geometries during terrain load without touching scene,
+// then place one car for the single final warm-up frame so its shaders compile
+const buildAllVehiclesAsync = async () => {
+  if (!trafficEnabled() || !state._enableObjects) return;
   while (toBuild.length) {
     buildNextVehicle();
     // Lets the loading screen draw between builds
     await new Promise((r) => setTimeout(r, 0));
   }
+};
+hooks.earlyWarmUps.push(buildAllVehiclesAsync);
+hooks.warmUps.push(async () => {
+  if (!trafficEnabled() || !state._enableObjects) return null;
+  await buildAllVehiclesAsync();
   const group = buildCar({livery: 0});
   group.position.copy(planeGroup.position);
   group.userData.tailMat.opacity = 1;

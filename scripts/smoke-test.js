@@ -42,6 +42,11 @@ const PAGES = [
   // compiles tallGrass alongside water, smoke, and far tree trunks.
   {path: '?theme=normal&plane=buggy&start=1&music=0', waitForLoad: true},
   {path: '?theme=basic&plane=buggy&start=1&music=0', waitForLoad: true},
+  // Anime post-pass, horizon tower slices, and above-cloud sheet deck shader.
+  {
+    path: '?style=anime&aboveClouds=sheet&y=3400&start=1&music=0',
+    waitForLoad: true,
+  },
   // Debug pages are dev-only (not in the production build).
   {path: 'debug/debug-models.html', devOnly: true},
   {path: 'debug/debug-faces.html', devOnly: true},
@@ -108,11 +113,25 @@ async function waitForLoadWithoutGesture(page, timeoutMs = 60000) {
   }
 }
 
+async function checkGlErrors(page, tag) {
+  const glErrs = await page.evaluate(() =>
+    [...document.querySelectorAll('canvas')]
+      .map((c) => c.getContext('webgl2'))
+      .filter(Boolean)
+      .map((gl) => gl.getError())
+      .filter((err) => err !== 0)
+  );
+  if (glErrs.length) {
+    failPage(tag, `WebGL error(s): ${glErrs.join(', ')}`);
+  }
+}
+
 async function checkPage(
   browser,
   {path, fly, blackhole, presetSwitch, waitForLoad}
 ) {
   const pageUrl = new URL(path, BASE);
+  let debugTurnedOn = pageUrl.searchParams.has('debug');
   if (!pageUrl.searchParams.has('seed')) {
     pageUrl.searchParams.set('seed', TEST_SEED);
   }
@@ -163,14 +182,28 @@ async function checkPage(
     errors.push(`[${tag}] pageerror: ${err.message}`)
   );
   page.on('console', (msg) => {
+    const type = msg.type();
     const text = msg.text();
-    // Ignore the noise from our own analytics blocking above.
-    if (msg.type() === 'error' && !text.includes('ERR_BLOCKED_BY_CLIENT')) {
+    // Ignore the noise from our own analytics and music-host blocking above.
+    if (type === 'error' && !text.includes('ERR_BLOCKED_BY_CLIENT')) {
       errors.push(`[${tag}] console.error: ${text}`);
+    } else if (
+      type === 'warning' &&
+      !text.startsWith('Error with Permissions-Policy header:') &&
+      !text.includes('; switching to the bundled track')
+    ) {
+      errors.push(`[${tag}] console.warn: ${text}`);
     } else if (text.includes('AudioContext was not allowed to start')) {
       errors.push(`[${tag}] autoplay warning: ${text}`);
     } else if (text.includes('extension not supported')) {
       errors.push(`[${tag}] webgl warning: ${text}`);
+    } else if (
+      type === 'log' &&
+      !path.startsWith('debug/') &&
+      !debugTurnedOn &&
+      !text.startsWith('✈️ Chill Flight')
+    ) {
+      errors.push(`[${tag}] unguarded console.log: ${text}`);
     }
   });
   page.on('requestfailed', (req) => {
@@ -187,8 +220,8 @@ async function checkPage(
   });
   page.on('workercreated', (worker) => {
     worker.on('console', (msg) => {
-      if (msg.type() === 'error') {
-        errors.push(`[${tag}] worker error: ${msg.text()}`);
+      if (msg.type() === 'error' || msg.type() === 'warning') {
+        errors.push(`[${tag}] worker ${msg.type()}: ${msg.text()}`);
       }
     });
   });
@@ -327,24 +360,42 @@ async function checkPage(
     }
     await new Promise((r) => setTimeout(r, DEBUG_PAGE_MS));
     if (path === 'debug/debug-models.html') {
-      const check = await page.evaluate(() => ({
-        canvases: document.querySelectorAll('canvas').length,
-        sidebarW: document.getElementById('sidebar')?.offsetWidth || 0,
-        viewerW: document.getElementById('viewer')?.offsetWidth || 0,
-        hasModel: !!window.currentModel,
-      }));
+      const check = await page.evaluate(async () => {
+        const btns = [...document.querySelectorAll('#sidebar .model-btn')];
+        const missing = [];
+        for (const btn of btns) {
+          btn.click();
+          if (!window.currentModel) {
+            missing.push(btn.textContent.trim());
+          }
+          await new Promise((r) => requestAnimationFrame(r));
+        }
+        return {
+          canvases: document.querySelectorAll('canvas').length,
+          sidebarW: document.getElementById('sidebar')?.offsetWidth || 0,
+          viewerW: document.getElementById('viewer')?.offsetWidth || 0,
+          hasModel: !!window.currentModel,
+          modelCount: btns.length,
+          missing,
+        };
+      });
       if (
         check.canvases !== 1 ||
         check.sidebarW < 250 ||
         check.viewerW < 600 ||
-        !check.hasModel
+        !check.hasModel ||
+        check.modelCount < 90 ||
+        check.missing.length > 0
       ) {
         failPage(
           tag,
-          `unexpected model viewer layout: ${JSON.stringify(check)}`
+          `unexpected model viewer layout or missing models: ${JSON.stringify(check)}`
         );
+      } else {
+        console.log(`  debug-models: rendered ${check.modelCount} models ok`);
       }
     }
+    await checkGlErrors(page, tag);
     await closePage();
     return;
   }
@@ -372,13 +423,16 @@ async function checkPage(
     errors.push(`[${tag}] terrain workers never replied`);
   }
   console.log(`  terrain worker replies: ${state.workerMessages}`);
-  await exerciseControls(page, tag);
+  await exerciseControls(page, tag, () => {
+    debugTurnedOn = true;
+  });
+  await checkGlErrors(page, tag);
   await closePage();
 }
 
 // Drive the game through the keyboard and check its effects through the DOM
 // (HUD and debug panel), so this keeps working however the code is organized.
-async function exerciseControls(page, tag) {
+async function exerciseControls(page, tag, onDebugEnabled) {
   const errorsBefore = errors.length;
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const fail = (msg) => errors.push(`[${tag}] ${msg}`);
@@ -435,7 +489,8 @@ async function exerciseControls(page, tag) {
     return s;
   };
 
-  // Debug panel (Shift+D) exposes live flight values in the DOM.
+  // Debug panel (Shift+D) exposes live flight values in the DOM and enables ?debug=true.
+  onDebugEnabled?.();
   await shifted('D');
   const a = await readUntil(
     (s) => Number.isFinite(s.x) && Number.isFinite(s.z)
@@ -504,7 +559,13 @@ async function exerciseControls(page, tag) {
   if (await isPaused()) fail('closing the map did not return to flight');
 
   // A tap a few pixels from an airport's pin picks the airport: the panel
-  // names it and who's there
+  // names it and who's there. Start a barrel roll first so warping mid-roll
+  // also verifies movePlane resets active rollExit/maneuver state.
+  await page.keyboard.press('ArrowLeft');
+  await wait(60);
+  await page.keyboard.press('ArrowLeft');
+  await wait(60);
+  await hold('ArrowLeft', 300);
   const vp = page.viewport() || {width: 1280, height: 720};
   await page.keyboard.press('m');
   await wait(800);
