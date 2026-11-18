@@ -124,11 +124,15 @@ export class InputManager {
       ArrowDown: 0,
     };
     this.DOUBLE_TAP_MS = 400;
-    this.JOYSTICK_MAX_RADIUS = 50;
+    // The joystick's throw, centre to rim (px): 70 (was 50) so a hard turn
+    // takes more thumb travel and small moves are finer. ?stickRadius=50
+    // brings back the old size. The ring drawn round it matches (style.css
+    // sizes it for 70; other sizes set it on first touch)
+    this.JOYSTICK_MAX_RADIUS = ChillFlightLogic.STICK_RADIUS_PARAM ?? 70;
     // Full stick reads 0.72 (the buggy's steering expects that). A plane
     // undoes it and uses joystickResponse (flight-physics-logic.js): gentle
     // in the middle, the keyboard's 75° of bank at the rim, the first ~10 px
-    // dead. With ?fullStick=0, stickResponse (game-loop.js) caps it at half
+    // dead (at the 70 px throw). With ?fullStick=0, stickResponse (game-loop.js) caps it at half
     // deflection: 37° of bank and 22° of pitch
     this.JOYSTICK_SENSITIVITY = 0.7167;
     this._windowJustFocused = false;
@@ -845,6 +849,11 @@ export class InputManager {
 
         const joystickBase = document.getElementById('virtual-joystick-base');
         if (joystickBase) {
+          if (this.JOYSTICK_MAX_RADIUS !== 70) {
+            const size = `${this.JOYSTICK_MAX_RADIUS * 2}px`;
+            joystickBase.style.width = size;
+            joystickBase.style.height = size;
+          }
           joystickBase.style.left = `${touch.clientX}px`;
           joystickBase.style.top = `${touch.clientY}px`;
           joystickBase.classList.remove('joystick-hidden');

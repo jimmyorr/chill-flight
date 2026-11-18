@@ -228,6 +228,12 @@ export const ChillFlightLogic = {};
   // ?fullStick=0: the phone joystick's old gentle response, capped at half
   // the keyboard's bank (joystickResponse in flight-physics-logic.js)
   const FULL_STICK_PARAM = getSwitchParam('fullStick');
+  // ?stickRadius=50: the phone joystick's throw in px, centre to rim
+  // (input-manager.js), 30 to 120; 70 unless given
+  const _stickRadius = parseFloat(getParam('stickRadius', ''));
+  const STICK_RADIUS_PARAM = Number.isFinite(_stickRadius)
+    ? Math.min(120, Math.max(30, _stickRadius))
+    : null;
   // ?vrStick=chill or ?vrStick=sim: VR flight stick handling mode
   const _vrStickRaw = getParam('vrStick', getParam('vrstick', null));
   const VR_STICK_PARAM =
@@ -7267,6 +7273,7 @@ export const ChillFlightLogic = {};
   exports.TRAFFIC_PARAM = TRAFFIC_PARAM;
   exports.WEIGHTED_ROLL_PARAM = WEIGHTED_ROLL_PARAM;
   exports.FULL_STICK_PARAM = FULL_STICK_PARAM;
+  exports.STICK_RADIUS_PARAM = STICK_RADIUS_PARAM;
   exports.VR_STICK_PARAM = VR_STICK_PARAM;
   exports.VR_ONLY_PARAM = VR_ONLY_PARAM;
   exports.PERF_HUD = PERF_HUD;

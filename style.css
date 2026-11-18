@@ -1869,8 +1869,9 @@ input[type='number'].customization-input {
 /* Virtual Joystick */
 #virtual-joystick-base {
   position: fixed;
-  width: 100px;
-  height: 100px;
+  /* Twice the joystick's 70 px throw (JOYSTICK_MAX_RADIUS, input-manager.js) */
+  width: 140px;
+  height: 140px;
   background: rgba(255, 255, 255, 0.08);
   border: 2px solid rgba(255, 255, 255, 0.25);
   border-radius: 50%;

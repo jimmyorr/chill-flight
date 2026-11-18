@@ -252,30 +252,33 @@ check(
   }
 }
 
-// The phone joystick (joystickResponse): the old gentle stick through the
-// middle, the keyboard's full bank at the rim
+// The phone joystick (joystickResponse) on its 70 px throw: never twitchier
+// than the old 50 px gentle stick for the same thumb travel, the keyboard's
+// full bank at the rim
 {
   const SENS = 0.7167;
-  const old = (d) => {
-    const a = Math.abs(d * SENS);
+  const OLD_R = 50;
+  const R = 70;
+  const old = (px) => {
+    const a = Math.min(1, px / OLD_R) * SENS;
     if (a < 0.15) return 0;
     const u = (a - 0.15) / 0.85;
     return 0.55 * u + 0.45 * u * u * u;
   };
-  const near = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6].every(
-    (d) => Math.abs(joystickResponse(d) - old(d)) < 0.035
+  const calmer = [5, 10, 15, 20, 25, 30, 35, 40].every(
+    (px) => joystickResponse(px / R) <= old(px) + 0.01
   );
-  check('joystick: up to 60% throw feels like the old stick', near);
+  check('joystick: up to 40 px of travel no twitchier than the old stick', calmer);
   check(
     'joystick: dead first ~10 px, as before',
-    joystickResponse(0.2) === 0 && old(0.2) === 0 && joystickResponse(0.22) > 0
+    joystickResponse(10 / R) === 0 && joystickResponse(11 / R) > 0
   );
   check(
     'joystick: the rim asks for what an arrow key does',
-    joystickResponse(1) === 1 && joystickResponse(-1) === -1 && old(1) < 0.51
+    joystickResponse(1) === 1 && joystickResponse(-1) === -1 && old(OLD_R) < 0.51
   );
   let rising = true;
-  for (let d = 0.21; d < 1; d += 0.01) {
+  for (let d = 0.15; d < 1; d += 0.01) {
     if (joystickResponse(d + 0.01) <= joystickResponse(d)) rising = false;
   }
   check('joystick: rises all the way to the rim', rising);
