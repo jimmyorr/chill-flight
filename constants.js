@@ -95,8 +95,8 @@ export function speedUnit(planeType = 'seaplane', imperial = IMPERIAL) {
 //   put; flight-physics-logic.js, pitchedTarget)
 // - agility: how quickly it rolls and pitches toward the controls and how
 //   sharply it turns for a given bank (1 for the seaplane)
-// - rollRate: its roll rate (radians per second); a barrel roll goes at half
-//   this (BARREL_ROLL_SPEED in game-loop.js)
+// - rollRate: its roll rate (radians per second); a barrel roll goes at 70%
+//   of this (BARREL_ROLL_SPEED in game-loop.js)
 export const PLANE_HANDLING = {
   biplane: {
     topKts: 280,

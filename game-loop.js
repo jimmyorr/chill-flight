@@ -1012,10 +1012,10 @@ function updateDayNightCycle(delta) {
 // Barrel roll (triple-tap left or right and hold): the roll rate eases in
 // over BARREL_ROLL_EASE_IN seconds and the roll lasts as long as the hold
 const BARREL_ROLL_EASE_IN = 0.25;
-// The roll goes at this share of the plane's rollRate (PLANE_HANDLING), close
-// to how fast the joystick banks it, just carrying on round: a seaplane
-// takes about 4.5 s a turn
-const BARREL_ROLL_SPEED = 0.5;
+// The roll goes at this share of the plane's rollRate (PLANE_HANDLING), a
+// little quicker than the joystick banks it to the rim, just carrying on
+// round: a seaplane takes about 3.2 s a turn (half was too slow)
+const BARREL_ROLL_SPEED = 0.7;
 // The roll in progress: 1 rolling left, -1 right, 0 none; and its rate (rad/s)
 let barrelRollDir = 0;
 let barrelRollRate = 0;
