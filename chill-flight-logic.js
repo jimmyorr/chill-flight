@@ -234,6 +234,13 @@ export const ChillFlightLogic = {};
   const STICK_RADIUS_PARAM = Number.isFinite(_stickRadius)
     ? Math.min(120, Math.max(30, _stickRadius))
     : null;
+  // ?stickBank=60: the plane's bank with the phone joystick at its rim, in
+  // degrees, 20 to 75 (75 is what an arrow key asks for); 60 unless given
+  // (game-loop.js). Pitch at the rim scales with it
+  const _stickBank = parseFloat(getParam('stickBank', ''));
+  const STICK_BANK_PARAM = Number.isFinite(_stickBank)
+    ? Math.min(75, Math.max(20, _stickBank))
+    : null;
   // ?vrStick=chill or ?vrStick=sim: VR flight stick handling mode
   const _vrStickRaw = getParam('vrStick', getParam('vrstick', null));
   const VR_STICK_PARAM =
@@ -7274,6 +7281,7 @@ export const ChillFlightLogic = {};
   exports.WEIGHTED_ROLL_PARAM = WEIGHTED_ROLL_PARAM;
   exports.FULL_STICK_PARAM = FULL_STICK_PARAM;
   exports.STICK_RADIUS_PARAM = STICK_RADIUS_PARAM;
+  exports.STICK_BANK_PARAM = STICK_BANK_PARAM;
   exports.VR_STICK_PARAM = VR_STICK_PARAM;
   exports.VR_ONLY_PARAM = VR_ONLY_PARAM;
   exports.PERF_HUD = PERF_HUD;
