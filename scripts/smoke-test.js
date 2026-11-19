@@ -370,6 +370,22 @@ async function checkPage(
           }
           await new Promise((r) => requestAnimationFrame(r));
         }
+        window.viewModel('mushroom');
+        const stalkMesh = window.currentModel?.children?.[0];
+        const pos = stalkMesh?.geometry?.attributes?.position;
+        const nrm = stalkMesh?.geometry?.attributes?.normal;
+        let downwardGillVerts = 0;
+        let upwardGillVerts = 0;
+        if (pos && nrm) {
+          for (let i = 0; i < pos.count; i++) {
+            const r = Math.hypot(pos.getX(i), pos.getZ(i));
+            const y = pos.getY(i);
+            if (r > 2.5 && y > 10.8 && y < 12.1) {
+              if (nrm.getY(i) < -0.8) downwardGillVerts++;
+              else if (nrm.getY(i) > 0) upwardGillVerts++;
+            }
+          }
+        }
         return {
           canvases: document.querySelectorAll('canvas').length,
           sidebarW: document.getElementById('sidebar')?.offsetWidth || 0,
@@ -377,6 +393,8 @@ async function checkPage(
           hasModel: !!window.currentModel,
           modelCount: btns.length,
           missing,
+          downwardGillVerts,
+          upwardGillVerts,
         };
       });
       if (
@@ -385,7 +403,9 @@ async function checkPage(
         check.viewerW < 600 ||
         !check.hasModel ||
         check.modelCount < 90 ||
-        check.missing.length > 0
+        check.missing.length > 0 ||
+        check.downwardGillVerts < 48 ||
+        check.upwardGillVerts > 0
       ) {
         failPage(
           tag,

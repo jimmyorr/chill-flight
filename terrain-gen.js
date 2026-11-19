@@ -4167,13 +4167,15 @@ export function generateChunkData({
                 ALIEN_MUSHROOM_CAP_COLORS[
                   Math.floor(rng() * ALIEN_MUSHROOM_CAP_COLORS.length)
                 ];
-              mushroomTreePositions.push({
-                x: localX,
-                y: height,
-                z: localZ,
-                scale: scale,
-                color: capColor,
-              });
+              if (slopeFactor < ROCK_MAX_SLOPE) {
+                mushroomTreePositions.push({
+                  x: localX,
+                  y: height,
+                  z: localZ,
+                  scale: scale,
+                  color: capColor,
+                });
+              }
             }
           } else if (treeRoll < 0.012 * densityScale) {
             pushCrystal();
@@ -4225,13 +4227,15 @@ export function generateChunkData({
               ALIEN_MUSHROOM_CAP_COLORS[
                 Math.floor(rng() * ALIEN_MUSHROOM_CAP_COLORS.length)
               ];
-            mushroomTreePositions.push({
-              x: localX,
-              y: height,
-              z: localZ,
-              scale: scale,
-              color: capColor,
-            });
+            if (slopeFactor < ROCK_MAX_SLOPE) {
+              mushroomTreePositions.push({
+                x: localX,
+                y: height,
+                z: localZ,
+                scale: scale,
+                color: capColor,
+              });
+            }
           }
         } else if (isAlienLand) {
           // The western alien land: crystal clusters, nothing else; now and

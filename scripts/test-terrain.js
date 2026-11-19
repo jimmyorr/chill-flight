@@ -1112,6 +1112,103 @@ console.log(
   '  Passed: mushroom cottages stay out of the snowy north and appear in eastern groves'
 );
 
+// --- MUSHROOMS STAY OFF STEEP BASALT CLIFF WALLS ---
+// Regression: eastern alien mushrooms must not hang off sheer basalt column
+// walls (such as chunk 40, -1 at X = 60000, Z = -1500 / 0.3 North, 12.0 East),
+// while still growing across the column tops.
+{
+  const seed = 20261119;
+  useSeed(seed);
+  const elevParams = {
+    WATER_LEVEL: 40,
+    MOUNTAIN_LEVEL: 180,
+    MAP_WORLD_SIZE: 10000 * ChillFlightLogic.SCALE,
+    MAP_HEIGHT_SCALE: 400,
+  };
+  const chunkSize = 1500;
+  const segments = 64;
+  const step = chunkSize / segments;
+  let totalMushrooms = 0;
+  for (let cx = 40; cx <= 43; cx++) {
+    for (let cz = -2; cz <= 0; cz++) {
+      const {result} = generateChunkData({
+        chunkX: cx,
+        chunkZ: cz,
+        chunkSize,
+        segments,
+        elevParams,
+        worldSeed: seed,
+        enableObjects: true,
+      });
+      const cap = result.instanceData.mushroomCap;
+      if (!cap) continue;
+      totalMushrooms += cap.count;
+      for (let i = 0; i < cap.count; i++) {
+        const lx = cap.matrices[i * 16 + 12];
+        const lz = cap.matrices[i * 16 + 14];
+        const wx = cx * chunkSize + lx;
+        const wz = cz * chunkSize + lz;
+        const ix = Math.round((lx + chunkSize / 2) / step);
+        const iz = Math.round((lz + chunkSize / 2) / step);
+        const h = ChillFlightLogic.getElevation(wx, wz, simplex, elevParams);
+        const hE = ChillFlightLogic.getElevation(
+          wx + step,
+          wz,
+          simplex,
+          elevParams
+        );
+        const hW = ChillFlightLogic.getElevation(
+          wx - step,
+          wz,
+          simplex,
+          elevParams
+        );
+        const hS = ChillFlightLogic.getElevation(
+          wx,
+          wz + step,
+          simplex,
+          elevParams
+        );
+        const hN = ChillFlightLogic.getElevation(
+          wx,
+          wz - step,
+          simplex,
+          elevParams
+        );
+        const sx =
+          ix > 0 && ix < segments
+            ? (hE - hW) / (2 * step)
+            : ix === 0
+              ? (hE - h) / step
+              : (h - hW) / step;
+        const sz =
+          iz > 0 && iz < segments
+            ? (hS - hN) / (2 * step)
+            : iz === 0
+              ? (hS - h) / step
+              : (h - hN) / step;
+        const slopeFactor = Math.min(1, Math.hypot(sx, sz) * 0.5);
+        if (slopeFactor >= 0.3) {
+          console.error(
+            `FAIL: mushroom ${i} in chunk (${cx}, ${cz}) at (${wx}, ${wz}) spawned on steep cliff wall (slopeFactor=${slopeFactor.toFixed(2)})`
+          );
+          process.exit(1);
+        }
+      }
+    }
+  }
+  if (totalMushrooms < 100) {
+    console.error(
+      `FAIL: expected >=100 mushrooms on plateau tops across chunks (40..43, -2..0), got ${totalMushrooms}`
+    );
+    process.exit(1);
+  }
+  useSeed(20260101);
+}
+console.log(
+  '  Passed: eastern alien mushrooms stay off steep basalt cliff walls'
+);
+
 // --- MONTAUK VS HEADLAND LIGHTHOUSE NAUTICAL PALETTES ---
 // Montauk (chunk 5, 2 at X=7500, Z=3000 / 0.6 South, 1.5 East) always uses
 // palette 0 (harbour-red), while procedural headland lighthouses pick

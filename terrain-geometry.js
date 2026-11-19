@@ -1879,23 +1879,22 @@ const CAP_SPOTS = [
 function createMushroomGeometry() {
   const stalk = lathe(
     [
-      [0, 0],
-      [2.1, 0],
+      [0, -1.3],
+      [2.2, -1.3],
       [2.0, 1.2],
       [1.5, 3.5],
       [1.3, 7],
       [1.45, 10.5],
-      [1.7, 11.8],
-      [0, 11.8],
+      [1.7, 12.1],
     ],
     8
   );
   // The gills: the cap's underside, from the stalk out to the rim
   const gills = lathe(
     [
-      [6.7, 11.0],
-      [4.5, 11.5],
-      [1.6, 11.8],
+      [1.3, 12.0],
+      [4.5, 11.6],
+      [6.4, 10.9],
     ],
     12
   );
