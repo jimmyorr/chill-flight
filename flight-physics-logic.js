@@ -273,13 +273,31 @@ export const ROLL_EXIT = {
   // Done (hand over to the usual roll) this close, this slow
   DONE_ANGLE: 0.025,
   DONE_RATE: 0.1,
-  // Give up after this long (the player steering keeps moving the target)
+  // Steering input (rad of targetRoll) needed to hand over early to normal flight
+  STEER_HANDOVER: 0.05,
+  // Safety cap so a roll exit can never stay stuck
   MAX_SECONDS: 4,
 };
 
 // How hard (rad/s²) a roll at `maxRate` rad/s brakes on its way out
 export function rollExitBrake(maxRate) {
   return (Math.max(maxRate, 0.1) / ROLL_EXIT.EASE_OUT) * ROLL_EXIT.BRAKE;
+}
+
+/**
+ * Whether steering (`targetRoll`, rad) should take over from a barrel roll
+ * exit at `wrappedRoll` (rad, in [-π, π]) instead of letting the exit keep
+ * settling to level. Hands over immediately within the settle zone
+ * (SPRING_FROM), or up to `maxBank` when already banked toward the steer,
+ * so steering never hijacks the exit while upside down or yaws the wrong way.
+ */
+export function rollExitHandOver(wrappedRoll, targetRoll, maxBank) {
+  if (Math.abs(targetRoll) <= ROLL_EXIT.STEER_HANDOVER) return false;
+  const bank = Math.abs(wrappedRoll);
+  return (
+    bank <= ROLL_EXIT.SPRING_FROM ||
+    (bank <= maxBank && wrappedRoll * targetRoll >= 0)
+  );
 }
 
 /**

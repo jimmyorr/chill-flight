@@ -19,6 +19,7 @@ import {
   flightCeiling,
   ROLL_EXIT,
   joystickResponse,
+  rollExitHandOver,
   rollExitTurns,
   sagClimbCap,
   stepRollExit,
@@ -1866,7 +1867,7 @@ function updatePhysicsAndControls(delta, nowTime) {
         rollExit.turns = rollExitTurns(
           rollExit.roll,
           rollExit.rate,
-          state.targetRoll,
+          0,
           state.manualRollSpeed
         );
         rollExit.t = 0;
@@ -1876,23 +1877,33 @@ function updatePhysicsAndControls(delta, nowTime) {
     }
     if (state.isDoingImmelmann) rollExit.active = false;
     if (rollExit.active) {
-      rollExit.t += delta;
-      rollExit.roll = planeGroup.rotation.z;
-      const settled = stepRollExit(
-        rollExit,
-        state.targetRoll + rollExit.turns,
-        state.manualRollSpeed,
-        delta
-      );
-      planeGroup.rotation.z = rollExit.roll;
-      if (settled || rollExit.t > ROLL_EXIT.MAX_SECONDS) {
-        // Hand over to the usual roll, in its own range
+      const wrapped = wrapAngle(planeGroup.rotation.z);
+      if (rollExitHandOver(wrapped, state.targetRoll, SHARP_TURN_BANK_ANGLE)) {
+        // Player is steering while upright: hand over straight to the normal
+        // bank controller from the current roll rate so yaw and camera follow
         rollExit.active = false;
-        planeGroup.rotation.z = wrapAngle(rollExit.roll);
+        planeGroup.rotation.z = wrapped;
+        rollRate = rollExit.rate;
       } else {
-        // Still rolling: the camera stays with it and the plane doesn't
-        // turn until it is back near level
-        state.isBarrelRolling = true;
+        rollExit.t += delta;
+        rollExit.roll = planeGroup.rotation.z;
+        const settled = stepRollExit(
+          rollExit,
+          rollExit.turns,
+          state.manualRollSpeed,
+          delta
+        );
+        planeGroup.rotation.z = rollExit.roll;
+        if (settled || rollExit.t > ROLL_EXIT.MAX_SECONDS) {
+          // Hand over to the usual roll, in its own range
+          rollExit.active = false;
+          planeGroup.rotation.z = wrapAngle(rollExit.roll);
+          rollRate = rollExit.rate;
+        } else {
+          // Still rolling: the camera stays with it and the plane doesn't
+          // turn until it is back near level
+          state.isBarrelRolling = true;
+        }
       }
     }
     if (barrelRollDir !== 0) {
@@ -1905,6 +1916,9 @@ function updatePhysicsAndControls(delta, nowTime) {
       state.isDoingFullBarrelRoll = true;
     }
   } else {
+    if (barrelRollDir !== 0 || rollExit.active) {
+      planeGroup.rotation.z = wrapAngle(planeGroup.rotation.z);
+    }
     vrSimStickWereFlying = false;
     barrelRollDir = 0;
     barrelRollRate = 0;

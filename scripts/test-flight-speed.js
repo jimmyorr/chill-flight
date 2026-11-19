@@ -24,6 +24,7 @@ import {
   flightCeiling,
   underCloudsCeiling,
   pitchedTarget,
+  rollExitHandOver,
   rollExitTurns,
   sagClimbCap,
   stepRollExit,
@@ -252,6 +253,35 @@ check(
   }
 }
 
+// Steering during a barrel roll exit: hands over to normal flight once near
+// level (or banked toward the steer), never while hands-off, inverted, or
+// steeply banked the opposite way
+{
+  const MAX_BANK = (78 * Math.PI) / 180;
+  const rad = (deg) => (deg * Math.PI) / 180;
+  check(
+    'roll exit keeps settling when not steering (or inside dead zone)',
+    !rollExitHandOver(0, 0, MAX_BANK) &&
+      !rollExitHandOver(rad(8), rad(2), MAX_BANK)
+  );
+  check(
+    'roll exit hands over immediately when steering in the settle zone',
+    rollExitHandOver(rad(8), rad(-75), MAX_BANK) &&
+      rollExitHandOver(rad(-25), rad(75), MAX_BANK)
+  );
+  check(
+    'roll exit hands over up to max bank when already banked toward the steer',
+    rollExitHandOver(rad(-60), rad(-75), MAX_BANK) &&
+      rollExitHandOver(rad(70), rad(75), MAX_BANK)
+  );
+  check(
+    'roll exit waits when steeply banked opposite the steer or inverted',
+    !rollExitHandOver(rad(-60), rad(75), MAX_BANK) &&
+      !rollExitHandOver(rad(120), rad(75), MAX_BANK) &&
+      !rollExitHandOver(rad(-150), rad(-75), MAX_BANK)
+  );
+}
+
 // The phone joystick (joystickResponse) on its 70 px throw: never twitchier
 // than the old 50 px gentle stick for the same thumb travel, the keyboard's
 // full bank at the rim
@@ -268,14 +298,19 @@ check(
   const calmer = [5, 10, 15, 20, 25, 30, 35, 40].every(
     (px) => joystickResponse(px / R) <= old(px) + 0.01
   );
-  check('joystick: up to 40 px of travel no twitchier than the old stick', calmer);
+  check(
+    'joystick: up to 40 px of travel no twitchier than the old stick',
+    calmer
+  );
   check(
     'joystick: dead first ~10 px, as before',
     joystickResponse(10 / R) === 0 && joystickResponse(11 / R) > 0
   );
   check(
     'joystick: the rim asks for what an arrow key does',
-    joystickResponse(1) === 1 && joystickResponse(-1) === -1 && old(OLD_R) < 0.51
+    joystickResponse(1) === 1 &&
+      joystickResponse(-1) === -1 &&
+      old(OLD_R) < 0.51
   );
   let rising = true;
   for (let d = 0.15; d < 1; d += 0.01) {
