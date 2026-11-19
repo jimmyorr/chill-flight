@@ -371,25 +371,40 @@ async function dismissVideoPickerDialog(page) {
 
 async function readVisiblePickerCards(page) {
   return page.evaluate(() => {
+    for (const old of document.querySelectorAll('[data-cf-picker-card]')) {
+      old.removeAttribute('data-cf-picker-card');
+    }
     const dialog =
-      document.querySelector(
-        'ytcp-dialog.ytcp-video-pick-dialog, ytcp-video-pick-dialog'
-      ) ||
-      [...document.querySelectorAll('tp-yt-paper-dialog[opened]')].find((d) =>
-        d.querySelector('ytcp-entity-card, input#search-yours')
+      [
+        ...document.querySelectorAll(
+          'ytcp-video-pick-dialog, ytcp-dialog.ytcp-video-pick-dialog'
+        ),
+      ].find((d) => d.getBoundingClientRect().width > 0) ||
+      [...document.querySelectorAll('tp-yt-paper-dialog[opened]')].find(
+        (d) =>
+          d.getBoundingClientRect().width > 0 &&
+          d.querySelector('ytcp-entity-card, input#search-yours')
       );
     if (!dialog) return [];
 
-    const nodes = [
-      ...dialog.querySelectorAll(
-        'ytcp-entity-card, .entity-card, ytcp-video-row'
-      ),
-    ].filter((el) => {
-      const r = el.getBoundingClientRect();
-      return r.width > 0 && r.height > 0;
-    });
+    const entityCards = [...dialog.querySelectorAll('ytcp-entity-card')].filter(
+      (el) => {
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+      }
+    );
+    const nodes =
+      entityCards.length > 0
+        ? entityCards
+        : [...dialog.querySelectorAll('.entity-card, ytcp-video-row')].filter(
+            (el) => {
+              const r = el.getBoundingClientRect();
+              return r.width > 0 && r.height > 0;
+            }
+          );
 
-    return nodes.map((el) => {
+    return nodes.map((el, idx) => {
+      el.setAttribute('data-cf-picker-card', String(idx));
       const html = el.innerHTML || '';
       const thumbMatch = html.match(
         /\/vi(?:_webp)?\/([A-Za-z0-9_-]{11})\/|(?:watch\?v=|shorts\/|\/video\/)([A-Za-z0-9_-]{11})/
@@ -413,23 +428,13 @@ async function readVisiblePickerCards(page) {
 }
 
 async function clickVisiblePickerCardAt(page, targetIndex) {
-  const handles = await page.$$(
-    'ytcp-dialog.ytcp-video-pick-dialog ytcp-entity-card, ' +
-      'ytcp-video-pick-dialog ytcp-entity-card, ' +
-      'tp-yt-paper-dialog[opened] ytcp-entity-card, ' +
-      'ytcp-dialog.ytcp-video-pick-dialog .entity-card, ' +
-      'ytcp-dialog.ytcp-video-pick-dialog ytcp-video-row'
-  );
-  const visibleHandles = [];
-  for (const h of handles) {
-    const vis = await h.evaluate((el) => {
-      const r = el.getBoundingClientRect();
-      return r.width > 0 && r.height > 0;
-    });
-    if (vis) visibleHandles.push(h);
-  }
-  const chosen = visibleHandles[targetIndex];
+  const chosen = await page.$(`[data-cf-picker-card="${targetIndex}"]`);
   if (!chosen) return false;
+  const vis = await chosen.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  });
+  if (!vis) return false;
   await chosen.evaluate((el) => el.scrollIntoView({block: 'center'}));
   await sleep(150);
   await chosen.click();
@@ -438,9 +443,10 @@ async function clickVisiblePickerCardAt(page, targetIndex) {
 
 async function typeIntoPickerSearch(page, text) {
   const searchSel =
-    'ytcp-dialog.ytcp-video-pick-dialog input, ' +
-    'ytcp-video-pick-dialog input, ' +
+    'ytcp-video-pick-dialog input#search-yours, ' +
+    'ytcp-dialog.ytcp-video-pick-dialog input#search-yours, ' +
     'tp-yt-paper-dialog[opened] input#search-yours, ' +
+    'ytcp-video-pick-dialog input, ' +
     'tp-yt-paper-dialog[opened] input[placeholder*="video" i], ' +
     'tp-yt-paper-dialog[opened] input[placeholder*="search" i]';
   const input = await page.$(searchSel);
@@ -456,12 +462,14 @@ async function typeIntoPickerSearch(page, text) {
   await page.keyboard.press('Backspace');
   await sleep(80);
   await page.keyboard.type(text.slice(0, 50), {delay: 15});
-  await sleep(1500);
+  await page.keyboard.press('Enter').catch(() => {});
+  await sleep(1000);
   return true;
 }
 
 async function selectRelatedVideoInPicker(page, spec, excludeVideoId) {
   const pickerSel =
+    'ytcp-video-pick-dialog, ' +
     'ytcp-dialog.ytcp-video-pick-dialog tp-yt-paper-dialog[opened], ' +
     'ytcp-video-pick-dialog tp-yt-paper-dialog[opened], ' +
     'tp-yt-paper-dialog[opened] ytcp-entity-card, ' +
@@ -472,20 +480,31 @@ async function selectRelatedVideoInPicker(page, spec, excludeVideoId) {
   } catch {
     return null;
   }
-  await sleep(1000);
 
-  if (spec.query) {
-    await typeIntoPickerSearch(page, spec.query);
-  }
+  // Wait for the initial channel video grid to populate and check it first
+  // before touching the search box (recent long-form videos are usually
+  // already visible near the top of the grid)
+  await page
+    .waitForSelector(
+      'ytcp-video-pick-dialog ytcp-entity-card, tp-yt-paper-dialog[opened] ytcp-entity-card',
+      {visible: true, timeout: 10000}
+    )
+    .catch(() => {});
+  await sleep(400);
 
   let cards = await readVisiblePickerCards(page);
   let bestIdx = pickBestRelatedCardIndex(cards, spec, excludeVideoId);
 
-  if (bestIdx < 0 && spec.videoId && !spec.query) {
-    const searched = await typeIntoPickerSearch(page, spec.videoId);
+  // Fall back to typing into #search-yours if the target video wasn't in the initial grid
+  const searchTerm = spec.query || spec.videoId || '';
+  if (bestIdx < 0 && searchTerm) {
+    const searched = await typeIntoPickerSearch(page, searchTerm);
     if (searched) {
-      cards = await readVisiblePickerCards(page);
-      bestIdx = pickBestRelatedCardIndex(cards, spec, excludeVideoId);
+      for (let poll = 0; poll < 6 && bestIdx < 0; poll++) {
+        cards = await readVisiblePickerCards(page);
+        bestIdx = pickBestRelatedCardIndex(cards, spec, excludeVideoId);
+        if (bestIdx < 0) await sleep(800);
+      }
     }
   }
 
@@ -519,10 +538,14 @@ async function selectRelatedVideoInPicker(page, spec, excludeVideoId) {
   return matchedTitle;
 }
 
-async function inspectAndClickRelatedTrigger(page) {
+async function inspectAndClickRelatedTrigger(page, spec = null) {
+  const expectedQuery = String(spec?.query || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
   // Tag the matching trigger element cleanly in DOM so Puppeteer can click it
   // with trusted mouse events
-  const state = await page.evaluate(() => {
+  const state = await page.evaluate((alreadyQuery) => {
     for (const old of document.querySelectorAll('[data-cf-related-trigger]')) {
       old.removeAttribute('data-cf-related-trigger');
     }
@@ -543,12 +566,14 @@ async function inspectAndClickRelatedTrigger(page) {
       ...document.querySelectorAll('ytcp-dropdown-trigger'),
     ].filter(isVisible);
     for (const dd of dropdowns) {
+      const fullText = (dd.innerText || '').replace(/\s+/g, ' ').trim();
       const label = (
-        dd.querySelector('.label-text')?.textContent ||
-        dd.innerText ||
-        ''
+        dd.querySelector('.label-text')?.textContent || fullText
       ).trim();
-      if (/related video/i.test(label)) {
+      if (/related video/i.test(label) || /related video/i.test(fullText)) {
+        if (alreadyQuery && fullText.toLowerCase().includes(alreadyQuery)) {
+          return {status: 'already-set'};
+        }
         if (isDisabled(dd)) return {status: 'disabled'};
         dd.scrollIntoView({block: 'center'});
         dd.setAttribute('data-cf-related-trigger', '1');
@@ -598,7 +623,7 @@ async function inspectAndClickRelatedTrigger(page) {
     }
 
     return {status: 'missing'};
-  });
+  }, expectedQuery);
 
   if (state.status !== 'ready') return state.status;
   const handle = await page.$('[data-cf-related-trigger="1"]');
@@ -612,7 +637,11 @@ async function tryAttachRelatedVideoInWizard(page, spec, excludeVideoId) {
   const started = Date.now();
   let sawDisabled = false;
   while (Date.now() - started < 15000) {
-    const triggerStatus = await inspectAndClickRelatedTrigger(page);
+    const triggerStatus = await inspectAndClickRelatedTrigger(page, spec);
+    if (triggerStatus === 'already-set') {
+      console.log(`  YouTube Related video already set: ${spec.raw}`);
+      return true;
+    }
     if (triggerStatus === 'clicked') {
       const matched = await selectRelatedVideoInPicker(
         page,
@@ -664,7 +693,11 @@ async function attachRelatedVideoOnEditPage(page, shortId, spec) {
     const started = Date.now();
     let clicked = false;
     while (Date.now() - started < 25000) {
-      const status = await inspectAndClickRelatedTrigger(page);
+      const status = await inspectAndClickRelatedTrigger(page, spec);
+      if (status === 'already-set') {
+        console.log(`  YouTube Related video already saved: ${spec.raw}`);
+        return true;
+      }
       if (status === 'clicked') {
         clicked = true;
         break;

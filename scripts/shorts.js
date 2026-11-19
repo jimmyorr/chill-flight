@@ -12,6 +12,7 @@
 //  10. short-20261114-bayou-cut.mp4  - 12s coral seaplane roll through 2 rock arches across 4 biomes (seed 20261114)
 //  11. short-20261116-twin-cut.mp4   - 12s purple twin-prop roll across volcano, pyramids, arctic arch & alien pillars (seed 20261116)
 //  12. short-20261117-orbit-cut.mp4  - 12s staggered 2-jet 360-degree orbit & wormhole warp across 4 biomes (seed 20261117)
+//  13. short-20261118-wingtip-cut.mp4 - 12s sage biplane wingtip-boom GoPro inverted arch & canyon cut (seed 20261118)
 //
 // Usage:
 //   node scripts/shorts.js [short-id | meta | check] [--preview] [--check]
@@ -2372,6 +2373,109 @@ async function renderOrbitFormationCutShort(browser, seed = 20261117) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Prototype 13: Rigid Wingtip-to-Tail GoPro Inverted Arch Match-Cut (Seed 20261118)
+// ---------------------------------------------------------------------------
+async function renderWingtipInvertedCutShort(browser, seed = 20261118) {
+  const speedMult = 1.24;
+  await renderMatchCutClip(browser, {
+    id: 'wingtip-cut',
+    banner: `Wingtip Boom Inverted Arch Match-Cut (Seed ${seed}: Sage Biplane)`,
+    seed,
+    speedMult,
+    direct: true,
+    camFrame: 'plane',
+    cam:
+      `plane=biplane&livery=sage&smoke=1&speed=${speedMult}` +
+      '&camOffset=21,6.2,16&camLook=-2,0.5,-24&fov=66',
+    camMoves: [
+      [0.0, 21, 6.2, 16, -2, 0.5, -24, 66],
+      [2.2, 21, 6.2, 16, -2, 0.5, -24, 66],
+      [3.6, 0, 8.5, 32, 0, 0.5, -36, 66],
+      [5.8, 0, 8.5, 32, 0, 0.5, -36, 66],
+      [7.2, -21, 6.2, 16, 2, 0.5, -24, 66],
+      [9.2, -21, 6.2, 16, 2, 0.5, -24, 66],
+      [10.25, 0, 10.5, 24, 0, 0.5, -30, 66],
+      [11.3, 21, 6.2, 16, -2, 0.5, -24, 66],
+      [12.0, 21, 6.2, 16, -2, 0.5, -24, 66],
+    ],
+    moves: [
+      [0.0, 0, 0, 0],
+      [1.35, 76, -3, -6],
+      [2.5, 110, 2, -10],
+      [3.6, 180, 1, -10],
+      [5.4, 180, 0, -10],
+      [6.8, 338, -2, -8],
+      [8.3, 342, 2, -4],
+      [9.0, 340, 1, -4],
+      [10.3, 372, 1, -4],
+      [11.4, 360, 0, -4],
+      [12.0, 360, 0, -4],
+    ],
+    segments: [
+      {
+        label: 'Red-Rock Canyon · 3.5°S, 0.8°E',
+        tx: 3875,
+        ty: 158,
+        tz: 17650,
+        heading: 4,
+        hitFrame: 45,
+        extra: 'tod=0.34&weather=none&cloudMood=fair',
+        startFrame: 0,
+        endFrame: 90,
+      },
+      {
+        label: 'Coastal Sea Arch · 3.0°N, 6.3°E',
+        tx: 31464,
+        ty: 128,
+        tz: -15009,
+        heading: -140,
+        hitFrame: 138,
+        extra: 'tod=0.52&weather=none&cloudMood=fair',
+        startFrame: 90,
+        endFrame: 180,
+      },
+      {
+        label: 'Dragon Skeleton · 3.0°N, 4.1°W',
+        tx: -20415,
+        ty: 172,
+        tz: -15000,
+        heading: 8,
+        hitFrame: 238,
+        extra: 'tod=0.43&cloudMood=high',
+        startFrame: 180,
+        endFrame: 270,
+      },
+      {
+        label: 'Headland Lighthouse · 0.6°S, 1.5°E',
+        tx: 7582,
+        ty: 142,
+        tz: 2878,
+        heading: 69,
+        hitFrame: 348,
+        extra: 'tod=0.775&headlight=1&weather=none&cloudMood=busy',
+        startFrame: 270,
+        endFrame: 360,
+      },
+    ],
+    outBaseName: `short-${seed}-wingtip-cut`,
+    trackSlug: 'purrple-cat-upside-down',
+    musicStart: 18,
+    meta: {
+      title: 'Wingtip cam inverted through a sea arch across 4 biomes ✈️',
+      tiktokQuestion:
+        'Red-rock canyon, inverted sea arch, dragon bones, or lighthouse?',
+      stops: [
+        '0:00 Red-Rock Canyon (3.5°S, 0.8°E)',
+        '0:03 Coastal Sea Arch (3.0°N, 6.3°E)',
+        '0:06 Dragon Skeleton (3.0°N, 4.1°W)',
+        '0:09 Headland Lighthouse (0.6°S, 1.5°E)',
+      ],
+      trackTitle: 'Upside Down',
+    },
+  });
+}
+
 async function main() {
   const cliArgs = process.argv.slice(2).filter((a) => !a.startsWith('--'));
   const isCheck = CHECK_ONLY || cliArgs[0] === 'check';
@@ -2510,6 +2614,18 @@ async function main() {
       ],
       trackTitle: 'Fourth Dimension',
     });
+    writeShortMetadata(path.join(OUT, 'short-20261118-wingtip-cut.mp4'), {
+      title: 'Wingtip cam inverted through a sea arch across 4 biomes ✈️',
+      tiktokQuestion:
+        'Red-rock canyon, inverted sea arch, dragon bones, or lighthouse?',
+      stops: [
+        '0:00 Red-Rock Canyon (3.5°S, 0.8°E)',
+        '0:03 Coastal Sea Arch (3.0°N, 6.3°E)',
+        '0:06 Dragon Skeleton (3.0°N, 4.1°W)',
+        '0:09 Headland Lighthouse (0.6°S, 1.5°E)',
+      ],
+      trackTitle: 'Upside Down',
+    });
     return;
   }
   const browser = isCheck
@@ -2553,6 +2669,9 @@ async function main() {
     }
     if (!filter || filter === 'orbit-cut') {
       await renderOrbitFormationCutShort(browser, 20261117);
+    }
+    if (!filter || filter === 'wingtip-cut') {
+      await renderWingtipInvertedCutShort(browser, 20261118);
     }
     if (!filter || filter === 'daily-postcard') {
       await renderDailyPostcardShort(browser, 20261108);
