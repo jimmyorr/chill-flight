@@ -1079,9 +1079,6 @@ debrisType('boatDeck', boatDeckGeo, boatDeckMat);
 debrisType('boatMast', boatMastGeo, woodMat);
 debrisType('boatBoom', boatBoomGeo, woodMat);
 debrisType('boatSail', boatSailGeo, boatSailMat);
-pirateShipGeos.forEach((geo, i) =>
-  debrisType('pirateShip' + i, geo, pirateShipMat)
-);
 
 // A rock arch as a breakable prop: it comes down in its blocks, but only
 // when you hit one of them, not when you fly through the gap. pos: the

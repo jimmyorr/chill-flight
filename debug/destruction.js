@@ -75,7 +75,6 @@ export const destructibleTypes = new Set([
   'campfire',
   // Other
   'sailboat',
-  'pirateship',
   'iceberg',
   'iceFloe',
   'penguin',
@@ -218,7 +217,7 @@ export function startDestruction(type, previewGroup, mats = {}) {
   }
 
   // 1. Boats
-  if (type === 'sailboat' || type === 'pirateship') {
+  if (type === 'sailboat') {
     const anim = {
       kind: 'sink',
       pivot: new THREE.Vector3(0, 0, 0),

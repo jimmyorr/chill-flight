@@ -2,11 +2,11 @@
 // Trees, cacti, snowmen, streetlights, tents, towers and the lighthouse
 // topple, buildings fall apart, boulders and rock arches come down in
 // blocks, piers in planks, icebergs and ice floes crack into floating chunks,
-// and boats roll over and sink, when the plane or the buggy runs into them,
-// a friend's too in multiplayer: each player's game
+// and sailboats roll over and sink, when the plane or the buggy runs into
+// them, a friend's too in multiplayer: each player's game
 // runs the same hit test for the friends it shows, and the world is the same
-// from the seed, so nothing is sent over the network. Bridges and waterfalls
-// never break.
+// from the seed, so nothing is sent over the network. Bridges, waterfalls
+// and the ghost ship never break.
 //
 // The terrain worker lists each chunk's breakable props and the instances
 // drawing them (InstanceCollector.breakables in terrain-gen.js); props built
@@ -1523,62 +1523,52 @@ const _b = new THREE.Vector3();
 const _near = [];
 
 // --- BOATS ---
-// Boats drift and bob (flight-camera.js), so they aren't in a chunk's list:
-// each frame the vehicle is checked against the boats nearby, and one hit
-// rolls over and sinks (pos.sunk stops it being drawn), for the session.
+// Sailboats drift and bob (flight-camera.js), so they aren't in a chunk's
+// list: each frame the vehicle is checked against the sailboats nearby, and
+// one hit rolls over and sinks (pos.sunk stops it being drawn), for the
+// session. You pass straight through the ghost ship.
 
 // How far a boat's middle can be from its chunk's (units)
 const BOAT_RANGE = 1200;
-// Sunk boats this session: chunk key + ':s' or ':p' + index
+const SAILBOAT_SCALE = 1.8;
+// Sunk sailboats this session: chunk key + ':s' + index
 const sunk = new Set();
-const BOATS = {
-  s: {positions: 'sailboatPositions', scale: 1.8, mast: 'boatMast'},
-  p: {positions: 'pirateShipPositions', scale: 2.5},
-};
-const _boatShape = {};
+let _sailboatShape = null;
 
-// A boat's reach and height above its waterline, from its models (a
-// pirate ship's from its biggest look, the galleon)
-function boatShape(kind) {
-  if (_boatShape[kind]) return _boatShape[kind];
-  const {scale, mast} = BOATS[kind];
-  const hull = geoBox(kind === 's' ? 'boatHull0' : 'pirateShip0');
-  const m = kind === 's' ? geoBox(mast) : hull;
-  const shape = {
-    radius: Math.max(hull.h.x, hull.h.z) * scale * 0.7,
-    top: (m.c.y + m.h.y) * scale,
+// A sailboat's reach and height above its waterline, from its models
+function sailboatShape() {
+  if (_sailboatShape) return _sailboatShape;
+  const hull = geoBox('boatHull0');
+  const mast = geoBox('boatMast');
+  _sailboatShape = {
+    radius: Math.max(hull.h.x, hull.h.z) * SAILBOAT_SCALE * 0.7,
+    top: (mast.c.y + mast.h.y) * SAILBOAT_SCALE,
   };
-  _boatShape[kind] = shape;
-  return shape;
+  return _sailboatShape;
 }
 
-// The models of boat `index` of a chunk (`kind` 's' or 'p'), each with the
-// mesh and instance drawing it: [{type, mesh, slot}]
-function boatModels(ud, kind, index) {
-  if (kind === 's') {
-    const c = ud.boatColorIndices[index];
-    return [
-      ['boatHull' + c, ud.boatHulls[c], ud.boatInstIndices[index]],
-      ['boatRim', ud.boatRims, index],
-      ['boatDeck', ud.boatDecks, index],
-      ['boatMast', ud.boatMasts, index],
-      ['boatBoom', ud.boatBooms, index],
-      ['boatSail', ud.boatSails, index],
-    ];
-  }
-  // A pirate ship: its own look's mesh, at its index
-  const look = ud.pirateShipPositions[index].bodyId;
-  return [['pirateShip' + look, ud.pirateShips[look], index]];
+// The models of sailboat `index` of a chunk, each with the mesh and instance
+// drawing it: [[type, mesh, slot], ...]
+function sailboatModels(ud, index) {
+  const c = ud.boatColorIndices[index];
+  return [
+    ['boatHull' + c, ud.boatHulls[c], ud.boatInstIndices[index]],
+    ['boatRim', ud.boatRims, index],
+    ['boatDeck', ud.boatDecks, index],
+    ['boatMast', ud.boatMasts, index],
+    ['boatBoom', ud.boatBooms, index],
+    ['boatSail', ud.boatSails, index],
+  ];
 }
 
-function sinkBoat(group, kind, index, dx, dz, kts, mine, buggy) {
+function sinkBoat(group, index, dx, dz, mine, buggy) {
   const ud = group.userData;
-  const pos = ud[BOATS[kind].positions][index];
+  const pos = ud.sailboatPositions[index];
   pos.sunk = true;
-  sunk.add(chunkKey(ud.chunkX, ud.chunkZ) + ':' + kind + index);
-  const models = boatModels(ud, kind, index);
-  // Where it is now, from its mast's matrix (a pirate ship's own)
-  const mast = models[kind === 's' ? 3 : 0][1];
+  sunk.add(chunkKey(ud.chunkX, ud.chunkZ) + ':s' + index);
+  const models = sailboatModels(ud, index);
+  // Where it is now, from its mast's matrix
+  const mast = models[3][1];
   const m0 = mast.instanceMatrix.array.slice(index * 16, index * 16 + 16);
   m0[12] += mast.position.x;
   m0[13] += mast.position.y;
@@ -1606,12 +1596,7 @@ function sinkBoat(group, kind, index, dx, dz, kts, mine, buggy) {
     mesh.instanceMatrix.needsUpdate = true;
   };
   for (const [, mesh, slot] of models) hide(mesh, slot);
-  hide(
-    kind === 's'
-      ? ud.boatReflections
-      : ud.pirateReflections[ud.pirateShipPositions[index].bodyId],
-    index
-  );
+  hide(pos.moored ? ud.boatMooredReflections : ud.boatReflections, index);
   for (const [type] of models) {
     const piece = addPiece(type, m0.slice(), null, group);
     piece.m0 = m0;
@@ -1619,7 +1604,7 @@ function sinkBoat(group, kind, index, dx, dz, kts, mine, buggy) {
     anim.pieces.push(piece);
     moving.add(piece);
   }
-  const shape = boatShape(kind);
+  const shape = sailboatShape();
   propPuffs(x, WATER_LEVEL, z, shape.radius, 4, SPRAY, 40, 7, 6);
   if (mine) {
     const keep = speedKept('house', buggy);
@@ -1634,29 +1619,26 @@ function sinkBoat(group, kind, index, dx, dz, kts, mine, buggy) {
   }
 }
 
-// Checks the boats a vehicle (radius r) touched moving from a to b
-function sweepBoats(a, b, r, ux, uz, kts, mine, buggy) {
+// Checks the sailboats a vehicle (radius r) touched moving from a to b
+function sweepBoats(a, b, r, ux, uz, mine, buggy) {
   if (Math.min(a.y, b.y) - r > WATER_LEVEL + 120) return;
   for (const group of watercraftChunks) {
     const ud = group.userData;
+    const list = ud.sailboatPositions;
+    if (!list) continue;
     const wp = ud.worldPosition || group.position;
     if (Math.abs(wp.x - b.x) > BOAT_RANGE || Math.abs(wp.z - b.z) > BOAT_RANGE)
       continue;
-    for (const kind in BOATS) {
-      const list = ud[BOATS[kind].positions];
-      if (!list) continue;
-      const shape = boatShape(kind);
-      list.forEach((pos, index) => {
-        // (A ghost ship by day isn't there)
-        if (pos.sunk || pos.hidden) return;
-        const x = pos.worldX ?? wp.x + pos.x;
-        const z = pos.worldZ ?? wp.z + pos.z;
-        const top = pos.y + shape.top;
-        if (sweptHit(a, b, r, x, z, shape.radius, WATER_LEVEL - 2, top)) {
-          sinkBoat(group, kind, index, ux, uz, kts, mine, buggy);
-        }
-      });
-    }
+    const shape = sailboatShape();
+    list.forEach((pos, index) => {
+      if (pos.sunk) return;
+      const x = pos.worldX ?? wp.x + pos.x;
+      const z = pos.worldZ ?? wp.z + pos.z;
+      const top = pos.y + shape.top;
+      if (sweptHit(a, b, r, x, z, shape.radius, WATER_LEVEL - 2, top)) {
+        sinkBoat(group, index, ux, uz, mine, buggy);
+      }
+    });
   }
 }
 
@@ -1695,7 +1677,7 @@ function sweep(a, b, r, mine, buggy) {
     }
   }
   _near.push(...standaloneProps);
-  sweepBoats(a, b, r, ux, uz, kts, mine, buggy);
+  sweepBoats(a, b, r, ux, uz, mine, buggy);
   // Sheep that have already bounded off or landed from a punt stay live at
   // their new spot (and can be punted mid-hop if the buggy catches them)
   for (const anim of sheepAnims) {
@@ -2052,11 +2034,9 @@ function syncChunks() {
     const n = propCount(ud);
     ud.breakSynced = true;
     const key = chunkKey(ud.chunkX, ud.chunkZ);
-    for (const kind in BOATS) {
-      ud[BOATS[kind].positions]?.forEach((pos, index) => {
-        if (sunk.has(key + ':' + kind + index)) pos.sunk = true;
-      });
-    }
+    ud.sailboatPositions?.forEach((pos, index) => {
+      if (sunk.has(key + ':s' + index)) pos.sunk = true;
+    });
     const list = wrecks.get(key);
     if (!list) continue;
     ud.breakBroken = new Set();

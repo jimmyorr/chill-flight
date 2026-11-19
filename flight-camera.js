@@ -1511,7 +1511,7 @@ export function updateFlightCamera(delta, nowTime) {
       const positions = chunkGroup.userData.pirateShipPositions;
 
       // The ghost ship rises out of the sea at dusk and sinks back at
-      // dawn; by day it's gone (not drawn, hit or leaving a wake)
+      // dawn; by day it's gone (not drawn or leaving a wake)
       const ghost = THREE.MathUtils.clamp(
         (GHOST_SHIP_DAY - state.dayFactor) / GHOST_SHIP_FADE,
         0,
@@ -1556,8 +1556,6 @@ export function updateFlightCamera(delta, nowTime) {
         _boatDummy.rotation.z = roll;
         _boatDummy.scale.set(2.5, 2.5, 2.5);
         _boatDummy.updateMatrix();
-        // Sunk (breakables.js), or gone for the day: drawn no more
-        if (pos.sunk || pos.hidden) _boatDummy.matrix.copy(_SUNK);
         ships[pos.bodyId].setMatrixAt(index, _boatDummy.matrix);
 
         // (The reflection sinks with it: mirrored, it would rise out of the
@@ -1569,7 +1567,6 @@ export function updateFlightCamera(delta, nowTime) {
         _boatDummy.rotation.z = -roll;
         _boatDummy.scale.set(2.5, -2.5, 2.5);
         _boatDummy.updateMatrix();
-        if (pos.sunk || pos.hidden) _boatDummy.matrix.copy(_SUNK);
         reflections[pos.bodyId].setMatrixAt(index, _boatDummy.matrix);
       });
 
