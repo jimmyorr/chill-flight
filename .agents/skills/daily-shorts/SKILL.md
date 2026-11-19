@@ -170,7 +170,7 @@ Inspect `promo/preview-<outBaseName>.jpg` with `read_file`, refine framing/timin
 node scripts/shorts.js <short-id>
 ```
 
-Confirm music track slugs against `RAW_TRACKS` in [music-logic.js](../../../music-logic.js) before rendering so R2 downloads (`purrple-cat-<slug>.mp3`) never fall back unintentionally to the default track. Keep the pill badge top line `CHILL FLIGHT · Play free at chillflight.app`, bottom line `<Place Name> · <lat>, <long>`, never call biomes "worlds", and never use em dashes anywhere.
+Confirm music track slugs against `RAW_TRACKS` in [music-logic.js](../../../music-logic.js) before rendering so R2 downloads (`purrple-cat-<slug>.mp3`) never fall back unintentionally to the default track. Keep the pill badge top line `CHILL FLIGHT · Play free at chillflight.app` and bottom line `<Place Name> · <lat>, <long>` (`addPostcardBadge` places `#short-postcard-badge` at `top: 140px`, ~`14.6%` down the `540x960` CSS frame so YouTube Shorts' top Search/Cast/Menu icons never cover coordinates; avoid placing tiny distant focal targets inside that `14.6%..20.6%` upper band), never call biomes "worlds", and never use em dashes anywhere.
 
 ### Step 3: Empirical visual verification (required)
 
@@ -184,13 +184,14 @@ ffmpeg -y -loglevel error -i promo/<outBaseName>.mp4 \
   -fps_mode passthrough -frames:v 1 -update 1 -q:v 3 promo/strip-verify-cuts.jpg
 ```
 
-### Step 4: Publish to YouTube Shorts
+### Step 4: Metadata hooks & publishing to YouTube Shorts
 
-Use [scripts/post-short.js](../../../scripts/post-short.js) to upload, verify the exact read-back YouTube Title (`<= 100` chars), attach the **Related video** link, confirm any `"Publish anyway"` dialog, and publish to YouTube Shorts:
+Use [scripts/post-short.js](../../../scripts/post-short.js) to upload, verify the exact read-back YouTube Title, attach the **Related video** link, confirm any `"Publish anyway"` dialog, publish to YouTube Shorts, and automatically post and pin the first comment:
 
 ```bash
 node scripts/post-short.js promo/<outBaseName>.mp4
 ```
 
-- **Always attach a "Related video" link on every Short**: YouTube Short descriptions don't render clickable URLs in the player, whereas the **Related video** field places a clickable pill right above the Short's title so hooked viewers have a one-tap path to a long-form video (such as the `"9 months of building Chill Flight"` progression video or the official trailer) without leaving the player.
-- `writeShortMetadata` writes `Related video: 9 months of building Chill Flight` into each `.txt` sidecar by default (overridable via `meta.relatedVideo`), and [scripts/post-short.js](../../../scripts/post-short.js) automatically selects it in YouTube Studio on the **Video elements** upload step (falling back to `/video/<id>/edit` right after publish if SD Shorts detection was still running). Override per upload with `--related="<title, URL, or video ID>"` (or `--related=none` to skip).
+- **Short, punchy YouTube titles (`<= 48` chars, no URL suffix)**: Mobile YouTube Shorts truncates titles around ~`45-50` characters in the feed, and `chillflight.app` is already baked into `#short-postcard-badge` on-screen. `writeShortMetadata` does **not** append `(Play free: chillflight.app)` to `Title:`; keep `meta.title` crisp (`<= 48` chars) so the hook never cuts off mid-word.
+- **Always attach a "Related video" link (with clickable links on lines 1-2)**: YouTube Short descriptions and comments don't render clickable URLs, whereas the **Related video** field places a clickable pill right above the Short's title. Make sure any long-form video used as a Related bridge (such as `"9 months of building Chill Flight"` from [scripts/evolution.js](../../../scripts/evolution.js) or the official trailer) puts clickable `https://chillflight.app` and iOS App Store links on **lines 1 and 2** of its description so mobile viewers see them immediately without tapping `...more`. `writeShortMetadata` writes `Related video: 9 months of building Chill Flight` by default (`--related=<title|url|id|none>` overrides per upload).
+- **Auto-post and pin a visual-hook / question comment**: Always pass an engaging visual hook or question (`question` / `tiktokQuestion`, e.g., `"Spot the dragon skeleton?"` or `"Which biome should I add next?"`) or custom `pinnedComment` to `writeShortMetadata`. `writeShortMetadata` writes `Pinned comment:` combining the hook with `chillflight.app` + `"Chill Flight"` on the iOS App Store, and [scripts/post-short.js](../../../scripts/post-short.js) automatically opens the published Short, posts that first comment, and pins it (override with `--comment="<text>"` or skip with `--no-comment`).

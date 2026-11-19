@@ -11,6 +11,9 @@
 //   --visibility=public|unlisted|private  YouTube visibility (default: public)
 //   --related=<title|url|id|none>  YouTube Short "Related video" link
 //                                  (default: "9 months of building Chill Flight")
+//   --comment=<text|none>          First comment to auto-post and pin on YouTube
+//                                  (default: from .txt "Pinned comment:" or question + CTA)
+//   --no-comment                   Skip auto-posting/pinning a YouTube comment
 //   --publish                      Automatically click the final Publish/Post button (default)
 //   --review                       Stop on the final Publish/Post button for manual review
 //   --dry-run                      Parse and print the .txt metadata without opening Chrome
@@ -23,6 +26,8 @@ import {pathToFileURL} from 'node:url';
 import puppeteer from 'puppeteer-core';
 
 export const DEFAULT_RELATED_VIDEO = '9 months of building Chill Flight';
+export const DEFAULT_COMMENT_CTA =
+  'Play free in your browser at chillflight.app or search "Chill Flight" on the iOS App Store!';
 
 const PROFILE_DIR =
   process.env.SOCIAL_PROFILE_DIR ||
@@ -124,27 +129,63 @@ export function pickBestRelatedCardIndex(cards, spec, excludeVideoId = null) {
   return textHit ? textHit.index : -1;
 }
 
+export function buildDefaultPinnedComment({question, tiktokQuestion} = {}) {
+  const rawHook =
+    question !== undefined && question !== null
+      ? String(question).trim()
+      : tiktokQuestion !== undefined && tiktokQuestion !== null
+        ? String(tiktokQuestion).trim()
+        : 'Which spot would you fly to first?';
+  return rawHook
+    ? `${rawHook} ✈️ ${DEFAULT_COMMENT_CTA}`
+    : `✈️ ${DEFAULT_COMMENT_CTA}`;
+}
+
+export function pickPinMenuItemIndex(items) {
+  if (!Array.isArray(items)) return -1;
+  for (let i = 0; i < items.length; i++) {
+    const raw = String(items[i]?.text || items[i]?.aria || '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (/^pin(\s+comment)?$/i.test(raw)) return i;
+  }
+  return -1;
+}
+
 export function parseShortMetadataFile(txtPath) {
   const raw = fs.readFileSync(txtPath, 'utf8').replace(/\r\n/g, '\n');
   const [ytSectionRaw, ttSection = ''] = raw.split(/^===\s*TikTok\s*===$/m);
 
-  let relatedVideo = null;
-  const ytSection = ytSectionRaw.replace(
-    /\n*Related video:\n([^\n]*)\n*/i,
-    (_m, val) => {
-      relatedVideo = val.trim();
-      return '\n\n';
-    }
+  const descSplit = ytSectionRaw.match(
+    /^([\s\S]*?)\n+Description:[ \t]*\n([\s\S]*)$/
   );
-
-  const titleMatch = ytSection.match(
-    /^Title:\n([\s\S]*?)\n\n+Description:\n([\s\S]*)$/m
-  );
-  if (!titleMatch) {
+  if (!descSplit) {
     throw new Error(`Could not parse Title/Description in ${txtPath}`);
   }
-  const youtubeTitle = titleMatch[1].trim();
-  const youtubeDescription = titleMatch[2].trim();
+  const headerPart = descSplit[1];
+  const youtubeDescription = descSplit[2].trim();
+
+  const headerMatches = [
+    ...headerPart.matchAll(/^(Title|Related video|Pinned comment):[ \t]*$/gm),
+  ];
+  let youtubeTitle = '';
+  let relatedVideo = null;
+  let pinnedComment = null;
+  for (let i = 0; i < headerMatches.length; i++) {
+    const key = headerMatches[i][1].toLowerCase();
+    const valStart = headerMatches[i].index + headerMatches[i][0].length;
+    const valEnd =
+      i + 1 < headerMatches.length
+        ? headerMatches[i + 1].index
+        : headerPart.length;
+    const val = headerPart.slice(valStart, valEnd).trim();
+    if (key === 'title') youtubeTitle = val;
+    else if (key === 'related video') relatedVideo = val || null;
+    else if (key === 'pinned comment') pinnedComment = val || null;
+  }
+  if (!youtubeTitle) {
+    throw new Error(`Could not parse Title in ${txtPath}`);
+  }
 
   const captionMatch = ttSection.match(/^Caption:\n([\s\S]*)$/m);
   const cleanTitle = youtubeTitle
@@ -160,6 +201,7 @@ export function parseShortMetadataFile(txtPath) {
       title: youtubeTitle,
       description: youtubeDescription,
       relatedVideo,
+      pinnedComment,
     },
     tiktok: {
       caption: tiktokCaption,
@@ -184,6 +226,43 @@ export function resolveRelatedVideo(
   return parseRelatedVideoSpec(chosen);
 }
 
+export function resolvePinnedComment(
+  opts = {},
+  meta = null,
+  envComment = process.env.YOUTUBE_PINNED_COMMENT
+) {
+  const normalize = (val) => {
+    const trimmed = String(val ?? '').trim();
+    if (!trimmed || /^(none|off|false)$/i.test(trimmed)) return null;
+    return trimmed;
+  };
+  if (opts.comment !== undefined) return normalize(opts.comment);
+  if (envComment !== undefined && envComment !== '') {
+    return normalize(envComment);
+  }
+  if (
+    meta?.youtube?.pinnedComment !== null &&
+    meta?.youtube?.pinnedComment !== undefined
+  ) {
+    return normalize(meta.youtube.pinnedComment);
+  }
+  const ttLines = String(meta?.tiktok?.caption || '')
+    .split('\n')
+    .slice(1)
+    .map((s) => s.trim())
+    .filter(
+      (s) =>
+        s &&
+        !s.startsWith('#') &&
+        !s.startsWith('Music:') &&
+        !/^\d+:\d{2}\b/.test(s)
+    );
+  const legacyQuestion = ttLines.find((s) => s.endsWith('?'));
+  return buildDefaultPinnedComment({
+    question: legacyQuestion || 'Which spot would you fly to first?',
+  });
+}
+
 function parseArgs(argv) {
   const opts = {
     login: false,
@@ -192,6 +271,7 @@ function parseArgs(argv) {
     platform: 'youtube',
     visibility: 'public',
     related: undefined,
+    comment: undefined,
     videoPath: null,
   };
   for (const arg of argv) {
@@ -207,6 +287,10 @@ function parseArgs(argv) {
       opts.related = arg.slice('--related='.length);
     } else if (arg === '--no-related') {
       opts.related = 'none';
+    } else if (arg.startsWith('--comment=')) {
+      opts.comment = arg.slice('--comment='.length);
+    } else if (arg === '--no-comment') {
+      opts.comment = 'none';
     } else if (arg === '--help' || arg === '-h') {
       opts.help = true;
     } else if (!arg.startsWith('-')) {
@@ -230,6 +314,8 @@ function printUsage() {
       '  --platform=youtube|tiktok|all  Which platform(s) to upload to (default: youtube)',
       '  --visibility=public|unlisted|private  YouTube visibility (default: public)',
       `  --related=<title|url|id|none>  YouTube Short Related video (default: "${DEFAULT_RELATED_VIDEO}")`,
+      '  --comment=<text|none>          Auto-post and pin first YouTube comment (default: .txt Pinned comment)',
+      '  --no-comment                   Skip auto-posting/pinning a YouTube comment',
       '  --publish                      Automatically click the final Publish button (default)',
       '  --review                       Fill everything and pause on final Publish button',
       '  --dry-run                      Print parsed metadata without launching Chrome',
@@ -742,7 +828,353 @@ async function attachRelatedVideoOnEditPage(page, shortId, spec) {
   }
 }
 
-async function uploadToYouTube(browser, mp4Path, meta, opts, relatedSpec) {
+async function findFirstVisibleHandle(root, selector) {
+  const handles = await root.$$(selector);
+  for (const handle of handles) {
+    const visible = await handle
+      .evaluate((el) => {
+        const rect = el.getBoundingClientRect();
+        const style = window.getComputedStyle(el);
+        return (
+          rect.width > 0 &&
+          rect.height > 0 &&
+          style.visibility !== 'hidden' &&
+          style.display !== 'none'
+        );
+      })
+      .catch(() => false);
+    if (visible) return handle;
+  }
+  return null;
+}
+
+async function postAndPinYouTubeComment(page, shortId, commentText) {
+  const shortUrl = `https://www.youtube.com/shorts/${shortId}`;
+  const watchUrl = `https://www.youtube.com/watch?v=${shortId}`;
+  console.log(`\n=== Posting & Pinning YouTube Comment (${shortId}) ===`);
+
+  const muteVideos = () =>
+    page
+      .evaluate(() => {
+        for (const v of document.querySelectorAll('video')) {
+          v.muted = true;
+          v.pause();
+        }
+      })
+      .catch(() => {});
+
+  let posted = false;
+  try {
+    let commentBoxReady = false;
+    for (const targetUrl of [shortUrl, watchUrl]) {
+      await page.goto(targetUrl, {
+        waitUntil: 'domcontentloaded',
+        timeout: 60000,
+      });
+      await sleep(2500);
+      await muteVideos();
+
+      const waitStart = Date.now();
+      let clickedOpenComments = false;
+      while (Date.now() - waitStart < 18000) {
+        await muteVideos();
+
+        const placeholder = await findFirstVisibleHandle(
+          page,
+          '#placeholder-area, #simplebox-placeholder, ytd-commentbox #contenteditable-root[contenteditable="true"]'
+        );
+        if (placeholder) {
+          commentBoxReady = true;
+          break;
+        }
+
+        if (page.url().includes('/shorts/')) {
+          if (!clickedOpenComments) {
+            const commentBtns = await page.$$(
+              'ytd-reel-video-renderer[is-active] #comments-button button, ' +
+                '#comments-button button, ' +
+                'ytd-reel-player-overlay-renderer button[aria-label*="comment" i], ' +
+                'button[aria-label*="View comments" i]'
+            );
+            for (const btn of commentBtns) {
+              const ok = await btn
+                .evaluate((el) => {
+                  const rect = el.getBoundingClientRect();
+                  const aria = (el.getAttribute('aria-label') || '').trim();
+                  return (
+                    rect.width > 0 &&
+                    rect.height > 0 &&
+                    !/turn off|disable|sort/i.test(aria)
+                  );
+                })
+                .catch(() => false);
+              if (ok) {
+                await btn.click();
+                clickedOpenComments = true;
+                await sleep(1200);
+                break;
+              }
+            }
+          }
+        } else {
+          await page
+            .evaluate(() => {
+              const comments = document.querySelector('ytd-comments#comments');
+              if (comments) comments.scrollIntoView({block: 'center'});
+              else window.scrollBy(0, 500);
+            })
+            .catch(() => {});
+        }
+        await sleep(900);
+      }
+
+      if (commentBoxReady) break;
+    }
+
+    if (!commentBoxReady) {
+      throw new Error('YouTube comment box did not become visible');
+    }
+
+    const placeholderHandle = await findFirstVisibleHandle(
+      page,
+      '#placeholder-area, #simplebox-placeholder'
+    );
+    if (placeholderHandle) {
+      await placeholderHandle.click();
+      await sleep(700);
+    }
+
+    const editorSel =
+      'ytd-commentbox #contenteditable-root[contenteditable="true"], ' +
+      '#contenteditable-root[contenteditable="true"][aria-label*="comment" i]';
+    const editorStart = Date.now();
+    let editorHandle = null;
+    while (Date.now() - editorStart < 15000) {
+      editorHandle = await findFirstVisibleHandle(page, editorSel);
+      if (editorHandle) break;
+      await sleep(400);
+    }
+    if (!editorHandle) {
+      throw new Error('Comment text editor did not open');
+    }
+
+    await muteVideos();
+    await editorHandle.click();
+    await sleep(250);
+
+    const insertedState = await editorHandle.evaluate((el, value) => {
+      el.focus();
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      document.execCommand('delete', false, null);
+      const inserted = document.execCommand('insertText', false, value);
+      if (!inserted || !(el.textContent || '').trim()) {
+        const dt = new DataTransfer();
+        dt.setData('text/plain', value);
+        el.dispatchEvent(
+          new ClipboardEvent('paste', {
+            clipboardData: dt,
+            bubbles: true,
+            cancelable: true,
+          })
+        );
+      }
+      el.dispatchEvent(
+        new InputEvent('input', {
+          bubbles: true,
+          inputType: 'insertText',
+          data: value,
+        })
+      );
+      return {
+        text: (el.textContent || '').trim(),
+        focused:
+          document.activeElement === el || el.contains(document.activeElement),
+      };
+    }, commentText);
+
+    if (!insertedState.text && insertedState.focused) {
+      await page.keyboard.type(commentText, {delay: 8});
+    } else if (insertedState.focused) {
+      // Nudge Polymer's observer in case execCommand didn't enable #submit-button
+      await page.keyboard.press('End');
+      await page.keyboard.press('Space');
+      await page.keyboard.press('Backspace');
+    }
+    await sleep(500);
+
+    const submitSel =
+      'ytd-commentbox #submit-button button:not([disabled]):not([aria-disabled="true"]), ' +
+      'ytd-commentbox #submit-button:not([disabled]):not([aria-disabled="true"]) button';
+    const submitStart = Date.now();
+    let submitBtn = null;
+    while (Date.now() - submitStart < 10000) {
+      submitBtn = await findFirstVisibleHandle(page, submitSel);
+      if (submitBtn) break;
+      await sleep(300);
+    }
+    if (!submitBtn) {
+      throw new Error('Comment submit button remained disabled');
+    }
+
+    await submitBtn.click();
+
+    const needle = commentText
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 32)
+      .toLowerCase();
+    const threadStart = Date.now();
+    let matchedThread = null;
+    while (Date.now() - threadStart < 20000) {
+      const threads = await page.$$('ytd-comment-thread-renderer');
+      for (const thread of threads) {
+        const match = await thread
+          .evaluate((el, q) => {
+            const rect = el.getBoundingClientRect();
+            if (rect.width <= 0 || rect.height <= 0) return false;
+            const body = (
+              el.querySelector('#content-text')?.innerText ||
+              el.innerText ||
+              ''
+            )
+              .replace(/\s+/g, ' ')
+              .trim()
+              .toLowerCase();
+            return body.includes(q);
+          }, needle)
+          .catch(() => false);
+        if (match) {
+          matchedThread = thread;
+          break;
+        }
+      }
+      if (matchedThread) break;
+      await sleep(600);
+    }
+
+    if (!matchedThread) {
+      throw new Error('Posted comment thread did not appear in list');
+    }
+    posted = true;
+    console.log('  Posted first comment on YouTube Short.');
+
+    await matchedThread.hover().catch(() => {});
+    await sleep(300);
+
+    const actionMenuBtn = await findFirstVisibleHandle(
+      matchedThread,
+      '#action-menu button, ytd-menu-renderer button, button[aria-label*="Action menu" i], button[aria-label*="More actions" i]'
+    );
+    if (!actionMenuBtn) {
+      throw new Error('Could not find 3-dot action menu on posted comment');
+    }
+    await actionMenuBtn.click();
+    await sleep(700);
+
+    const rawMenuHandles = await page.$$(
+      'ytd-menu-popup-renderer ytd-menu-service-item-renderer, ' +
+        'ytd-menu-popup-renderer tp-yt-paper-item, ' +
+        'tp-yt-iron-dropdown:not([aria-hidden="true"]) ytd-menu-service-item-renderer, ' +
+        'tp-yt-iron-dropdown:not([aria-hidden="true"]) [role="menuitem"]'
+    );
+    const visibleMenuHandles = [];
+    const menuItems = [];
+    for (const handle of rawMenuHandles) {
+      const info = await handle
+        .evaluate((el) => {
+          const rect = el.getBoundingClientRect();
+          return {
+            visible: rect.width > 0 && rect.height > 0,
+            text: (el.innerText || el.textContent || '').trim(),
+            aria: (el.getAttribute('aria-label') || '').trim(),
+          };
+        })
+        .catch(() => ({visible: false, text: '', aria: ''}));
+      if (info.visible) {
+        visibleMenuHandles.push(handle);
+        menuItems.push({text: info.text, aria: info.aria});
+      }
+    }
+
+    const pinIdx = pickPinMenuItemIndex(menuItems);
+    if (pinIdx < 0) {
+      throw new Error(
+        `Pin option not found in comment menu (${menuItems.map((m) => m.text).join(', ') || 'empty'})`
+      );
+    }
+    await visibleMenuHandles[pinIdx].click();
+    await sleep(700);
+
+    // Confirm the "Pin this comment?" dialog
+    const confirmStart = Date.now();
+    let confirmed = false;
+    while (Date.now() - confirmStart < 10000) {
+      const confirmBtns = await page.$$(
+        'yt-confirm-dialog-renderer #confirm-button button, ' +
+          'yt-confirm-dialog-renderer #confirm-button, ' +
+          'tp-yt-paper-dialog[opened] #confirm-button button, ' +
+          'tp-yt-paper-dialog[opened] button, ' +
+          '[role="dialog"] #confirm-button button, ' +
+          '[role="dialog"] button'
+      );
+      for (const btn of confirmBtns) {
+        const ok = await btn
+          .evaluate((el) => {
+            const rect = el.getBoundingClientRect();
+            if (rect.width <= 0 || rect.height <= 0) return false;
+            const text = (el.innerText || el.textContent || '').trim();
+            const aria = (el.getAttribute('aria-label') || '').trim();
+            const inConfirmSlot = Boolean(el.closest('#confirm-button'));
+            return (
+              /^pin$/i.test(text) ||
+              /^pin$/i.test(aria) ||
+              (inConfirmSlot && !/cancel/i.test(`${text} ${aria}`))
+            );
+          })
+          .catch(() => false);
+        if (ok) {
+          await btn.click();
+          confirmed = true;
+          break;
+        }
+      }
+      if (confirmed) break;
+      await sleep(350);
+    }
+
+    if (!confirmed) {
+      throw new Error('Pin confirmation dialog button was not found');
+    }
+    await sleep(1200);
+    console.log('  Pinned comment on YouTube Short!');
+    return true;
+  } catch (err) {
+    if (posted) {
+      console.warn(
+        `  Comment was posted, but auto-pin did not complete (${err.message}). Pin it at ${shortUrl}`
+      );
+    } else {
+      console.warn(
+        `  Auto-comment/pin skipped (${err.message}); Short is already published at ${shortUrl}`
+      );
+      console.warn(`  Ready-to-paste comment: ${commentText}`);
+    }
+    return false;
+  }
+}
+
+async function uploadToYouTube(
+  browser,
+  mp4Path,
+  meta,
+  opts,
+  relatedSpec,
+  pinnedComment
+) {
   console.log('\n=== Uploading to YouTube Studio ===');
   const page = await browser.newPage();
   await page.goto(YOUTUBE_STUDIO_URL, {
@@ -844,13 +1276,15 @@ async function uploadToYouTube(browser, mp4Path, meta, opts, relatedSpec) {
     await page.click('#next-button');
     await sleep(900);
 
-    if (step === 0 && relatedSpec && !relatedAttached) {
+    if (step === 0) {
       shortId = shortId || (await readUploadedShortId(page));
-      relatedAttached = await tryAttachRelatedVideoInWizard(
-        page,
-        relatedSpec,
-        shortId
-      );
+      if (relatedSpec && !relatedAttached) {
+        relatedAttached = await tryAttachRelatedVideoInWizard(
+          page,
+          relatedSpec,
+          shortId
+        );
+      }
     }
   }
 
@@ -860,6 +1294,8 @@ async function uploadToYouTube(browser, mp4Path, meta, opts, relatedSpec) {
   await page.waitForSelector(visSel, {visible: true, timeout: 30000});
   await page.click(visSel);
   await sleep(600);
+
+  shortId = shortId || (await readUploadedShortId(page));
 
   if (opts.publish) {
     console.log('  Clicking Publish on YouTube...');
@@ -957,10 +1393,29 @@ async function uploadToYouTube(browser, mp4Path, meta, opts, relatedSpec) {
     if (relatedSpec && !relatedAttached && shortId) {
       await attachRelatedVideoOnEditPage(page, shortId, relatedSpec);
     }
+
+    if (pinnedComment) {
+      if (opts.visibility === 'private') {
+        console.log(
+          '  Skipping auto-comment/pin because YouTube visibility is private.'
+        );
+      } else if (!shortId) {
+        console.warn(
+          '  Could not determine Short video ID; skipping auto-comment/pin.'
+        );
+      } else {
+        await postAndPinYouTubeComment(page, shortId, pinnedComment);
+      }
+    }
   } else {
     if (relatedSpec && !relatedAttached) {
       console.log(
         `  Note: Related video "${relatedSpec.raw}" was not yet selectable on Video elements; verify it in Chrome before or after publishing.`
+      );
+    }
+    if (pinnedComment) {
+      console.log(
+        `  Pinned comment to post after publishing: ${pinnedComment}`
       );
     }
     console.log(
@@ -1118,12 +1573,17 @@ async function main() {
 
   const meta = parseShortMetadataFile(txtPath);
   const relatedSpec = resolveRelatedVideo(opts, meta);
+  const pinnedComment = resolvePinnedComment(opts, meta);
   console.log(`Loaded metadata from ${path.basename(txtPath)}:`);
   console.log(`  YouTube Title:   ${meta.youtube.title}`);
   console.log(`  YouTube Related: ${relatedSpec ? relatedSpec.raw : '(none)'}`);
+  console.log(`  YouTube Comment: ${pinnedComment || '(none)'}`);
   console.log(`  TikTok Hook:     ${meta.tiktok.caption.split('\n')[0]}`);
 
   if (opts.dryRun) {
+    if (pinnedComment) {
+      console.log('\n--- YouTube Pinned Comment ---\n' + pinnedComment);
+    }
     console.log('\n--- YouTube Description ---\n' + meta.youtube.description);
     console.log('\n--- TikTok Caption ---\n' + meta.tiktok.caption);
     return;
@@ -1132,7 +1592,14 @@ async function main() {
   const browser = await launchPersistentBrowser();
   try {
     if (opts.platform === 'all' || opts.platform === 'youtube') {
-      await uploadToYouTube(browser, mp4Path, meta.youtube, opts, relatedSpec);
+      await uploadToYouTube(
+        browser,
+        mp4Path,
+        meta.youtube,
+        opts,
+        relatedSpec,
+        pinnedComment
+      );
     }
     if (opts.platform === 'all' || opts.platform === 'tiktok') {
       await uploadToTikTok(browser, mp4Path, meta.tiktok, opts);

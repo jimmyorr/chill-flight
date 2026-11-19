@@ -22,17 +22,22 @@ import {
 } from '../promo-script.js';
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {
+  SHORT_BADGE_TOP_PX,
   buildSegmentQuery,
   resolveLandmarkTarget,
   verifySegmentCorridor,
   writeShortMetadata,
 } from './shorts.js';
 import {
+  DEFAULT_COMMENT_CTA,
   DEFAULT_RELATED_VIDEO,
+  buildDefaultPinnedComment,
   extractYouTubeVideoId,
   parseRelatedVideoSpec,
   parseShortMetadataFile,
   pickBestRelatedCardIndex,
+  pickPinMenuItemIndex,
+  resolvePinnedComment,
   resolveRelatedVideo,
 } from './post-short.js';
 
@@ -362,27 +367,66 @@ check(
     ) === -1
 );
 
+check(
+  'SHORT_BADGE_TOP_PX places top pill inside Shorts ~15% safe zone on 540x960 CSS viewport',
+  SHORT_BADGE_TOP_PX === 140 &&
+    SHORT_BADGE_TOP_PX / 960 >= 0.14 &&
+    SHORT_BADGE_TOP_PX / 960 <= 0.16
+);
+
+check(
+  'pickPinMenuItemIndex matches Pin / Pin comment and ignores Unpin / Delete / Report',
+  pickPinMenuItemIndex([{text: 'Edit'}, {text: 'Delete'}, {text: 'Pin'}]) ===
+    2 &&
+    pickPinMenuItemIndex([{text: 'Unpin'}, {text: 'Pin comment'}]) === 1 &&
+    pickPinMenuItemIndex([{text: 'Unpin'}, {text: 'Report'}]) === -1
+);
+
 const tmpMetaDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cf-short-meta-'));
 try {
   const sampleMp4 = path.join(tmpMetaDir, 'short-test.mp4');
   const sampleTxt = path.join(tmpMetaDir, 'short-test.txt');
   writeShortMetadata(sampleMp4, {
-    title: 'Test Short across 4 biomes',
-    tiktokQuestion: 'Which biome?',
+    title: 'Test Short across 4 biomes (Play free: chillflight.app)',
+    tiktokQuestion: 'Which biome should I add next?',
     stops: ['0:00 Twin Falls (0.9°N, 0.0°E)'],
     trackTitle: 'Sky Lake',
   });
   const parsedNew = parseShortMetadataFile(sampleTxt);
   check(
-    'writeShortMetadata + parseShortMetadataFile round-trip Related video cleanly without polluting Description',
-    parsedNew.youtube.relatedVideo === DEFAULT_RELATED_VIDEO &&
+    'writeShortMetadata + parseShortMetadataFile keep YouTube Title punchy (no URL suffix) and round-trip Related video + Pinned comment',
+    parsedNew.youtube.title === 'Test Short across 4 biomes' &&
+      !parsedNew.youtube.title.includes('chillflight.app') &&
+      parsedNew.youtube.relatedVideo === DEFAULT_RELATED_VIDEO &&
+      parsedNew.youtube.pinnedComment ===
+        buildDefaultPinnedComment({
+          tiktokQuestion: 'Which biome should I add next?',
+        }) &&
+      parsedNew.youtube.pinnedComment.includes(DEFAULT_COMMENT_CTA) &&
       !parsedNew.youtube.description.includes('Related video:') &&
+      !parsedNew.youtube.description.includes('Pinned comment:') &&
       parsedNew.youtube.description.startsWith(
         'Play Chill Flight free in your browser'
       )
   );
 
-  // Legacy .txt without "Related video:" still falls back to DEFAULT_RELATED_VIDEO
+  // Multi-line custom Pinned comment round-trip
+  const multiCommentMp4 = path.join(tmpMetaDir, 'short-multi.mp4');
+  const multiCommentTxt = path.join(tmpMetaDir, 'short-multi.txt');
+  writeShortMetadata(multiCommentMp4, {
+    title: 'Wingtip cam through a sea arch ✈️',
+    pinnedComment:
+      'Did you spot the dragon skeleton?\nPlay free at chillflight.app or search "Chill Flight" on the iOS App Store!',
+    trackTitle: 'Sky Lake',
+  });
+  const parsedMulti = parseShortMetadataFile(multiCommentTxt);
+  check(
+    'parseShortMetadataFile preserves multi-line Pinned comment blocks cleanly',
+    parsedMulti.youtube.pinnedComment ===
+      'Did you spot the dragon skeleton?\nPlay free at chillflight.app or search "Chill Flight" on the iOS App Store!'
+  );
+
+  // Legacy .txt without "Related video:" or "Pinned comment:" still falls back cleanly
   const legacyTxt = path.join(tmpMetaDir, 'legacy.txt');
   fs.writeFileSync(
     legacyTxt,
@@ -396,18 +440,26 @@ try {
       '',
       '=== TikTok ===',
       'Caption:',
-      'Legacy Short',
+      'Legacy Short Play free at chillflight.app',
+      'Spot the dragon skeleton?',
+      '#chillflight',
     ].join('\n')
   );
   const parsedLegacy = parseShortMetadataFile(legacyTxt);
   check(
-    'resolveRelatedVideo defaults legacy .txt to 9 months progression video and honors --related overrides',
+    'resolveRelatedVideo and resolvePinnedComment handle legacy .txt fallbacks and CLI overrides',
     parsedLegacy.youtube.relatedVideo === null &&
+      parsedLegacy.youtube.pinnedComment === null &&
       resolveRelatedVideo({}, parsedLegacy, '')?.raw ===
         DEFAULT_RELATED_VIDEO &&
       resolveRelatedVideo({related: 'Chill Flight Official Trailer'}, parsedNew)
         ?.raw === 'Chill Flight Official Trailer' &&
-      resolveRelatedVideo({related: 'none'}, parsedNew) === null
+      resolveRelatedVideo({related: 'none'}, parsedNew) === null &&
+      resolvePinnedComment({}, parsedLegacy, '') ===
+        buildDefaultPinnedComment({question: 'Spot the dragon skeleton?'}) &&
+      resolvePinnedComment({comment: 'Custom hook!'}, parsedNew, '') ===
+        'Custom hook!' &&
+      resolvePinnedComment({comment: 'none'}, parsedNew, '') === null
   );
 } finally {
   fs.rmSync(tmpMetaDir, {recursive: true, force: true});

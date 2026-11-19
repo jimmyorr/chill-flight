@@ -32,7 +32,10 @@ import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {simplex} from '../noise.js';
 import {ARCH, archBlocks, archCeiling, archSites} from '../arches-logic.js';
 import {solveStartCoords, traceScriptedTrajectory} from '../promo-script.js';
-import {DEFAULT_RELATED_VIDEO} from './post-short.js';
+import {
+  DEFAULT_RELATED_VIDEO,
+  buildDefaultPinnedComment,
+} from './post-short.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'promo');
@@ -52,6 +55,7 @@ const PREVIEW = process.argv.includes('--preview');
 const CHECK_ONLY = process.argv.includes('--check');
 const WATER_LEVEL = 40;
 const VIEWPORT = {width: 540, height: 960, scale: 2, mobile: true}; // 1080x1920
+export const SHORT_BADGE_TOP_PX = 140; // ~14.6% of 960px CSS height (280px on 1080x1920), inside Shorts safe zone
 const PIXEL_W = VIEWPORT.width * VIEWPORT.scale;
 const PIXEL_H = VIEWPORT.height * VIEWPORT.scale;
 
@@ -151,7 +155,7 @@ function writePreviewStrip(frameDir, outMp4, cols = 6, rows = 2) {
 
 async function addPostcardBadge(page, topLine, subLine) {
   await page.evaluate(
-    ({topLine, subLine}) => {
+    ({topLine, subLine, topPx}) => {
       if (!document.getElementById('short-postcard-style')) {
         const style = document.createElement('style');
         style.id = 'short-postcard-style';
@@ -168,7 +172,7 @@ async function addPostcardBadge(page, topLine, subLine) {
         badge.id = 'short-postcard-badge';
         badge.style.cssText = `
           position: fixed;
-          top: 68px;
+          top: ${topPx}px;
           left: 50%;
           transform: translateX(-50%);
           z-index: 9999;
@@ -190,13 +194,15 @@ async function addPostcardBadge(page, topLine, subLine) {
           white-space: nowrap;
         `;
         document.body.appendChild(badge);
+      } else {
+        badge.style.top = `${topPx}px`;
       }
       badge.innerHTML = `
         <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: #7dd3fc;">${topLine}</div>
         <div style="font-size: 13px; font-weight: 600; letter-spacing: 0.02em; color: #fff;">${subLine}</div>
       `;
     },
-    {topLine, subLine}
+    {topLine, subLine, topPx: SHORT_BADGE_TOP_PX}
   );
 }
 
@@ -233,7 +239,9 @@ export function writeShortMetadata(
   outMp4,
   {
     title,
+    question,
     tiktokQuestion,
+    pinnedComment,
     stops = [],
     trackTitle,
     relatedVideo = DEFAULT_RELATED_VIDEO,
@@ -245,7 +253,7 @@ export function writeShortMetadata(
     .replace(/\s*\(Play free:\s*chillflight\.app\)\s*/i, '')
     .replace(/\s*#shorts$/i, '')
     .trim();
-  const youtubeTitle = `${cleanTitle} (Play free: chillflight.app)`;
+  const youtubeTitle = cleanTitle;
   const hasRelated =
     relatedVideo !== null &&
     relatedVideo !== undefined &&
@@ -255,15 +263,30 @@ export function writeShortMetadata(
   const relatedBlock = hasRelated
     ? ['', 'Related video:', String(relatedVideo).trim()]
     : [];
+  const hookQuestion = question ?? tiktokQuestion;
+  const commentDisabled =
+    pinnedComment === false ||
+    /^(none|off)$/i.test(String(pinnedComment ?? '').trim());
+  const resolvedComment = commentDisabled
+    ? null
+    : pinnedComment !== undefined &&
+        pinnedComment !== null &&
+        String(pinnedComment).trim().length > 0
+      ? String(pinnedComment).trim()
+      : buildDefaultPinnedComment({question, tiktokQuestion});
+  const commentBlock = resolvedComment
+    ? ['', 'Pinned comment:', resolvedComment]
+    : [];
   const tiktokFirstLine = `${cleanTitle} Play free at chillflight.app (or "Chill Flight" on App Store)`;
-  const tiktokBlock = tiktokQuestion
-    ? [tiktokFirstLine, tiktokQuestion]
+  const tiktokBlock = hookQuestion
+    ? [tiktokFirstLine, hookQuestion]
     : [tiktokFirstLine];
   const body = [
     '=== YouTube Shorts ===',
     'Title:',
     youtubeTitle,
     ...relatedBlock,
+    ...commentBlock,
     '',
     'Description:',
     'Play Chill Flight free in your browser at chillflight.app or search "Chill Flight" on the iOS App Store!',
@@ -1545,6 +1568,7 @@ async function renderWingCamShort(browser) {
   console.log(outMp4);
   writeShortMetadata(outMp4, {
     title: 'Sunset window seat past the lighthouse ✈️',
+    tiktokQuestion: 'Where would you fly at sunset?',
     stops: ['Headland Lighthouse (0.6°S, 1.5°E)'],
     trackTitle: 'Sundae Sunset',
   });
@@ -2060,7 +2084,7 @@ async function renderAerobaticCutShort(browser, seed = 20261112) {
     trackSlug: 'purrple-cat-beautiful-day',
     musicStart: 18,
     meta: {
-      title: 'Biplane loop, climb roll, and dive across 4 biomes ✈️',
+      title: 'Biplane loop and roll across 4 biomes ✈️',
       tiktokQuestion:
         'Forest valley, coral arch, snowy peaks, or desert pyramids?',
       stops: [
@@ -2148,7 +2172,7 @@ async function renderBayouArchCutShort(browser, seed = 20261114) {
     trackSlug: 'purrple-cat-somewhere-new',
     musicStart: 18,
     meta: {
-      title: 'Seaplane roll through 2 rock arches across 4 biomes ✈️',
+      title: 'Seaplane roll through 2 rock arches ✈️',
       tiktokQuestion:
         'Swamp oak, coral arch, gorge bridge, or sunset lighthouse?',
       stops: [
@@ -2236,7 +2260,7 @@ async function renderTwinWondersCutShort(browser, seed = 20261116) {
     trackSlug: 'purrple-cat-wonderment',
     musicStart: 18,
     meta: {
-      title: 'Twin-prop roll across 4 landmarks and an arctic arch ✈️',
+      title: 'Twin-prop roll through an arctic arch ✈️',
       tiktokQuestion:
         'Volcano crater, desert pyramids, arctic arch, or alien pillars?',
       stops: [
@@ -2359,7 +2383,7 @@ async function renderOrbitFormationCutShort(browser, seed = 20261117) {
     trackSlug: 'purrple-cat-fourth-dimension',
     musicStart: 18,
     meta: {
-      title: '2 jets in a 360° orbit through a wormhole and 4 biomes ✈️',
+      title: '2 jets orbit through an alien wormhole ✈️',
       tiktokQuestion:
         'Alien wormhole, waterfall, coral arch, or snowy village?',
       stops: [
@@ -2462,7 +2486,7 @@ async function renderWingtipInvertedCutShort(browser, seed = 20261118) {
     trackSlug: 'purrple-cat-upside-down',
     musicStart: 18,
     meta: {
-      title: 'Wingtip cam inverted through a sea arch across 4 biomes ✈️',
+      title: 'Wingtip cam inverted through a sea arch ✈️',
       tiktokQuestion:
         'Red-rock canyon, inverted sea arch, dragon bones, or lighthouse?',
       stops: [
@@ -2508,6 +2532,7 @@ async function main() {
     });
     writeShortMetadata(path.join(OUT, 'short-3-wing-cam.mp4'), {
       title: 'Sunset window seat past the lighthouse ✈️',
+      tiktokQuestion: 'Where would you fly at sunset?',
       stops: ['Headland Lighthouse (0.6°S, 1.5°E)'],
       trackTitle: 'Sundae Sunset',
     });
@@ -2567,7 +2592,7 @@ async function main() {
       trackTitle: 'Discovery',
     });
     writeShortMetadata(path.join(OUT, 'short-20261112-aerobatic-cut.mp4'), {
-      title: 'Biplane loop, climb roll, and dive across 4 biomes ✈️',
+      title: 'Biplane loop and roll across 4 biomes ✈️',
       tiktokQuestion:
         'Forest valley, coral arch, snowy peaks, or desert pyramids?',
       stops: [
@@ -2579,7 +2604,7 @@ async function main() {
       trackTitle: 'Beautiful Day',
     });
     writeShortMetadata(path.join(OUT, 'short-20261114-bayou-cut.mp4'), {
-      title: 'Seaplane roll through 2 rock arches across 4 biomes ✈️',
+      title: 'Seaplane roll through 2 rock arches ✈️',
       tiktokQuestion:
         'Swamp oak, coral arch, gorge bridge, or sunset lighthouse?',
       stops: [
@@ -2591,7 +2616,7 @@ async function main() {
       trackTitle: 'Somewhere New',
     });
     writeShortMetadata(path.join(OUT, 'short-20261116-twin-cut.mp4'), {
-      title: 'Twin-prop roll across 4 landmarks and an arctic arch ✈️',
+      title: 'Twin-prop roll through an arctic arch ✈️',
       tiktokQuestion:
         'Volcano crater, desert pyramids, arctic arch, or alien pillars?',
       stops: [
@@ -2603,7 +2628,7 @@ async function main() {
       trackTitle: 'Wonderment',
     });
     writeShortMetadata(path.join(OUT, 'short-20261117-orbit-cut.mp4'), {
-      title: '2 jets in a 360° orbit through a wormhole and 4 biomes ✈️',
+      title: '2 jets orbit through an alien wormhole ✈️',
       tiktokQuestion:
         'Alien wormhole, waterfall, coral arch, or snowy village?',
       stops: [
@@ -2615,7 +2640,7 @@ async function main() {
       trackTitle: 'Fourth Dimension',
     });
     writeShortMetadata(path.join(OUT, 'short-20261118-wingtip-cut.mp4'), {
-      title: 'Wingtip cam inverted through a sea arch across 4 biomes ✈️',
+      title: 'Wingtip cam inverted through a sea arch ✈️',
       tiktokQuestion:
         'Red-rock canyon, inverted sea arch, dragon bones, or lighthouse?',
       stops: [
