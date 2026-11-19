@@ -379,11 +379,12 @@ export function updateFlightCamera(delta, nowTime) {
       (state.airplaneModel?.chaseLift ?? 1) *
       followZoom;
 
-    // FOV expands with speed AND dive/loop steepness, capped at 75 by default
-    // to avoid excessive distortion (80 for the buggy with ?speedCam=1)
-    const maneuverFactor = Math.max(
-      diveFactor,
-      state.isLooping || state.isSteepPitch ? 3.0 : 0
+    // Track normalized maneuver intensity (0..1) for music vibe energy
+    // (music-logic.js); camera distance and FOV follow actual airspeed
+    // (speedFactor) rather than pulling back artificially on steep pitches.
+    const maneuverFactor = Math.min(
+      1,
+      Math.max(diveFactor, state.isLooping || state.isSteepPitch ? 1 : 0)
     );
     state.smoothedManeuverFactor = THREE.MathUtils.lerp(
       state.smoothedManeuverFactor,
@@ -391,7 +392,9 @@ export function updateFlightCamera(delta, nowTime) {
       1 - Math.pow(1 - 0.05, delta * 60)
     );
 
-    // Slightly wider base FOV for mobile to increase peripheral awareness
+    // FOV expands with speed, capped at 75 by default to avoid excessive
+    // distortion (80 for the buggy with ?speedCam=1); slightly wider on mobile
+    // to increase peripheral awareness
     const baseFov =
       FORZA_SPEED_CAM && buggyVis
         ? buggyVis.fov
@@ -402,13 +405,7 @@ export function updateFlightCamera(delta, nowTime) {
     const targetFov =
       FORZA_SPEED_CAM && buggyVis
         ? Math.min(ChillFlightLogic.BUGGY_CAMERA.MAX_FOV, baseFov + rushFov)
-        : Math.min(
-            75,
-            baseFov +
-              state.smoothedManeuverFactor *
-                15 *
-                Math.min(1, state.flightSpeedMultiplier / 2)
-          ) + rushFov;
+        : Math.min(75, baseFov) + rushFov;
 
     camera.fov = THREE.MathUtils.lerp(
       camera.fov,
@@ -417,12 +414,7 @@ export function updateFlightCamera(delta, nowTime) {
     );
     camera.updateProjectionMatrix();
 
-    // Pull back the camera during high-G maneuvers for extra scale
-    const pullBack =
-      state.smoothedManeuverFactor *
-      20 *
-      Math.min(1, state.flightSpeedMultiplier / 2);
-    _cameraOffset.set(0, yOffset, zOffset + pullBack);
+    _cameraOffset.set(0, yOffset, zOffset);
 
     // Add subtle camera vibration at high speeds/steep dives (2D only: forced
     // random camera translation causes VR motion discomfort)
@@ -497,15 +489,14 @@ export function updateFlightCamera(delta, nowTime) {
     // Planes sit in the middle of the view. A car sits low (chaseFrame, the
     // way from the middle to the bottom edge), with more road ahead in view
     if (chaseFrame) {
-      const back = zOffset + pullBack;
-      const below = Math.atan2(yOffset, back);
+      const below = Math.atan2(yOffset, zOffset);
       const tilt = Math.atan(
         chaseFrame * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))
       );
       _lookOffset.set(
         0,
         yOffset - 100 * Math.sin(below - tilt),
-        back - 100 * Math.cos(below - tilt)
+        zOffset - 100 * Math.cos(below - tilt)
       );
     } else {
       _lookOffset.set(0, 0, -20);

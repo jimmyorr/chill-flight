@@ -165,7 +165,7 @@ export const state = {
   scriptedReplay: null,
   scriptedSpeed: null,
   lastRecordedReplay: null,
-  smoothedManeuverFactor: 0, // Ensures smooth cinematic transitions
+  smoothedManeuverFactor: 0, // Normalized 0..1 maneuver intensity for music vibe energy
   manualPitch: 0,
   // A ?camera= mode starts in place rather than easing in from follow.
   cameraMode: ChillFlightLogic.START_CAMERA || 'follow', // 'follow', 'first-person', 'birds-eye', or 'cinematic'
