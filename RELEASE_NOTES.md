@@ -1,5 +1,11 @@
 # Release notes
 
+## [1.2.13](https://v1-2-13.chill-flight.pages.dev)
+
+- **Touch & controls:** Stick sensitivity setting under touch Controls, wider 70 px joystick throw, and 60-degree banking limits.
+- **Flight & aerobatics:** Refined climb, dive, loop, and Immelmann handling, with smooth upright barrel roll exits and steady camera FOV.
+- **World & visuals:** Nautical striped lighthouses, phantom ghost ship pass-through, and silenced shader compilation warnings.
+
 ## [1.2.12](https://v1-2-12.chill-flight.pages.dev)
 
 - **Flight & controls:** Smoother barrel rolls with natural exit rocking, leveled recovery, and a Disable mouse steer setting.
