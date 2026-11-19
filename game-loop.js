@@ -1146,10 +1146,26 @@ function deliberateSteer() {
 // 1): nothing inside STICK_DEAD_ZONE, then rising from zero (not jumping to
 // the dead zone's edge) along a gentle curve, finer near the middle, to the
 // same full deflection at 1 (keys, at 1, are unchanged)
-// The phone joystick at its rim gives this share of an arrow key's 75° of
-// bank (and 45° of pitch): 60° (and 36°, about the up arrow's climb), firm
-// but calmer than the keys. ?stickBank= tries other angles
-const JOYSTICK_RIM_SHARE = (ChillFlightLogic.STICK_BANK_PARAM ?? 60) / 75;
+// Stick sensitivity (Settings > Controls on touch, state.stickSensitivity):
+// the bank the phone joystick gives at its rim, out of an arrow key's 75°
+// (pitch scales with it, out of 45°). Drag-steer and gyro, whose full
+// response is already the keys', scale their input against Normal instead:
+// Gentle tops out lower, Sharp gets there sooner. ?stickBank= sets the
+// joystick's rim angle directly, over the setting
+const STICK_SENSITIVITY = {gentle: 40, normal: 55, sharp: 75};
+function stickBankDegrees() {
+  return (
+    ChillFlightLogic.STICK_BANK_PARAM ??
+    STICK_SENSITIVITY[state.stickSensitivity] ??
+    STICK_SENSITIVITY.normal
+  );
+}
+function touchSteerScale() {
+  return (
+    (STICK_SENSITIVITY[state.stickSensitivity] ?? STICK_SENSITIVITY.normal) /
+    STICK_SENSITIVITY.normal
+  );
+}
 const STICK_DEAD_ZONE = 0.15;
 const STICK_CURVE = 0.45; // share of the response that's cubic
 function stickResponse(v) {
@@ -1367,11 +1383,17 @@ function updatePhysicsAndControls(delta, nowTime) {
     im.controlScheme === 'joystick' &&
     im.joystick.active &&
     !im.gamepad.steeringActive;
+  const touchSteer =
+    !im.gamepad.steeringActive &&
+    ((im.controlScheme === 'touch' && im.touch.steeringId !== null) ||
+      state.currentControlScheme === 'gyro');
+  const rimShare = stickBankDegrees() / 75;
+  const steerScale = touchSteerScale();
   const respond = touchStick
-    ? (v) =>
-        joystickResponse(v / inputManager.JOYSTICK_SENSITIVITY) *
-        JOYSTICK_RIM_SHARE
-    : stickResponse;
+    ? (v) => joystickResponse(v / inputManager.JOYSTICK_SENSITIVITY) * rimShare
+    : touchSteer
+      ? (v) => stickResponse(THREE.MathUtils.clamp(v * steerScale, -1, 1))
+      : stickResponse;
   let effMouseX = steeringOn ? respond(state.mouseX) : 0;
   let effMouseY = steeringOn ? respond(state.mouseY) : 0;
 

@@ -43,7 +43,9 @@ checkGyroSupport();
 
 // Set active state on scheme buttons from saved preference
 if (controlSchemeToggle) {
-  const schemeBtns = controlSchemeToggle.querySelectorAll('.scheme-btn');
+  const schemeBtns = controlSchemeToggle.querySelectorAll(
+    '.scheme-btn[data-scheme]'
+  );
   schemeBtns.forEach((btn) => {
     btn.classList.toggle(
       'active',
@@ -113,6 +115,37 @@ if (controlSchemeToggle) {
     });
   });
 }
+
+// Stick sensitivity: Gentle / Normal / Sharp under the schemes, saved per
+// device (state.stickSensitivity, used in game-loop.js)
+const sensitivityBtns = document.querySelectorAll(
+  '#stick-sensitivity-group .scheme-btn'
+);
+const showSensitivity = () => {
+  sensitivityBtns.forEach((b) => {
+    b.classList.toggle(
+      'active',
+      b.dataset.sensitivity === state.stickSensitivity
+    );
+  });
+};
+showSensitivity();
+sensitivityBtns.forEach((btn) => {
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    state.stickSensitivity = btn.dataset.sensitivity;
+    try {
+      localStorage.setItem(
+        'chill_flight_stick_sensitivity',
+        state.stickSensitivity
+      );
+    } catch {
+      // Private mode: it lasts this visit
+    }
+    showSensitivity();
+  });
+});
 
 const _zee = new THREE.Vector3(0, 0, 1);
 const _q0 = new THREE.Quaternion();

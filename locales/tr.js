@@ -188,6 +188,9 @@ export default {
   Touch: 'Dokunma',
   Joystick: 'Joystick',
   Gyro: 'Jiroskop',
+  Gentle: 'Yumuşak',
+  Normal: 'Normal',
+  Sharp: 'Keskin',
   'Invert y axis': 'Y eksenini ters çevir',
   'Push up to dive, like a flight stick':
     'Uçuş lövyesi gibi dalmak için yukarı it',

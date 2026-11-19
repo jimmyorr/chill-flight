@@ -190,6 +190,9 @@ export default {
   Touch: 'Sentuh',
   Joystick: 'Joystick',
   Gyro: 'Giro',
+  Gentle: 'Lembut',
+  Normal: 'Normal',
+  Sharp: 'Tajam',
   'Invert y axis': 'Balik sumbu Y',
   'Push up to dive, like a flight stick':
     'Dorong ke atas untuk menukik, seperti stik pesawat',

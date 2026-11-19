@@ -6,7 +6,12 @@ import {ChillFlightLogic} from './chill-flight-logic.js';
 
 let storedColor = null;
 let storedVRStickMode = null;
+let storedStickSensitivity = 'normal';
 try {
+  const rawSensitivity = localStorage.getItem('chill_flight_stick_sensitivity');
+  if (['gentle', 'normal', 'sharp'].includes(rawSensitivity)) {
+    storedStickSensitivity = rawSensitivity;
+  }
   storedColor = localStorage.getItem('chill_flight_color');
   const rawVRStick = localStorage.getItem('chill_flight_vr_stick_mode');
   if (rawVRStick === 'sim' || rawVRStick === 'chill') {
@@ -75,6 +80,9 @@ export const state = {
   // The phone joystick reaching the keyboard's full bank at its rim
   // (game-loop.js), on unless ?fullStick=0
   fullStick: ChillFlightLogic.FULL_STICK_PARAM ?? true,
+  // Settings > Controls on touch: how hard the joystick, drag-steer and
+  // gyro turn (STICK_SENSITIVITY in game-loop.js)
+  stickSensitivity: storedStickSensitivity,
   cloudDayOffset: 0,
   PROP_LOD_DISTANCE: 4200,
 

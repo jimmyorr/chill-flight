@@ -189,6 +189,9 @@ export default {
   Touch: 'Táctil',
   Joystick: 'Joystick',
   Gyro: 'Giroscopio',
+  Gentle: 'Suave',
+  Normal: 'Normal',
+  Sharp: 'Brusco',
   'Invert y axis': 'Invertir eje Y',
   'Push up to dive, like a flight stick':
     'Empuja hacia arriba para bajar, como una palanca de vuelo',

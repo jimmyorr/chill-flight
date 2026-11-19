@@ -185,6 +185,9 @@ export default {
   Touch: 'Dotyk',
   Joystick: 'Joystick',
   Gyro: 'Żyroskop',
+  Gentle: 'Łagodnie',
+  Normal: 'Normalnie',
+  Sharp: 'Ostro',
   'Invert y axis': 'Odwróć oś Y',
   'Push up to dive, like a flight stick':
     'Popchnij w górę, aby nurkować, jak wolantem',
