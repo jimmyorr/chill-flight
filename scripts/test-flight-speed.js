@@ -282,6 +282,37 @@ check(
   );
 }
 
+// Loop exits reuse rollExitTurns/stepRollExit scaled by each plane's agility:
+// releasing near inverted commits once by momentum and settles cleanly
+{
+  const LOOP_RATE = 2.2;
+  const LOOP_SWING = 0.35;
+  for (const [name, h] of Object.entries(PLANE_HANDLING)) {
+    if (!h.rollRate) continue;
+    const effRate = LOOP_RATE * h.agility;
+    for (const deg of [45, 165, 175, 220, 310]) {
+      const pitch = (deg * Math.PI) / 180;
+      const s = {
+        roll: pitch,
+        rate: effRate + LOOP_SWING * h.agility * Math.cos(pitch),
+        accel: 0,
+      };
+      const target = rollExitTurns(s.roll, s.rate, 0, effRate);
+      let t = 0;
+      let done = false;
+      while (!done && t < 4) {
+        done = stepRollExit(s, target, effRate, 1 / 60);
+        t += 1 / 60;
+      }
+      check(
+        `${name} loop let go at ${deg}° settles cleanly to ${Math.round((target * 180) / Math.PI)}°`,
+        done && Math.abs(s.roll - target) < 0.03,
+        `(${t.toFixed(2)} s)`
+      );
+    }
+  }
+}
+
 // The phone joystick (joystickResponse) on its 70 px throw: never twitchier
 // than the old 50 px gentle stick for the same thumb travel, the keyboard's
 // full bank at the rim

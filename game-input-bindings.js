@@ -174,10 +174,11 @@ inputManager.onMenuToggle = () => {
   }
 };
 inputManager.onTripleTap = (action) => {
-  // Not mid-loop, and not on the ground (it would launch the plane)
+  // Not mid-loop, not while holding Shift for throttle, and not on the ground
   const downAction = inputManager.shouldInvertYAxis() ? 'ArrowUp' : 'ArrowDown';
   if (
     action === downAction &&
+    !keys.Shift &&
     !state.isDoingImmelmann &&
     !state.isLooping &&
     !state.isOnGround &&
