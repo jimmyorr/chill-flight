@@ -745,6 +745,12 @@ npm run test:build
 Runs the same game checks against a production build written to a temporary directory (never `docs/`).
 
 ```bash
+npm run test:ui
+```
+
+With `npm run dev` running, exercises UI polish and native Capacitor shell integration in headless Chrome: WCAG AA theme contrast in dark and light modes, viewport fit and fixed-height pause tabs across desktop and mobile sizes, portrait bottom-sheet physics and zero-latency press feedback, WAI-ARIA roving tabindex / modal `inert` trapping / focus restoration, `prefers-reduced-motion`, dynamic `StatusBar` sync, the unified LIFO Back stack, compact software-keyboard layout, and native haptics triggers.
+
+```bash
 npm run test:road-landings
 ```
 
