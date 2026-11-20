@@ -5085,3 +5085,222 @@ body.ui-hidden > canvas {
     gap: 10px;
   }
 }
+
+/* ============================================================
+   BOTTOM SHEETS, ZERO-LATENCY PRESS, & REDUCED MOTION
+   ============================================================ */
+
+.sheet-grabber {
+  display: none;
+}
+
+.sheet-dragging {
+  animation: none !important;
+  transition: none !important;
+  will-change: transform;
+}
+
+@keyframes sheet-enter {
+  from {
+    transform: translate3d(0, 100%, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes map-pin-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 24px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Mobile portrait bottom sheets (excludes landscape phones >= 501px wide) */
+@media (max-width: 500px), (max-width: 600px) and (min-height: 501px) {
+  .sheet-grabber {
+    display: block;
+    width: 36px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--border-control);
+    margin: 0 auto 2px;
+    flex-shrink: 0;
+    touch-action: none;
+    cursor: grab;
+  }
+
+  #pause-overlay {
+    justify-content: flex-end;
+    padding: max(16px, env(safe-area-inset-top, 0px)) 0 0;
+  }
+
+  #pause-overlay::after {
+    display: none;
+  }
+
+  #pause-overlay .customization-box {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100% - max(18px, env(safe-area-inset-top, 0px) + 8px));
+    border-radius: 22px 22px 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    padding: 10px 18px max(14px, calc(env(safe-area-inset-bottom, 0px) + 10px));
+    box-shadow:
+      var(--card-shadow),
+      0 96px 0 0 var(--surface-card);
+    animation: sheet-enter 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  #achievements-overlay,
+  #people-overlay,
+  #help-overlay,
+  #language-overlay {
+    justify-content: flex-end;
+    overflow: hidden;
+    padding: max(18px, env(safe-area-inset-top, 0px)) 0 0;
+  }
+
+  :is(#achievements-overlay, #people-overlay, #help-overlay, #language-overlay)
+    .achievements-content {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100% - max(20px, env(safe-area-inset-top, 0px) + 10px));
+    margin: 0;
+    border-radius: 22px 22px 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    padding: 10px 18px max(18px, calc(env(safe-area-inset-bottom, 0px) + 12px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    box-shadow:
+      var(--card-shadow),
+      0 96px 0 0 var(--surface-card);
+    animation: sheet-enter 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  #language-overlay .language-picker-content {
+    overflow: hidden;
+  }
+
+  #fullscreen-map-warp {
+    padding-top: 8px;
+    border-radius: 16px;
+    animation: map-pin-enter 0.24s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  #fullscreen-map-overlay:has(#fullscreen-map-warp:not([hidden]))
+    .fullscreen-map-recenter-btn {
+    bottom: calc(var(--map-bottom) + 230px);
+  }
+}
+
+@media (max-width: 360px) {
+  #pause-overlay .customization-box {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}
+
+/* Zero-latency pointerdown [data-pressed] feedback using standalone CSS scale
+   so centered translateX(-50%), FLIP, and sheet transforms compose cleanly */
+:is(
+  button:not(:disabled),
+  label.pause-row,
+  .language-option,
+  .fly-game,
+  .help-try,
+  .mobile-btn,
+  .sub-btn,
+  .color-swatch
+) {
+  transition-property:
+    background, background-color, border-color, color, opacity, box-shadow,
+    transform, scale;
+  transition-duration: 0.16s;
+  transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+:is(
+  button:not(:disabled),
+  .language-option,
+  .fly-game,
+  .help-try,
+  .mobile-btn,
+  .sub-btn
+)[data-pressed='true'] {
+  scale: 0.97;
+  transition-duration: 0s !important;
+}
+
+.color-swatch[data-pressed='true'] {
+  scale: 0.92;
+  transition-duration: 0s !important;
+}
+
+label.pause-row {
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+label.pause-row[data-pressed='true'] {
+  opacity: 0.82;
+  transition-duration: 0s !important;
+}
+
+/* Strict reduced-motion support across UI animations, sheets, and press states */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+
+  .customization-box,
+  .achievements-content,
+  #fullscreen-map-warp,
+  #chevron-icon,
+  .sub-btn,
+  .pause-switch,
+  .pause-switch::after,
+  .fly-player,
+  .achievement-toast,
+  :is(
+    button,
+    label.pause-row,
+    .language-option,
+    .fly-game,
+    .help-try,
+    .mobile-btn,
+    .sub-btn,
+    .color-swatch
+  ) {
+    transition-duration: 0.01ms !important;
+  }
+
+  :is(
+    button,
+    .language-option,
+    .fly-game,
+    .help-try,
+    .mobile-btn,
+    .sub-btn,
+    .color-swatch
+  ):is(:active, [data-pressed='true']) {
+    scale: 1 !important;
+    opacity: 0.84;
+  }
+
+  .npc-dialog-next {
+    animation: none !important;
+  }
+}

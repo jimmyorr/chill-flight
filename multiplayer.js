@@ -2688,6 +2688,7 @@ function renderPanel() {
   const row = ({name, note, livery, peer, points}) => {
     const el = document.createElement('div');
     el.className = 'fly-player';
+    el.dataset.playerKey = peer ? String(peer.id) : String(room.id);
     const dot = document.createElement('span');
     dot.className = 'fly-player-dot';
     dot.style.background = hexColor(livery);
@@ -2774,7 +2775,41 @@ function renderPanel() {
     }
   }
   if (showPoints) entries.sort((a, b) => b.points - a.points);
+  const canFlip =
+    panelShown() &&
+    typeof window !== 'undefined' &&
+    !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const firstTops = new Map();
+  if (canFlip) {
+    for (const child of playersList.children) {
+      const key = child.dataset?.playerKey;
+      if (key) firstTops.set(key, child.getBoundingClientRect().top);
+    }
+  }
   playersList.replaceChildren(...(raceRows || entries).map(row));
+  if (firstTops.size > 1) {
+    const moved = [];
+    for (const child of playersList.children) {
+      const key = child.dataset?.playerKey;
+      const prevTop = key ? firstTops.get(key) : undefined;
+      if (prevTop === undefined) continue;
+      const dy = prevTop - child.getBoundingClientRect().top;
+      if (Math.abs(dy) >= 2) {
+        child.style.transition = 'none';
+        child.style.transform = `translateY(${dy.toFixed(1)}px)`;
+        moved.push(child);
+      }
+    }
+    if (moved.length) {
+      // Force layout before playing the spring-like FLIP transition
+      void playersList.offsetHeight;
+      for (const child of moved) {
+        child.style.transition =
+          'transform 280ms cubic-bezier(0.32, 0.72, 0, 1)';
+        child.style.transform = '';
+      }
+    }
+  }
 }
 
 // The room list in a race, or after one: everyone in finishing order,

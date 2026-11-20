@@ -583,9 +583,21 @@ if (overlay && renderer) {
   let mutedOnTitle = false;
 
   state.dismissLoadingScreen = (instant = false) => {
+    const reducedMotion = Boolean(
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    );
     if (instant) {
       overlay.style.display = 'none';
       refreshThemeChrome();
+    } else if (reducedMotion) {
+      overlay.style.transition = 'opacity 0.15s ease';
+      overlay.style.opacity = '0';
+      overlay.style.pointerEvents = 'none';
+      refreshThemeChrome();
+      setTimeout(() => {
+        overlay.style.display = 'none';
+        refreshThemeChrome();
+      }, 160);
     } else {
       overlay.style.transition = 'opacity 1.25s ease-in-out';
       overlay.style.opacity = '0';

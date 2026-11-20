@@ -132,6 +132,7 @@ import '../map-loader.js';
 import '../map-tiles.js';
 import '../minimap.js';
 import '../ui-a11y.js';
+import '../sheet-physics.js';
 
 // Startup banner
 const appVersion = window.__APP_VERSION__ || '0.0.0';

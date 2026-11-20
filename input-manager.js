@@ -660,7 +660,7 @@ export class InputManager {
     return !!target.closest?.(
       '#loading-overlay, #cockpit-ui, #hud-vr-btn, #npc-dialog, #debug-menu, .title, ' +
         '#mobile-controls, #pause-overlay, ' +
-        '#achievements-overlay, #people-overlay, #help-overlay, ' +
+        '#achievements-overlay, #people-overlay, #help-overlay, #language-overlay, ' +
         '#fullscreen-map-overlay, #mobile-action-menu, #minimap-container, ' +
         '.mobile-btn, .sub-btn, button, input, select, a'
     );
@@ -754,6 +754,7 @@ export class InputManager {
         target.closest('#achievements-overlay') ||
         target.closest('#people-overlay') ||
         target.closest('#help-overlay') ||
+        target.closest('#language-overlay') ||
         target.closest('#fullscreen-map-overlay') ||
         target.closest('#loading-overlay') ||
         target.closest('#debug-menu') ||
