@@ -2634,7 +2634,7 @@ function syncBotCountButtons(groupEl, count, disabled = false) {
   for (const btn of groupEl.querySelectorAll('[data-bots]')) {
     const active = Number(btn.dataset.bots) === count;
     btn.classList.toggle('active', active);
-    btn.setAttribute('aria-pressed', String(active));
+    btn.setAttribute('aria-checked', String(active));
     btn.disabled = disabled;
   }
 }

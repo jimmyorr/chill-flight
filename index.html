@@ -105,31 +105,46 @@
     <!-- A tap move to try, and where to tap (tap-help.js) -->
     <div id="move-hint" aria-live="polite"></div>
     <div id="move-ripples" aria-hidden="true"></div>
-    <div id="pause-overlay">
+    <div
+      id="pause-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Pause menu"
+    >
       <div class="customization-box">
-        <div class="pause-tabs" role="tablist">
+        <div class="pause-tabs" role="tablist" aria-label="Pause menu">
           <button
+            type="button"
+            id="pause-tab-flight"
             class="pause-tab active"
             data-tab="flight"
             role="tab"
             aria-selected="true"
+            aria-controls="pause-panel-flight"
           >
             Flight
           </button>
           <button
+            type="button"
+            id="pause-tab-settings"
             class="pause-tab"
             data-tab="settings"
             role="tab"
             aria-selected="false"
+            aria-controls="pause-panel-settings"
+            tabindex="-1"
           >
             Settings
           </button>
           <button
+            type="button"
             id="fly-tab"
             class="pause-tab"
             data-tab="together"
             role="tab"
             aria-selected="false"
+            aria-controls="pause-panel-together"
+            tabindex="-1"
             hidden
           >
             Together<span id="fly-tab-dot" class="fly-tab-dot" hidden></span>
@@ -139,19 +154,68 @@
         <!-- The panels share one grid cell, so the box is as tall as the
              tallest one and switching tabs doesn't change its height. -->
         <div class="pause-panels">
-          <div class="pause-panel active" data-panel="flight" role="tabpanel">
+          <div
+            id="pause-panel-flight"
+            class="pause-panel active"
+            data-panel="flight"
+            role="tabpanel"
+            aria-labelledby="pause-tab-flight"
+          >
             <div class="customization-row">
-              <span class="customization-label">Vehicle</span>
-              <div class="scheme-btn-group" id="plane-select-group">
-                <button class="scheme-btn active" data-plane="biplane">
+              <span id="vehicle-label" class="customization-label"
+                >Vehicle</span
+              >
+              <div
+                class="scheme-btn-group"
+                id="plane-select-group"
+                role="radiogroup"
+                aria-labelledby="vehicle-label"
+              >
+                <button
+                  type="button"
+                  class="scheme-btn active"
+                  data-plane="biplane"
+                  role="radio"
+                  aria-checked="true"
+                >
                   Biplane
                 </button>
-                <button class="scheme-btn" data-plane="seaplane">
+                <button
+                  type="button"
+                  class="scheme-btn"
+                  data-plane="seaplane"
+                  role="radio"
+                  aria-checked="false"
+                >
                   Seaplane
                 </button>
-                <button class="scheme-btn" data-plane="twin">Twin</button>
-                <button class="scheme-btn" data-plane="jet">Jet</button>
-                <button class="scheme-btn" data-plane="buggy">Buggy</button>
+                <button
+                  type="button"
+                  class="scheme-btn"
+                  data-plane="twin"
+                  role="radio"
+                  aria-checked="false"
+                >
+                  Twin
+                </button>
+                <button
+                  type="button"
+                  class="scheme-btn"
+                  data-plane="jet"
+                  role="radio"
+                  aria-checked="false"
+                >
+                  Jet
+                </button>
+                <button
+                  type="button"
+                  class="scheme-btn"
+                  data-plane="buggy"
+                  role="radio"
+                  aria-checked="false"
+                >
+                  Buggy
+                </button>
               </div>
               <!-- The chosen plane's handling (filled in by airplane.js) -->
               <div id="plane-stats" class="plane-stats">
@@ -162,7 +226,12 @@
               </div>
             </div>
             <!-- NES Hardware Palette Colors -->
-            <div id="plane-color-options" class="color-picker-container">
+            <div
+              id="plane-color-options"
+              class="color-picker-container"
+              role="radiogroup"
+              aria-label="Livery"
+            >
               <!-- Swatches are generated dynamically in game.js from ChillFlightLogic.PLANE_COLORS -->
             </div>
             <label class="pause-row" for="music-toggle-input">
@@ -180,6 +249,7 @@
                 type="checkbox"
                 id="music-toggle-input"
                 class="pause-switch"
+                role="switch"
               />
             </label>
             <label class="pause-row" for="sfx-toggle-input">
@@ -191,6 +261,7 @@
                 type="checkbox"
                 id="sfx-toggle-input"
                 class="pause-switch"
+                role="switch"
               />
             </label>
             <label class="pause-row" for="zen-toggle-input">
@@ -202,11 +273,18 @@
                 type="checkbox"
                 id="zen-toggle-input"
                 class="pause-switch"
+                role="switch"
               />
             </label>
           </div>
 
-          <div class="pause-panel" data-panel="settings" role="tabpanel">
+          <div
+            id="pause-panel-settings"
+            class="pause-panel"
+            data-panel="settings"
+            role="tabpanel"
+            aria-labelledby="pause-tab-settings"
+          >
             <div class="customization-row" id="appearance-setting-row">
               <span class="pause-row-text">
                 <span class="pause-row-title">Appearance</span>
@@ -249,53 +327,115 @@
                 </button>
               </div>
             </div>
-            <div class="pause-row">
+            <div class="customization-row" id="graphics-setting-row">
               <span class="pause-row-text">
                 <span class="pause-row-title">Graphics</span>
                 <span class="pause-row-sub">Picked for your device</span>
               </span>
-              <select id="graphics-preset-select" class="customization-input">
-                <option value="low">Low</option>
-                <option value="mid" selected>Mid</option>
-                <option value="high">High</option>
-                <option value="ultra">Ultra</option>
-              </select>
+              <div
+                class="scheme-btn-group"
+                id="graphics-preset-group"
+                role="radiogroup"
+                aria-label="Graphics"
+              >
+                <button
+                  type="button"
+                  class="scheme-btn"
+                  data-preset="low"
+                  role="radio"
+                  aria-checked="false"
+                >
+                  Low
+                </button>
+                <button
+                  type="button"
+                  class="scheme-btn active"
+                  data-preset="mid"
+                  role="radio"
+                  aria-checked="true"
+                >
+                  Mid
+                </button>
+                <button
+                  type="button"
+                  class="scheme-btn"
+                  data-preset="high"
+                  role="radio"
+                  aria-checked="false"
+                >
+                  High
+                </button>
+                <button
+                  type="button"
+                  class="scheme-btn"
+                  data-preset="ultra"
+                  role="radio"
+                  aria-checked="false"
+                >
+                  Ultra
+                </button>
+              </div>
             </div>
-            <div class="pause-row">
+            <div class="customization-row" id="art-style-setting-row">
               <span class="pause-row-text">
                 <span class="pause-row-title">Art style</span>
                 <span class="pause-row-sub">Restarts the game</span>
               </span>
               <!-- art-style.js -->
-              <select id="art-style-select" class="customization-input">
-                <option value="classic" selected>Low poly</option>
-                <option value="anime">Anime</option>
-              </select>
+              <div
+                class="scheme-btn-group"
+                id="art-style-group"
+                role="radiogroup"
+                aria-label="Art style"
+                data-manual-activate="true"
+              >
+                <button
+                  type="button"
+                  class="scheme-btn active"
+                  data-art-style="classic"
+                  role="radio"
+                  aria-checked="true"
+                >
+                  Low poly
+                </button>
+                <button
+                  type="button"
+                  class="scheme-btn"
+                  data-art-style="anime"
+                  role="radio"
+                  aria-checked="false"
+                >
+                  Anime
+                </button>
+              </div>
             </div>
-            <div class="pause-row">
+            <div class="pause-row" id="language-setting-row">
               <span class="pause-row-text">
-                <span class="pause-row-title">Language</span>
+                <span id="language-row-label" class="pause-row-title"
+                  >Language</span
+                >
                 <span class="pause-row-sub">Restarts the game</span>
               </span>
               <!-- i18n.js -->
-              <select id="language-select" class="customization-input">
-                <option value="auto" data-no-translate>Auto</option>
-                <option value="en" data-no-translate>English</option>
-                <option value="en-US" data-no-translate>English (US)</option>
-                <option value="id" data-no-translate>Bahasa Indonesia</option>
-                <option value="de" data-no-translate>Deutsch</option>
-                <option value="es" data-no-translate>Español</option>
-                <option value="fr" data-no-translate>Français</option>
-                <option value="it" data-no-translate>Italiano</option>
-                <option value="pl" data-no-translate>Polski</option>
-                <option value="pt-BR" data-no-translate>Português</option>
-                <option value="tr" data-no-translate>Türkçe</option>
-                <option value="uk" data-no-translate>Українська</option>
-                <option value="ja" data-no-translate>日本語</option>
-                <option value="ko" data-no-translate>한국어</option>
-                <option value="zh-CN" data-no-translate>简体中文</option>
-                <option value="zh-TW" data-no-translate>繁體中文</option>
-              </select>
+              <button
+                type="button"
+                id="language-picker-btn"
+                class="pause-picker-btn"
+                aria-haspopup="dialog"
+                aria-controls="language-overlay"
+                aria-labelledby="language-row-label language-picker-value"
+              >
+                <span id="language-picker-value" class="pause-picker-value"
+                  >Auto</span
+                >
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  class="pause-picker-chevron"
+                >
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+              </button>
             </div>
             <div class="pause-row" style="display: none">
               <span class="pause-row-text">
@@ -313,29 +453,74 @@
                 <span class="pause-row-title">Controls</span>
                 <span class="pause-row-sub">How you steer on touch</span>
               </span>
-              <div class="scheme-btn-group">
-                <button class="scheme-btn" data-scheme="touch">Touch</button>
-                <button class="scheme-btn active" data-scheme="joystick">
+              <div
+                class="scheme-btn-group"
+                id="control-scheme-group"
+                role="radiogroup"
+                aria-label="Controls"
+              >
+                <button
+                  type="button"
+                  class="scheme-btn"
+                  data-scheme="touch"
+                  role="radio"
+                  aria-checked="false"
+                >
+                  Touch
+                </button>
+                <button
+                  type="button"
+                  class="scheme-btn active"
+                  data-scheme="joystick"
+                  role="radio"
+                  aria-checked="true"
+                >
                   Joystick
                 </button>
                 <button
+                  type="button"
                   class="scheme-btn"
                   data-scheme="gyro"
                   id="gyro-scheme-btn"
+                  role="radio"
+                  aria-checked="false"
                   style="display: none"
                 >
                   Gyro
                 </button>
               </div>
               <!-- How hard touch steering turns (game-gyro.js) -->
-              <div class="scheme-btn-group" id="stick-sensitivity-group">
-                <button class="scheme-btn" data-sensitivity="gentle">
+              <div
+                class="scheme-btn-group"
+                id="stick-sensitivity-group"
+                role="radiogroup"
+                aria-label="Steering sensitivity"
+              >
+                <button
+                  type="button"
+                  class="scheme-btn"
+                  data-sensitivity="gentle"
+                  role="radio"
+                  aria-checked="false"
+                >
                   Gentle
                 </button>
-                <button class="scheme-btn active" data-sensitivity="normal">
+                <button
+                  type="button"
+                  class="scheme-btn active"
+                  data-sensitivity="normal"
+                  role="radio"
+                  aria-checked="true"
+                >
                   Normal
                 </button>
-                <button class="scheme-btn" data-sensitivity="sharp">
+                <button
+                  type="button"
+                  class="scheme-btn"
+                  data-sensitivity="sharp"
+                  role="radio"
+                  aria-checked="false"
+                >
                   Sharp
                 </button>
               </div>
@@ -347,7 +532,12 @@
                   >Push up to dive, like a flight stick</span
                 >
               </span>
-              <input type="checkbox" id="invert-y-input" class="pause-switch" />
+              <input
+                type="checkbox"
+                id="invert-y-input"
+                class="pause-switch"
+                role="switch"
+              />
             </label>
             <label
               class="pause-row"
@@ -363,6 +553,7 @@
                 type="checkbox"
                 id="disable-mouse-input"
                 class="pause-switch"
+                role="switch"
               />
             </label>
             <label
@@ -377,7 +568,12 @@
                   >Feel landings, gear, stalls and thunder</span
                 >
               </span>
-              <input type="checkbox" id="haptics-input" class="pause-switch" />
+              <input
+                type="checkbox"
+                id="haptics-input"
+                class="pause-switch"
+                role="switch"
+              />
             </label>
             <!-- Tap-move hints in the sky (tap-help.js) -->
             <label class="pause-row" for="hints-off-input">
@@ -389,13 +585,20 @@
                 type="checkbox"
                 id="hints-off-input"
                 class="pause-switch"
+                role="switch"
               />
             </label>
           </div>
 
           <!-- Flying with friends: invite, join with a code, who's here
                (multiplayer.js) -->
-          <div class="pause-panel" data-panel="together" role="tabpanel">
+          <div
+            id="pause-panel-together"
+            class="pause-panel"
+            data-panel="together"
+            role="tabpanel"
+            aria-labelledby="fly-tab"
+          >
             <div id="fly-solo" class="fly-section">
               <label class="fly-field">
                 <span>Your name</span>
@@ -418,19 +621,33 @@
                   <div
                     id="fly-solo-bot-count"
                     class="scheme-btn-group fly-bot-count"
-                    role="group"
+                    role="radiogroup"
                     aria-label="Bots"
                   >
-                    <button type="button" class="scheme-btn" data-bots="1">
+                    <button
+                      type="button"
+                      class="scheme-btn"
+                      data-bots="1"
+                      role="radio"
+                      aria-checked="false"
+                    >
                       1
                     </button>
-                    <button type="button" class="scheme-btn" data-bots="2">
+                    <button
+                      type="button"
+                      class="scheme-btn"
+                      data-bots="2"
+                      role="radio"
+                      aria-checked="false"
+                    >
                       2
                     </button>
                     <button
                       type="button"
                       class="scheme-btn active"
                       data-bots="3"
+                      role="radio"
+                      aria-checked="true"
                     >
                       3
                     </button>
@@ -491,16 +708,34 @@
                 <div
                   id="fly-room-bot-count"
                   class="scheme-btn-group fly-bot-count"
-                  role="group"
+                  role="radiogroup"
                   aria-label="Bots"
                 >
-                  <button type="button" class="scheme-btn" data-bots="1">
+                  <button
+                    type="button"
+                    class="scheme-btn"
+                    data-bots="1"
+                    role="radio"
+                    aria-checked="false"
+                  >
                     1
                   </button>
-                  <button type="button" class="scheme-btn" data-bots="2">
+                  <button
+                    type="button"
+                    class="scheme-btn"
+                    data-bots="2"
+                    role="radio"
+                    aria-checked="false"
+                  >
                     2
                   </button>
-                  <button type="button" class="scheme-btn active" data-bots="3">
+                  <button
+                    type="button"
+                    class="scheme-btn active"
+                    data-bots="3"
+                    role="radio"
+                    aria-checked="true"
+                  >
                     3
                   </button>
                 </div>
@@ -515,6 +750,7 @@
                   type="checkbox"
                   id="fly-bots-input"
                   class="pause-switch"
+                  role="switch"
                 />
               </label>
               <div id="fly-games" class="fly-games" hidden>
@@ -538,7 +774,12 @@
                 </button>
               </div>
             </div>
-            <div id="fly-status" class="fly-status"></div>
+            <div
+              id="fly-status"
+              class="fly-status"
+              role="status"
+              aria-live="polite"
+            ></div>
           </div>
         </div>
 
@@ -615,6 +856,7 @@
           Music by
           <a
             href="#"
+            draggable="false"
             onclick="
               window.openExternalLink('https://purrplecat.com');
               return false;
@@ -629,6 +871,7 @@
             <a
               id="pause-app-store-link"
               href="#"
+              draggable="false"
               onclick="
                 window.openExternalLink(
                   'https://apps.apple.com/us/app/chill-flight/id6779847377'
@@ -642,11 +885,24 @@
       </div>
     </div>
 
-    <div id="achievements-overlay">
+    <div
+      id="achievements-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="achievements-dialog-title"
+    >
       <div class="achievements-content">
         <div class="achievements-header">
-          <span class="achievements-title">Achievements</span>
-          <button id="achievements-close-btn" class="achievements-close-btn">
+          <span id="achievements-dialog-title" class="achievements-title"
+            >Achievements</span
+          >
+          <button
+            type="button"
+            id="achievements-close-btn"
+            class="achievements-close-btn"
+            title="Close"
+            aria-label="Close"
+          >
             ✕
           </button>
         </div>
@@ -660,11 +916,24 @@
     </div>
 
     <!-- Who you've met and the jobs you've done for them (people-screen.js) -->
-    <div id="people-overlay">
+    <div
+      id="people-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="people-dialog-title"
+    >
       <div class="achievements-content">
         <div class="achievements-header">
-          <span class="achievements-title">People</span>
-          <button id="people-close-btn" class="achievements-close-btn">
+          <span id="people-dialog-title" class="achievements-title"
+            >People</span
+          >
+          <button
+            type="button"
+            id="people-close-btn"
+            class="achievements-close-btn"
+            title="Close"
+            aria-label="Close"
+          >
             ✕
           </button>
         </div>
@@ -674,26 +943,282 @@
     </div>
 
     <!-- How to do the tap moves, for the plane and the buggy (tap-help.js) -->
-    <div id="help-overlay">
+    <div
+      id="help-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="help-dialog-title"
+    >
       <div class="achievements-content">
         <div class="achievements-header">
-          <span class="achievements-title">Help</span>
-          <button id="help-close-btn" class="achievements-close-btn">✕</button>
+          <span id="help-dialog-title" class="achievements-title">Help</span>
+          <button
+            type="button"
+            id="help-close-btn"
+            class="achievements-close-btn"
+            title="Close"
+            aria-label="Close"
+          >
+            ✕
+          </button>
         </div>
-        <div id="help-vehicle" class="scheme-btn-group help-vehicle">
-          <button class="scheme-btn" data-vehicle="plane">Plane</button>
-          <button class="scheme-btn" data-vehicle="buggy">Buggy</button>
+        <div
+          id="help-vehicle"
+          class="scheme-btn-group help-vehicle"
+          role="tablist"
+          aria-label="Vehicle"
+        >
+          <button
+            type="button"
+            class="scheme-btn active"
+            data-vehicle="plane"
+            role="tab"
+            aria-selected="true"
+          >
+            Plane
+          </button>
+          <button
+            type="button"
+            class="scheme-btn"
+            data-vehicle="buggy"
+            role="tab"
+            aria-selected="false"
+            tabindex="-1"
+          >
+            Buggy
+          </button>
         </div>
         <div id="help-zones" class="help-zones"></div>
         <div id="help-moves" class="help-moves"></div>
       </div>
     </div>
 
-    <div id="fullscreen-map-overlay" style="display: none">
-      <canvas id="fullscreen-map-canvas"></canvas>
+    <!-- Native-feel Language picker sheet/dialog (i18n.js) -->
+    <div
+      id="language-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="language-dialog-title"
+    >
+      <div class="achievements-content language-picker-content">
+        <div class="achievements-header">
+          <span id="language-dialog-title" class="achievements-title"
+            >Language</span
+          >
+          <button
+            type="button"
+            id="language-close-btn"
+            class="achievements-close-btn"
+            title="Close"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+        <div
+          id="language-list"
+          class="language-list"
+          role="radiogroup"
+          aria-labelledby="language-dialog-title"
+          data-manual-activate="true"
+        >
+          <button
+            type="button"
+            class="language-option active"
+            data-lang="auto"
+            role="radio"
+            aria-checked="true"
+          >
+            <span class="language-option-label">Auto</span>
+            <span class="language-option-check" aria-hidden="true">✓</span>
+          </button>
+          <button
+            type="button"
+            class="language-option"
+            data-lang="en"
+            role="radio"
+            aria-checked="false"
+            data-no-translate
+          >
+            <span class="language-option-label">English</span>
+            <span class="language-option-check" aria-hidden="true">✓</span>
+          </button>
+          <button
+            type="button"
+            class="language-option"
+            data-lang="en-US"
+            role="radio"
+            aria-checked="false"
+            data-no-translate
+          >
+            <span class="language-option-label">English (US)</span>
+            <span class="language-option-check" aria-hidden="true">✓</span>
+          </button>
+          <button
+            type="button"
+            class="language-option"
+            data-lang="id"
+            role="radio"
+            aria-checked="false"
+            data-no-translate
+          >
+            <span class="language-option-label">Bahasa Indonesia</span>
+            <span class="language-option-check" aria-hidden="true">✓</span>
+          </button>
+          <button
+            type="button"
+            class="language-option"
+            data-lang="de"
+            role="radio"
+            aria-checked="false"
+            data-no-translate
+          >
+            <span class="language-option-label">Deutsch</span>
+            <span class="language-option-check" aria-hidden="true">✓</span>
+          </button>
+          <button
+            type="button"
+            class="language-option"
+            data-lang="es"
+            role="radio"
+            aria-checked="false"
+            data-no-translate
+          >
+            <span class="language-option-label">Español</span>
+            <span class="language-option-check" aria-hidden="true">✓</span>
+          </button>
+          <button
+            type="button"
+            class="language-option"
+            data-lang="fr"
+            role="radio"
+            aria-checked="false"
+            data-no-translate
+          >
+            <span class="language-option-label">Français</span>
+            <span class="language-option-check" aria-hidden="true">✓</span>
+          </button>
+          <button
+            type="button"
+            class="language-option"
+            data-lang="it"
+            role="radio"
+            aria-checked="false"
+            data-no-translate
+          >
+            <span class="language-option-label">Italiano</span>
+            <span class="language-option-check" aria-hidden="true">✓</span>
+          </button>
+          <button
+            type="button"
+            class="language-option"
+            data-lang="pl"
+            role="radio"
+            aria-checked="false"
+            data-no-translate
+          >
+            <span class="language-option-label">Polski</span>
+            <span class="language-option-check" aria-hidden="true">✓</span>
+          </button>
+          <button
+            type="button"
+            class="language-option"
+            data-lang="pt-BR"
+            role="radio"
+            aria-checked="false"
+            data-no-translate
+          >
+            <span class="language-option-label">Português</span>
+            <span class="language-option-check" aria-hidden="true">✓</span>
+          </button>
+          <button
+            type="button"
+            class="language-option"
+            data-lang="tr"
+            role="radio"
+            aria-checked="false"
+            data-no-translate
+          >
+            <span class="language-option-label">Türkçe</span>
+            <span class="language-option-check" aria-hidden="true">✓</span>
+          </button>
+          <button
+            type="button"
+            class="language-option"
+            data-lang="uk"
+            role="radio"
+            aria-checked="false"
+            data-no-translate
+          >
+            <span class="language-option-label">Українська</span>
+            <span class="language-option-check" aria-hidden="true">✓</span>
+          </button>
+          <button
+            type="button"
+            class="language-option"
+            data-lang="ja"
+            role="radio"
+            aria-checked="false"
+            data-no-translate
+          >
+            <span class="language-option-label">日本語</span>
+            <span class="language-option-check" aria-hidden="true">✓</span>
+          </button>
+          <button
+            type="button"
+            class="language-option"
+            data-lang="ko"
+            role="radio"
+            aria-checked="false"
+            data-no-translate
+          >
+            <span class="language-option-label">한국어</span>
+            <span class="language-option-check" aria-hidden="true">✓</span>
+          </button>
+          <button
+            type="button"
+            class="language-option"
+            data-lang="zh-CN"
+            role="radio"
+            aria-checked="false"
+            data-no-translate
+          >
+            <span class="language-option-label">简体中文</span>
+            <span class="language-option-check" aria-hidden="true">✓</span>
+          </button>
+          <button
+            type="button"
+            class="language-option"
+            data-lang="zh-TW"
+            role="radio"
+            aria-checked="false"
+            data-no-translate
+          >
+            <span class="language-option-label">繁體中文</span>
+            <span class="language-option-check" aria-hidden="true">✓</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="fullscreen-map-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="fullscreen-map-title"
+      style="display: none"
+    >
+      <canvas
+        id="fullscreen-map-canvas"
+        tabindex="0"
+        role="application"
+        aria-label="World map"
+      ></canvas>
       <div class="fullscreen-map-header">
         <div class="fullscreen-map-info">
-          <span class="fullscreen-map-title">Map</span>
+          <span id="fullscreen-map-title" class="fullscreen-map-title"
+            >Map</span
+          >
           <span id="fullscreen-map-coords" class="fullscreen-map-coords"
             >0.0° N, 0.0° E</span
           >
@@ -923,6 +1448,7 @@
               <a
                 id="splash-about-link"
                 href="https://chillflight.app/about"
+                draggable="false"
                 onclick="
                   window.openExternalLink(this.href);
                   return false;
@@ -996,6 +1522,7 @@
           Music by
           <a
             href="#"
+            draggable="false"
             onclick="
               window.openExternalLink('https://purrplecat.com');
               return false;
@@ -1013,7 +1540,11 @@
       <canvas id="npc-portrait" width="32" height="32"></canvas>
       <div class="npc-dialog-body">
         <div id="npc-dialog-name" class="npc-dialog-name"></div>
-        <div id="npc-dialog-text" class="npc-dialog-text"></div>
+        <div
+          id="npc-dialog-text"
+          class="npc-dialog-text"
+          aria-live="polite"
+        ></div>
         <div id="npc-dialog-choices" class="npc-dialog-choices" hidden>
           <button data-choice="yes">Sure thing</button>
           <button data-choice="no">Not right now</button>
@@ -1120,21 +1651,23 @@
     <!-- mobile flight controls -->
     <div id="mobile-controls">
       <div id="mobile-action-menu" class="menu-container">
-        <div class="menu-items" id="mobile-sub-menu">
+        <div class="menu-items" id="mobile-sub-menu" inert>
           <button
+            type="button"
             class="sub-btn"
             id="mobile-wave-btn"
             title="Waggle wings"
-            tabindex="-1"
+            aria-label="Waggle wings"
             hidden
           >
             👋
           </button>
           <button
+            type="button"
             class="sub-btn"
             id="mobile-recalibrate-btn"
             title="Recalibrate Center"
-            tabindex="-1"
+            aria-label="Recalibrate Center"
             style="
               display: none;
               font-size: 11px;
@@ -1147,12 +1680,14 @@
             GYRO<br />RESET
           </button>
           <button
+            type="button"
             class="sub-btn"
             id="mobile-pause-trigger"
             title="Settings"
-            tabindex="-1"
+            aria-label="Settings"
           >
             <svg
+              aria-hidden="true"
               viewBox="0 0 24 24"
               style="
                 width: 24px;
@@ -1169,12 +1704,14 @@
             </svg>
           </button>
           <button
+            type="button"
             class="sub-btn"
             id="mobile-cam-toggle"
             title="Camera"
-            tabindex="-1"
+            aria-label="Camera"
           >
             <svg
+              aria-hidden="true"
               viewBox="0 0 24 24"
               style="
                 width: 24px;
@@ -1191,12 +1728,15 @@
             </svg>
           </button>
           <button
+            type="button"
             class="sub-btn"
             id="mobile-hdgt-sub"
             title="Lights"
-            tabindex="-1"
+            aria-label="Lights"
+            aria-pressed="false"
           >
             <svg
+              aria-hidden="true"
               viewBox="0 0 24 24"
               style="
                 width: 24px;
@@ -1214,12 +1754,15 @@
             </svg>
           </button>
           <button
+            type="button"
             class="sub-btn"
             id="mobile-smoke-toggle"
             title="Smoke"
-            tabindex="-1"
+            aria-label="Smoke"
+            aria-pressed="false"
           >
             <svg
+              aria-hidden="true"
               viewBox="0 0 24 24"
               style="
                 width: 24px;
@@ -1236,12 +1779,15 @@
             </svg>
           </button>
           <button
+            type="button"
             class="sub-btn"
             id="mobile-auto-toggle"
             title="Autopilot"
-            tabindex="-1"
+            aria-label="Autopilot"
+            aria-pressed="false"
           >
             <svg
+              aria-hidden="true"
               viewBox="0 0 24 24"
               style="
                 width: 24px;
@@ -1254,8 +1800,15 @@
               <path d="M22 12L3 20l3.5-8L3 4l19 8zL6.5 12"></path>
             </svg>
           </button>
-          <button class="sub-btn" id="mobile-map-btn" title="Map" tabindex="-1">
+          <button
+            type="button"
+            class="sub-btn"
+            id="mobile-map-btn"
+            title="Map"
+            aria-label="Map"
+          >
             <svg
+              aria-hidden="true"
               viewBox="0 0 24 24"
               style="
                 width: 24px;
@@ -1276,12 +1829,16 @@
           </button>
         </div>
         <button
+          type="button"
           class="mobile-btn"
           id="mobile-menu-trigger"
           title="Action menu"
-          tabindex="-1"
+          aria-label="Action menu"
+          aria-expanded="false"
+          aria-controls="mobile-sub-menu"
         >
           <svg
+            aria-hidden="true"
             id="chevron-icon"
             viewBox="0 0 24 24"
             style="
@@ -1305,7 +1862,7 @@
           aria-valuemax="500"
           aria-valuenow="150"
           title="Throttle: drag to set speed"
-          tabindex="-1"
+          tabindex="0"
         >
           <div class="throttle-stall"></div>
           <div class="throttle-fill"></div>

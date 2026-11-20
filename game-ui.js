@@ -63,6 +63,7 @@ import {refreshThemeChrome} from './ui-theme.js';
 
 /* --- MOBILE ACTION MENU --- */
 const menuContainer = document.getElementById('mobile-action-menu');
+const subMenu = document.getElementById('mobile-sub-menu');
 const menuTrigger = document.getElementById('mobile-menu-trigger');
 const pauseTrigger = document.getElementById('mobile-pause-trigger');
 const camToggle = document.getElementById('mobile-cam-toggle');
@@ -70,6 +71,13 @@ const mapBtn = document.getElementById('mobile-map-btn');
 const pauseMapBtn = document.getElementById('pause-map-btn');
 
 const autoToggle = document.getElementById('mobile-auto-toggle');
+
+function setQuickMenuExpanded(expanded) {
+  if (!menuContainer) return;
+  menuContainer.classList.toggle('expanded', expanded);
+  menuTrigger?.setAttribute('aria-expanded', String(expanded));
+  if (subMenu) subMenu.inert = !expanded;
+}
 
 export function toggleAutopilot(forceState) {
   const want =
@@ -86,11 +94,8 @@ export function toggleAutopilot(forceState) {
 
   const autoToggle = document.getElementById('mobile-auto-toggle');
   if (autoToggle) {
-    if (state.autopilotEnabled) {
-      autoToggle.classList.add('active');
-    } else {
-      autoToggle.classList.remove('active');
-    }
+    autoToggle.classList.toggle('active', state.autopilotEnabled);
+    autoToggle.setAttribute('aria-pressed', String(state.autopilotEnabled));
   }
 
   if (state.autopilotEnabled) {
@@ -140,14 +145,22 @@ if (menuTrigger && menuContainer) {
     // The map's close button sits over this one: don't let the click its tap
     // sends after closing the map open the menu
     if (isPauseClickSuppressed()) return;
-    menuContainer.classList.toggle('expanded');
+    setQuickMenuExpanded(!menuContainer.classList.contains('expanded'));
   });
   document.addEventListener('pointerdown', (e) => {
     if (
       menuContainer.classList.contains('expanded') &&
       !menuContainer.contains(e.target)
     ) {
-      menuContainer.classList.remove('expanded');
+      setQuickMenuExpanded(false);
+    }
+  });
+  menuContainer.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && menuContainer.classList.contains('expanded')) {
+      e.preventDefault();
+      e.stopPropagation();
+      setQuickMenuExpanded(false);
+      menuTrigger.focus();
     }
   });
 }
@@ -156,8 +169,8 @@ if (pauseTrigger) {
   pauseTrigger.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
+    setQuickMenuExpanded(false);
     togglePause();
-    menuContainer.classList.remove('expanded');
   });
 }
 
@@ -165,7 +178,7 @@ if (mapBtn) {
   mapBtn.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
-    menuContainer.classList.remove('expanded');
+    setQuickMenuExpanded(false);
     hooks.fullscreenMap?.open();
   });
 }
@@ -194,12 +207,14 @@ if (hdgtSub) {
       headlight.intensity = HEADLIGHT_INTENSITY;
       headlightGlow.intensity = HEADLIGHT_GLOW_INTENSITY;
       hdgtSub.classList.add('active');
+      hdgtSub.setAttribute('aria-pressed', 'true');
 
       Achievements.unlock('night_vision');
     } else {
       headlight.intensity = 0;
       headlightGlow.intensity = 0;
       hdgtSub.classList.remove('active');
+      hdgtSub.setAttribute('aria-pressed', 'false');
     }
   });
 }
@@ -208,7 +223,9 @@ if (hdgtSub) {
 const smokeToggle = document.getElementById('mobile-smoke-toggle');
 function syncSmokeUI() {
   if (!smokeToggle) return;
-  smokeToggle.classList.toggle('active', isSmokeOn());
+  const on = isSmokeOn();
+  smokeToggle.classList.toggle('active', on);
+  smokeToggle.setAttribute('aria-pressed', String(on));
   smokeToggle.disabled = !!state.mpForceSmoke;
 }
 function toggleSmokeTrail() {
@@ -247,7 +264,7 @@ export function resetSteering() {
 
 document
   .querySelectorAll(
-    '.mobile-btn, #throttle, .sub-btn, #debug-menu, #cockpit-ui, #npc-dialog, #mobile-action-menu, #pause-overlay, #achievements-overlay, #people-overlay, #help-overlay, #fullscreen-map-overlay, #minimap-container, button, input, select, a'
+    '.mobile-btn, #throttle, .sub-btn, #debug-menu, #cockpit-ui, #npc-dialog, #mobile-action-menu, #pause-overlay, #achievements-overlay, #people-overlay, #help-overlay, #language-overlay, #fullscreen-map-overlay, #minimap-container, button, input, select, a'
   )
   .forEach((btn) => {
     btn.addEventListener('mouseenter', resetSteering);
@@ -263,7 +280,7 @@ document
 document.addEventListener('mouseover', (e) => {
   if (
     e.target.closest(
-      '.mobile-btn, #throttle, .sub-btn, #debug-menu, #cockpit-ui, #npc-dialog, #mobile-action-menu, #pause-overlay, #achievements-overlay, #people-overlay, #help-overlay, #fullscreen-map-overlay, #minimap-container, button, input, select, a'
+      '.mobile-btn, #throttle, .sub-btn, #debug-menu, #cockpit-ui, #npc-dialog, #mobile-action-menu, #pause-overlay, #achievements-overlay, #people-overlay, #help-overlay, #language-overlay, #fullscreen-map-overlay, #minimap-container, button, input, select, a'
     )
   ) {
     resetSteering();
@@ -282,8 +299,8 @@ const throttleBoost = throttleEl?.querySelector('.throttle-boost');
 function setThrottleFromPointer(e) {
   const rect = throttleEl.getBoundingClientRect();
   const style = getComputedStyle(throttleEl);
-  const knobW = parseFloat(style.getPropertyValue('--knob-w')) || 68;
-  const pad = parseFloat(style.getPropertyValue('--pad')) || 6;
+  const knobW = parseFloat(style.getPropertyValue('--knob-w')) || 66;
+  const pad = parseFloat(style.getPropertyValue('--pad')) || 5;
   const span = rect.width - knobW - 2 * pad;
   if (span <= 0) return;
   const frac = Math.min(
@@ -307,6 +324,29 @@ if (throttleEl) {
     if (!throttleEl.hasPointerCapture(e.pointerId)) return;
     e.stopPropagation();
     setThrottleFromPointer(e);
+  });
+  throttleEl.addEventListener('keydown', (e) => {
+    const max = getMaxFlightSpeedMult();
+    let next = null;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+      next = Math.min(max, state.targetFlightSpeed + max * 0.05);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+      next = Math.max(0, state.targetFlightSpeed - max * 0.05);
+    } else if (e.key === 'PageUp') {
+      next = Math.min(max, state.targetFlightSpeed + max * 0.2);
+    } else if (e.key === 'PageDown') {
+      next = Math.max(0, state.targetFlightSpeed - max * 0.2);
+    } else if (e.key === 'Home') {
+      next = 0;
+    } else if (e.key === 'End') {
+      next = max;
+    }
+    if (next !== null) {
+      e.preventDefault();
+      e.stopPropagation();
+      state.targetFlightSpeed = next < 0.03 ? 0 : next;
+      updateThrottle(performance.now());
+    }
   });
   // Keep touches on the throttle from steering the plane
   throttleEl.addEventListener('touchstart', (e) => e.stopPropagation(), {
@@ -410,10 +450,12 @@ export function updateThrottle(now) {
     '--stall',
     (stallKts / (max * ktsPerMult)).toFixed(4)
   );
+  const unit = speedUnit(activePlaneType);
   throttleEl.setAttribute('aria-valuemax', maxShownSpeed);
   throttleEl.setAttribute('aria-valuenow', shownSpeed);
+  throttleEl.setAttribute('aria-valuetext', `${shownSpeed} ${unit}`);
   updateDOM(throttleKts, shownSpeed);
-  updateDOM(throttleUnit, speedUnit(activePlaneType));
+  updateDOM(throttleUnit, unit);
   const zone = !stalls
     ? ''
     : kts < stallKts - 5
@@ -509,14 +551,16 @@ if (timeSlider) {
   });
 }
 
-// --- PAUSE MENU TABS (Flight / Settings) ---
+// --- PAUSE MENU TABS (Flight / Settings / Together) ---
 const pauseTabs = document.querySelectorAll('.pause-tab');
 const pausePanels = document.querySelectorAll('.pause-panel');
 pauseTabs.forEach((tab) => {
   tab.addEventListener('click', () => {
     pauseTabs.forEach((t) => {
-      t.classList.toggle('active', t === tab);
-      t.setAttribute('aria-selected', String(t === tab));
+      const active = t === tab;
+      t.classList.toggle('active', active);
+      t.setAttribute('aria-selected', String(active));
+      t.tabIndex = active ? 0 : -1;
     });
     pausePanels.forEach((panel) =>
       panel.classList.toggle('active', panel.dataset.panel === tab.dataset.tab)

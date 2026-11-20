@@ -233,15 +233,27 @@ export function syncChunkBorders() {
   });
 }
 
+export function syncGraphicsPresetUI(preset) {
+  const group = document.getElementById('graphics-preset-group');
+  if (!group) return;
+  for (const btn of group.querySelectorAll('[data-preset]')) {
+    const active = btn.dataset.preset === preset;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-checked', String(active));
+  }
+}
+
 export function initDebugUI() {
-  const graphicsPresetSelect = document.getElementById(
-    'graphics-preset-select'
-  );
-  if (graphicsPresetSelect) {
-    graphicsPresetSelect.addEventListener('change', (e) => {
+  const graphicsPresetGroup = document.getElementById('graphics-preset-group');
+  if (graphicsPresetGroup) {
+    graphicsPresetGroup.addEventListener('click', (e) => {
+      const btn = e.target.closest?.('[data-preset]');
+      if (!btn) return;
+      const preset = btn.dataset.preset;
       localStorage.setItem('chill_flight_graphics_preset_manual', '1');
-      applyGraphicsPreset(e.target.value);
-      updateUrlParams({preset: e.target.value}, ['graphics']);
+      syncGraphicsPresetUI(preset);
+      applyGraphicsPreset(preset);
+      updateUrlParams({preset}, ['graphics']);
     });
   }
 
@@ -691,9 +703,9 @@ export function initDebugUI() {
       params.set('palette', currentPaletteSeed);
     }
 
-    const activePreset = graphicsPresetSelect
-      ? graphicsPresetSelect.value
-      : localStorage.getItem('chill_flight_graphics_preset');
+    const activePreset =
+      graphicsPresetGroup?.querySelector('[data-preset].active')?.dataset
+        .preset || localStorage.getItem('chill_flight_graphics_preset');
     params.delete('graphics');
     if (activePreset) {
       params.set('preset', activePreset);

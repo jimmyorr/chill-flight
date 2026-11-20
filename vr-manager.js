@@ -1918,6 +1918,7 @@ if (renderer && renderer.xr) {
         'achievements-overlay',
         'people-overlay',
         'help-overlay',
+        'language-overlay',
       ]) {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';

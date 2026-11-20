@@ -329,6 +329,8 @@ export const Achievements = (function () {
     if (toastContainer) return toastContainer;
     toastContainer = document.createElement('div');
     toastContainer.id = 'achievement-toast-container';
+    toastContainer.setAttribute('role', 'status');
+    toastContainer.setAttribute('aria-live', 'polite');
     document.body.appendChild(toastContainer);
     return toastContainer;
   }

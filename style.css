@@ -241,11 +241,31 @@ textarea {
   outline: none;
 }
 
+:is(a, button, [role='slider'], #fullscreen-map-canvas):focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: 2px;
+}
+
+.color-swatch:focus-visible {
+  outline: 2px solid var(--accent-fg);
+  outline-offset: 3px;
+}
+
+:is(.pause-tab, .scheme-btn, .language-option):focus-visible {
+  outline-offset: -2px;
+}
+
+#fullscreen-map-canvas:focus-visible {
+  outline-offset: -4px;
+}
+
 /* Prevent text selection and default tap highlights on interactive elements */
 .btn,
 .mobile-btn,
 .sub-btn,
 .color-swatch,
+.pause-picker-btn,
+.language-option,
 .customization-input {
   -webkit-user-select: none;
   -ms-user-select: none;
@@ -303,13 +323,14 @@ textarea {
   -webkit-backdrop-filter: blur(8px);
 }
 
-/* Under Help, achievements or people: the menu steps aside, so the screen
-   on top dims the view itself rather than a blurred dark menu (dark on
+/* Under Help, achievements, people, or language: the menu steps aside, so the
+   screen on top dims the view itself rather than a blurred dark menu (dark on
    dark) */
 body:has(
     #achievements-overlay[style*='flex'],
     #people-overlay[style*='flex'],
-    #help-overlay[style*='flex']
+    #help-overlay[style*='flex'],
+    #language-overlay[style*='flex']
   )
   #pause-overlay {
   background: none;
@@ -319,7 +340,8 @@ body:has(
 body:has(
     #achievements-overlay[style*='flex'],
     #people-overlay[style*='flex'],
-    #help-overlay[style*='flex']
+    #help-overlay[style*='flex'],
+    #language-overlay[style*='flex']
   )
   #pause-overlay
   > * {
@@ -329,7 +351,8 @@ body:has(
 body:has(
     #achievements-overlay[style*='flex'],
     #people-overlay[style*='flex'],
-    #help-overlay[style*='flex']
+    #help-overlay[style*='flex'],
+    #language-overlay[style*='flex']
   )
   #pause-overlay::after {
   display: none;
@@ -644,6 +667,59 @@ label.pause-row {
   padding-left: 10px;
   padding-right: 26px;
   background-position: right 8px center;
+}
+
+.pause-picker-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  flex: none;
+  min-width: 96px;
+  max-width: 156px;
+  height: 36px;
+  padding: 0 10px 0 12px;
+  border-radius: 8px;
+  background: var(--surface-input);
+  border: 1px solid var(--border-control);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.14s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pause-picker-btn:hover {
+    background: var(--surface-elevated-hover);
+    border-color: var(--border-strong);
+  }
+}
+
+.pause-picker-btn:active {
+  transform: scale(0.97);
+}
+
+.pause-picker-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pause-picker-chevron {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  fill: none;
+  stroke: var(--text-muted);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* On/off switch (a styled checkbox) */
@@ -2460,7 +2536,8 @@ input[type='number'].customization-input {
 
 #achievements-overlay,
 #people-overlay,
-#help-overlay {
+#help-overlay,
+#language-overlay {
   position: fixed;
   inset: 0;
   background: var(--overlay-scrim-strong);
@@ -2495,6 +2572,92 @@ input[type='number'].customization-input {
   align-items: center;
   gap: 20px;
   margin: auto;
+}
+
+.language-picker-content {
+  max-width: 360px;
+  max-height: calc(
+    100% - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)
+  );
+  padding: 18px 16px;
+  gap: 12px;
+}
+
+.language-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  max-height: min(420px, 64vh);
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+.language-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.language-list::-webkit-scrollbar-thumb {
+  background: var(--border-control);
+  border-radius: 2px;
+}
+
+.language-option {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 14px;
+  box-sizing: border-box;
+  border-radius: 9px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  flex-shrink: 0;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.14s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .language-option:hover {
+    background: var(--surface-elevated-hover);
+  }
+}
+
+.language-option:active {
+  transform: scale(0.98);
+}
+
+.language-option.active {
+  background: var(--accent-soft-bg);
+  border-color: var(--accent-soft-border);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+
+.language-option-check {
+  opacity: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--accent-fg);
+  flex: none;
+}
+
+.language-option.active .language-option-check {
+  opacity: 1;
 }
 
 .achievements-header {

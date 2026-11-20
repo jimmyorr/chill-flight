@@ -374,18 +374,25 @@ export class InputManager {
     // 2. Escape toggles pause (or closes the achievements, people or map overlay if open)
     if (e.key === 'Escape') {
       for (const id of [
+        'language-overlay',
         'achievements-overlay',
         'people-overlay',
         'help-overlay',
       ]) {
         const overlay = document.getElementById(id);
         if (overlay?.style.display === 'flex' && this.state.isPaused) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
           overlay.style.display = 'none';
           return;
         }
       }
       if (hooks.fullscreenMap && hooks.fullscreenMap.isOpen()) {
-        hooks.fullscreenMap.close();
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (!hooks.fullscreenMap.clearPin?.()) {
+          hooks.fullscreenMap.close();
+        }
         return;
       }
       if (this.onPauseToggle) {

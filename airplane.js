@@ -495,10 +495,9 @@ export function setActivePlane(planeType, skipStorage = false) {
   const planeSelectGroup = document.getElementById('plane-select-group');
   if (planeSelectGroup) {
     planeSelectGroup.querySelectorAll('.scheme-btn').forEach((btn) => {
-      btn.classList.toggle(
-        'active',
-        btn.getAttribute('data-plane') === planeType
-      );
+      const active = btn.getAttribute('data-plane') === planeType;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-checked', String(active));
     });
   }
   updatePlaneStats();

@@ -186,20 +186,57 @@ if (typeof document !== 'undefined') {
   document.documentElement.lang = LANG;
   translateDom(document.body);
 
-  // Settings' language select. Text is set as the game loads, so a change
-  // saves the choice and reloads (dropping ?lang=, which would override it).
-  const select = document.getElementById('language-select');
-  if (select) {
-    select.value = savedChoice();
-    select.addEventListener('change', () => {
-      try {
-        localStorage.setItem(STORAGE_KEY, select.value);
-      } catch {
-        // Without storage the browser's language stays
+  // Settings' language picker sheet/dialog. Text is set as the game loads, so
+  // choosing a different language saves it and reloads (dropping ?lang=, which
+  // would override it).
+  const pickerBtn = document.getElementById('language-picker-btn');
+  const pickerValue = document.getElementById('language-picker-value');
+  const langOverlay = document.getElementById('language-overlay');
+  const langCloseBtn = document.getElementById('language-close-btn');
+  const langList = document.getElementById('language-list');
+  const currentChoice = savedChoice();
+
+  if (langList) {
+    for (const opt of langList.querySelectorAll('.language-option')) {
+      const active = opt.dataset.lang === currentChoice;
+      opt.classList.toggle('active', active);
+      opt.setAttribute('aria-checked', String(active));
+      if (active && pickerValue) {
+        const labelEl = opt.querySelector('.language-option-label');
+        if (labelEl) pickerValue.textContent = labelEl.textContent.trim();
       }
-      const url = new URL(window.location.href);
-      url.searchParams.delete('lang');
-      window.location.assign(url.toString());
-    });
+    }
   }
+
+  const closeLangOverlay = () => {
+    if (langOverlay) langOverlay.style.display = 'none';
+  };
+
+  pickerBtn?.addEventListener('click', () => {
+    if (!langOverlay) return;
+    langOverlay.style.display = 'flex';
+    const activeOpt = langList?.querySelector('.language-option.active');
+    activeOpt?.scrollIntoView({block: 'nearest'});
+  });
+  langCloseBtn?.addEventListener('click', closeLangOverlay);
+  langOverlay?.addEventListener('click', (e) => {
+    if (e.target === langOverlay) closeLangOverlay();
+  });
+  langList?.addEventListener('click', (e) => {
+    const opt = e.target.closest?.('.language-option');
+    if (!opt) return;
+    const chosen = opt.dataset.lang || 'auto';
+    if (chosen === currentChoice) {
+      closeLangOverlay();
+      return;
+    }
+    try {
+      localStorage.setItem(STORAGE_KEY, chosen);
+    } catch {
+      // Without storage the browser's language stays
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.delete('lang');
+    window.location.assign(url.toString());
+  });
 }

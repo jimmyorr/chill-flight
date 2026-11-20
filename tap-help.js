@@ -533,7 +533,10 @@ function renderList(vehicle = helpVehicle) {
 
 function render() {
   for (const btn of vehicleGroup?.querySelectorAll('[data-vehicle]') || []) {
-    btn.classList.toggle('active', btn.dataset.vehicle === helpVehicle);
+    const active = btn.dataset.vehicle === helpVehicle;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', String(active));
+    btn.tabIndex = active ? 0 : -1;
   }
   renderZones();
   // The list keeps the height of the longest one (the plane's), so the

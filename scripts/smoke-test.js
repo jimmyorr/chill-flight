@@ -321,7 +321,7 @@ async function checkPage(
     await page.keyboard.press('Escape');
     await new Promise((r) => setTimeout(r, 300));
     await page.click('.pause-tab[data-tab="settings"]');
-    await page.select('#graphics-preset-select', 'mid');
+    await page.click('#graphics-preset-group [data-preset="mid"]');
     await new Promise((r) => setTimeout(r, 500));
     await page.click('#resume-btn');
     await new Promise((r) => setTimeout(r, 2500));

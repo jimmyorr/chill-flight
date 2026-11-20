@@ -29,27 +29,34 @@ function loadStyle() {
 
 export const ART_STYLE = loadStyle();
 
-// Settings' art style select. The style is applied as the game loads, so a
-// change saves the choice and reloads (dropping ?style=, which would
-// override it).
-const select =
+// Settings' art style segmented control. The style is applied as the game
+// loads, so choosing the other look saves it and reloads (dropping ?style=,
+// which would override it).
+const artStyleGroup =
   typeof document !== 'undefined'
-    ? document.getElementById('art-style-select')
+    ? document.getElementById('art-style-group')
     : null;
-if (select) {
-  select.value = ART_STYLE;
-  select.addEventListener('change', () => {
+if (artStyleGroup) {
+  for (const btn of artStyleGroup.querySelectorAll('[data-art-style]')) {
+    const active = btn.dataset.artStyle === ART_STYLE;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-checked', String(active));
+  }
+  artStyleGroup.addEventListener('click', (e) => {
+    const btn = e.target.closest?.('[data-art-style]');
+    if (!btn) return;
+    const chosen = known(btn.dataset.artStyle);
+    if (chosen === ART_STYLE) return;
     let saved = true;
     try {
-      localStorage.setItem(STORAGE_KEY, select.value);
+      localStorage.setItem(STORAGE_KEY, chosen);
     } catch {
       saved = false;
     }
     const url = new URL(window.location.href);
     url.searchParams.delete('style');
     // Without storage, carry the choice in the URL instead
-    if (!saved && select.value !== 'classic')
-      url.searchParams.set('style', select.value);
+    if (!saved && chosen !== 'classic') url.searchParams.set('style', chosen);
     window.location.assign(url.toString());
   });
 }

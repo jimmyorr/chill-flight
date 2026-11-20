@@ -25,7 +25,11 @@ import {
   currentCinematicIndex,
   inputManager,
 } from './game-input-bindings.js';
-import {applyGraphicsPreset, initDebugUI} from './debug-ui.js';
+import {
+  applyGraphicsPreset,
+  initDebugUI,
+  syncGraphicsPresetUI,
+} from './debug-ui.js';
 import {trackVehicleSelect} from './analytics.js';
 import {state} from './state.js';
 import {updateUrlParams} from './constants.js';
@@ -238,10 +242,9 @@ const planeSelectGroupInit = document.getElementById('plane-select-group');
 if (planeSelectGroupInit) {
   const currentPlane = activePlaneType || 'biplane';
   planeSelectGroupInit.querySelectorAll('.scheme-btn').forEach((btn) => {
-    btn.classList.toggle(
-      'active',
-      btn.getAttribute('data-plane') === currentPlane
-    );
+    const active = btn.getAttribute('data-plane') === currentPlane;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-checked', String(active));
   });
 
   planeSelectGroupInit.addEventListener('click', (e) => {
@@ -255,13 +258,41 @@ if (planeSelectGroupInit) {
   });
 }
 
+function liveryColorLabel(index) {
+  switch (index) {
+    case 0:
+      return t('Coral');
+    case 1:
+      return t('Teal');
+    case 2:
+      return t('Sage');
+    case 3:
+      return t('Purple');
+    case 4:
+      return t('Slate');
+    case 5:
+      return t('Sand');
+    case 6:
+      return t('Rose');
+    default:
+      return t('Black');
+  }
+}
+
 const colorOptionsInit = document.getElementById('plane-color-options');
 if (colorOptionsInit && typeof state.planeColor !== 'undefined') {
   colorOptionsInit.innerHTML = ''; // Clear fallback or existing content
-  ChillFlightLogic.PLANE_COLORS.forEach((color) => {
-    const sw = document.createElement('div');
-    sw.className =
-      'color-swatch' + (color === state.planeColor ? ' active' : '');
+  ChillFlightLogic.PLANE_COLORS.forEach((color, idx) => {
+    const sw = document.createElement('button');
+    sw.type = 'button';
+    const active = color === state.planeColor;
+    sw.className = 'color-swatch' + (active ? ' active' : '');
+    sw.setAttribute('role', 'radio');
+    sw.setAttribute('aria-checked', String(active));
+    const label = liveryColorLabel(idx);
+    sw.setAttribute('aria-label', label);
+    sw.setAttribute('title', label);
+    sw.tabIndex = active ? 0 : -1;
     sw.setAttribute('data-color', color);
     if (color === 0xe8c382) sw.setAttribute('data-light-swatch', '1');
     // Ensure hex string is always 6 characters with leading zeros
@@ -281,10 +312,11 @@ if (colorOptionsInit && typeof state.planeColor !== 'undefined') {
         );
       }
       colorOptionsInit.querySelectorAll('.color-swatch').forEach((sw) => {
-        sw.classList.toggle(
-          'active',
-          parseInt(sw.getAttribute('data-color')) === state.planeColor
-        );
+        const active =
+          parseInt(sw.getAttribute('data-color')) === state.planeColor;
+        sw.classList.toggle('active', active);
+        sw.setAttribute('aria-checked', String(active));
+        sw.tabIndex = active ? 0 : -1;
       });
     }
   });
@@ -404,19 +436,16 @@ export var initialPreset = urlPreset || savedPreset;
 if (typeof window !== 'undefined') window.initialPreset = initialPreset;
 
 if (initialPreset) {
-  const presetSelect = document.getElementById('graphics-preset-select');
-  if (presetSelect) presetSelect.value = initialPreset;
+  syncGraphicsPresetUI(initialPreset);
   applyGraphicsPreset(initialPreset);
 } else if (detectGraphicsPreset) {
   detectGraphicsPreset().then((detected) => {
-    const presetSelect = document.getElementById('graphics-preset-select');
-    if (presetSelect) presetSelect.value = detected;
+    syncGraphicsPresetUI(detected);
     applyGraphicsPreset(detected);
   });
 } else {
   const defaultPreset = 'mid';
-  const presetSelect = document.getElementById('graphics-preset-select');
-  if (presetSelect) presetSelect.value = defaultPreset;
+  syncGraphicsPresetUI(defaultPreset);
   applyGraphicsPreset(defaultPreset);
 }
 

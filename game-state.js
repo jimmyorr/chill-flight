@@ -62,8 +62,13 @@ export function togglePause() {
     if (hooks.closeVRPauseMenu) {
       hooks.closeVRPauseMenu();
     }
-    // Also close the achievements or help overlay if it was open
-    for (const id of ['achievements-overlay', 'help-overlay']) {
+    // Also close any sub-overlay if it was open
+    for (const id of [
+      'achievements-overlay',
+      'people-overlay',
+      'help-overlay',
+      'language-overlay',
+    ]) {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
     }

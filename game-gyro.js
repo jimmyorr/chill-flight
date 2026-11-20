@@ -4,6 +4,7 @@ import {controlSchemeToggle, gyroSchemeBtn, gyroSensitivity} from './game.js';
 import {inputManager} from './game-input-bindings.js';
 import {state} from './state.js';
 import {t} from './i18n.js';
+import {Achievements} from './achievements.js';
 
 function checkGyroSupport() {
   // VR headset 2D browser windows steer with a spatial laser ray ('touch'
@@ -47,10 +48,9 @@ if (controlSchemeToggle) {
     '.scheme-btn[data-scheme]'
   );
   schemeBtns.forEach((btn) => {
-    btn.classList.toggle(
-      'active',
-      btn.dataset.scheme === state.currentControlScheme
-    );
+    const active = btn.dataset.scheme === state.currentControlScheme;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-checked', String(active));
   });
 
   schemeBtns.forEach((btn) => {
@@ -69,7 +69,11 @@ if (controlSchemeToggle) {
           const permissionState =
             await DeviceOrientationEvent.requestPermission();
           if (permissionState !== 'granted') {
-            alert(t('Gyro permission denied.'));
+            Achievements.toast({
+              emoji: '🧭',
+              label: t('Gyro'),
+              title: t('Gyro permission denied.'),
+            });
             return; // Don't switch to gyro
           }
         } catch (err) {
@@ -89,7 +93,9 @@ if (controlSchemeToggle) {
 
       // Update button active states
       schemeBtns.forEach((b) => {
-        b.classList.toggle('active', b.dataset.scheme === scheme);
+        const active = b.dataset.scheme === scheme;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-checked', String(active));
       });
 
       const recalibrateBtn = document.getElementById('mobile-recalibrate-btn');
@@ -123,10 +129,9 @@ const sensitivityBtns = document.querySelectorAll(
 );
 const showSensitivity = () => {
   sensitivityBtns.forEach((b) => {
-    b.classList.toggle(
-      'active',
-      b.dataset.sensitivity === state.stickSensitivity
-    );
+    const active = b.dataset.sensitivity === state.stickSensitivity;
+    b.classList.toggle('active', active);
+    b.setAttribute('aria-checked', String(active));
   });
 };
 showSensitivity();

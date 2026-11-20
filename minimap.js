@@ -254,13 +254,25 @@ import {IMPERIAL, joinList, t} from './i18n.js';
     }
 
     if (fsVisible) {
-      if (e.key === 'Escape' || (e.key === 'm' && !e.shiftKey)) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (warpPin) {
+          setWarpPin(null);
+          fsCanvas?.focus();
+        } else {
+          closeFullscreenMap();
+        }
+        return;
+      }
+      if (e.key === 'm' && !e.shiftKey) {
         e.preventDefault();
         e.stopPropagation();
         closeFullscreenMap();
         return;
       }
       if (e.key === '+' || e.key === '=') {
+        e.preventDefault();
         fsViewRadius = Math.max(FS_MIN_RADIUS, fsViewRadius / 1.25);
         updateCoordsDisplay();
         renderFullscreenMap();
@@ -268,10 +280,50 @@ import {IMPERIAL, joinList, t} from './i18n.js';
         return;
       }
       if (e.key === '-' || e.key === '_') {
+        e.preventDefault();
         fsViewRadius = Math.min(FS_MAX_RADIUS, fsViewRadius * 1.25);
         updateCoordsDisplay();
         renderFullscreenMap();
         updateFsMapUrlParams(true);
+        return;
+      }
+      if (
+        e.key === 'ArrowLeft' ||
+        e.key === 'ArrowRight' ||
+        e.key === 'ArrowUp' ||
+        e.key === 'ArrowDown'
+      ) {
+        e.preventDefault();
+        const step = fsViewRadius * 0.2;
+        if (e.key === 'ArrowLeft') fsViewCenterX -= step;
+        else if (e.key === 'ArrowRight') fsViewCenterX += step;
+        else if (e.key === 'ArrowUp') fsViewCenterZ -= step;
+        else if (e.key === 'ArrowDown') fsViewCenterZ += step;
+        updateCoordsDisplay();
+        renderFullscreenMap();
+        updateFsMapUrlParams(true);
+        return;
+      }
+      if (active === fsCanvas && (e.key === 'Enter' || e.key === ' ')) {
+        e.preventDefault();
+        const {width: vpW, height: vpH} = getViewportSize();
+        const unitsPerPixel = (fsViewRadius * 2) / Math.min(vpW, vpH);
+        const place = nearestLandmark(
+          fsViewCenterX,
+          fsViewCenterZ,
+          SNAP_MOUSE * unitsPerPixel
+        );
+        setWarpPin(
+          place
+            ? {x: place.x, z: place.z, name: place.name}
+            : {x: fsViewCenterX, z: fsViewCenterZ}
+        );
+        const warpBtn = document.getElementById('fullscreen-map-warp-btn');
+        const waypointBtn = document.getElementById(
+          'fullscreen-map-waypoint-btn'
+        );
+        const nextFocus = warpBtn && !warpBtn.hidden ? warpBtn : waypointBtn;
+        nextFocus?.focus();
         return;
       }
     }
@@ -1809,6 +1861,17 @@ import {IMPERIAL, joinList, t} from './i18n.js';
     },
     isOpen: function () {
       return fsVisible;
+    },
+    hasPin: function () {
+      return Boolean(warpPin);
+    },
+    clearPin: function () {
+      if (!warpPin) return false;
+      const warpCard = document.getElementById('fullscreen-map-warp');
+      const restoreToCanvas = warpCard?.contains(document.activeElement);
+      setWarpPin(null);
+      if (restoreToCanvas) fsCanvas?.focus();
+      return true;
     },
     syncUrlParams: function () {
       updateFsMapUrlParams(true);
