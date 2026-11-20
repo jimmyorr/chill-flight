@@ -59,6 +59,7 @@ import {performanceMonitor} from './game-performance.js';
 import {resetAutopilot} from './autopilot.js';
 import {isSmokeOn, toggleSmoke} from './particles.js';
 import {t} from './i18n.js';
+import {refreshThemeChrome} from './ui-theme.js';
 
 /* --- MOBILE ACTION MENU --- */
 const menuContainer = document.getElementById('mobile-action-menu');
@@ -100,11 +101,10 @@ export function toggleAutopilot(forceState) {
   if (flightStatusEl) {
     if (state.autopilotEnabled) {
       flightStatusEl.textContent = t('Autopilot');
-      flightStatusEl.style.color = '#e74c3c';
     } else {
       flightStatusEl.textContent = 'Chill-Flight';
-      flightStatusEl.style.color = ''; // Reset to default CSS color
     }
+    flightStatusEl.style.color = '';
     // Phones on their side show the line only for AUTOPILOT (style.css)
     flightStatusEl.parentElement?.classList.toggle(
       'autopilot',
@@ -141,6 +141,14 @@ if (menuTrigger && menuContainer) {
     // sends after closing the map open the menu
     if (isPauseClickSuppressed()) return;
     menuContainer.classList.toggle('expanded');
+  });
+  document.addEventListener('pointerdown', (e) => {
+    if (
+      menuContainer.classList.contains('expanded') &&
+      !menuContainer.contains(e.target)
+    ) {
+      menuContainer.classList.remove('expanded');
+    }
   });
 }
 
@@ -326,33 +334,42 @@ function wakeThrottle(now) {
   throttleActiveAt = now;
   if (throttleIdle) {
     throttleIdle = false;
-    throttleEl.classList.remove('idle');
+    throttleEl?.classList.remove('idle');
+    menuTrigger?.classList.remove('idle');
   }
 }
 
-if (throttleEl) {
-  throttleEl.addEventListener('pointerdown', () =>
-    wakeThrottle(performance.now())
-  );
+for (const el of [throttleEl, menuContainer]) {
+  if (!el) continue;
+  for (const evt of ['pointerdown', 'mouseenter', 'focusin']) {
+    el.addEventListener(evt, () => wakeThrottle(performance.now()));
+  }
 }
 
 export function updateThrottle(now) {
   if (!throttleEl) return;
   const max = getMaxFlightSpeedMult();
   const target = state.targetFlightSpeed;
+  const menuExpanded = menuContainer?.classList.contains('expanded');
+  if (menuExpanded && throttleIdle) {
+    wakeThrottle(now);
+  }
   if (
     target === lastThrottleTarget &&
     max === lastThrottleMax &&
     activePlaneType === lastThrottlePlane
   ) {
-    // Never while it's at zero: stopped, it's how to get going again
+    // Never while stopped, in slow/stall warning, or with the quick menu open
     if (
       !throttleIdle &&
       target > 0 &&
+      lastThrottleZone === '' &&
+      !menuExpanded &&
       now - throttleActiveAt > THROTTLE_IDLE_MS
     ) {
       throttleIdle = true;
       throttleEl.classList.add('idle');
+      menuTrigger?.classList.add('idle');
     }
     return;
   }
@@ -524,11 +541,16 @@ if (overlay && renderer) {
   state.dismissLoadingScreen = (instant = false) => {
     if (instant) {
       overlay.style.display = 'none';
+      refreshThemeChrome();
     } else {
       overlay.style.transition = 'opacity 1.25s ease-in-out';
       overlay.style.opacity = '0';
       overlay.style.pointerEvents = 'none';
-      setTimeout(() => (overlay.style.display = 'none'), 1250);
+      refreshThemeChrome();
+      setTimeout(() => {
+        overlay.style.display = 'none';
+        refreshThemeChrome();
+      }, 1250);
 
       // Trigger cinematic camera transition
       if (!state.isFreeCamera) {

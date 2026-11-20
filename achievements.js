@@ -4,12 +4,6 @@
 import {log} from './logger.js';
 import {IMPERIAL, t} from './i18n.js';
 import {trackAchievement} from './analytics.js';
-import {
-  howTo,
-  invertForMoves,
-  isTouch,
-  moveForAchievement,
-} from './tap-moves.js';
 
 export const Achievements = (function () {
   // --- ACHIEVEMENT REGISTRY ---
@@ -38,7 +32,7 @@ export const Achievements = (function () {
       id: 'beam_me_up',
       title: 'Beam me up',
       emoji: '🌀',
-      hint: 'Warp somewhere from the map',
+      hint: 'Warp from the map',
     },
     {
       id: 'otto',
@@ -56,7 +50,7 @@ export const Achievements = (function () {
       id: 'smoke_show',
       title: 'Smoke show',
       emoji: '💨',
-      hint: 'Turn on the airshow smoke',
+      hint: 'Turn on airshow smoke',
     },
     // 2. Flying: the moves, roughly in the order they are learned
     {
@@ -87,7 +81,7 @@ export const Achievements = (function () {
       id: 'u_turn',
       title: 'U-turn',
       emoji: '↩️',
-      hint: 'Perform an Immelmann turn',
+      hint: 'Fly an Immelmann turn',
     },
     {
       id: 'free_falling',
@@ -105,13 +99,13 @@ export const Achievements = (function () {
       id: 'close_shave',
       title: 'Close shave',
       emoji: '✨',
-      hint: 'Scrape a wingtip along a cliff and fly on',
+      hint: 'Skim a cliff and fly on',
     },
     {
       id: 'mach_1',
       title: 'Mach 1',
       emoji: '🚀',
-      hint: 'Reach a speed of 661 KTS',
+      hint: 'Reach 661 KTS',
     },
     // 3. Places: the landmarks, then the alien lands
     {
@@ -142,13 +136,13 @@ export const Achievements = (function () {
       id: 'xen',
       title: 'Xen',
       emoji: '👽',
-      hint: 'Reach alien lands to the East',
+      hint: 'Reach the alien East',
     },
     {
       id: 'westworld',
       title: 'Westworld',
       emoji: '🤠',
-      hint: 'Reach alien lands to the West',
+      hint: 'Reach the alien West',
     },
     // 4. Out and about: birds, penguins, trees, other planes
     {
@@ -161,7 +155,7 @@ export const Achievements = (function () {
       id: 'penguin_parade',
       title: 'Happy feet',
       emoji: '🐧',
-      hint: 'Send the penguins diving off their floe',
+      hint: 'Send penguins diving',
     },
     {
       id: 'timber',
@@ -173,7 +167,7 @@ export const Achievements = (function () {
       id: 'wingman',
       title: 'Wingman',
       emoji: '🛩️',
-      hint: 'Fly alongside another plane',
+      hint: 'Fly alongside a plane',
     },
     // 5. Buggy
     {
@@ -192,14 +186,14 @@ export const Achievements = (function () {
       id: 'walk_on_water',
       title: 'Amphibious',
       emoji: '🛥️',
-      hint: 'Drive the buggy out over water',
+      hint: 'Drive out over water',
     },
     // 6. People and games
     {
       id: 'odd_jobs',
       title: 'Odd jobs',
       emoji: '📦',
-      hint: 'Finish a job for someone',
+      hint: 'Finish a job',
     },
     {
       id: 'everybody_knows',
@@ -211,13 +205,13 @@ export const Achievements = (function () {
       id: 'squadron',
       title: 'Squadron',
       emoji: '🤝',
-      hint: 'Fly together, with friends or bots',
+      hint: 'Fly with friends or bots',
     },
     {
       id: 'tag_youre_it',
       title: 'It',
       emoji: '🏷️',
-      hint: 'Tag someone in a game of tag',
+      hint: 'Tag another player',
     },
     {
       id: 'checkered_flag',
@@ -434,18 +428,6 @@ export const Achievements = (function () {
         hintEl.className = 'achievement-card-hint';
         hintEl.textContent = t(achievement.hint);
         card.appendChild(hintEl);
-      } else {
-        // A move not done yet says how to do it (tap-moves.js)
-        const move = moveForAchievement(achievement.id);
-        if (move) {
-          const howEl = document.createElement('div');
-          howEl.className = 'achievement-card-how';
-          howEl.textContent = howTo(move, {
-            touch: isTouch(),
-            invert: invertForMoves(),
-          });
-          card.appendChild(howEl);
-        }
       }
 
       grid.appendChild(card);

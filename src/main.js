@@ -17,6 +17,7 @@ import '../lightning-logic.js';
 import '../art-style.js';
 import '../state.js';
 import '../hooks.js';
+import '../ui-theme.js';
 import '../constants.js';
 import '../noise.js';
 import '../landmarks.js';

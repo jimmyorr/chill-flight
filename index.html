@@ -12,7 +12,7 @@
       name="apple-mobile-web-app-status-bar-style"
       content="black-translucent"
     />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#0b0f19" />
     <title>Chill Flight</title>
     <link rel="canonical" href="https://chillflight.app/" />
     <!-- Link previews (Open Graph, Twitter/X cards). The image is made by
@@ -35,6 +35,28 @@
     <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
     <link rel="manifest" href="manifest.json" />
     <link rel="apple-touch-icon" href="icon-192.png" />
+    <script>
+      (() => {
+        let pref = new URLSearchParams(location.search)
+          .get('uiTheme')
+          ?.toLowerCase();
+        if (pref !== 'light' && pref !== 'dark' && pref !== 'auto') {
+          try {
+            pref = localStorage.getItem('chill_flight_ui_theme') || 'auto';
+          } catch {
+            pref = 'auto';
+          }
+        }
+        const resolved =
+          pref === 'light' || pref === 'dark'
+            ? pref
+            : matchMedia?.('(prefers-color-scheme: light)').matches
+              ? 'light'
+              : 'dark';
+        document.documentElement.dataset.theme = resolved;
+        document.documentElement.style.colorScheme = resolved;
+      })();
+    </script>
     <link rel="stylesheet" href="style.css" />
     <!-- Vite Entry Point (Bundles Three.js and Sentry) -->
     <script type="module" src="/src/main.js"></script>
@@ -185,6 +207,48 @@
           </div>
 
           <div class="pause-panel" data-panel="settings" role="tabpanel">
+            <div class="customization-row" id="appearance-setting-row">
+              <span class="pause-row-text">
+                <span class="pause-row-title">Appearance</span>
+                <span class="pause-row-sub"
+                  >Matches your device or stays set</span
+                >
+              </span>
+              <div
+                class="scheme-btn-group"
+                id="appearance-group"
+                role="radiogroup"
+                aria-label="Appearance"
+              >
+                <button
+                  type="button"
+                  class="scheme-btn active"
+                  data-appearance="auto"
+                  role="radio"
+                  aria-checked="true"
+                >
+                  Auto
+                </button>
+                <button
+                  type="button"
+                  class="scheme-btn"
+                  data-appearance="dark"
+                  role="radio"
+                  aria-checked="false"
+                >
+                  Dark
+                </button>
+                <button
+                  type="button"
+                  class="scheme-btn"
+                  data-appearance="light"
+                  role="radio"
+                  aria-checked="false"
+                >
+                  Light
+                </button>
+              </div>
+            </div>
             <div class="pause-row">
               <span class="pause-row-text">
                 <span class="pause-row-title">Graphics</span>
@@ -499,7 +563,23 @@
               title="Help"
               aria-label="Help"
             >
-              ❔
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                style="
+                  width: 18px;
+                  height: 18px;
+                  fill: none;
+                  stroke: currentColor;
+                  stroke-width: 2.2;
+                  stroke-linecap: round;
+                  stroke-linejoin: round;
+                "
+              >
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
             </button>
             <button
               id="achievements-btn"
@@ -655,39 +735,43 @@
         >
       </div>
       <div id="fullscreen-map-warp" class="fullscreen-map-warp" hidden>
-        <div class="fullscreen-map-warp-place">
-          <span
-            id="fullscreen-map-warp-name"
-            class="fullscreen-map-warp-name"
-            hidden
-          ></span>
-          <span
-            id="fullscreen-map-warp-coords"
-            class="fullscreen-map-warp-coords"
-          ></span>
-          <span
-            id="fullscreen-map-warp-people"
-            class="fullscreen-map-warp-people"
-            hidden
-          ></span>
+        <div class="fullscreen-map-warp-head">
+          <div class="fullscreen-map-warp-place">
+            <span
+              id="fullscreen-map-warp-name"
+              class="fullscreen-map-warp-name"
+              hidden
+            ></span>
+            <span
+              id="fullscreen-map-warp-coords"
+              class="fullscreen-map-warp-coords"
+            ></span>
+            <span
+              id="fullscreen-map-warp-people"
+              class="fullscreen-map-warp-people"
+              hidden
+            ></span>
+          </div>
+          <button
+            id="fullscreen-map-warp-cancel"
+            class="fullscreen-map-warp-cancel"
+            title="Clear the pin"
+            aria-label="Clear the pin"
+          >
+            ✕
+          </button>
         </div>
-        <button
-          id="fullscreen-map-waypoint-btn"
-          class="fullscreen-map-warp-btn secondary"
-        >
-          Set waypoint
-        </button>
-        <button id="fullscreen-map-warp-btn" class="fullscreen-map-warp-btn">
-          Warp here
-        </button>
-        <button
-          id="fullscreen-map-warp-cancel"
-          class="fullscreen-map-warp-cancel"
-          title="Clear the pin"
-          aria-label="Clear the pin"
-        >
-          ✕
-        </button>
+        <div class="fullscreen-map-warp-actions">
+          <button
+            id="fullscreen-map-waypoint-btn"
+            class="fullscreen-map-warp-btn secondary"
+          >
+            Set waypoint
+          </button>
+          <button id="fullscreen-map-warp-btn" class="fullscreen-map-warp-btn">
+            Warp here
+          </button>
+        </div>
       </div>
     </div>
 
@@ -898,11 +982,11 @@
           class="pause-metadata"
           style="
             position: absolute;
-            bottom: 24px;
+            bottom: max(20px, env(safe-area-inset-bottom, 20px));
             left: 50%;
             transform: translateX(-50%);
             font-size: 11px;
-            color: rgba(255, 255, 255, 0.4);
+            color: rgba(255, 255, 255, 0.72);
             font-family: inherit;
             letter-spacing: 1px;
             margin: 0;
@@ -916,7 +1000,7 @@
               window.openExternalLink('https://purrplecat.com');
               return false;
             "
-            style="color: #3498db; text-decoration: none"
+            style="color: #60b6f7; text-decoration: none"
             >Purrple Cat</a
           >
         </div>
@@ -982,7 +1066,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: 1px solid var(--border-subtle);
             padding-top: 8px;
             margin-top: 4px;
           "
@@ -1039,6 +1123,31 @@
         <div class="menu-items" id="mobile-sub-menu">
           <button
             class="sub-btn"
+            id="mobile-wave-btn"
+            title="Waggle wings"
+            tabindex="-1"
+            hidden
+          >
+            👋
+          </button>
+          <button
+            class="sub-btn"
+            id="mobile-recalibrate-btn"
+            title="Recalibrate Center"
+            tabindex="-1"
+            style="
+              display: none;
+              font-size: 11px;
+              font-weight: 800;
+              line-height: 1.1;
+              letter-spacing: 0.5px;
+              text-align: center;
+            "
+          >
+            GYRO<br />RESET
+          </button>
+          <button
+            class="sub-btn"
             id="mobile-pause-trigger"
             title="Settings"
             tabindex="-1"
@@ -1057,25 +1166,6 @@
               <path
                 d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
               ></path>
-            </svg>
-          </button>
-          <button
-            class="sub-btn"
-            id="mobile-auto-toggle"
-            title="Autopilot"
-            tabindex="-1"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              style="
-                width: 24px;
-                height: 24px;
-                fill: none;
-                stroke: currentColor;
-                stroke-width: 2;
-              "
-            >
-              <path d="M22 12L3 20l3.5-8L3 4l19 8zL6.5 12"></path>
             </svg>
           </button>
           <button
@@ -1125,15 +1215,6 @@
           </button>
           <button
             class="sub-btn"
-            id="mobile-wave-btn"
-            title="Waggle wings"
-            tabindex="-1"
-            hidden
-          >
-            👋
-          </button>
-          <button
-            class="sub-btn"
             id="mobile-smoke-toggle"
             title="Smoke"
             tabindex="-1"
@@ -1156,19 +1237,22 @@
           </button>
           <button
             class="sub-btn"
-            id="mobile-recalibrate-btn"
-            title="Recalibrate Center"
+            id="mobile-auto-toggle"
+            title="Autopilot"
             tabindex="-1"
-            style="
-              display: none;
-              font-size: 11px;
-              font-weight: 800;
-              line-height: 1.1;
-              letter-spacing: 0.5px;
-              text-align: center;
-            "
           >
-            GYRO<br />RESET
+            <svg
+              viewBox="0 0 24 24"
+              style="
+                width: 24px;
+                height: 24px;
+                fill: none;
+                stroke: currentColor;
+                stroke-width: 2;
+              "
+            >
+              <path d="M22 12L3 20l3.5-8L3 4l19 8zL6.5 12"></path>
+            </svg>
           </button>
           <button class="sub-btn" id="mobile-map-btn" title="Map" tabindex="-1">
             <svg
@@ -1201,8 +1285,8 @@
             id="chevron-icon"
             viewBox="0 0 24 24"
             style="
-              width: 30px;
-              height: 30px;
+              width: 26px;
+              height: 26px;
               fill: none;
               stroke: currentColor;
               stroke-width: 2;
@@ -1859,8 +1943,9 @@
                 placeholder="Seed"
                 style="
                   width: 100%;
-                  padding: 2px 4px;
-                  font-size: 12px;
+                  height: 30px;
+                  padding: 2px 6px;
+                  font-size: 16px;
                   box-sizing: border-box;
                   margin-bottom: 4px;
                 "

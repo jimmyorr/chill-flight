@@ -1,14 +1,174 @@
+@property --hud-bg-a {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(16, 20, 30, 0.86);
+}
+
+@property --hud-bg-b {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(10, 14, 22, 0.92);
+}
+
+@property --knob-bg {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(24, 28, 40, 0.94);
+}
+
+:root {
+  --vvh: 100dvh;
+  --app-bg: #0b0f19;
+  --overlay-scrim: rgba(6, 9, 15, 0.76);
+  --overlay-scrim-strong: rgba(6, 9, 15, 0.82);
+  --surface-card: rgba(18, 22, 30, 0.94);
+  --surface-elevated: rgba(255, 255, 255, 0.07);
+  --surface-elevated-hover: rgba(255, 255, 255, 0.13);
+  --surface-input: rgba(8, 11, 18, 0.65);
+  --surface-floating: rgba(14, 18, 28, 0.86);
+  --surface-floating-hover: rgba(24, 30, 44, 0.92);
+  --hud-bg-a: rgba(18, 22, 32, 0.86);
+  --hud-bg-b: rgba(10, 14, 22, 0.92);
+  --hud-bg-hover-a: rgba(28, 34, 48, 0.9);
+  --hud-bg-hover-b: rgba(16, 20, 30, 0.95);
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #9fb0c4;
+  --border-subtle: rgba(255, 255, 255, 0.16);
+  --border-control: rgba(255, 255, 255, 0.42);
+  --border-strong: rgba(255, 255, 255, 0.58);
+  --accent-fg: #ffd700;
+  --accent-soft-bg: rgba(255, 215, 0, 0.15);
+  --accent-soft-border: rgba(255, 215, 0, 0.68);
+  --accent-solid-bg: #ffd700;
+  --accent-solid-hover: #ffe34d;
+  --accent-solid-fg: #11151f;
+  --link-fg: #60b6f7;
+  --danger-fg: #ff8585;
+  --danger-bg: rgba(220, 53, 69, 0.24);
+  --danger-border: #ff6b6b;
+  --switch-track-off: rgba(255, 255, 255, 0.14);
+  --switch-thumb-off: #e2e8f0;
+  --swatch-border: rgba(255, 255, 255, 0.55);
+  --select-chevron: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f8fafc' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  --card-shadow: 0 14px 38px rgba(0, 0, 0, 0.55);
+  --floating-shadow: 0 6px 22px rgba(0, 0, 0, 0.38);
+  --npc-bg: rgba(24, 18, 14, 0.94);
+  --npc-border: #e8c48a;
+  --npc-name: #f0cf99;
+  --npc-choice-bg: rgba(232, 196, 138, 0.16);
+  --npc-choice-hover: rgba(232, 196, 138, 0.28);
+  --knob-bg: rgba(24, 28, 40, 0.94);
+  --knob-fg: #ffd700;
+  --knob-unit: #cbd5e1;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    --app-bg: #f4f7fb;
+    --overlay-scrim: rgba(15, 23, 42, 0.42);
+    --overlay-scrim-strong: rgba(15, 23, 42, 0.52);
+    --surface-card: rgba(248, 250, 253, 0.96);
+    --surface-elevated: rgba(15, 23, 42, 0.06);
+    --surface-elevated-hover: rgba(15, 23, 42, 0.11);
+    --surface-input: rgba(255, 255, 255, 0.9);
+    --surface-floating: rgba(246, 249, 253, 0.92);
+    --surface-floating-hover: rgba(255, 255, 255, 0.97);
+    --hud-bg-a: rgba(248, 250, 253, 0.92);
+    --hud-bg-b: rgba(238, 243, 249, 0.95);
+    --hud-bg-hover-a: rgba(255, 255, 255, 0.96);
+    --hud-bg-hover-b: rgba(244, 247, 252, 0.98);
+    --text-primary: #0f172a;
+    --text-secondary: #334155;
+    --text-muted: #475569;
+    --border-subtle: rgba(15, 23, 42, 0.14);
+    --border-control: rgba(15, 23, 42, 0.54);
+    --border-strong: rgba(15, 23, 42, 0.72);
+    --accent-fg: #7c4a00;
+    --accent-soft-bg: rgba(217, 119, 6, 0.15);
+    --accent-soft-border: #9a3412;
+    --accent-solid-bg: #b45309;
+    --accent-solid-hover: #92400e;
+    --accent-solid-fg: #ffffff;
+    --link-fg: #0369a1;
+    --danger-fg: #b91c1c;
+    --danger-bg: rgba(220, 38, 38, 0.12);
+    --danger-border: #dc2626;
+    --switch-track-off: rgba(15, 23, 42, 0.14);
+    --switch-thumb-off: #ffffff;
+    --swatch-border: rgba(15, 23, 42, 0.55);
+    --select-chevron: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f172a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    --card-shadow: 0 14px 38px rgba(15, 23, 42, 0.22);
+    --floating-shadow: 0 6px 22px rgba(15, 23, 42, 0.18);
+    --npc-bg: rgba(252, 249, 243, 0.96);
+    --npc-border: #8a5a19;
+    --npc-name: #7c4a00;
+    --npc-choice-bg: rgba(180, 83, 9, 0.1);
+    --npc-choice-hover: rgba(180, 83, 9, 0.2);
+    --knob-bg: rgba(255, 255, 255, 0.96);
+    --knob-fg: #7c4a00;
+    --knob-unit: #334155;
+  }
+}
+
+:root[data-theme='light'] {
+  --app-bg: #f4f7fb;
+  --overlay-scrim: rgba(15, 23, 42, 0.42);
+  --overlay-scrim-strong: rgba(15, 23, 42, 0.52);
+  --surface-card: rgba(248, 250, 253, 0.96);
+  --surface-elevated: rgba(15, 23, 42, 0.06);
+  --surface-elevated-hover: rgba(15, 23, 42, 0.11);
+  --surface-input: rgba(255, 255, 255, 0.9);
+  --surface-floating: rgba(246, 249, 253, 0.92);
+  --surface-floating-hover: rgba(255, 255, 255, 0.97);
+  --hud-bg-a: rgba(248, 250, 253, 0.92);
+  --hud-bg-b: rgba(238, 243, 249, 0.95);
+  --hud-bg-hover-a: rgba(255, 255, 255, 0.96);
+  --hud-bg-hover-b: rgba(244, 247, 252, 0.98);
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #475569;
+  --border-subtle: rgba(15, 23, 42, 0.14);
+  --border-control: rgba(15, 23, 42, 0.54);
+  --border-strong: rgba(15, 23, 42, 0.72);
+  --accent-fg: #7c4a00;
+  --accent-soft-bg: rgba(217, 119, 6, 0.15);
+  --accent-soft-border: #9a3412;
+  --accent-solid-bg: #b45309;
+  --accent-solid-hover: #92400e;
+  --accent-solid-fg: #ffffff;
+  --link-fg: #0369a1;
+  --danger-fg: #b91c1c;
+  --danger-bg: rgba(220, 38, 38, 0.12);
+  --danger-border: #dc2626;
+  --switch-track-off: rgba(15, 23, 42, 0.14);
+  --switch-thumb-off: #ffffff;
+  --swatch-border: rgba(15, 23, 42, 0.52);
+  --select-chevron: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f172a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  --card-shadow: 0 14px 38px rgba(15, 23, 42, 0.22);
+  --floating-shadow: 0 6px 22px rgba(15, 23, 42, 0.18);
+  --npc-bg: rgba(252, 249, 243, 0.96);
+  --npc-border: #8a5a19;
+  --npc-name: #7c4a00;
+  --npc-choice-bg: rgba(180, 83, 9, 0.1);
+  --npc-choice-hover: rgba(180, 83, 9, 0.2);
+  --knob-bg: rgba(255, 255, 255, 0.96);
+  --knob-fg: #7c4a00;
+  --knob-unit: #334155;
+}
+
 html,
 body {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
+  height: 100dvh;
   overflow: hidden;
 }
 
 html {
-  background-color: #000;
+  background-color: var(--app-bg);
 }
 
 body,
@@ -26,7 +186,13 @@ canvas {
 
 body {
   background-color: transparent;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family:
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
   -webkit-touch-callout: none;
 }
 
@@ -36,29 +202,29 @@ body {
    same through the lang. */
 html:lang(zh-CN) body {
   font-family:
-    'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
     'Noto Sans CJK SC', 'Noto Sans SC', 'Source Han Sans SC', sans-serif;
 }
 html:lang(zh-TW) body {
   font-family:
-    'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans CJK TC',
+    'Inter', 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans CJK TC',
     'Noto Sans TC', 'Source Han Sans TC', sans-serif;
 }
 html:lang(ja) body {
   font-family:
-    'Segoe UI', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic',
+    'Inter', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic',
     'Meiryo', 'Noto Sans CJK JP', 'Noto Sans JP', sans-serif;
 }
 html:lang(ko) body {
   font-family:
-    'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans CJK KR',
+    'Inter', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans CJK KR',
     'Noto Sans KR', sans-serif;
 }
 
 body > canvas {
   display: block;
   position: fixed;
-  background-color: #000;
+  background-color: #0b0f19;
   /* Pin to all four edges to force full-bleed on iOS PWA */
   top: 0;
   left: 0;
@@ -67,7 +233,7 @@ body > canvas {
   z-index: 1;
 }
 
-/* Prevent default browser focus outlines on all interactive elements */
+/* Suppress lingering mouse/tap focus outlines while preserving keyboard :focus-visible */
 a,
 button,
 input,
@@ -83,34 +249,30 @@ textarea {
 .color-swatch,
 .customization-input {
   -webkit-user-select: none;
-  /* Safari */
   -ms-user-select: none;
-  /* IE 10+ */
   user-select: none;
-  /* Standard */
-
-  /* Disables the blue/gray highlight box that appears on tap in mobile browsers */
   -webkit-tap-highlight-color: transparent;
-
-  /* Prevents the browser from showing the "Copy/Paste" callout on long-press */
   -webkit-touch-callout: none;
 }
 
 #ui-layer {
-  position: absolute;
-  top: 0;
-  left: 0;
+  position: fixed;
+  inset: 0;
   width: 100%;
   height: 100%;
+  height: 100dvh;
   pointer-events: none;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
   gap: 15px;
-  padding: 30px;
+  padding: max(20px, env(safe-area-inset-top, 0px))
+    max(20px, env(safe-area-inset-right, 0px))
+    max(20px, env(safe-area-inset-bottom, 0px))
+    max(20px, env(safe-area-inset-left, 0px));
   box-sizing: border-box;
-  color: rgba(255, 255, 255, 0.9);
-  text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.6);
+  color: rgba(255, 255, 255, 0.94);
+  text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.65);
   z-index: 100;
 }
 
@@ -120,26 +282,32 @@ textarea {
   left: 50%;
   width: 6px;
   height: 6px;
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.55);
   border-radius: 50%;
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
 
 #pause-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
+  position: fixed;
+  inset: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.7);
+  height: 100dvh;
+  background: var(--overlay-scrim);
   display: none;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  color: white;
+  padding: max(12px, env(safe-area-inset-top, 12px))
+    max(12px, env(safe-area-inset-right, 12px))
+    max(12px, env(safe-area-inset-bottom, 12px))
+    max(12px, env(safe-area-inset-left, 12px));
+  box-sizing: border-box;
+  color: var(--text-primary);
   z-index: 500;
-  backdrop-filter: blur(5px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 /* Under Help, achievements or people: the menu steps aside, so the screen
@@ -153,6 +321,7 @@ body:has(
   #pause-overlay {
   background: none;
   backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 body:has(
     #achievements-overlay[style*='flex'],
@@ -176,6 +345,7 @@ body:has(
 /* Covered by the full map (minimap.js): no blur to redraw */
 #pause-overlay.under-map {
   backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 #pause-overlay::after {
@@ -184,8 +354,8 @@ body:has(
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 120px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, transparent 100%);
+  height: 90px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.35) 0%, transparent 100%);
   pointer-events: none;
   z-index: 1;
 }
@@ -203,15 +373,11 @@ body:has(
 }
 
 .btn {
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.15),
-    rgba(255, 255, 255, 0.05)
-  );
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: white;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-control);
+  color: var(--text-primary);
   padding: 0 24px;
-  height: 42px;
+  height: 44px;
   font-size: 16px;
   font-weight: 600;
   font-family:
@@ -219,77 +385,105 @@ body:has(
     -apple-system,
     sans-serif;
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: 10px;
   text-decoration: none;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.16s ease;
   margin-top: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   letter-spacing: 2px;
   outline: none;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  touch-action: manipulation;
 }
 
-.btn:focus {
-  outline: none;
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover {
+    background: var(--surface-elevated-hover);
+    transform: translateY(-1px);
+    border-color: var(--border-strong);
+  }
 }
 
-.btn:hover {
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.25),
-    rgba(255, 255, 255, 0.1)
-  );
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.5);
+.btn:active {
+  transform: scale(0.98);
 }
 
 .customization-box {
-  background: rgba(20, 20, 20, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 24px 24px 16px 24px;
-  border-radius: 12px;
-  margin-bottom: 25px;
+  position: relative;
+  z-index: 2;
+  box-sizing: border-box;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  padding: 18px 20px 12px;
+  border-radius: 14px;
+  margin-bottom: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  width: 280px;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  gap: 12px;
+  width: min(
+    348px,
+    calc(
+      100vw - 24px - env(safe-area-inset-left, 0px) -
+        env(safe-area-inset-right, 0px)
+    )
+  );
+  max-height: calc(
+    var(--vvh, 100dvh) -
+      max(
+        24px,
+        env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px) + 16px
+      )
+  );
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: var(--card-shadow);
+}
+
+@media (max-width: 360px) {
+  .customization-box {
+    padding: 16px 14px 10px;
+  }
 }
 
 .customization-row {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0;
+  gap: 6px;
 }
 
 .customization-label {
   font-size: 10px;
-  color: white;
-  opacity: 0.5;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.15em;
   font-weight: 600;
-  margin-bottom: 6px;
+  margin-bottom: 0;
 }
 
 .customization-input {
-  background-color: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: white;
+  background-color: var(--surface-input);
+  border: 1px solid var(--border-control);
+  color: var(--text-primary);
   padding: 0 12px;
   height: 38px;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 16px;
+  font-family: inherit;
   outline: none;
   width: 100%;
   box-sizing: border-box;
-  transition: all 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
   display: flex;
   align-items: center;
 }
@@ -298,25 +492,26 @@ select.customization-input {
   -webkit-appearance: none;
   appearance: none;
   padding-right: 32px;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-image: var(--select-chevron);
   background-repeat: no-repeat;
-  background-position: right 12px center;
+  background-position: right 10px center;
   background-size: 16px;
 }
 
-.customization-input:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.2);
+@media (hover: hover) and (pointer: fine) {
+  .customization-input:hover {
+    background-color: var(--surface-elevated-hover);
+    border-color: var(--border-strong);
+  }
 }
 
-.customization-input:focus {
-  border-color: rgba(255, 255, 255, 0.4);
-  background-color: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.1);
+.customization-input:focus-visible {
+  border-color: var(--accent-soft-border);
+  box-shadow: 0 0 0 2px var(--accent-soft-bg);
 }
 
 .customization-input::placeholder {
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-muted);
   transition: opacity 0.2s;
 }
 
@@ -324,68 +519,84 @@ select.customization-input {
   opacity: 0;
 }
 
-/* --- Pause menu: Flight / Settings tabs --- */
+/* --- Pause menu: Flight / Settings / Together tabs --- */
 .pause-tabs {
   display: flex;
+  flex: none;
   gap: 4px;
   padding: 3px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
 }
 
 .pause-tab {
   position: relative;
   flex: 1;
   white-space: nowrap;
-  height: 32px;
+  height: 34px;
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   border-radius: 6px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
   font: inherit;
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.14s ease;
+  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
-.pause-tab:hover {
-  color: #fff;
+@media (hover: hover) and (pointer: fine) {
+  .pause-tab:hover {
+    color: var(--text-primary);
+  }
 }
 
 .pause-tab.active {
-  background: rgba(255, 215, 0, 0.15);
-  color: #ffd700;
+  background: var(--accent-soft-bg);
+  border-color: var(--accent-soft-border);
+  color: var(--accent-fg);
 }
 
-/* Both panels share one grid cell, so the box is as tall as the taller
-   panel and switching tabs doesn't change its height. */
+/* Scrollable active panel so compact screens (320x568 / 375x667) never clip */
 .pause-panels {
-  display: grid;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  padding-right: 2px;
+}
+
+.pause-panels::-webkit-scrollbar {
+  width: 4px;
+}
+
+.pause-panels::-webkit-scrollbar-thumb {
+  background: var(--border-control);
+  border-radius: 2px;
 }
 
 .pause-panel {
-  grid-area: 1 / 1;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 13px;
   min-width: 0;
-  visibility: hidden;
 }
 
-.pause-panel.active {
-  visibility: visible;
+.pause-panel:not(.active) {
+  display: none;
 }
 
-/* Many controls inside have `transition: all`, which would also fade their
-   visibility and leave the old tab showing through for ~0.25s. */
-.pause-panel:not(.active) * {
-  transition: none;
-}
-
-/* The plane buttons span the panel */
+/* The plane and appearance segmented buttons span the panel */
 .pause-panel .customization-row {
   align-items: stretch;
 }
@@ -395,11 +606,12 @@ select.customization-input {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
 label.pause-row {
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .pause-row-text {
@@ -411,13 +623,15 @@ label.pause-row {
 
 .pause-row-title {
   font-size: 13px;
-  letter-spacing: 0.5px;
-  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--text-primary);
 }
 
 .pause-row-sub {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.3;
+  color: var(--text-muted);
 }
 
 #currently-playing {
@@ -427,13 +641,13 @@ label.pause-row {
 }
 
 #song-title-text {
-  color: #3498db;
+  color: var(--link-fg);
 }
 
 .pause-row .customization-input {
-  width: 110px;
+  width: 112px;
   flex: none;
-  font-size: 14px;
+  font-size: 16px;
   padding-left: 10px;
   padding-right: 26px;
   background-position: right 8px center;
@@ -444,53 +658,65 @@ label.pause-row {
   -webkit-appearance: none;
   appearance: none;
   flex: none;
-  width: 38px;
-  height: 22px;
+  width: 42px;
+  height: 24px;
   margin: 0;
-  border-radius: 11px;
-  background: rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  background: var(--switch-track-off);
+  border: 1.5px solid var(--border-control);
+  box-sizing: border-box;
   position: relative;
   cursor: pointer;
-  transition: background 0.2s ease;
+  touch-action: manipulation;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .pause-switch::after {
   content: '';
   position: absolute;
-  top: 3px;
-  left: 3px;
+  top: 2.5px;
+  left: 2.5px;
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--switch-thumb-off);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   transition:
-    transform 0.2s ease,
+    transform 0.2s cubic-bezier(0.32, 0.72, 0, 1),
     background 0.2s ease;
 }
 
 .pause-switch:checked {
-  background: rgba(255, 215, 0, 0.35);
+  background: var(--accent-solid-bg);
+  border-color: var(--accent-solid-bg);
 }
 
 .pause-switch:checked::after {
-  transform: translateX(16px);
-  background: #ffd700;
+  transform: translateX(18px);
+  background: var(--accent-solid-fg);
 }
 
 .pause-switch:focus-visible {
-  outline: 2px solid rgba(255, 215, 0, 0.6);
+  outline: 2px solid var(--accent-fg);
   outline-offset: 2px;
 }
 
 .pause-credit {
+  flex: none;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
   text-align: center;
 }
 
 .pause-credit a {
-  color: #3498db;
+  color: var(--link-fg);
   text-decoration: none;
+}
+
+#music-attribution[style*='hidden'] {
+  display: none;
 }
 
 /* Hide number input spinners */
@@ -509,36 +735,64 @@ input[type='number'].customization-input {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-start;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 4px;
   width: 100%;
-  padding: 4px 0;
+  padding: 4px;
+  box-sizing: border-box;
 }
 
 .color-swatch {
-  width: 22px;
-  height: 22px;
+  position: relative;
+  box-sizing: border-box;
+  width: clamp(26px, 7.5vw, 30px);
+  height: clamp(26px, 7.5vw, 30px);
+  padding: 0;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  border: 2px solid var(--swatch-border);
   cursor: pointer;
-  transition: all 0.2s ease;
+  touch-action: manipulation;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    transform 0.16s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
-.color-swatch:hover {
-  transform: scale(1.1);
-  border-color: rgba(255, 255, 255, 0.8);
+@media (hover: hover) and (pointer: fine) {
+  .color-swatch:hover {
+    transform: scale(1.08);
+    border-color: var(--text-primary);
+  }
 }
 
 .color-swatch.active {
-  border: 3px solid #fff;
-  box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
-  transform: scale(1.1);
+  border-color: var(--text-primary);
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
+
+.color-swatch.active::after {
+  content: '✓';
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+}
+
+.color-swatch[data-light-swatch='1'].active::after {
+  color: #0f172a;
+  text-shadow: none;
 }
 
 .customization-footer {
-  margin-top: 4px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  flex: none;
+  margin-top: 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -558,6 +812,8 @@ input[type='number'].customization-input {
   flex: 1;
   min-width: 0;
   width: auto;
+  height: 46px;
+  border-radius: 10px;
   padding: 0 14px;
   font-size: 15px;
   white-space: nowrap;
@@ -574,10 +830,10 @@ input[type='number'].customization-input {
 }
 
 .pause-vr-btn {
-  background: rgba(255, 215, 0, 0.14);
-  border: 1px solid rgba(255, 215, 0, 0.42);
-  color: #ffe57f;
-  height: 42px;
+  background: var(--accent-soft-bg);
+  border: 1px solid var(--accent-soft-border);
+  color: var(--accent-fg);
+  height: 46px;
   padding: 0 13px;
   font-size: 13px;
   font-weight: 600;
@@ -586,7 +842,7 @@ input[type='number'].customization-input {
     -apple-system,
     sans-serif;
   letter-spacing: 1px;
-  border-radius: 8px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -595,15 +851,18 @@ input[type='number'].customization-input {
   white-space: nowrap;
   cursor: pointer;
   outline: none;
-  transition: all 0.2s ease;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.16s ease;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
-.pause-vr-btn:hover {
-  background: rgba(255, 215, 0, 0.24);
-  border-color: rgba(255, 215, 0, 0.65);
-  color: #fff;
+@media (hover: hover) and (pointer: fine) {
+  .pause-vr-btn:hover {
+    border-color: var(--text-primary);
+  }
 }
 
 .pause-vr-btn:active {
@@ -615,16 +874,12 @@ input[type='number'].customization-input {
   top: max(20px, env(safe-area-inset-top, 0px));
   right: max(24px, env(safe-area-inset-right, 0px));
   z-index: 150;
-  background: linear-gradient(
-    135deg,
-    rgba(30, 28, 18, 0.72),
-    rgba(16, 16, 20, 0.86)
-  );
+  background: var(--surface-floating);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 215, 0, 0.5);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
-  color: #ffe57f;
+  border: 1px solid var(--accent-soft-border);
+  box-shadow: var(--floating-shadow);
+  color: var(--accent-fg);
   height: 40px;
   padding: 0 14px;
   font-size: 13px;
@@ -646,21 +901,18 @@ input[type='number'].customization-input {
     background 0.2s ease,
     border-color 0.2s ease,
     color 0.2s ease,
-    transform 0.2s ease;
+    transform 0.16s ease;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;
 }
 
-.hud-vr-btn:hover {
-  background: linear-gradient(
-    135deg,
-    rgba(55, 48, 22, 0.85),
-    rgba(28, 26, 20, 0.92)
-  );
-  border-color: rgba(255, 215, 0, 0.8);
-  color: #fff;
+@media (hover: hover) and (pointer: fine) {
+  .hud-vr-btn:hover {
+    background: var(--surface-floating-hover);
+    border-color: var(--text-primary);
+  }
 }
 
 .hud-vr-btn:active {
@@ -673,22 +925,18 @@ input[type='number'].customization-input {
   top: max(20px, env(safe-area-inset-top));
   left: 50%;
   transform: translateX(-50%);
-  background: linear-gradient(
-    135deg,
-    rgba(25, 25, 30, 0.5),
-    rgba(10, 10, 15, 0.7)
-  );
+  background: linear-gradient(135deg, var(--hud-bg-a), var(--hud-bg-b));
   padding: 12px 24px;
   border-radius: 12px;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  color: white;
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   gap: 20px;
   z-index: 150;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: var(--floating-shadow);
+  border: 1px solid var(--border-control);
   font-family:
     'Inter',
     -apple-system,
@@ -703,9 +951,11 @@ input[type='number'].customization-input {
   /* Make entire HUD interactive with clean hover state */
   cursor: pointer;
   transition:
-    background 0.2s,
-    border-color 0.2s,
-    box-shadow 0.2s;
+    --hud-bg-a 0.25s ease,
+    --hud-bg-b 0.25s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 
   /* Eliminate webapp behaviors (selection, tap highlight, long-press callouts) */
   -webkit-user-select: none;
@@ -716,14 +966,15 @@ input[type='number'].customization-input {
   -webkit-touch-callout: none;
 }
 
-#cockpit-ui:hover {
-  background: linear-gradient(
-    135deg,
-    rgba(35, 35, 40, 0.6),
-    rgba(20, 20, 25, 0.8)
-  ) !important;
-  border-color: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+@media (hover: hover) and (pointer: fine) {
+  #cockpit-ui:hover {
+    background: linear-gradient(
+      135deg,
+      var(--hud-bg-hover-a),
+      var(--hud-bg-hover-b)
+    );
+    border-color: var(--border-strong);
+  }
 }
 
 .cockpit-grid {
@@ -742,7 +993,7 @@ input[type='number'].customization-input {
 
 .cockpit-label {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 1.5px;
   font-weight: 600;
@@ -754,23 +1005,26 @@ input[type='number'].customization-input {
 
 .cockpit-value {
   font-size: 14px;
-  font-weight: bold;
-  font-family: 'Courier New', Courier, monospace;
-  color: #ffd700;
-  text-shadow: 0 0 5px rgba(255, 215, 0, 0.3);
+  font-weight: 700;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-fg);
   min-width: 60px;
 }
 
 #flight-status {
-  font-weight: bold;
-  font-family: 'Courier New', Courier, monospace;
+  font-weight: 700;
+  font-family: var(--font-mono);
   letter-spacing: 1ch;
   text-indent: 1ch;
   text-transform: uppercase;
-  color: #ffd700;
-  text-shadow: 0 0 5px rgba(255, 215, 0, 0.3);
+  color: var(--accent-fg);
   display: inline-block;
   width: 120px;
+}
+
+#cockpit-status-panel.autopilot #flight-status {
+  color: var(--danger-fg);
 }
 
 #cockpit-status-panel {
@@ -1017,10 +1271,13 @@ input[type='number'].customization-input {
 /* Mobile Controls Redesign */
 #mobile-controls {
   position: absolute;
-  bottom: 30px;
+  bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 8px));
   left: 50%;
   transform: translateX(-50%);
-  width: 90%;
+  width: calc(
+    100% - 24px - env(safe-area-inset-left, 0px) -
+      env(safe-area-inset-right, 0px)
+  );
   max-width: 500px;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1033,17 +1290,23 @@ input[type='number'].customization-input {
   flex: 1 1 0%;
   min-width: 0;
   box-sizing: border-box;
-  height: 60px;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  height: 48px;
+  background: var(--surface-floating);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-control);
   border-radius: 12px;
-  color: white;
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-  transition: all 0.2s ease;
+  box-shadow: var(--floating-shadow);
+  transition:
+    opacity 0.5s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.16s ease;
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
@@ -1051,27 +1314,32 @@ input[type='number'].customization-input {
   outline: none;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .mobile-btn:hover {
+    background: var(--surface-floating-hover);
+    border-color: var(--border-strong);
+  }
+}
+
 .mobile-btn:focus {
   outline: none;
 }
 
 .mobile-btn svg {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   fill: currentColor;
-  opacity: 0.9;
 }
 
 .mobile-btn:active {
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--surface-floating-hover);
   transform: scale(0.95);
 }
 
 .mobile-btn.active {
-  background: #ffd700;
-  color: #000;
-  border-color: #ffd700;
-  box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+  background: var(--accent-solid-bg);
+  color: var(--accent-solid-fg);
+  border-color: var(--accent-solid-bg);
 }
 
 .menu-container {
@@ -1099,17 +1367,18 @@ input[type='number'].customization-input {
 #throttle {
   --thr: 0;
   --stall: 0.11;
-  --knob-w: 68px;
-  --pad: 6px;
+  --knob-w: 66px;
+  --pad: 5px;
   position: relative;
   width: 100%;
-  height: 60px;
+  height: 48px;
   box-sizing: border-box;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--surface-floating);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-control);
   border-radius: 12px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--floating-shadow);
   overflow: hidden;
   cursor: ew-resize;
   touch-action: none;
@@ -1117,13 +1386,15 @@ input[type='number'].customization-input {
   user-select: none;
   -webkit-touch-callout: none;
   outline: none;
-  transition: opacity 0.6s ease;
+  transition: opacity 0.5s ease;
 }
 
-/* Left alone, it fades back (game-ui.js) */
-#throttle.idle {
-  opacity: 0.45;
-  transition: opacity 1.5s ease;
+/* Left alone in steady cruise, both the collapsed caret button and throttle
+   recede together and wake immediately on interaction */
+#throttle.idle,
+.menu-container:not(.expanded) > #mobile-menu-trigger.idle {
+  opacity: 0.5;
+  transition: opacity 1.4s ease;
 }
 
 #throttle .throttle-stall {
@@ -1137,7 +1408,7 @@ input[type='number'].customization-input {
   );
   background: repeating-linear-gradient(
     135deg,
-    rgba(255, 120, 80, 0.28) 0 6px,
+    rgba(235, 90, 60, 0.28) 0 6px,
     transparent 6px 12px
   );
 }
@@ -1155,11 +1426,7 @@ input[type='number'].customization-input {
     var(--pad) + var(--knob-w) / 2 + var(--thr) *
       (100% - var(--knob-w) - 2 * var(--pad))
   );
-  background: linear-gradient(
-    90deg,
-    rgba(255, 215, 0, 0),
-    rgba(255, 215, 0, 0.16)
-  );
+  background: linear-gradient(90deg, transparent, var(--accent-soft-bg));
 }
 
 /* Tag: whoever's it gets a gold stretch past the usual top speed, from
@@ -1208,21 +1475,22 @@ input[type='number'].customization-input {
 }
 
 #throttle.boosted .throttle-max {
-  color: rgba(42, 33, 18, 0.8);
+  color: #1f180b;
 }
 
 /* The knob in the gold: lit up */
 #throttle.in-boost .throttle-knob {
-  border-color: rgba(255, 215, 0, 0.9);
+  border-color: var(--accent-soft-border);
   box-shadow:
     0 2px 8px rgba(0, 0, 0, 0.3),
-    0 0 14px 2px rgba(255, 215, 0, 0.75);
+    0 0 14px 2px rgba(255, 215, 0, 0.6);
 }
 
 /* As the boost comes and goes, the knob glides to its new place */
 #throttle.boost-change .throttle-knob {
   transition:
     left 0.7s ease,
+    --knob-bg 0.3s ease,
     background-color 0.3s ease,
     color 0.3s ease;
 }
@@ -1235,101 +1503,108 @@ input[type='number'].customization-input {
   position: absolute;
   left: 12px;
   right: 12px;
-  bottom: 6px;
-  height: 8px;
+  bottom: 5px;
+  height: 6px;
   background: repeating-linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0.35) 0 1px,
+    var(--border-control) 0 1px,
     transparent 1px 10%
   );
 }
 
 #throttle .throttle-max {
   position: absolute;
-  right: 14px;
+  right: 12px;
   top: 50%;
   transform: translateY(-50%);
   font:
     700 10px 'Inter',
     sans-serif;
   letter-spacing: 1.5px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-muted);
 }
 
 #throttle .throttle-knob {
   position: absolute;
-  top: 6px;
-  bottom: 6px;
+  top: 4px;
+  bottom: 4px;
   left: calc(var(--pad) + var(--thr) * (100% - var(--knob-w) - 2 * var(--pad)));
   width: var(--knob-w);
   box-sizing: border-box;
-  border-radius: 9px;
-  background: rgba(28, 24, 36, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  color: #ffd700;
+  border-radius: 8px;
+  background: var(--knob-bg);
+  border: 1px solid var(--border-control);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  color: var(--knob-fg);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-family: 'Courier New', monospace;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-weight: 800;
   line-height: 1;
   pointer-events: none;
+  transition:
+    --knob-bg 0.3s ease,
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    color 0.3s ease;
 }
 
 #throttle .throttle-knob b {
-  font-size: 17px;
+  font-size: 16px;
 }
 
 #throttle .throttle-knob small {
   font-size: 9px;
   letter-spacing: 1px;
-  margin-top: 2px;
-  color: rgba(255, 255, 255, 0.7);
+  margin-top: 1px;
+  color: var(--knob-unit);
 }
 
 /* Slow flight: amber where the plane sinks, red where it falls */
-#throttle .throttle-knob {
-  transition:
-    background-color 0.3s ease,
-    color 0.3s ease;
-}
-
 #throttle.amber .throttle-knob {
-  background: rgba(214, 182, 110, 0.92);
-  color: #2a2112;
+  --knob-bg: #e0be72;
+  background: var(--knob-bg);
+  border-color: #7c4a00;
+  color: #1f180b;
 }
 
 #throttle.amber .throttle-knob small {
-  color: rgba(42, 33, 18, 0.75);
+  color: #2b2110;
 }
 
 #throttle.red .throttle-knob {
-  background: rgba(196, 64, 52, 0.92);
-  color: #fff;
+  --knob-bg: #c4382c;
+  background: var(--knob-bg);
+  border-color: #ff948a;
+  color: #ffffff;
 }
 
 #throttle.red .throttle-knob small {
-  color: rgba(255, 255, 255, 0.8);
+  color: #ffffff;
 }
 
 /* The Sub-Menu Animation: opacity and transform live on each .sub-btn rather
    than on the parent .menu-items, because an ancestor with opacity < 1 forms a
    CSS Backdrop Root that blocks descendant backdrop-filter blur until the
-   fade-in finishes. */
+   fade-in finishes. Portrait arranges actions as a compact 2-column tray in
+   thumb reach so buttons never collide with the top cockpit HUD. */
 .menu-items {
   position: absolute;
-  bottom: 60px;
-  /* Reduced from 75px to close the 15px gap */
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
+  left: 0;
+  bottom: 48px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(54px, 60px));
+  gap: 8px;
   pointer-events: none;
-  width: 100%;
-  /* Match trigger button width */
-  padding-bottom: 15px;
-  /* Maintain visual gap while ensuring container covers the space */
+  width: max-content;
+  padding-bottom: 10px;
+}
+
+#mobile-sub-menu #mobile-pause-trigger {
+  grid-column: 1;
 }
 
 .menu-container.expanded .menu-items {
@@ -1338,7 +1613,7 @@ input[type='number'].customization-input {
 
 /* The Chevron Rotation */
 #chevron-icon {
-  transition: transform 0.4s ease;
+  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .menu-container.expanded #chevron-icon {
@@ -1347,24 +1622,24 @@ input[type='number'].customization-input {
 
 .sub-btn {
   width: 100%;
-  height: 60px;
+  height: 48px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  background: var(--surface-floating);
+  border: 1px solid var(--border-control);
+  color: var(--text-primary);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--floating-shadow);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 20px;
   cursor: pointer;
   opacity: 0;
-  transform: translateY(20px);
+  transform: translateY(16px);
   transition:
-    opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.26s cubic-bezier(0.32, 0.72, 0, 1),
+    transform 0.26s cubic-bezier(0.32, 0.72, 0, 1),
     background 0.2s ease,
     border-color 0.2s ease,
     color 0.2s ease;
@@ -1373,6 +1648,13 @@ input[type='number'].customization-input {
   user-select: none;
   -webkit-touch-callout: none;
   outline: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .menu-container.expanded .sub-btn:hover {
+    background: var(--surface-floating-hover);
+    border-color: var(--border-strong);
+  }
 }
 
 .menu-container.expanded .sub-btn {
@@ -1389,14 +1671,14 @@ input[type='number'].customization-input {
 }
 
 .menu-container.expanded .sub-btn:active {
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--surface-floating-hover);
   transform: scale(0.95);
 }
 
 .sub-btn.active {
-  color: #ffd700;
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 215, 0, 0.5);
+  background: var(--accent-solid-bg);
+  color: var(--accent-solid-fg);
+  border-color: var(--accent-solid-bg);
 }
 
 .menu-container.expanded .sub-btn:disabled,
@@ -1419,10 +1701,10 @@ input[type='number'].customization-input {
 
 #loading-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100%;
   height: 100%;
+  height: 100dvh;
   background: radial-gradient(
     circle at center,
     var(--splash-bg-top, #1a1a2e) 0%,
@@ -1446,7 +1728,7 @@ input[type='number'].customization-input {
   padding: 48px 40px 68px 40px;
   border-radius: 24px;
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow: 0 40px 100px rgba(0, 0, 0, 0.6);
   max-width: 450px;
   width: 90%;
@@ -1478,7 +1760,7 @@ input[type='number'].customization-input {
 .loading-bar-container {
   width: 100%;
   height: 4px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.14);
   border-radius: 2px;
   margin: 20px 0;
   overflow: hidden;
@@ -1494,7 +1776,7 @@ input[type='number'].customization-input {
 
 #loading-status {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.76);
   text-transform: uppercase;
   letter-spacing: 2px;
   margin: 0;
@@ -1570,6 +1852,19 @@ input[type='number'].customization-input {
 #splash-stuck[hidden] {
   display: none;
 }
+#loading-overlay .btn {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.48);
+  color: #ffffff;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  #loading-overlay .btn:hover {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.72);
+  }
+}
+
 #splash-stuck .btn {
   margin-top: 10px;
   font-size: 13px;
@@ -1595,8 +1890,11 @@ input[type='number'].customization-input {
   padding-right: calc(26px - var(--start-spacing));
   text-transform: uppercase;
   animation: pulse 2s infinite;
-  border-color: var(--accent-color, rgba(255, 255, 255, 0.3));
-  transition: all 0.3s ease;
+  border-color: var(--accent-color, rgba(255, 255, 255, 0.52));
+  transition:
+    background 0.25s ease,
+    border-color 0.25s ease,
+    transform 0.16s ease;
 }
 
 /* Title screen music toggle: sets whether START begins with music. Turning it
@@ -1610,13 +1908,14 @@ input[type='number'].customization-input {
   align-items: center;
   justify-content: center;
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
   border-radius: 50%;
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.9);
   cursor: pointer;
   transition:
     color 0.2s ease,
-    border-color 0.2s ease;
+    border-color 0.2s ease,
+    transform 0.16s ease;
 }
 
 #splash-music-toggle svg {
@@ -1630,8 +1929,8 @@ input[type='number'].customization-input {
 }
 
 #splash-music-toggle[aria-pressed='false'] {
-  color: rgba(255, 255, 255, 0.45);
-  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.72);
+  border-color: rgba(255, 255, 255, 0.42);
 }
 
 #splash-music-toggle[aria-pressed='true'] .music-off-icon,
@@ -1651,13 +1950,13 @@ input[type='number'].customization-input {
 
 #splash-settings-btn,
 #splash-about-link {
-  padding: 0;
+  padding: 2px 4px;
   background: none;
   border: none;
   font-family: inherit;
   font-size: 11px;
   letter-spacing: 1px;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.76);
   text-decoration: none;
   cursor: pointer;
 }
@@ -1666,11 +1965,16 @@ input[type='number'].customization-input {
   display: none;
 }
 
-#splash-settings-btn:hover,
+@media (hover: hover) and (pointer: fine) {
+  #splash-settings-btn:hover,
+  #splash-about-link:hover {
+    color: #ffffff;
+  }
+}
+
 #splash-settings-btn:focus-visible,
-#splash-about-link:hover,
 #splash-about-link:focus-visible {
-  color: rgba(255, 255, 255, 0.8);
+  color: #ffffff;
 }
 
 .btn.vr-enter-cta {
@@ -1683,11 +1987,11 @@ input[type='number'].customization-input {
 }
 
 #loading-music-attribution.dimmed {
-  opacity: 0.4;
+  opacity: 0.78;
 }
 
 #loading-music-attribution.dimmed a {
-  color: rgba(255, 255, 255, 0.6) !important;
+  color: #82c8fa !important;
 }
 
 @keyframes pulse {
@@ -1713,7 +2017,8 @@ input[type='number'].customization-input {
   }
 
   #cockpit-ui {
-    top: env(safe-area-inset-top, 0px);
+    top: 0;
+    padding-top: max(5px, env(safe-area-inset-top, 0px));
     bottom: auto;
     left: 0;
     transform: none;
@@ -1723,7 +2028,9 @@ input[type='number'].customization-input {
     border-left: none;
     border-right: none;
     justify-content: center;
-    padding: 5px 10px;
+    padding-right: max(10px, env(safe-area-inset-right, 0px));
+    padding-bottom: 5px;
+    padding-left: max(10px, env(safe-area-inset-left, 0px));
   }
 
   .hud-vr-btn {
@@ -1733,7 +2040,10 @@ input[type='number'].customization-input {
 
   @media (max-width: 500px) {
     #cockpit-ui {
-      padding: 4px 8px;
+      padding-top: max(4px, env(safe-area-inset-top, 0px));
+      padding-right: max(8px, env(safe-area-inset-right, 0px));
+      padding-bottom: 4px;
+      padding-left: max(8px, env(safe-area-inset-left, 0px));
       gap: 10px;
     }
 
@@ -1785,14 +2095,14 @@ input[type='number'].customization-input {
 .scheme-btn {
   flex: 1 1 auto;
   min-width: 0;
-  height: 30px;
+  height: 32px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
-  color: rgba(255, 255, 255, 0.6);
+  background: var(--surface-input);
+  border: 1px solid var(--border-control);
+  border-radius: 7px;
+  color: var(--text-secondary);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.3px;
@@ -1801,8 +2111,9 @@ input[type='number'].customization-input {
     background 0.2s ease,
     border-color 0.2s ease,
     color 0.2s ease,
-    box-shadow 0.2s ease;
-  padding: 0 5px;
+    transform 0.14s ease;
+  padding: 0 6px;
+  touch-action: manipulation;
   -webkit-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -1819,21 +2130,26 @@ input[type='number'].customization-input {
   min-width: max-content;
 }
 
-.scheme-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.3);
-  color: rgba(255, 255, 255, 0.9);
+@media (hover: hover) and (pointer: fine) {
+  .scheme-btn:hover {
+    background: var(--surface-elevated-hover);
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+  }
 }
 
 .scheme-btn:focus {
   outline: none;
 }
 
+.scheme-btn:active {
+  transform: scale(0.97);
+}
+
 .scheme-btn.active {
-  background: rgba(255, 215, 0, 0.15);
-  border-color: rgba(255, 215, 0, 0.5);
-  color: #ffd700;
-  box-shadow: 0 0 8px rgba(255, 215, 0, 0.15);
+  background: var(--accent-soft-bg);
+  border-color: var(--accent-soft-border);
+  color: var(--accent-fg);
 }
 
 /* The chosen plane's handling: a label and a bar per stat (--v, 0 to 1) */
@@ -1844,7 +2160,7 @@ input[type='number'].customization-input {
   gap: 4px 10px;
   margin-top: 8px;
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-muted);
 }
 
 .plane-stats[hidden] {
@@ -1852,9 +2168,11 @@ input[type='number'].customization-input {
 }
 
 .plane-stat-bar {
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.1);
+  height: 5px;
+  border-radius: 3px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
+  box-sizing: border-box;
   overflow: hidden;
 }
 
@@ -1862,7 +2180,7 @@ input[type='number'].customization-input {
   display: block;
   height: 100%;
   width: calc(var(--v, 0) * 100%);
-  background: rgba(255, 215, 0, 0.6);
+  background: var(--accent-solid-bg);
   transition: width 0.3s ease;
 }
 
@@ -1873,7 +2191,7 @@ input[type='number'].customization-input {
   width: 140px;
   height: 140px;
   background: rgba(255, 255, 255, 0.08);
-  border: 2px solid rgba(255, 255, 255, 0.25);
+  border: 2px solid rgba(255, 255, 255, 0.38);
   border-radius: 50%;
   transform: translate(-50%, -50%);
   pointer-events: none;
@@ -1887,10 +2205,10 @@ input[type='number'].customization-input {
   left: 50%;
   width: 40px;
   height: 40px;
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.65);
   border-radius: 50%;
   transform: translate(-50%, -50%);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
 }
 
 .joystick-hidden {
@@ -1906,7 +2224,7 @@ input[type='number'].customization-input {
   bottom: 24px;
   right: 30px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   font-family: inherit;
   letter-spacing: 2px;
   text-transform: uppercase;
@@ -1923,13 +2241,13 @@ input[type='number'].customization-input {
   font-size: 11px;
   margin-top: 12px;
   margin-bottom: -10px;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .pause-footer {
   text-align: center;
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   margin-top: 0;
   font-family: inherit;
   letter-spacing: 0.5px;
@@ -1948,23 +2266,23 @@ input[type='number'].customization-input {
 .pause-footer a {
   pointer-events: auto;
   white-space: nowrap;
-  color: #3498db;
+  color: var(--link-fg);
   text-decoration: none;
 }
 
 /* Minimap CSS overlay styled with glassmorphism to look premium */
 #minimap-container {
   position: absolute;
-  bottom: 30px;
-  right: 30px;
+  bottom: max(24px, calc(env(safe-area-inset-bottom, 0px) + 8px));
+  right: max(24px, env(safe-area-inset-right, 0px));
   width: 180px;
   height: 180px; /* Exact 1:1 match with canvas size */
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--surface-floating);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--border-control);
   border-radius: 12px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--floating-shadow);
   z-index: 150;
   overflow: hidden;
   pointer-events: auto;
@@ -1977,19 +2295,19 @@ input[type='number'].customization-input {
   left: 0;
   right: 0;
   height: 24px;
-  background: rgba(0, 0, 0, 0.45); /* Elegant translucent dark HUD overlay */
+  background: var(--surface-floating);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 10px;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: inherit;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 1px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-muted);
   text-transform: uppercase;
   user-select: none;
   z-index: 10;
@@ -2006,14 +2324,14 @@ input[type='number'].customization-input {
 }
 
 .minimap-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-control);
+  color: var(--text-primary);
   border-radius: 4px;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   font-size: 10px;
-  font-weight: bold;
+  font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -2027,9 +2345,11 @@ input[type='number'].customization-input {
   outline: none;
 }
 
-.minimap-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  border-color: rgba(255, 255, 255, 0.5);
+@media (hover: hover) and (pointer: fine) {
+  .minimap-btn:hover {
+    background: var(--surface-elevated-hover);
+    border-color: var(--border-strong);
+  }
 }
 
 .minimap-btn:focus {
@@ -2054,19 +2374,24 @@ input[type='number'].customization-input {
   pointer-events: none;
 }
 
+@media (max-width: 1024px) {
+  #achievement-toast-container {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 72px);
+  }
+}
+
 .achievement-toast {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 20px;
-  background: rgba(20, 20, 20, 0.85);
-  border: 1px solid rgba(255, 215, 0, 0.4);
+  padding: 12px 18px;
+  background: var(--surface-card);
+  border: 1px solid var(--accent-soft-border);
   border-radius: 12px;
-  backdrop-filter: blur(12px);
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.5),
-    0 0 20px rgba(255, 215, 0, 0.15);
-  color: white;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--card-shadow);
+  color: var(--text-primary);
   font-family:
     'Inter',
     -apple-system,
@@ -2075,7 +2400,8 @@ input[type='number'].customization-input {
   transform: translateY(-40px) scale(0.95);
   transition: none;
   pointer-events: auto;
-  max-width: 340px;
+  max-width: min(340px, calc(100vw - 24px));
+  box-sizing: border-box;
 }
 
 .achievement-toast-visible {
@@ -2125,14 +2451,14 @@ input[type='number'].customization-input {
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 2px;
-  color: rgba(255, 215, 0, 0.9);
+  color: var(--accent-fg);
   text-transform: uppercase;
 }
 
 .achievement-toast-title {
   font-size: 14px;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2146,18 +2472,25 @@ input[type='number'].customization-input {
 #people-overlay,
 #help-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.75);
+  height: 100dvh;
+  background: var(--overlay-scrim-strong);
   display: none;
   flex-direction: column;
   align-items: center;
-  color: white;
+  padding: max(12px, env(safe-area-inset-top, 12px))
+    max(12px, env(safe-area-inset-right, 12px))
+    max(12px, env(safe-area-inset-bottom, 12px))
+    max(12px, env(safe-area-inset-left, 12px));
+  box-sizing: border-box;
+  color: var(--text-primary);
   z-index: 510;
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   overflow-y: auto;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -2165,12 +2498,15 @@ input[type='number'].customization-input {
   box-sizing: border-box;
   width: 100%;
   max-width: 520px;
-  padding: max(24px, env(safe-area-inset-top, 24px)) 20px
-    max(40px, env(safe-area-inset-bottom, 40px)) 20px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  box-shadow: var(--card-shadow);
+  padding: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
+  gap: 20px;
   margin: auto;
 }
 
@@ -2189,43 +2525,55 @@ input[type='number'].customization-input {
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.5px;
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--text-primary);
 }
 
 .achievements-close-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.7);
-  width: 32px;
-  height: 32px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-control);
+  color: var(--text-primary);
+  width: 34px;
+  height: 34px;
   border-radius: 8px;
   font-size: 16px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.16s ease;
   flex-shrink: 0;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.achievements-close-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.4);
+@media (hover: hover) and (pointer: fine) {
+  .achievements-close-btn:hover {
+    background: var(--surface-elevated-hover);
+    border-color: var(--border-strong);
+  }
+}
+
+.achievements-close-btn:active {
+  transform: scale(0.95);
 }
 
 .achievements-progress {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-muted);
   letter-spacing: 1px;
+  font-variant-numeric: tabular-nums;
 }
 
 .achievements-stats {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   letter-spacing: 1px;
-  margin-bottom: 16px;
-  font-family: monospace;
+  margin-bottom: 12px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 #achievements-grid,
@@ -2313,9 +2661,9 @@ input[type='number'].customization-input {
   gap: 4px;
   padding: 12px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  border: 1px solid var(--border-control);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
   font-family:
     'Inter',
     -apple-system,
@@ -2324,11 +2672,21 @@ input[type='number'].customization-input {
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.14s ease;
 }
 
-.fly-game:hover {
-  border-color: #ffc23d;
-  background: rgba(255, 194, 61, 0.12);
+@media (hover: hover) and (pointer: fine) {
+  .fly-game:hover {
+    border-color: var(--accent-soft-border);
+    background: var(--accent-soft-bg);
+  }
+}
+
+.fly-game:active {
+  transform: scale(0.98);
 }
 
 .fly-game-name {
@@ -2339,12 +2697,12 @@ input[type='number'].customization-input {
 
 .fly-game-rule {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--text-muted);
   line-height: 1.3;
 }
 
 #fly-tag-btn.open {
-  border-color: #ffc23d;
+  border-color: var(--accent-soft-border);
 }
 
 /* Out of a room the tab is shorter than the others: three tight groups
@@ -2376,28 +2734,27 @@ input[type='number'].customization-input {
 .fly-self-name {
   box-sizing: border-box;
   width: 100%;
-  height: 18px;
+  height: 22px;
   padding: 0;
   border: none;
   border-bottom: 1px solid transparent;
   border-radius: 0;
   background: transparent;
-  color: #fff;
+  color: var(--text-primary);
   font-family:
     'Inter',
     -apple-system,
     sans-serif;
-  /* Same size as the other names; the viewport's maximum-scale stops
-     iOS zooming in on focus */
-  font-size: inherit;
-  line-height: 17px;
+  /* >= 16px so iOS Safari/WebView never auto-zooms on focus */
+  font-size: 16px;
+  line-height: 20px;
   outline: none;
   -webkit-user-select: text;
   user-select: text;
 }
 
 .fly-self-name:focus {
-  border-bottom: 1px solid #ffd700;
+  border-bottom: 1px solid var(--accent-fg);
 }
 
 .fly-self-note::after {
@@ -2410,7 +2767,7 @@ input[type='number'].customization-input {
   gap: 6px;
   width: 100%;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-muted);
   letter-spacing: 1px;
 }
 
@@ -2421,9 +2778,9 @@ input[type='number'].customization-input {
   height: 42px;
   padding: 0 12px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  border: 1px solid var(--border-control);
+  background: var(--surface-input);
+  color: var(--text-primary);
   font-family:
     'Inter',
     -apple-system,
@@ -2434,9 +2791,14 @@ input[type='number'].customization-input {
   user-select: text;
 }
 
+.fly-field input::placeholder,
+.fly-join-row input::placeholder {
+  color: var(--text-muted);
+}
+
 .fly-field input:focus,
 .fly-join-row input:focus {
-  border-color: rgba(255, 255, 255, 0.55);
+  border-color: var(--accent-soft-border);
 }
 
 .fly-join-row input {
@@ -2466,9 +2828,9 @@ input[type='number'].customization-input {
   height: 42px;
   padding: 0 20px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
+  border: 1px solid var(--border-control);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
   font-family:
     'Inter',
     -apple-system,
@@ -2480,6 +2842,10 @@ input[type='number'].customization-input {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   flex-shrink: 0;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.14s ease;
 }
 
 #fly-invite-btn {
@@ -2519,24 +2885,31 @@ input[type='number'].customization-input {
   font-size: 13px;
 }
 
-.fly-btn:hover {
-  background: rgba(255, 255, 255, 0.22);
+@media (hover: hover) and (pointer: fine) {
+  .fly-btn:hover:not(:disabled) {
+    background: var(--surface-elevated-hover);
+    border-color: var(--border-strong);
+  }
+}
+
+.fly-btn:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .fly-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: default;
 }
 
 .fly-btn-quiet {
   background: transparent;
-  border-color: rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.7);
+  border-color: var(--border-control);
+  color: var(--text-secondary);
 }
 
 .fly-or {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-muted);
   letter-spacing: 1px;
 }
 
@@ -2549,6 +2922,8 @@ input[type='number'].customization-input {
   font-weight: 700;
   line-height: 1;
   letter-spacing: 4px;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
   -webkit-user-select: text;
   user-select: text;
 }
@@ -2564,10 +2939,12 @@ input[type='number'].customization-input {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 34px;
-  padding: 0 3px 0 12px;
+  min-height: 36px;
+  padding: 2px 4px 2px 12px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
   font-size: 14px;
 }
 
@@ -2579,8 +2956,8 @@ input[type='number'].customization-input {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  /* A faint ring, as in the room chip, so the black livery shows */
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3);
+  /* A crisp ring so pale or dark liveries both read against the row */
+  box-shadow: 0 0 0 1.5px var(--border-control);
   flex-shrink: 0;
 }
 
@@ -2594,7 +2971,7 @@ input[type='number'].customization-input {
 
 .fly-player-name {
   min-width: 0;
-  line-height: 17px;
+  line-height: 18px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2604,7 +2981,7 @@ input[type='number'].customization-input {
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--text-secondary);
   padding-right: 8px;
 }
 
@@ -2630,14 +3007,14 @@ input[type='number'].customization-input {
   visibility: hidden;
 }
 
-/* "it", "paused": small and grey under the name */
+/* "it", "paused": small and muted under the name */
 .fly-player-note {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 11px;
   line-height: 13px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-muted);
 }
 
 .fly-bots-row[hidden] {
@@ -2653,7 +3030,7 @@ input[type='number'].customization-input {
   width: 100%;
   padding: 0 4px 0 12px;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--text-secondary);
   cursor: pointer;
 }
 
@@ -2668,7 +3045,7 @@ input[type='number'].customization-input {
 .fly-status {
   min-height: 16px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-muted);
   text-align: center;
   letter-spacing: 0.5px;
 }
@@ -2683,8 +3060,8 @@ input[type='number'].customization-input {
   border-radius: 6px;
 }
 .achievement-card.locked .person-card-face {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.15);
+  background: var(--surface-elevated);
+  border-color: var(--border-control);
 }
 
 /* ============================================================
@@ -2692,26 +3069,27 @@ input[type='number'].customization-input {
    ============================================================ */
 
 .achievement-card {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
   border-radius: 10px;
-  padding: 14px;
+  padding: 12px 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   text-align: center;
-  transition: all 0.25s ease;
+  transition:
+    background 0.25s ease,
+    border-color 0.25s ease;
 }
 
 .achievement-card.unlocked {
-  background: rgba(255, 215, 0, 0.06);
-  border-color: rgba(255, 215, 0, 0.2);
-  box-shadow: 0 0 16px rgba(255, 215, 0, 0.06);
+  background: var(--accent-soft-bg);
+  border-color: var(--accent-soft-border);
 }
 
 .achievement-card.locked .achievement-card-emoji {
-  filter: grayscale(1) opacity(0.3);
+  filter: grayscale(1) opacity(0.45);
 }
 
 .achievement-card-emoji {
@@ -2722,7 +3100,7 @@ input[type='number'].customization-input {
 .achievement-card-title {
   font-size: 12px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary);
   line-height: 1.3;
   font-family:
     'Inter',
@@ -2731,12 +3109,12 @@ input[type='number'].customization-input {
 }
 
 .achievement-card.locked .achievement-card-title {
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-muted);
 }
 
 .achievement-card-hint {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   font-style: italic;
   line-height: 1.3;
 }
@@ -2745,61 +3123,69 @@ input[type='number'].customization-input {
   display: none;
 }
 
-/* A move not done yet: how to do it (tap-moves.js) */
-.achievement-card-how {
-  font-size: 10px;
-  line-height: 1.3;
-  color: rgba(255, 215, 0, 0.6);
-}
-
 /* Lock icon indicator for locked cards */
 .achievement-card.locked::after {
   content: '🔒';
   font-size: 10px;
-  opacity: 0.35;
+  opacity: 0.7;
   margin-top: -2px;
 }
 
 /* Reset button at bottom of achievements overlay */
 .achievements-reset-btn {
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.3);
+  border: 1px solid var(--border-control);
+  color: var(--text-muted);
   padding: 0 16px;
-  height: 32px;
-  font-size: 10px;
+  height: 34px;
+  font-size: 11px;
   font-weight: 600;
   font-family:
     'Inter',
     -apple-system,
     sans-serif;
   cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.25s ease;
-  letter-spacing: 3px;
+  border-radius: 7px;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.16s ease;
+  letter-spacing: 2px;
   margin-top: 8px;
   outline: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .achievements-reset-btn:hover {
+    background: var(--surface-elevated-hover);
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+  }
 }
 
 .achievements-reset-btn:active {
-  background: rgba(200, 50, 50, 0.15);
-  border-color: rgba(200, 50, 50, 0.4);
-  color: rgba(255, 100, 100, 0.8);
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
+  color: var(--danger-fg);
   transform: scale(0.97);
 }
 
 .achievements-reset-btn.confirming {
-  background: rgba(220, 53, 69, 0.2);
-  border-color: rgba(220, 53, 69, 0.6);
-  color: #ff6b6b;
-  box-shadow: 0 0 12px rgba(220, 53, 69, 0.3);
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
+  color: var(--danger-fg);
   letter-spacing: 1.5px;
 }
 
-.achievements-reset-btn.confirming:hover {
-  background: rgba(220, 53, 69, 0.3);
-  border-color: rgba(220, 53, 69, 0.8);
-  color: #ff8585;
+@media (hover: hover) and (pointer: fine) {
+  .achievements-reset-btn.confirming:hover {
+    background: var(--danger-bg);
+    border-color: var(--danger-fg);
+    color: var(--danger-fg);
+  }
 }
 
 /* ============================================================
@@ -2816,9 +3202,9 @@ input[type='number'].customization-input {
 
 .pause-icon-btn,
 #achievements-btn {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.78);
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-control);
+  color: var(--text-primary);
   padding: 0 10px;
   height: 36px;
   margin-top: 0;
@@ -2828,9 +3214,14 @@ input[type='number'].customization-input {
     'Inter',
     -apple-system,
     sans-serif;
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
   border-radius: 8px;
-  transition: all 0.25s ease;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.16s ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2851,11 +3242,12 @@ input[type='number'].customization-input {
   font-size: 14px;
 }
 
-.pause-icon-btn:hover,
-#achievements-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.3);
-  color: #fff;
+@media (hover: hover) and (pointer: fine) {
+  .pause-icon-btn:hover,
+  #achievements-btn:hover {
+    background: var(--surface-elevated-hover);
+    border-color: var(--border-strong);
+  }
 }
 
 .pause-icon-btn:active,
@@ -2880,10 +3272,22 @@ input[type='number'].customization-input {
    ============================================================ */
 
 #fullscreen-map-overlay {
+  --map-bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 8px));
+  --map-bar-half: min(
+    250px,
+    calc(
+      (
+          100% - 24px - env(safe-area-inset-left, 0px) -
+            env(safe-area-inset-right, 0px)
+        ) /
+        2
+    )
+  );
   position: fixed;
   inset: 0;
   width: 100%;
   height: 100%;
+  height: 100dvh;
   background: #090e17;
   z-index: 520;
   overflow: hidden;
@@ -2910,22 +3314,28 @@ input[type='number'].customization-input {
 
 .fullscreen-map-header {
   position: absolute;
-  top: max(16px, env(safe-area-inset-top));
+  top: max(16px, env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
-  width: calc(100% - 32px);
-  max-width: 520px;
-  height: 48px;
-  background: rgba(15, 20, 32, 0.78);
+  width: min(
+    520px,
+    calc(
+      100% - 24px - env(safe-area-inset-left, 0px) -
+        env(safe-area-inset-right, 0px)
+    )
+  );
+  min-height: 48px;
+  background: var(--surface-floating);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--border-control);
   border-radius: 14px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--floating-shadow);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  gap: 10px;
+  padding: 6px 16px;
   z-index: 20;
   pointer-events: auto;
   box-sizing: border-box;
@@ -2935,6 +3345,7 @@ input[type='number'].customization-input {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .fullscreen-map-title {
@@ -2945,13 +3356,14 @@ input[type='number'].customization-input {
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.5px;
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--text-primary);
 }
 
 .fullscreen-map-coords {
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 11px;
-  color: #ffd700;
+  color: var(--accent-fg);
   letter-spacing: 0.5px;
 }
 
@@ -2959,9 +3371,9 @@ input[type='number'].customization-input {
   height: 32px;
   padding: 0 12px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--border-control);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
   font-family:
     'Inter',
     -apple-system,
@@ -2978,13 +3390,15 @@ input[type='number'].customization-input {
   -webkit-tap-highlight-color: transparent;
   transition:
     background 0.2s ease,
-    border-color 0.2s ease;
+    border-color 0.2s ease,
+    transform 0.16s ease;
 }
 
-.fullscreen-map-vr-btn:hover {
-  background: rgba(255, 255, 255, 0.16);
-  border-color: rgba(255, 255, 255, 0.4);
-  color: #fff;
+@media (hover: hover) and (pointer: fine) {
+  .fullscreen-map-vr-btn:hover {
+    background: var(--surface-elevated-hover);
+    border-color: var(--border-strong);
+  }
 }
 
 .fullscreen-map-vr-btn:active {
@@ -2995,18 +3409,18 @@ input[type='number'].customization-input {
    lined up with the bar's */
 .fullscreen-map-recenter-btn {
   position: absolute;
-  right: calc(50% - min(45%, 250px));
-  bottom: 104px;
+  right: calc(50% - var(--map-bar-half));
+  bottom: calc(var(--map-bottom) + 58px);
   width: 52px;
   height: 52px;
   padding: 0;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-primary);
   border-radius: 50%;
-  background: rgba(15, 20, 32, 0.85);
+  background: var(--surface-floating);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border-control);
+  box-shadow: var(--floating-shadow);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3015,6 +3429,18 @@ input[type='number'].customization-input {
   outline: none;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    bottom 0.22s ease,
+    transform 0.16s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .fullscreen-map-recenter-btn:hover {
+    background: var(--surface-floating-hover);
+    border-color: var(--border-strong);
+  }
 }
 
 .fullscreen-map-recenter-btn svg {
@@ -3036,27 +3462,35 @@ input[type='number'].customization-input {
 }
 
 /* Back to flying: where the flight controls sit (#mobile-controls), so
-   it's in thumb reach on phones */
+   it's in thumb reach on phones, matching Pause's RESUME height & shape */
 .fullscreen-map-resume-btn {
   position: absolute;
-  bottom: 30px;
+  bottom: var(--map-bottom);
   left: 50%;
   transform: translateX(-50%);
-  width: 90%;
+  width: calc(var(--map-bar-half) * 2);
   max-width: 500px;
-  height: 56px;
+  height: 46px;
+  border-radius: 10px;
+  font-size: 15px;
   margin: 0;
-  background: rgba(15, 20, 32, 0.85);
+  background: var(--surface-floating);
+  border: 1px solid var(--border-control);
+  color: var(--text-primary);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--floating-shadow);
   z-index: 20;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
-.fullscreen-map-resume-btn:hover {
-  transform: translateX(-50%) translateY(-2px);
+@media (hover: hover) and (pointer: fine) {
+  .fullscreen-map-resume-btn:hover {
+    background: var(--surface-floating-hover);
+    border-color: var(--border-strong);
+    transform: translateX(-50%) translateY(-1px);
+  }
 }
 
 .fullscreen-map-resume-btn:active {
@@ -3066,24 +3500,31 @@ input[type='number'].customization-input {
 /* The pin's "Warp here" / "Set waypoint" panel (minimap.js), above the resume bar */
 .fullscreen-map-warp {
   position: absolute;
-  bottom: 104px;
+  bottom: calc(var(--map-bottom) + 58px);
   /* From the resume bar's left edge to the center-on-plane button */
-  left: calc(50% - min(45%, 250px));
-  right: calc(50% - min(45%, 250px) + 62px);
+  left: calc(50% - var(--map-bar-half));
+  right: calc(50% - var(--map-bar-half) + 62px);
   justify-content: space-between;
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(15, 20, 32, 0.85);
+  background: var(--surface-card);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--border-control);
   border-radius: 14px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--card-shadow);
+  color: var(--text-primary);
   padding: 8px 8px 8px 14px;
   z-index: 20;
   pointer-events: auto;
   white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.fullscreen-map-warp-head,
+.fullscreen-map-warp-actions {
+  display: contents;
 }
 
 /* The place's name, its coordinates and who's there, one per line */
@@ -3091,30 +3532,35 @@ input[type='number'].customization-input {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1;
   min-width: 0;
+  order: 1;
 }
 
 .fullscreen-map-warp-name {
   font-size: 14px;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
 }
 
 .fullscreen-map-warp-coords {
-  font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-secondary);
 }
 
 .fullscreen-map-warp-people {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-muted);
 }
 
 .fullscreen-map-warp-btn {
-  background: #ffd700;
-  color: #1a1a1a;
-  border: none;
+  order: 3;
+  background: var(--accent-solid-bg);
+  color: var(--accent-solid-fg);
+  border: 1px solid var(--accent-solid-bg);
   border-radius: 10px;
   min-height: 44px;
   padding: 0 18px;
@@ -3124,20 +3570,36 @@ input[type='number'].customization-input {
     sans-serif;
   cursor: pointer;
   touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.16s ease;
 }
 
-.fullscreen-map-warp-btn:hover {
-  background: #ffe34d;
+@media (hover: hover) and (pointer: fine) {
+  .fullscreen-map-warp-btn:hover {
+    background: var(--accent-solid-hover);
+    border-color: var(--accent-solid-hover);
+  }
+}
+
+.fullscreen-map-warp-btn:active {
+  transform: scale(0.97);
 }
 
 .fullscreen-map-warp-btn.secondary {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  order: 2;
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-control);
 }
 
-.fullscreen-map-warp-btn.secondary:hover {
-  background: rgba(255, 255, 255, 0.22);
+@media (hover: hover) and (pointer: fine) {
+  .fullscreen-map-warp-btn.secondary:hover {
+    background: var(--surface-elevated-hover);
+    border-color: var(--border-strong);
+  }
 }
 
 /* The hint makes way for the pin panel */
@@ -3153,52 +3615,106 @@ input[type='number'].customization-input {
 }
 
 .fullscreen-map-warp-cancel {
-  width: 44px;
-  height: 44px;
+  order: 4;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   border-radius: 10px;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--text-secondary);
   font-size: 16px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.16s ease;
 }
 
-.fullscreen-map-warp-cancel:hover {
-  background: rgba(255, 255, 255, 0.15);
+@media (hover: hover) and (pointer: fine) {
+  .fullscreen-map-warp-cancel:hover {
+    background: var(--surface-elevated-hover);
+    color: var(--text-primary);
+  }
 }
 
-/* Narrow screens: the coordinates get their own line */
+.fullscreen-map-warp-cancel:active {
+  transform: scale(0.94);
+}
+
+/* Narrow screens: full-width pin card with header row + 2-button action row */
 @media (max-width: 600px) {
   .fullscreen-map-warp {
-    flex-wrap: wrap;
+    right: calc(50% - var(--map-bar-half));
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px 14px;
+    white-space: normal;
+  }
+
+  .fullscreen-map-warp-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
     gap: 8px;
+    width: 100%;
   }
-  /* The place takes its own lines above the buttons */
+
   .fullscreen-map-warp-place {
-    flex-basis: 100%;
-    align-items: center;
-    text-align: center;
+    order: 0;
+    align-items: flex-start;
+    text-align: left;
   }
-  .fullscreen-map-warp-btn {
+
+  .fullscreen-map-warp-cancel {
+    order: 0;
+    width: 36px;
+    height: 36px;
+    margin: -4px -4px 0 0;
+    border-color: var(--border-control);
+  }
+
+  .fullscreen-map-warp-actions {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .fullscreen-map-warp-btn,
+  .fullscreen-map-warp-btn.secondary {
+    order: 0;
     flex: 1;
+    min-width: 0;
     padding: 0 10px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  #fullscreen-map-overlay:has(#fullscreen-map-warp:not([hidden]))
+    .fullscreen-map-recenter-btn {
+    bottom: calc(var(--map-bottom) + 218px);
   }
 }
 
 .fullscreen-map-hint {
   position: absolute;
-  bottom: 112px;
+  bottom: calc(var(--map-bottom) + 66px);
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--surface-floating);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-control);
   border-radius: 20px;
   padding: 6px 14px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--text-secondary);
   letter-spacing: 0.5px;
   pointer-events: none;
   white-space: nowrap;
@@ -3232,9 +3748,9 @@ input[type='number'].customization-input {
   width: 10px;
   height: 10px;
   margin: -6px 0 0 -6px;
-  border: 2px solid rgba(255, 215, 0, 0.85);
+  border: 2px solid rgba(255, 215, 0, 0.9);
   transform: rotate(45deg);
-  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.6));
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.7));
 }
 
 #waypoint-indicator.offscreen .waypoint-mark {
@@ -3252,9 +3768,10 @@ input[type='number'].customization-input {
     600 10px Inter,
     -apple-system,
     sans-serif;
+  font-variant-numeric: tabular-nums;
   letter-spacing: 0.5px;
-  color: rgba(255, 255, 255, 0.75);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
   white-space: nowrap;
 }
 
@@ -3297,6 +3814,7 @@ input[type='number'].customization-input {
     700 64px Inter,
     -apple-system,
     sans-serif;
+  font-variant-numeric: tabular-nums;
   letter-spacing: 2px;
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.55);
   white-space: nowrap;
@@ -3379,9 +3897,10 @@ input[type='number'].customization-input {
     600 10px Inter,
     -apple-system,
     sans-serif;
+  font-variant-numeric: tabular-nums;
   letter-spacing: 0.5px;
-  color: rgba(255, 255, 255, 0.85);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
   white-space: nowrap;
 }
 
@@ -3394,7 +3913,7 @@ input[type='number'].customization-input {
   margin-left: 4px;
   padding: 0 4px;
   border-radius: 3px;
-  background: #e8505b;
+  background: #c92a2a;
   color: #fff;
   text-shadow: none;
 }
@@ -3403,7 +3922,7 @@ input[type='number'].customization-input {
   margin-left: 4px;
   padding: 0 4px;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(15, 23, 42, 0.72);
   color: #fff;
   text-shadow: none;
 }
@@ -3418,10 +3937,12 @@ input[type='number'].customization-input {
   z-index: 151;
   padding: 4px 12px;
   border-radius: 999px;
-  background: rgba(10, 10, 15, 0.6);
+  background: var(--surface-floating);
+  border: 1px solid var(--border-control);
+  box-shadow: var(--floating-shadow);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  color: #fff;
+  color: var(--text-primary);
   font:
     600 12px Inter,
     -apple-system,
@@ -3433,7 +3954,9 @@ input[type='number'].customization-input {
 }
 
 #tag-chip.mine {
-  background: rgba(232, 80, 91, 0.85);
+  background: #c92a2a;
+  border-color: #ff8787;
+  color: #ffffff;
 }
 
 #tag-chip[hidden] {
@@ -3451,16 +3974,18 @@ input[type='number'].customization-input {
   align-items: center;
   gap: 7px;
   padding: 5px 11px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--border-control);
   border-radius: 999px;
-  background: rgba(10, 10, 15, 0.6);
+  background: var(--surface-floating);
+  box-shadow: var(--floating-shadow);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  color: #fff;
+  color: var(--text-primary);
   font:
     600 12px Inter,
     -apple-system,
     sans-serif;
+  font-variant-numeric: tabular-nums;
   letter-spacing: 1px;
   cursor: pointer;
   touch-action: manipulation;
@@ -3478,7 +4003,7 @@ input[type='number'].customization-input {
 
 /* The connection dropped: dimmed while getting back in */
 .room-chip.room-chip-down {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-muted);
   border-style: dashed;
 }
 
@@ -3491,8 +4016,8 @@ input[type='number'].customization-input {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  /* So the black livery still shows */
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3);
+  /* So pale or dark liveries still show */
+  box-shadow: 0 0 0 1.5px var(--border-control);
 }
 
 @media (max-width: 1024px) {
@@ -3514,7 +4039,7 @@ input[type='number'].customization-input {
   grid-column: span 3;
   justify-content: center;
   align-items: center;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--border-subtle);
   padding-top: 8px;
   margin-top: 4px;
   min-width: 0;
@@ -3532,14 +4057,14 @@ input[type='number'].customization-input {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 1px;
-  color: #e74c3c;
+  color: var(--danger-fg);
 }
 .job-hud-auto[hidden] {
   display: none;
 }
 .job-hud-cargo {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3559,11 +4084,11 @@ input[type='number'].customization-input {
   align-items: flex-start;
   gap: 14px;
   padding: 14px 16px 18px;
-  background: rgba(24, 18, 14, 0.9);
-  border: 2px solid #e8c48a;
+  background: var(--npc-bg);
+  border: 2px solid var(--npc-border);
   border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  color: #fff;
+  box-shadow: var(--card-shadow);
+  color: var(--text-primary);
   font-family:
     'Inter',
     -apple-system,
@@ -3601,7 +4126,7 @@ input[type='number'].customization-input {
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 1px;
-  color: #e8c48a;
+  color: var(--npc-name);
 }
 .npc-dialog-text {
   min-height: 2.8em;
@@ -3619,24 +4144,28 @@ input[type='number'].customization-input {
 }
 .npc-dialog-choices button {
   padding: 8px 14px;
-  border: 1px solid #e8c48a;
+  border: 1px solid var(--npc-border);
   border-radius: 6px;
-  background: rgba(232, 196, 138, 0.12);
-  color: #fff;
+  background: var(--npc-choice-bg);
+  color: var(--text-primary);
   font: inherit;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
-.npc-dialog-choices button:hover {
-  background: rgba(232, 196, 138, 0.28);
+@media (hover: hover) and (pointer: fine) {
+  .npc-dialog-choices button:hover {
+    background: var(--npc-choice-hover);
+  }
 }
 .npc-dialog-next {
   position: absolute;
   right: 12px;
   bottom: 6px;
   font-size: 10px;
-  color: #e8c48a;
+  color: var(--npc-name);
   animation: npc-next-bob 1s ease-in-out infinite;
 }
 @keyframes npc-next-bob {
@@ -3979,7 +4508,7 @@ body.zen-fading
   flex: none;
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  border: 2px solid var(--border-control);
   border-radius: 12px;
   overflow: hidden;
 }
@@ -3993,35 +4522,36 @@ body.zen-fading
   text-align: center;
   font-size: 12px;
   line-height: 1.2;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary);
 }
 .help-zone small {
   display: block;
   font-size: 9px;
+  font-weight: 700;
   letter-spacing: 2px;
-  color: #ffd700;
+  color: var(--accent-fg);
 }
 .help-zone.left,
 .help-zone.right {
   grid-row: 1 / 4;
-  background: rgba(255, 215, 0, 0.08);
+  background: var(--accent-soft-bg);
 }
 .help-zone.left {
   grid-column: 1;
-  border-right: 1px dashed rgba(255, 255, 255, 0.25);
+  border-right: 1px dashed var(--border-control);
 }
 .help-zone.right {
   grid-column: 3;
-  border-left: 1px dashed rgba(255, 255, 255, 0.25);
+  border-left: 1px dashed var(--border-control);
 }
 .help-zone.top,
 .help-zone.bottom {
   grid-column: 2;
-  background: rgba(120, 190, 255, 0.1);
+  background: rgba(56, 148, 232, 0.13);
 }
 .help-zone.top {
   grid-row: 1;
-  border-bottom: 1px dashed rgba(255, 255, 255, 0.25);
+  border-bottom: 1px dashed var(--border-control);
 }
 .help-zone.middle {
   grid-column: 2;
@@ -4029,7 +4559,7 @@ body.zen-fading
 }
 .help-zone.bottom {
   grid-row: 3;
-  border-top: 1px dashed rgba(255, 255, 255, 0.25);
+  border-top: 1px dashed var(--border-control);
 }
 .help-moves {
   width: 100%;
@@ -4042,7 +4572,7 @@ body.zen-fading
   justify-content: space-between;
   gap: 12px;
   padding: 10px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--border-subtle);
 }
 .help-move:last-child {
   border-bottom: none;
@@ -4050,30 +4580,43 @@ body.zen-fading
 .help-move-name {
   font-size: 14px;
   font-weight: 600;
+  color: var(--text-primary);
 }
 .help-move-done {
   margin-left: 8px;
-  color: #ffd700;
+  color: var(--accent-fg);
 }
 .help-move-how {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-muted);
 }
 .help-try-btn {
   flex: none;
   height: 32px;
   padding: 0 16px;
   border-radius: 8px;
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  color: #fff;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-control);
+  color: var(--text-primary);
   font: inherit;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.14s ease;
 }
-.help-try-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+@media (hover: hover) and (pointer: fine) {
+  .help-try-btn:hover {
+    background: var(--surface-elevated-hover);
+    border-color: var(--border-strong);
+  }
+}
+.help-try-btn:active {
+  transform: scale(0.96);
 }
 
 /* ?ui=0: nothing on screen but the game view, for clean screenshots and
@@ -4166,10 +4709,15 @@ body.ui-hidden > canvas {
   .menu-items {
     left: 0;
     bottom: 44px;
+    display: flex;
     flex-direction: row;
     width: calc(300% + 16px);
     gap: 8px;
     padding-bottom: 8px;
+  }
+
+  #mobile-sub-menu #mobile-pause-trigger {
+    grid-column: auto;
   }
 
   .sub-btn {
@@ -4191,6 +4739,10 @@ body.ui-hidden > canvas {
     top: calc(env(safe-area-inset-top, 0px) + 40px);
   }
 
+  #achievement-toast-container {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 46px);
+  }
+
   @media (max-width: 1024px) {
     .hud-vr-btn {
       top: calc(env(safe-area-inset-top, 0px) + 40px);
@@ -4210,11 +4762,15 @@ body.ui-hidden > canvas {
 @media (orientation: landscape) and (max-height: 500px) {
   #pause-overlay .customization-box {
     display: grid;
-    grid-template-columns: 280px 210px;
+    grid-template-columns: minmax(0, 290px) minmax(0, 205px);
     grid-template-rows: auto minmax(0, 1fr) auto auto;
-    column-gap: 22px;
+    column-gap: 20px;
     row-gap: 10px;
     width: auto;
+    max-width: calc(
+      100vw - 24px - env(safe-area-inset-left, 0px) -
+        env(safe-area-inset-right, 0px)
+    );
     max-height: calc(
       100dvh - 16px - env(safe-area-inset-top, 0px) -
         env(safe-area-inset-bottom, 0px)

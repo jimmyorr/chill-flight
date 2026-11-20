@@ -249,6 +249,7 @@ if (colorOptionsInit && typeof state.planeColor !== 'undefined') {
     sw.className =
       'color-swatch' + (color === state.planeColor ? ' active' : '');
     sw.setAttribute('data-color', color);
+    if (color === 0xe8c382) sw.setAttribute('data-light-swatch', '1');
     // Ensure hex string is always 6 characters with leading zeros
     sw.style.backgroundColor = '#' + color.toString(16).padStart(6, '0');
     colorOptionsInit.appendChild(sw);
