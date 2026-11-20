@@ -17,7 +17,7 @@ import {mapColor} from './map-palette.js';
 import {MapTiles, MAX_LEVEL, TILE_PX} from './map-tiles.js';
 import {updateChunks} from './terrain-chunks.js';
 import {cameraDolly} from './game-input-bindings.js';
-import {camera} from './sky.js';
+import {camera, getViewportSize} from './sky.js';
 import {syncCameraAfterTeleport} from './flight-camera.js';
 import {
   _currentLookTarget,
@@ -595,8 +595,7 @@ import {IMPERIAL, joinList, t} from './i18n.js';
   function resizeFsCanvas() {
     if (!fsCanvas) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = window.innerWidth;
-    const h = window.innerHeight;
+    const {width: w, height: h} = getViewportSize();
     if (
       fsCanvas.width !== Math.round(w * dpr) ||
       fsCanvas.height !== Math.round(h * dpr)
@@ -710,8 +709,7 @@ import {IMPERIAL, joinList, t} from './i18n.js';
       resizeFsCanvas();
     }
     if (fsVisible || !planeGroup) return;
-    const screenW = window.innerWidth;
-    const screenH = window.innerHeight;
+    const {width: screenW, height: screenH} = getViewportSize();
     const upp = (fsViewRadius * 2) / Math.min(screenW, screenH);
     const cx = planeGroup.position.x;
     const cz = planeGroup.position.z;
@@ -1095,8 +1093,7 @@ import {IMPERIAL, joinList, t} from './i18n.js';
 
     resizeFsCanvas();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const screenW = window.innerWidth;
-    const screenH = window.innerHeight;
+    const {width: screenW, height: screenH} = getViewportSize();
 
     fsCtx.save();
     fsCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1527,8 +1524,7 @@ import {IMPERIAL, joinList, t} from './i18n.js';
       if (!activePointers.has(e.pointerId)) return;
       activePointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
 
-      const screenW = window.innerWidth;
-      const screenH = window.innerHeight;
+      const {width: screenW, height: screenH} = getViewportSize();
       const minDim = Math.min(screenW, screenH);
       const worldUnitsPerPixel = (fsViewRadius * 2) / minDim;
 
@@ -1602,13 +1598,11 @@ import {IMPERIAL, joinList, t} from './i18n.js';
             tapStart.slop &&
           performance.now() - tapStart.t < TAP_TIME
         ) {
-          const minDim = Math.min(window.innerWidth, window.innerHeight);
+          const {width: vpW, height: vpH} = getViewportSize();
+          const minDim = Math.min(vpW, vpH);
           const unitsPerPixel = (fsViewRadius * 2) / minDim;
-          const x =
-            fsViewCenterX + (e.clientX - window.innerWidth / 2) * unitsPerPixel;
-          const z =
-            fsViewCenterZ +
-            (e.clientY - window.innerHeight / 2) * unitsPerPixel;
+          const x = fsViewCenterX + (e.clientX - vpW / 2) * unitsPerPixel;
+          const z = fsViewCenterZ + (e.clientY - vpH / 2) * unitsPerPixel;
           const place = nearestLandmark(x, z, tapStart.snap * unitsPerPixel);
           setWarpPin(
             place ? {x: place.x, z: place.z, name: place.name} : {x, z}
@@ -1644,8 +1638,7 @@ import {IMPERIAL, joinList, t} from './i18n.js';
     // Double-click/tap zoom in
     fsCanvas.addEventListener('dblclick', (e) => {
       e.preventDefault();
-      const screenW = window.innerWidth;
-      const screenH = window.innerHeight;
+      const {width: screenW, height: screenH} = getViewportSize();
       const minDim = Math.min(screenW, screenH);
       const worldUnitsPerPixel = (fsViewRadius * 2) / minDim;
 

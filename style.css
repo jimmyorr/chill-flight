@@ -163,7 +163,6 @@ body {
   padding: 0;
   width: 100%;
   height: 100%;
-  height: 100dvh;
   overflow: hidden;
 }
 
@@ -258,9 +257,6 @@ textarea {
 #ui-layer {
   position: fixed;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  height: 100dvh;
   pointer-events: none;
   display: flex;
   flex-direction: column;
@@ -291,9 +287,6 @@ textarea {
 #pause-overlay {
   position: fixed;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  height: 100dvh;
   background: var(--overlay-scrim);
   display: none;
   flex-direction: column;
@@ -1270,8 +1263,8 @@ input[type='number'].customization-input {
 
 /* Mobile Controls Redesign */
 #mobile-controls {
-  position: absolute;
-  bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 8px));
+  position: fixed;
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   width: calc(
@@ -1702,9 +1695,6 @@ input[type='number'].customization-input {
 #loading-overlay {
   position: fixed;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  height: 100dvh;
   background: radial-gradient(
     circle at center,
     var(--splash-bg-top, #1a1a2e) 0%,
@@ -2017,16 +2007,15 @@ input[type='number'].customization-input {
   }
 
   #cockpit-ui {
+    position: fixed;
     top: 0;
-    padding-top: max(5px, env(safe-area-inset-top, 0px));
+    padding-top: max(6px, calc(env(safe-area-inset-top, 0px) + 6px));
     bottom: auto;
     left: 0;
     transform: none;
     width: 100%;
     border-radius: 0;
-    border-top: none;
-    border-left: none;
-    border-right: none;
+    border: none;
     justify-content: center;
     padding-right: max(10px, env(safe-area-inset-right, 0px));
     padding-bottom: 5px;
@@ -2034,13 +2023,14 @@ input[type='number'].customization-input {
   }
 
   .hud-vr-btn {
+    position: fixed;
     top: calc(env(safe-area-inset-top, 0px) + 94px);
     right: max(12px, env(safe-area-inset-right, 0px));
   }
 
   @media (max-width: 500px) {
     #cockpit-ui {
-      padding-top: max(4px, env(safe-area-inset-top, 0px));
+      padding-top: max(5px, calc(env(safe-area-inset-top, 0px) + 6px));
       padding-right: max(8px, env(safe-area-inset-right, 0px));
       padding-bottom: 4px;
       padding-left: max(8px, env(safe-area-inset-left, 0px));
@@ -2272,8 +2262,8 @@ input[type='number'].customization-input {
 
 /* Minimap CSS overlay styled with glassmorphism to look premium */
 #minimap-container {
-  position: absolute;
-  bottom: max(24px, calc(env(safe-area-inset-bottom, 0px) + 8px));
+  position: fixed;
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
   right: max(24px, env(safe-area-inset-right, 0px));
   width: 180px;
   height: 180px; /* Exact 1:1 match with canvas size */
@@ -2473,9 +2463,6 @@ input[type='number'].customization-input {
 #help-overlay {
   position: fixed;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  height: 100dvh;
   background: var(--overlay-scrim-strong);
   display: none;
   flex-direction: column;
@@ -3272,7 +3259,7 @@ input[type='number'].customization-input {
    ============================================================ */
 
 #fullscreen-map-overlay {
-  --map-bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 8px));
+  --map-bottom: max(16px, env(safe-area-inset-bottom, 0px));
   --map-bar-half: min(
     250px,
     calc(
@@ -3285,9 +3272,6 @@ input[type='number'].customization-input {
   );
   position: fixed;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  height: 100dvh;
   background: #090e17;
   z-index: 520;
   overflow: hidden;

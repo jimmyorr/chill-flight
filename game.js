@@ -7,6 +7,7 @@ import {
   camera,
   currentPaletteSeed,
   isCustomPalette,
+  measureViewportSize,
   nextSkyPalette,
   renderer,
   selectedPalette,
@@ -136,16 +137,29 @@ export const _cinematicLookTargetCurrent = new THREE.Vector3().copy(
 export const _cinematicStableMatrix = new THREE.Matrix4();
 export const _cinematicStableQuat = new THREE.Quaternion();
 
+const _initialSize = measureViewportSize();
+let _lastResizeW = _initialSize.width;
+let _lastResizeH = _initialSize.height;
+
 function onWindowResize() {
   if (!camera || !renderer) return;
-  camera.aspect = window.innerWidth / window.innerHeight;
+  const {width, height} = measureViewportSize();
+  camera.aspect = width / height;
   camera.updateProjectionMatrix();
   if (!renderer.xr || !renderer.xr.isPresenting) {
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    if (width !== _lastResizeW || height !== _lastResizeH) {
+      _lastResizeW = width;
+      _lastResizeH = height;
+      renderer.setSize(width, height);
+    }
   }
 }
 
 window.addEventListener('resize', onWindowResize);
+if (typeof ResizeObserver !== 'undefined') {
+  const _vpProbe = document.getElementById('ui-layer');
+  if (_vpProbe) new ResizeObserver(onWindowResize).observe(_vpProbe);
+}
 
 // Robustness: Force resize check after page load and at intervals to catch late-settling layout
 window.addEventListener('load', onWindowResize);

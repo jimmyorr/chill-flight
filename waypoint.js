@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import {log} from './logger.js';
 import {planeGroup} from './airplane.js';
 import {scene} from './scene.js';
-import {camera, getCameraWorldPosition} from './sky.js';
+import {camera, getCameraWorldPosition, getViewportSize} from './sky.js';
 import {state} from './state.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {getElevation} from './terrain-geometry.js';
@@ -192,8 +192,7 @@ function updateVRMarker(target) {
  * (multiplayer.js). Returns a shared object, overwritten by the next call.
  */
 export function screenPlacement(x, y, z) {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+  const {width: w, height: h} = getViewportSize();
   camera.updateMatrixWorld();
   // Where it is relative to the camera (looking down -Z)
   _v.set(x, y, z).applyMatrix4(camera.matrixWorldInverse);
