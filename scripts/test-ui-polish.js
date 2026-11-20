@@ -257,8 +257,25 @@ async function runWebPolishPass(browser) {
         const flightOn = snap();
 
         document.querySelector('.pause-tab[data-tab="settings"]').click();
-        await new Promise((r) => requestAnimationFrame(r));
+        const settingsPanel = document.getElementById('pause-panel-settings');
+        settingsPanel.scrollTop = 0;
+        await new Promise((r) =>
+          requestAnimationFrame(() => requestAnimationFrame(r))
+        );
         const settingsOn = snap();
+        const wrap = document.querySelector('#pause-overlay .pause-panels');
+        const settingsOverflows =
+          settingsPanel.scrollHeight - settingsPanel.clientHeight > 6;
+        const cueAtTop = wrap.dataset.canScrollDown ?? null;
+        let cueAtBottom = null;
+        if (settingsOverflows) {
+          settingsPanel.scrollTop = settingsPanel.scrollHeight;
+          settingsPanel.dispatchEvent(new Event('scroll'));
+          await new Promise((r) => requestAnimationFrame(r));
+          cueAtBottom = wrap.dataset.canScrollDown ?? null;
+          settingsPanel.scrollTop = 0;
+          settingsPanel.dispatchEvent(new Event('scroll'));
+        }
 
         music.click();
         await new Promise((r) => requestAnimationFrame(r));
@@ -277,6 +294,9 @@ async function runWebPolishPass(browser) {
           settingsOn,
           settingsOff,
           together,
+          settingsOverflows,
+          cueAtTop,
+          cueAtBottom,
           inert: {
             flight: document.getElementById('pause-panel-flight').inert,
             settings: document.getElementById('pause-panel-settings').inert,
@@ -321,6 +341,30 @@ async function runWebPolishPass(browser) {
         settings: true,
         together: false,
       });
+      if (
+        vp.label === 'desktop-tall' ||
+        vp.label === 'desktop-720p' ||
+        vp.label === 'mobile-portrait'
+      ) {
+        assert.equal(
+          layout.settingsOverflows,
+          false,
+          `[${vp.label}] Settings should fit without scrolling`
+        );
+        assert.equal(layout.cueAtTop, null);
+      }
+      if (layout.settingsOverflows) {
+        assert.equal(
+          layout.cueAtTop,
+          'true',
+          `[${vp.label}] overflowing Settings must show scroll cue at top`
+        );
+        assert.equal(
+          layout.cueAtBottom,
+          null,
+          `[${vp.label}] scroll cue must clear when scrolled to bottom`
+        );
+      }
     }
 
     // 3. Mobile portrait bottom-sheet physics & zero-latency [data-pressed]

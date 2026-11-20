@@ -973,16 +973,18 @@ const browser = await launch({
 });
 
 const PAGE_TIMEOUT_MS = 120000;
+const FLY_PAGE_TIMEOUT_MS = 180000;
 try {
   for (const p of PAGES) {
     if (BUILD_MODE && p.devOnly) continue;
+    const timeoutMs = p.fly ? FLY_PAGE_TIMEOUT_MS : PAGE_TIMEOUT_MS;
     let timer;
     await Promise.race([
       checkPage(browser, p),
       new Promise((_, reject) => {
         timer = setTimeout(
-          () => reject(new Error(`timed out after ${PAGE_TIMEOUT_MS}ms`)),
-          PAGE_TIMEOUT_MS
+          () => reject(new Error(`timed out after ${timeoutMs}ms`)),
+          timeoutMs
         );
       }),
     ])

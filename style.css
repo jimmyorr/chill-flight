@@ -589,6 +589,7 @@ select.customization-input {
    tallest tab (clamped to max-height) without jumping when switching tabs,
    while each active panel scrolls on its own without blank overflow. */
 .pause-panels {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
@@ -601,7 +602,7 @@ select.customization-input {
   grid-area: 1 / 1;
   display: flex;
   flex-direction: column;
-  gap: 13px;
+  gap: 9px;
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
@@ -609,13 +610,71 @@ select.customization-input {
   padding-right: 2px;
 }
 
+#pause-panel-flight > :first-child,
+#pause-panel-settings > :first-child {
+  margin-top: auto;
+}
+
+#pause-panel-flight > :last-child,
+#pause-panel-settings > :last-child {
+  margin-bottom: auto;
+}
+
+.pause-panels[data-can-scroll-down='true'] .pause-panel.active {
+  padding-bottom: 22px;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 28px),
+    transparent
+  );
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+}
+
+.pause-scroll-cue {
+  position: absolute;
+  left: 50%;
+  bottom: 3px;
+  transform: translate3d(-50%, 4px, 0);
+  z-index: 4;
+  width: 28px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--surface-floating);
+  border: 1px solid var(--border-control);
+  box-shadow: var(--floating-shadow);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+
+.pause-scroll-cue svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.pause-panels[data-can-scroll-down='true'] .pause-scroll-cue {
+  opacity: 1;
+  transform: translate3d(-50%, 0, 0);
+}
+
 .pause-panel::-webkit-scrollbar {
-  width: 4px;
+  width: 5px;
 }
 
 .pause-panel::-webkit-scrollbar-thumb {
   background: var(--border-control);
-  border-radius: 2px;
+  border-radius: 999px;
 }
 
 .pause-panel:not(.active) {
@@ -628,9 +687,33 @@ select.customization-input {
   transition: none !important;
 }
 
-/* The plane and appearance segmented buttons span the panel */
+.pause-group-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-subtle);
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.pause-group-card--divided {
+  gap: 6px;
+}
+
+.pause-group-card--divided
+  > :not([hidden]):not([style*='none'])
+  ~ :not([hidden]):not([style*='none']) {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 6px;
+}
+
+/* The plane and graphics segmented buttons span the card */
 .pause-panel .customization-row {
   align-items: stretch;
+  gap: 5px;
 }
 
 /* A setting: title and subtitle on the left, its control on the right */
@@ -641,6 +724,21 @@ select.customization-input {
   gap: 10px;
 }
 
+.pause-row--inline-seg {
+  flex-wrap: wrap;
+  gap: 5px 8px;
+}
+
+.pause-inline-seg {
+  flex: 0 1 auto;
+  min-width: 140px;
+}
+
+.pause-inline-seg .scheme-btn {
+  height: 29px;
+  padding: 0 8px;
+}
+
 label.pause-row {
   cursor: pointer;
   touch-action: manipulation;
@@ -649,7 +747,7 @@ label.pause-row {
 .pause-row-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
 }
 
@@ -694,7 +792,7 @@ label.pause-row {
   flex: none;
   min-width: 96px;
   max-width: 156px;
-  height: 36px;
+  height: 31px;
   padding: 0 10px 0 12px;
   border-radius: 8px;
   background: var(--surface-input);
@@ -791,9 +889,15 @@ label.pause-row {
 
 .pause-credit {
   flex: none;
+  margin-top: -5px;
   font-size: 11px;
+  line-height: 1.25;
   color: var(--text-muted);
   text-align: center;
+}
+
+.pause-credit + .pause-footer {
+  margin-top: -6px;
 }
 
 .pause-credit a {
@@ -2161,7 +2265,7 @@ input[type='number'].customization-input {
 #control-scheme-toggle {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
   width: 100%;
 }
 
@@ -2174,7 +2278,7 @@ input[type='number'].customization-input {
 .scheme-btn {
   flex: 1 1 auto;
   min-width: 0;
-  height: 32px;
+  height: 30px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2868,18 +2972,37 @@ input[type='number'].customization-input {
   border-color: var(--accent-soft-border);
 }
 
-/* Out of a room the tab is shorter than the others: three tight groups
-   (name, start a flight, join one) split the spare space evenly between them */
+/* Two cohesive cards (start a flight / join with a code) centered cleanly
+   instead of scattering ungrouped controls with empty gaps between them */
 #fly-solo {
-  flex: 1;
-  justify-content: space-between;
+  flex: 1 0 auto;
+  gap: 10px;
+}
+
+#fly-solo > :first-child {
+  margin-top: auto;
+}
+
+#fly-solo > :last-child {
+  margin-bottom: auto;
+}
+
+.fly-card {
+  gap: 10px;
+}
+
+.fly-card > .fly-or {
+  align-self: flex-start;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
 }
 
 .fly-group {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
 }
 
@@ -2927,18 +3050,19 @@ input[type='number'].customization-input {
 .fly-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   width: 100%;
   font-size: 12px;
-  color: var(--text-muted);
-  letter-spacing: 1px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  letter-spacing: 0.4px;
 }
 
 .fly-field input,
 .fly-join-row input {
   box-sizing: border-box;
   width: 100%;
-  height: 42px;
+  height: 38px;
   padding: 0 12px;
   border-radius: 8px;
   border: 1px solid var(--border-control);
@@ -2988,19 +3112,19 @@ input[type='number'].customization-input {
 }
 
 .fly-btn {
-  height: 42px;
-  padding: 0 20px;
+  height: 38px;
+  padding: 0 18px;
   border-radius: 8px;
   border: 1px solid var(--border-control);
-  background: var(--surface-elevated);
+  background: var(--surface-input);
   color: var(--text-primary);
   font-family:
     'Inter',
     -apple-system,
     sans-serif;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 1px;
+  letter-spacing: 0.6px;
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -3013,6 +3137,9 @@ input[type='number'].customization-input {
 
 #fly-invite-btn {
   width: 100%;
+  background: var(--accent-soft-bg);
+  border-color: var(--accent-soft-border);
+  color: var(--accent-fg);
 }
 
 .fly-bots-launch {
@@ -3043,7 +3170,7 @@ input[type='number'].customization-input {
 
 .fly-bots-launch .fly-bot-count .scheme-btn {
   width: 32px;
-  height: 42px;
+  height: 38px;
   border-radius: 8px;
   font-size: 13px;
 }
@@ -3052,6 +3179,10 @@ input[type='number'].customization-input {
   .fly-btn:hover:not(:disabled) {
     background: var(--surface-elevated-hover);
     border-color: var(--border-strong);
+  }
+
+  #fly-invite-btn:hover:not(:disabled) {
+    border-color: var(--text-primary);
   }
 }
 
@@ -4960,15 +5091,6 @@ body.ui-hidden > canvas {
 
   #pause-overlay .pause-panel {
     padding-right: 4px;
-    /* Fades out at the bottom so a cut-off row reads as more to scroll;
-       the padding lets the last row scroll clear of the fade */
-    padding-bottom: 20px;
-    -webkit-mask-image: linear-gradient(
-      to bottom,
-      #000 calc(100% - 28px),
-      transparent
-    );
-    mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
   }
 
   #pause-overlay .customization-footer {
@@ -4983,11 +5105,13 @@ body.ui-hidden > canvas {
   #pause-overlay .pause-credit {
     grid-column: 2;
     grid-row: 3;
+    margin-top: 0;
   }
 
   #pause-overlay .pause-footer {
     grid-column: 2;
     grid-row: 4;
+    margin-top: 0;
   }
 }
 
@@ -5146,7 +5270,7 @@ body.ui-hidden > canvas {
   #pause-overlay {
     justify-content: flex-end;
     padding: calc(
-        var(--vv-offset-top, 0px) + max(16px, env(safe-area-inset-top, 0px))
+        var(--vv-offset-top, 0px) + max(10px, env(safe-area-inset-top, 0px))
       )
       0 var(--kb-inset, 0px);
   }
@@ -5159,17 +5283,28 @@ body.ui-hidden > canvas {
     width: 100%;
     max-width: 100%;
     max-height: calc(
-      var(--vvh, 100dvh) - max(18px, env(safe-area-inset-top, 0px) + 8px)
+      var(--vvh, 100dvh) - max(12px, env(safe-area-inset-top, 0px) + 6px)
     );
+    gap: 8px;
     border-radius: 22px 22px 0 0;
     border-left: none;
     border-right: none;
     border-bottom: none;
-    padding: 10px 18px max(14px, calc(env(safe-area-inset-bottom, 0px) + 10px));
+    padding: 9px 16px max(12px, calc(env(safe-area-inset-bottom, 0px) + 8px));
     box-shadow:
       var(--card-shadow),
       0 96px 0 0 var(--surface-card);
     animation: sheet-enter 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  #pause-overlay .customization-footer {
+    padding-top: 8px;
+    gap: 6px;
+  }
+
+  #pause-overlay .customization-footer .btn,
+  #pause-overlay .pause-vr-btn {
+    height: 42px;
   }
 
   #achievements-overlay,
@@ -5234,6 +5369,12 @@ html[data-kb-open='true'] #pause-overlay .customization-box {
 
 html[data-kb-open='true'] #pause-overlay #fly-solo {
   justify-content: flex-start;
+  gap: 6px;
+}
+
+html[data-kb-open='true'] #pause-overlay .pause-group-card {
+  padding: 8px 10px;
+  gap: 6px;
 }
 
 html[data-kb-open='true'] #pause-overlay .pause-panel:not(.active),
@@ -5315,6 +5456,7 @@ label.pause-row[data-pressed='true'] {
 
   .customization-box,
   .achievements-content,
+  .pause-scroll-cue,
   #fullscreen-map-warp,
   #chevron-icon,
   .sub-btn,

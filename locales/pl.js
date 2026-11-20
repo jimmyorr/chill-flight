@@ -170,7 +170,6 @@ export default {
   Zen: 'Zen',
   'Hide the HUD and buttons': 'Ukryj interfejs i przyciski',
   Graphics: 'Grafika',
-  'Picked for your device': 'Dobrana do Twojego urządzenia',
   Low: 'Niska',
   Mid: 'Średnia',
   High: 'Wysoka',
@@ -181,7 +180,6 @@ export default {
   Anime: 'Anime',
   Language: 'Język',
   Controls: 'Sterowanie',
-  'How you steer on touch': 'Sposób sterowania dotykiem',
   Touch: 'Dotyk',
   Joystick: 'Joystick',
   Gyro: 'Żyroskop',
@@ -842,7 +840,6 @@ export default {
   'Disable mouse': 'Wyłącz mysz',
   'Keyboard controls only': 'Tylko sterowanie klawiaturą',
   'Disable hints': 'Wyłącz podpowiedzi',
-  'Hide control tips': 'Ukryj wskazówki sterowania',
   Help: 'Pomoc',
   Plane: 'Samolot',
   'Drag the throttle right to drive':
@@ -965,7 +962,6 @@ export default {
   'Sim stick: roll and pull · Triggers: throttle · Grips: rudder':
     'Drążek symulatora: przechył i ciągnięcie · Spusty: przepustnica · Chwyty: ster kierunku',
   Appearance: 'Wygląd',
-  'Matches your device or stays set': 'Zgodnie z urządzeniem lub na stałe',
   Auto: 'Auto',
   Dark: 'Ciemny',
   Light: 'Jasny',

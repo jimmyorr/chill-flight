@@ -630,11 +630,34 @@ if (timeSlider) {
 }
 
 // --- PAUSE MENU TABS (Flight / Settings / Together) ---
+const pausePanelsWrap = document.querySelector('#pause-overlay .pause-panels');
 const pauseTabs = document.querySelectorAll('.pause-tab');
 const pausePanels = document.querySelectorAll('.pause-panel');
+
+function syncPauseScrollCue() {
+  if (!pausePanelsWrap) return;
+  const active = pausePanelsWrap.querySelector('.pause-panel.active');
+  const canScrollDown = Boolean(
+    active &&
+    active.clientHeight > 0 &&
+    active.scrollHeight - active.scrollTop - active.clientHeight > 6
+  );
+  if (canScrollDown) {
+    pausePanelsWrap.dataset.canScrollDown = 'true';
+  } else {
+    delete pausePanelsWrap.dataset.canScrollDown;
+  }
+}
+
 pausePanels.forEach((panel) => {
   panel.inert = !panel.classList.contains('active');
+  panel.addEventListener('scroll', syncPauseScrollCue, {passive: true});
 });
+if (pausePanelsWrap && typeof ResizeObserver !== 'undefined') {
+  const ro = new ResizeObserver(syncPauseScrollCue);
+  ro.observe(pausePanelsWrap);
+  pausePanels.forEach((panel) => ro.observe(panel));
+}
 pauseTabs.forEach((tab) => {
   tab.addEventListener('click', () => {
     pauseTabs.forEach((t) => {
@@ -648,6 +671,8 @@ pauseTabs.forEach((tab) => {
       panel.classList.toggle('active', active);
       panel.inert = !active;
     });
+    syncPauseScrollCue();
+    requestAnimationFrame(syncPauseScrollCue);
   });
 });
 

@@ -174,7 +174,6 @@ export default {
   Zen: 'Zen',
   'Hide the HUD and buttons': 'Esconde o HUD e os botões',
   Graphics: 'Gráficos',
-  'Picked for your device': 'Escolhido para o seu aparelho',
   Low: 'Baixo',
   Mid: 'Médio',
   High: 'Alto',
@@ -185,7 +184,6 @@ export default {
   Anime: 'Anime',
   Language: 'Idioma',
   Controls: 'Controles',
-  'How you steer on touch': 'Como você pilota no toque',
   Touch: 'Toque',
   Joystick: 'Joystick',
   Gyro: 'Giroscópio',
@@ -840,7 +838,6 @@ export default {
   'Disable mouse': 'Desativar mouse',
   'Keyboard controls only': 'Apenas controles do teclado',
   'Disable hints': 'Desativar dicas',
-  'Hide control tips': 'Ocultar dicas de controle',
   Help: 'Ajuda',
   Plane: 'Avião',
   'Drag the throttle right to drive':
@@ -962,7 +959,6 @@ export default {
   'Sim stick: roll and pull · Triggers: throttle · Grips: rudder':
     'Manche sim: rolar e puxar · Gatilhos: acelerador · Empunhaduras: leme',
   Appearance: 'Aparência',
-  'Matches your device or stays set': 'Segue o aparelho ou fica fixo',
   Auto: 'Auto',
   Dark: 'Escuro',
   Light: 'Claro',
