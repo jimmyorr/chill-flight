@@ -4,6 +4,7 @@
 import {log} from './logger.js';
 import {IMPERIAL, t} from './i18n.js';
 import {trackAchievement} from './analytics.js';
+import {notificationHaptic} from './haptics.js';
 
 export const Achievements = (function () {
   // --- ACHIEVEMENT REGISTRY ---
@@ -310,6 +311,7 @@ export const Achievements = (function () {
 
     // Update the pause menu button counter if it exists
     updateButtonCounter();
+    notificationHaptic('SUCCESS');
 
     return true;
   }

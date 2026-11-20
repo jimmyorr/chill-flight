@@ -64,6 +64,7 @@ import {Achievements} from './achievements.js';
 import {isSmokeOn, setSmokeTint, smokeColor, trailSmoke} from './particles.js';
 import {isPlaneWrecked, triggerPeerCrash} from './crash.js';
 import {playChime, playRaceBeep} from './sfx-events.js';
+import {notificationHaptic} from './haptics.js';
 import {forEachTrafficPlane} from './traffic.js';
 import {forwardOf} from './traffic-logic.js';
 import {
@@ -335,7 +336,11 @@ function linkNote() {
 }
 
 function setStatus(text) {
-  if (statusText) statusText.textContent = text;
+  if (!statusText) return;
+  statusText.textContent = text;
+  if (text && document.documentElement?.dataset.kbOpen === 'true') {
+    statusText.scrollIntoView?.({block: 'nearest'});
+  }
 }
 
 function send(msg) {
@@ -2091,6 +2096,7 @@ async function invite() {
   if (busy || (room && !room.local)) return;
   if (!navigator.onLine) {
     setStatus(refusal({}));
+    notificationHaptic('ERROR');
     return;
   }
   busy = true;
@@ -2113,6 +2119,7 @@ async function invite() {
   } catch (err) {
     log.warn(`[Fly together] Starting a flight failed: ${err.message}`);
     setStatus(refusal(err));
+    notificationHaptic('ERROR');
   } finally {
     busy = false;
     renderPanel();
@@ -2126,6 +2133,7 @@ async function join(code, fromLink = false) {
   if (busy || room) return;
   if (!navigator.onLine) {
     setStatus(refusal({}));
+    notificationHaptic('ERROR');
     if (fromLink) toast(t("You're offline, so you can't join the flight"));
     return;
   }
@@ -2156,6 +2164,7 @@ async function join(code, fromLink = false) {
   } catch (err) {
     log.warn(`[Fly together] Joining ${code} failed: ${err.message}`);
     setStatus(refusal(err));
+    notificationHaptic('ERROR');
     if (fromLink)
       toast(
         err.code === CLOSE.notFound ? t('That flight has ended') : refusal(err)
@@ -2883,6 +2892,16 @@ function closePanel() {
   if (state.isPaused) hooks.togglePause?.();
 }
 
+export function collapseGamesPicker({restoreFocus = false} = {}) {
+  if (!pickerOpen || !gamesPicker || gamesPicker.hidden) return false;
+  pickerOpen = false;
+  renderPanel();
+  if (restoreFocus && tagBtn && !tagBtn.hidden) {
+    tagBtn.focus({preventScroll: true});
+  }
+  return true;
+}
+
 if (RELAY && tabBtn && panel) {
   tabBtn.hidden = false;
   openPanel();
@@ -2892,9 +2911,14 @@ if (RELAY && tabBtn && panel) {
     e.stopPropagation();
     showPanel();
   });
-  // Typing a name or code mustn't fly the plane (or toggle the smoke)
+  // Typing a name or code mustn't fly the plane (or toggle the smoke), while
+  // Escape blurs the field and bubbles to the unified Back stack.
   for (const input of [nameInput, selfName, codeInput]) {
     input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        input.blur();
+        return;
+      }
       e.stopPropagation();
       if (e.key === 'Enter') input.blur();
     });
@@ -2922,6 +2946,7 @@ if (RELAY && tabBtn && panel) {
     const code = parseRoomCode(codeInput.value);
     if (!code) {
       setStatus(t('A code is 4 letters and numbers'));
+      notificationHaptic('ERROR');
       return;
     }
     join(code);

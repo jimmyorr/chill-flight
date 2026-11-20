@@ -35,24 +35,69 @@ function readStoredPreference() {
 const urlOverride = readUrlTheme();
 let currentPreference = urlOverride || readStoredPreference();
 let resolvedTheme = 'dark';
+let lastChromeSignature = '';
 const listeners = new Set();
+const chromeListeners = new Set();
+
+const CHROME_OVERLAY_IDS = [
+  'loading-overlay',
+  'pause-overlay',
+  'achievements-overlay',
+  'people-overlay',
+  'help-overlay',
+  'language-overlay',
+  'fullscreen-map-overlay',
+];
 
 function computeResolvedTheme(pref) {
   if (pref === 'light' || pref === 'dark') return pref;
   return mediaQuery?.matches ? 'light' : 'dark';
 }
 
-function syncThemeMeta(theme) {
-  if (typeof document === 'undefined') return;
+function isSplashCovering() {
+  if (typeof document === 'undefined') return false;
   const overlay = document.getElementById('loading-overlay');
-  const splashVisible =
-    overlay &&
-    overlay.style.display !== 'none' &&
-    overlay.style.opacity !== '0';
-  const color =
-    theme === 'light' && !splashVisible ? LIGHT_THEME_COLOR : DARK_THEME_COLOR;
+  if (!overlay) return false;
+  return overlay.style.display !== 'none' && overlay.style.opacity !== '0';
+}
+
+export function getEffectiveChromeTheme() {
+  return resolvedTheme === 'light' && !isSplashCovering() ? 'light' : 'dark';
+}
+
+function getActiveOverlayKey() {
+  if (typeof document === 'undefined') return 'none';
+  for (const id of CHROME_OVERLAY_IDS) {
+    const el = document.getElementById(id);
+    if (!el || el.hidden) continue;
+    if (el.style.display === 'none' || el.style.opacity === '0') continue;
+    const cs = getComputedStyle(el);
+    if (cs.display !== 'none' && cs.visibility !== 'hidden') return id;
+  }
+  return 'none';
+}
+
+function syncThemeMeta(notifyChrome = false) {
+  if (typeof document === 'undefined') return;
+  const effective = getEffectiveChromeTheme();
+  const color = effective === 'light' ? LIGHT_THEME_COLOR : DARK_THEME_COLOR;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', color);
+  if (meta && meta.getAttribute('content') !== color) {
+    meta.setAttribute('content', color);
+  }
+  if (notifyChrome) {
+    const sig = `${effective}:${resolvedTheme}:${getActiveOverlayKey()}`;
+    if (sig !== lastChromeSignature) {
+      lastChromeSignature = sig;
+      for (const fn of chromeListeners) {
+        try {
+          fn(effective, resolvedTheme);
+        } catch (err) {
+          log.warn('[UI Theme] Chrome listener error:', err);
+        }
+      }
+    }
+  }
 }
 
 function syncAppearanceButtons() {
@@ -74,7 +119,7 @@ function applyTheme(notify = true) {
   if (typeof document !== 'undefined') {
     document.documentElement.dataset.theme = resolvedTheme;
     document.documentElement.style.colorScheme = resolvedTheme;
-    syncThemeMeta(resolvedTheme);
+    syncThemeMeta(notify);
     syncAppearanceButtons();
   }
   if (notify && changed) {
@@ -97,7 +142,7 @@ export function getResolvedTheme() {
 }
 
 export function refreshThemeChrome() {
-  syncThemeMeta(resolvedTheme);
+  syncThemeMeta(true);
 }
 
 export function setThemePreference(pref, {persist = true} = {}) {
@@ -113,6 +158,7 @@ export function setThemePreference(pref, {persist = true} = {}) {
   }
   const prevResolved = resolvedTheme;
   applyTheme(false);
+  syncThemeMeta(true);
   if (prefChanged || resolvedTheme !== prevResolved) {
     log.info(
       `[UI Theme] Preference: ${currentPreference} (resolved: ${resolvedTheme})`
@@ -130,6 +176,11 @@ export function setThemePreference(pref, {persist = true} = {}) {
 export function onThemeChange(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);
+}
+
+export function onChromeThemeChange(fn) {
+  chromeListeners.add(fn);
+  return () => chromeListeners.delete(fn);
 }
 
 applyTheme(false);
@@ -150,14 +201,28 @@ if (mediaQuery) {
 if (typeof document !== 'undefined') {
   const bindAppearanceGroup = () => {
     syncAppearanceButtons();
+    syncThemeMeta(true);
     const group = document.getElementById('appearance-group');
-    if (!group || group.dataset.bound === '1') return;
-    group.dataset.bound = '1';
-    group.addEventListener('click', (e) => {
-      const btn = e.target.closest?.('[data-appearance]');
-      if (!btn) return;
-      setThemePreference(btn.dataset.appearance);
+    if (group && group.dataset.bound !== '1') {
+      group.dataset.bound = '1';
+      group.addEventListener('click', (e) => {
+        const btn = e.target.closest?.('[data-appearance]');
+        if (!btn) return;
+        setThemePreference(btn.dataset.appearance);
+      });
+    }
+    const overlayObserver = new MutationObserver(() => {
+      syncThemeMeta(true);
     });
+    for (const id of CHROME_OVERLAY_IDS) {
+      const el = document.getElementById(id);
+      if (el) {
+        overlayObserver.observe(el, {
+          attributes: true,
+          attributeFilter: ['style', 'class', 'hidden'],
+        });
+      }
+    }
   };
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bindAppearanceGroup, {

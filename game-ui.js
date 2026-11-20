@@ -60,6 +60,7 @@ import {resetAutopilot} from './autopilot.js';
 import {isSmokeOn, toggleSmoke} from './particles.js';
 import {t} from './i18n.js';
 import {refreshThemeChrome} from './ui-theme.js';
+import {selectionHaptic, uiImpactHaptic} from './haptics.js';
 
 /* --- MOBILE ACTION MENU --- */
 const menuContainer = document.getElementById('mobile-action-menu');
@@ -72,11 +73,25 @@ const pauseMapBtn = document.getElementById('pause-map-btn');
 
 const autoToggle = document.getElementById('mobile-auto-toggle');
 
-function setQuickMenuExpanded(expanded) {
-  if (!menuContainer) return;
+function setQuickMenuExpanded(expanded, {haptic = false} = {}) {
+  if (!menuContainer) return false;
+  const wasExpanded = menuContainer.classList.contains('expanded');
+  if (wasExpanded === expanded) return false;
   menuContainer.classList.toggle('expanded', expanded);
   menuTrigger?.setAttribute('aria-expanded', String(expanded));
   if (subMenu) subMenu.inert = !expanded;
+  if (haptic) uiImpactHaptic('LIGHT');
+  return true;
+}
+
+export function isQuickMenuExpanded() {
+  return Boolean(menuContainer?.classList.contains('expanded'));
+}
+
+export function collapseQuickMenu({restoreFocus = false} = {}) {
+  const changed = setQuickMenuExpanded(false, {haptic: true});
+  if (changed && restoreFocus) menuTrigger?.focus();
+  return changed;
 }
 
 export function toggleAutopilot(forceState) {
@@ -145,22 +160,16 @@ if (menuTrigger && menuContainer) {
     // The map's close button sits over this one: don't let the click its tap
     // sends after closing the map open the menu
     if (isPauseClickSuppressed()) return;
-    setQuickMenuExpanded(!menuContainer.classList.contains('expanded'));
+    setQuickMenuExpanded(!menuContainer.classList.contains('expanded'), {
+      haptic: true,
+    });
   });
   document.addEventListener('pointerdown', (e) => {
     if (
       menuContainer.classList.contains('expanded') &&
       !menuContainer.contains(e.target)
     ) {
-      setQuickMenuExpanded(false);
-    }
-  });
-  menuContainer.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && menuContainer.classList.contains('expanded')) {
-      e.preventDefault();
-      e.stopPropagation();
-      setQuickMenuExpanded(false);
-      menuTrigger.focus();
+      setQuickMenuExpanded(false, {haptic: true});
     }
   });
 }
@@ -312,19 +321,88 @@ function setThrottleFromPointer(e) {
   state.targetFlightSpeed = target < 0.05 ? 0 : target;
 }
 
+let throttleDragPointerId = null;
+let lastDetentBucket = null;
+let lastDetentBelowStall = null;
+let lastDetentInBoost = null;
+let lastDetentAt = -Infinity;
+
+function readThrottleDetent() {
+  const target = state.targetFlightSpeed;
+  const max = getMaxFlightSpeedMult();
+  const ktsPerMult = BASE_FLIGHT_SPEED * 60;
+  const kts = Math.round(target * ktsPerMult);
+  const bucket = target === 0 ? -1 : Math.floor(kts / 10);
+  const stalls = activePlaneType !== 'buggy';
+  const {stallKts} = planeHandling();
+  const belowStall = Boolean(
+    stalls && stallKts !== undefined && kts < stallKts
+  );
+  const boost = state.mpSpeedBoost || 1;
+  const inBoost = Boolean(boost > 1 && target > max / boost + 1e-6);
+  return {bucket, belowStall, inBoost};
+}
+
 if (throttleEl) {
+  const endThrottleDrag = (e) => {
+    if (throttleDragPointerId !== e.pointerId) return;
+    throttleDragPointerId = null;
+    selectionHaptic('end');
+  };
   throttleEl.addEventListener('pointerdown', (e) => {
     if (e.cancelable) e.preventDefault();
     e.stopPropagation();
     resetSteering();
-    throttleEl.setPointerCapture(e.pointerId);
+    throttleDragPointerId = e.pointerId;
+    try {
+      throttleEl.setPointerCapture(e.pointerId);
+    } catch {
+      // Synthetic pointer events may not have an active browser pointer id.
+    }
+    const prev = readThrottleDetent();
+    selectionHaptic('start');
     setThrottleFromPointer(e);
+    const next = readThrottleDetent();
+    lastDetentBucket = next.bucket;
+    lastDetentBelowStall = next.belowStall;
+    lastDetentInBoost = next.inBoost;
+    if (
+      next.bucket !== prev.bucket ||
+      next.belowStall !== prev.belowStall ||
+      next.inBoost !== prev.inBoost
+    ) {
+      lastDetentAt = performance.now();
+      selectionHaptic('changed');
+    }
   });
   throttleEl.addEventListener('pointermove', (e) => {
-    if (!throttleEl.hasPointerCapture(e.pointerId)) return;
+    if (
+      !throttleEl.hasPointerCapture(e.pointerId) &&
+      throttleDragPointerId !== e.pointerId
+    ) {
+      return;
+    }
     e.stopPropagation();
     setThrottleFromPointer(e);
+    const next = readThrottleDetent();
+    if (
+      next.bucket !== lastDetentBucket ||
+      next.belowStall !== lastDetentBelowStall ||
+      next.inBoost !== lastDetentInBoost
+    ) {
+      lastDetentBucket = next.bucket;
+      lastDetentBelowStall = next.belowStall;
+      lastDetentInBoost = next.inBoost;
+      const now = performance.now();
+      if (now - lastDetentAt >= 20) {
+        lastDetentAt = now;
+        selectionHaptic('changed');
+      }
+    }
   });
+  throttleEl.addEventListener('pointerup', endThrottleDrag);
+  throttleEl.addEventListener('pointercancel', endThrottleDrag);
+  throttleEl.addEventListener('lostpointercapture', endThrottleDrag);
   throttleEl.addEventListener('keydown', (e) => {
     const max = getMaxFlightSpeedMult();
     let next = null;
@@ -554,6 +632,9 @@ if (timeSlider) {
 // --- PAUSE MENU TABS (Flight / Settings / Together) ---
 const pauseTabs = document.querySelectorAll('.pause-tab');
 const pausePanels = document.querySelectorAll('.pause-panel');
+pausePanels.forEach((panel) => {
+  panel.inert = !panel.classList.contains('active');
+});
 pauseTabs.forEach((tab) => {
   tab.addEventListener('click', () => {
     pauseTabs.forEach((t) => {
@@ -562,9 +643,11 @@ pauseTabs.forEach((tab) => {
       t.setAttribute('aria-selected', String(active));
       t.tabIndex = active ? 0 : -1;
     });
-    pausePanels.forEach((panel) =>
-      panel.classList.toggle('active', panel.dataset.panel === tab.dataset.tab)
-    );
+    pausePanels.forEach((panel) => {
+      const active = panel.dataset.panel === tab.dataset.tab;
+      panel.classList.toggle('active', active);
+      panel.inert = !active;
+    });
   });
 });
 

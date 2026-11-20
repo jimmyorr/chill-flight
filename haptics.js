@@ -5,7 +5,9 @@
 // a tap for each tree or house knocked over,
 // a warning as the plane slows toward a stall, and thunder. Off by default;
 // the switch lives next to Invert y axis in the pause menu.
+import {Haptics} from '@capacitor/haptics';
 import {state} from './state.js';
+import {hooks} from './hooks.js';
 import {activePlaneType, planeGroup, planeHandling} from './airplane.js';
 import {BASE_FLIGHT_SPEED} from './constants.js';
 import {waterfallFeet} from './terrain-chunks.js';
@@ -40,24 +42,21 @@ let lastGearExtension = null;
 let stallWarned = false;
 let underWaterfall = false;
 let lastWaterfallHit = -Infinity;
+let selectionActive = false;
+let lastNotificationType = '';
+let lastNotificationAt = -Infinity;
 
 function plugin() {
-  return typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform()
-    ? Capacitor.Plugins?.Haptics
-    : null;
+  if (typeof Capacitor === 'undefined' || !Capacitor.isNativePlatform()) {
+    return null;
+  }
+  return Capacitor.Plugins?.Haptics ?? Haptics;
 }
 
 // style: 'LIGHT', 'MEDIUM' or 'HEAVY'
 function pulse(style) {
   plugin()
     ?.impact({style})
-    .catch(() => {});
-}
-
-// A short double buzz, distinct from the impact taps
-function warn() {
-  plugin()
-    ?.notification({type: 'WARNING'})
     .catch(() => {});
 }
 
@@ -77,6 +76,115 @@ export function setHapticsEnabled(on) {
     // Not saved; still applies this session
   }
   if (enabled) pulse('LIGHT');
+}
+
+// Subtle selection tick for tabs, segmented controls, swatches, language rows,
+// and continuous throttle detents ('start' -> 'changed' -> 'end', or 'tap').
+export function selectionHaptic(phase = 'tap') {
+  const p = enabled ? plugin() : null;
+  if (!p) return;
+  if (phase === 'start') {
+    selectionActive = true;
+    p.selectionStart?.().catch(() => {});
+    return;
+  }
+  if (phase === 'change' || phase === 'changed') {
+    if (!selectionActive) {
+      selectionActive = true;
+      Promise.resolve(p.selectionStart?.())
+        .then(() => p.selectionChanged?.())
+        .catch(() => {});
+      return;
+    }
+    p.selectionChanged?.().catch(() => {});
+    return;
+  }
+  if (phase === 'end') {
+    if (!selectionActive) return;
+    selectionActive = false;
+    p.selectionEnd?.().catch(() => {});
+    return;
+  }
+  Promise.resolve(p.selectionStart?.())
+    .then(() => p.selectionChanged?.())
+    .then(() => {
+      if (!selectionActive) return p.selectionEnd?.();
+    })
+    .catch(() => {});
+}
+
+// Tactile UI impact ('LIGHT' | 'MEDIUM') for switches, sheet snaps, map pins,
+// and map warps.
+export function uiImpactHaptic(style = 'LIGHT') {
+  if (!enabled || !plugin()) return;
+  pulse(style === 'MEDIUM' ? 'MEDIUM' : 'LIGHT');
+}
+
+// System notification pattern ('SUCCESS' | 'WARNING' | 'ERROR') for unlocks,
+// completed jobs, stall/reset warnings, and room join errors.
+export function notificationHaptic(type = 'SUCCESS') {
+  const p = enabled ? plugin() : null;
+  if (!p) return;
+  const clean =
+    type === 'WARNING' || type === 'ERROR' || type === 'SUCCESS'
+      ? type
+      : 'SUCCESS';
+  const now =
+    typeof performance !== 'undefined' ? performance.now() : Date.now();
+  if (clean === lastNotificationType && now - lastNotificationAt < 120) return;
+  lastNotificationType = clean;
+  lastNotificationAt = now;
+  p.notification?.({type: clean}).catch(() => {});
+}
+
+hooks.onSheetDismiss = () => uiImpactHaptic('LIGHT');
+hooks.onSheetSnap = () => uiImpactHaptic('LIGHT');
+
+if (typeof document !== 'undefined') {
+  document.addEventListener(
+    'click',
+    (e) => {
+      if (!enabled || !plugin()) return;
+      const target = e.target instanceof Element ? e.target : null;
+      if (!target) return;
+      const tab = target.closest('.pause-tab');
+      if (tab && !tab.disabled && !tab.classList.contains('active')) {
+        selectionHaptic('tap');
+        return;
+      }
+      const seg = target.closest('.scheme-btn');
+      if (seg && !seg.disabled && !seg.classList.contains('active')) {
+        selectionHaptic('tap');
+        return;
+      }
+      const swatch = target.closest('.color-swatch');
+      if (swatch && !swatch.classList.contains('active')) {
+        selectionHaptic('tap');
+        return;
+      }
+      const langOpt = target.closest('.language-option');
+      if (langOpt) {
+        selectionHaptic('tap');
+      }
+    },
+    {capture: true}
+  );
+
+  document.addEventListener(
+    'change',
+    (e) => {
+      if (!enabled || !plugin()) return;
+      const target = e.target;
+      if (
+        target instanceof HTMLInputElement &&
+        target.classList.contains('pause-switch') &&
+        target.id !== 'haptics-input'
+      ) {
+        uiImpactHaptic('LIGHT');
+      }
+    },
+    {capture: true}
+  );
 }
 
 // Thunder after a lightning flash, distance 0..1 (overhead to far off),
@@ -242,6 +350,8 @@ export function updateHaptics(delta) {
     stallWarned = false;
   } else if (kts < stallKts + STALL_WARN_KTS && !stallWarned && !aerobatic) {
     stallWarned = true;
-    if (enabled && elapsed > 2 && !paused && !state.isFreeCamera) warn();
+    if (enabled && elapsed > 2 && !paused && !state.isFreeCamera) {
+      notificationHaptic('WARNING');
+    }
   }
 }

@@ -37,6 +37,7 @@ import {PEOPLE} from './people.js';
 import {friendsOnMap, inGameMode} from './multiplayer.js';
 import {trackScreen} from './analytics.js';
 import {IMPERIAL, joinList, t} from './i18n.js';
+import {uiImpactHaptic} from './haptics.js';
 
 /* global WATER_LEVEL, MAP_WORLD_SIZE, MAP_HEIGHT_SCALE, simplex, ChillFlightLogic, planeGroup */
 // minimap.js - Simple lightweight scrolling minimap overlay
@@ -254,17 +255,6 @@ import {IMPERIAL, joinList, t} from './i18n.js';
     }
 
     if (fsVisible) {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        e.stopPropagation();
-        if (warpPin) {
-          setWarpPin(null);
-          fsCanvas?.focus();
-        } else {
-          closeFullscreenMap();
-        }
-        return;
-      }
       if (e.key === 'm' && !e.shiftKey) {
         e.preventDefault();
         e.stopPropagation();
@@ -1176,10 +1166,18 @@ import {IMPERIAL, joinList, t} from './i18n.js';
     fsAnimFrameId = requestAnimationFrame(fsAnimationLoop);
   }
 
+  let fsOpenedFromPause = false;
+
   // The game pauses while the map is open, and closing it goes back to
-  // flying
+  // flying (or back to #pause-overlay when closed via Back after opening from
+  // Pause).
   function openFullscreenMap() {
     if (fsVisible) return;
+    fsOpenedFromPause = Boolean(
+      state.isPaused &&
+      pauseOverlay &&
+      getComputedStyle(pauseOverlay).display !== 'none'
+    );
     trackScreen('map');
     if (!state.isPaused) togglePause();
     // The pause menu sits under the map, and its blurred backdrop would
@@ -1252,6 +1250,7 @@ import {IMPERIAL, joinList, t} from './i18n.js';
 
   function setWarpPin(pin) {
     warpPin = pin;
+    if (pin) uiImpactHaptic('LIGHT');
     updateWarpPanel();
     renderFullscreenMap();
   }
@@ -1307,6 +1306,7 @@ import {IMPERIAL, joinList, t} from './i18n.js';
   }
 
   function warpTo(place) {
+    uiImpactHaptic('MEDIUM');
     const from = planeGroup.position;
     // A buggy parks close by instead (buggyArrivalAt)
     if (activePlaneType === 'buggy') {
@@ -1400,15 +1400,21 @@ import {IMPERIAL, joinList, t} from './i18n.js';
 
     const vrOnly = Boolean(state.vrOnlyFlow && !state.isVRPresenting);
     const quiet = Boolean(options?.quiet);
-    const shouldEnterVR = !quiet && Boolean(options?.enterVR || vrOnly);
+    const returnToPause = Boolean(options?.returnToPause && fsOpenedFromPause);
+    const shouldEnterVR =
+      !quiet && !returnToPause && Boolean(options?.enterVR || vrOnly);
 
     suppressPauseClick(500);
 
     fsVisible = false;
-    trackScreen(vrOnly ? 'pause' : 'flight');
+    fsOpenedFromPause = false;
+    trackScreen(returnToPause || vrOnly ? 'pause' : 'flight');
     setWarpPin(null);
-    if (pauseOverlay) pauseOverlay.classList.remove('under-map');
-    if (state.isPaused && !vrOnly && !quiet) togglePause();
+    if (pauseOverlay) {
+      pauseOverlay.classList.remove('under-map');
+      if (returnToPause) pauseOverlay.style.display = 'flex';
+    }
+    if (state.isPaused && !vrOnly && !quiet && !returnToPause) togglePause();
     if (fsOverlay) {
       fsOverlay.style.display = 'none';
     }
@@ -1865,10 +1871,14 @@ import {IMPERIAL, joinList, t} from './i18n.js';
     hasPin: function () {
       return Boolean(warpPin);
     },
-    clearPin: function () {
+    wasOpenedFromPause: function () {
+      return fsOpenedFromPause;
+    },
+    clearPin: function ({restoreFocus = false} = {}) {
       if (!warpPin) return false;
       const warpCard = document.getElementById('fullscreen-map-warp');
-      const restoreToCanvas = warpCard?.contains(document.activeElement);
+      const restoreToCanvas =
+        restoreFocus || warpCard?.contains(document.activeElement);
       setWarpPin(null);
       if (restoreToCanvas) fsCanvas?.focus();
       return true;

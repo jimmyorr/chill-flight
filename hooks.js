@@ -28,6 +28,9 @@ export const hooks = {
   checkDiveCrash: null, // crash.js: (pitch, kts, verticalVelocity) => boolean
   onBackground: null, // analytics.js: called when mobile app is backgrounded
   onForeground: null, // analytics.js: called when mobile app comes back
+  navigateBack: null, // ui-a11y.js: ({source}) => 'handled' | 'exit' | false
+  onSheetDismiss: null, // haptics.js: called when a bottom sheet dismisses by drag/flick
+  onSheetSnap: null, // haptics.js: called when a dragged bottom sheet snaps back open
   // Background CPU prep steps started at 25% terrain load without touching scene
   earlyWarmUps: [],
   // Loading screen warm-up steps (game-ui.js): each async (at) => undo or

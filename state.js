@@ -22,16 +22,18 @@ try {
   // WebGL context, unless the user manually chose a preset in Settings.
   const isNativeApp =
     typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform();
+  const savedWebPreset = localStorage.getItem('chill_flight_graphics_preset');
   if (
     !isNativeApp &&
+    typeof window !== 'undefined' &&
     typeof navigator !== 'undefined' &&
     !ChillFlightLogic.GRAPHICS_PRESET &&
-    localStorage.getItem('chill_flight_graphics_preset') === 'low' &&
     !localStorage.getItem('chill_flight_graphics_preset_manual') &&
-    localStorage.getItem('chill_flight_graphics_autodetect_v') !== '2'
+    (savedWebPreset === null ||
+      (savedWebPreset === 'low' &&
+        localStorage.getItem('chill_flight_graphics_autodetect_v') !== '2'))
   ) {
     const isCoarsePointer =
-      typeof window !== 'undefined' &&
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(any-pointer: coarse)').matches;
     const {preset} = ChillFlightLogic.chooseAutoGraphicsPreset({
@@ -41,9 +43,12 @@ try {
       isCoarsePointer,
       isNative: false,
     });
-    if (preset !== 'low') {
+    if (savedWebPreset === null || preset !== 'low') {
       localStorage.setItem('chill_flight_graphics_preset', preset);
-      localStorage.setItem('chill_flight_quality', '30');
+      localStorage.setItem(
+        'chill_flight_quality',
+        preset === 'low' ? '20' : '30'
+      );
     }
     localStorage.setItem('chill_flight_graphics_autodetect_v', '2');
   }

@@ -3,6 +3,7 @@ import {Achievements} from './achievements.js';
 import {state} from './state.js';
 import {t} from './i18n.js';
 import {trackScreen} from './analytics.js';
+import {notificationHaptic} from './haptics.js';
 
 var achievementsOverlay = document.getElementById('achievements-overlay');
 var achievementsBtn = document.getElementById('achievements-btn');
@@ -30,6 +31,16 @@ function resetAchievementsResetBtn() {
     achievementsResetBtn.classList.remove('confirming');
     achievementsResetBtn.textContent = t('R E S E T');
   }
+}
+
+export function isAchievementsResetArmed() {
+  return Boolean(achievementsResetBtn?.classList.contains('confirming'));
+}
+
+export function disarmAchievementsReset() {
+  if (!isAchievementsResetArmed()) return false;
+  resetAchievementsResetBtn();
+  return true;
 }
 
 function closeAchievementsOverlay() {
@@ -67,6 +78,7 @@ if (achievementsResetBtn) {
     if (!achievementsResetBtn.classList.contains('confirming')) {
       achievementsResetBtn.classList.add('confirming');
       achievementsResetBtn.textContent = t('CONFIRM RESET?');
+      notificationHaptic('WARNING');
       resetConfirmTimeout = setTimeout(resetAchievementsResetBtn, 4000);
     } else {
       resetAchievementsResetBtn();

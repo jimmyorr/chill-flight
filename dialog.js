@@ -105,6 +105,10 @@ export function openDialog(person, newLines, answer = null) {
   showLine();
 }
 
+export function isDialogOpen() {
+  return Boolean(dialog && !dialog.hidden);
+}
+
 // (jobs.js calls this when you leave the airport mid-conversation)
 export function closeDialog() {
   onAnswer = null;

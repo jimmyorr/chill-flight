@@ -1,10 +1,13 @@
 // native-adapter.js
 // "The Sidecar Rule": Enhances the core game for Native without touching core files.
+import {App} from '@capacitor/app';
+import {StatusBar, Style} from '@capacitor/status-bar';
 import {FirebaseAnalytics} from '@capacitor-firebase/analytics';
 import {log} from './logger.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {state} from './state.js';
 import {hooks} from './hooks.js';
+import {getEffectiveChromeTheme, onChromeThemeChange} from './ui-theme.js';
 import {handleMusicVisibility} from './audio.js';
 import {setSfxBackgrounded} from './sfx.js';
 
@@ -67,10 +70,33 @@ export async function detectGraphicsPreset() {
   // 1. NATIVE PLATFORM ONLY
 
   if (isNative()) {
-    // Hide Status Bar
-    if (Capacitor.Plugins && Capacitor.Plugins.StatusBar) {
-      Capacitor.Plugins.StatusBar.hide().catch(() => {});
+    const statusBarPlugin = Capacitor.Plugins?.StatusBar ?? StatusBar;
+    const appPlugin = Capacitor.Plugins?.App ?? App;
+    let lastStatusBarStyle = '';
+
+    const syncNativeStatusBar = (force = false) => {
+      if (!statusBarPlugin) return;
+      // Style.Light = dark text for light backgrounds; Style.Dark = light text
+      // for dark backgrounds.
+      const nextStyle =
+        getEffectiveChromeTheme() === 'light' ? Style.Light : Style.Dark;
+      if (!force && nextStyle === lastStatusBarStyle) return;
+      lastStatusBarStyle = nextStyle;
+      statusBarPlugin.setStyle?.({style: nextStyle}).catch(() => {});
+    };
+
+    if (statusBarPlugin) {
+      statusBarPlugin.setOverlaysWebView?.({overlay: true}).catch(() => {});
+      if (Capacitor.getPlatform?.() === 'android') {
+        statusBarPlugin
+          .setBackgroundColor?.({color: '#00000000'})
+          .catch(() => {});
+      }
+      syncNativeStatusBar(true);
+      statusBarPlugin.show?.({animation: 'NONE'}).catch(() => {});
+      onChromeThemeChange(() => syncNativeStatusBar());
     }
+
     // Hide App Store link on native
     const appStoreContainer = document.getElementById(
       'about-app-store-container'
@@ -78,18 +104,32 @@ export async function detectGraphicsPreset() {
     if (appStoreContainer) {
       appStoreContainer.style.display = 'none';
     }
-    // Handle Hardware Back Button and App State
-    document.addEventListener('deviceready', () => {
-      if (Capacitor.Plugins.App) {
-        Capacitor.Plugins.App.addListener('backButton', () => {
-          document.dispatchEvent(
-            new KeyboardEvent('keydown', {key: 'Backspace', keyCode: 8})
-          );
-        });
-        Capacitor.Plugins.App.addListener('appStateChange', (appState) => {
+
+    // Register hardware/gesture Back and app lifecycle listeners directly on
+    // @capacitor/app (Capacitor 8 does not depend on Cordova deviceready).
+    if (appPlugin?.addListener) {
+      appPlugin
+        .addListener('backButton', () => {
+          if (!hooks.navigateBack) {
+            const loading = document.getElementById('loading-overlay');
+            if (loading && loading.style.display !== 'none') {
+              appPlugin.exitApp?.().catch(() => {});
+            }
+            return;
+          }
+          const outcome = hooks.navigateBack({source: 'native'});
+          if (outcome === 'exit') {
+            appPlugin.exitApp?.().catch(() => {});
+          }
+        })
+        .catch(() => {});
+
+      appPlugin
+        .addListener('appStateChange', (appState) => {
           setSfxBackgrounded(!appState.isActive);
           handleMusicVisibility(!appState.isActive);
           if (appState.isActive) {
+            syncNativeStatusBar(true);
             hooks.onForeground?.();
           } else {
             hooks.onBackground?.();
@@ -101,9 +141,9 @@ export async function detectGraphicsPreset() {
               hooks.togglePause();
             }
           }
-        });
-      }
-    });
+        })
+        .catch(() => {});
+    }
   }
 
   // Export a safe external link handler for Capacitor Apps

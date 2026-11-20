@@ -21,6 +21,7 @@ import {clearWaypoint, getWaypoint, setWaypoint} from './waypoint.js';
 import {BASE_FLIGHT_SPEED} from './constants.js';
 import {openDialog, closeDialog, changeOutfit} from './dialog.js';
 import {playChime} from './sfx-events.js';
+import {notificationHaptic} from './haptics.js';
 import {hooks} from './hooks.js';
 import {PEOPLE} from './people.js';
 import {AIRPORT_COLOR, LANDMARKS} from './landmarks.js';
@@ -204,8 +205,12 @@ function landedAt(a) {
     return;
   }
   if (result.progress === progress) return;
+  const wasOnJob = Boolean(progress.job);
   const jobWaypoint = onJobWaypoint();
   setProgress(result.progress);
+  if (wasOnJob && !result.progress.job) {
+    notificationHaptic('SUCCESS');
+  }
   if (destination(progress)) pointToDestination();
   // Done: the job's waypoint is too
   else if (jobWaypoint) clearWaypoint();

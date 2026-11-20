@@ -1,5 +1,17 @@
 {
   "appId": "com.cowneck.chillflight",
   "appName": "Chill Flight",
-  "webDir": "docs"
+  "webDir": "docs",
+  "backgroundColor": "#0b0f19",
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": true,
+      "style": "DARK",
+      "backgroundColor": "#00000000"
+    },
+    "Keyboard": {
+      "resize": "native",
+      "resizeOnFullScreen": true
+    }
+  }
 }

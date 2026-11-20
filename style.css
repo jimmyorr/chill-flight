@@ -18,6 +18,8 @@
 
 :root {
   --vvh: 100dvh;
+  --kb-inset: 0px;
+  --vv-offset-top: 0px;
   --app-bg: #0b0f19;
   --overlay-scrim: rgba(6, 9, 15, 0.76);
   --overlay-scrim-strong: rgba(6, 9, 15, 0.82);
@@ -167,7 +169,7 @@ body {
 }
 
 html {
-  background-color: var(--app-bg);
+  background-color: #0b0f19;
 }
 
 body,
@@ -312,9 +314,11 @@ textarea {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: max(12px, env(safe-area-inset-top, 12px))
+  padding: calc(
+      var(--vv-offset-top, 0px) + max(12px, env(safe-area-inset-top, 12px))
+    )
     max(12px, env(safe-area-inset-right, 12px))
-    max(12px, env(safe-area-inset-bottom, 12px))
+    calc(var(--kb-inset, 0px) + max(12px, env(safe-area-inset-bottom, 12px)))
     max(12px, env(safe-area-inset-left, 12px));
   box-sizing: border-box;
   color: var(--text-primary);
@@ -581,35 +585,47 @@ select.customization-input {
   color: var(--accent-fg);
 }
 
-/* Scrollable active panel so compact screens (320x568 / 375x667) never clip */
+/* All panels share one grid cell so .customization-box keeps the height of the
+   tallest tab (clamped to max-height) without jumping when switching tabs,
+   while each active panel scrolls on its own without blank overflow. */
 .pause-panels {
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  display: flex;
-  flex-direction: column;
-  padding-right: 2px;
-}
-
-.pause-panels::-webkit-scrollbar {
-  width: 4px;
-}
-
-.pause-panels::-webkit-scrollbar-thumb {
-  background: var(--border-control);
-  border-radius: 2px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
 }
 
 .pause-panel {
+  grid-area: 1 / 1;
   display: flex;
   flex-direction: column;
   gap: 13px;
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+}
+
+.pause-panel::-webkit-scrollbar {
+  width: 4px;
+}
+
+.pause-panel::-webkit-scrollbar-thumb {
+  background: var(--border-control);
+  border-radius: 2px;
 }
 
 .pause-panel:not(.active) {
-  display: none;
+  visibility: hidden;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.pause-panel:not(.active) * {
+  transition: none !important;
 }
 
 /* The plane and appearance segmented buttons span the panel */
@@ -651,6 +667,7 @@ label.pause-row {
 }
 
 #currently-playing {
+  min-height: 1.3em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -782,10 +799,6 @@ label.pause-row {
 .pause-credit a {
   color: var(--link-fg);
   text-decoration: none;
-}
-
-#music-attribution[style*='hidden'] {
-  display: none;
 }
 
 /* Hide number input spinners */
@@ -4906,7 +4919,7 @@ body.ui-hidden > canvas {
    the bottom buttons off the edges, nothing to scroll). Two columns instead:
    the tabs over a panel that scrolls on the left, Resume and the buttons on
    the right. */
-@media (orientation: landscape) and (max-height: 500px) {
+@media (orientation: landscape) and (min-width: 501px) and (max-height: 500px) {
   #pause-overlay .customization-box {
     display: grid;
     grid-template-columns: minmax(0, 290px) minmax(0, 205px);
@@ -4942,8 +4955,10 @@ body.ui-hidden > canvas {
     grid-column: 1;
     grid-row: 2 / span 3;
     min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    overflow: hidden;
+  }
+
+  #pause-overlay .pause-panel {
     padding-right: 4px;
     /* Fades out at the bottom so a cut-off row reads as more to scroll;
        the padding lets the last row scroll clear of the fade */
@@ -5073,13 +5088,7 @@ body.ui-hidden > canvas {
 }
 
 /* Phones on their side, pause menu */
-@media (orientation: landscape) and (max-height: 500px) {
-  /* Out of a room the Together tab stacks its groups instead of spreading
-     them over the tallest tab's height, and each tab scrolls on its own */
-  #pause-overlay .pause-panel:not(.active) {
-    display: none;
-  }
-
+@media (orientation: landscape) and (min-width: 501px) and (max-height: 500px) {
   #pause-overlay #fly-solo {
     justify-content: flex-start;
     gap: 10px;
@@ -5136,7 +5145,10 @@ body.ui-hidden > canvas {
 
   #pause-overlay {
     justify-content: flex-end;
-    padding: max(16px, env(safe-area-inset-top, 0px)) 0 0;
+    padding: calc(
+        var(--vv-offset-top, 0px) + max(16px, env(safe-area-inset-top, 0px))
+      )
+      0 var(--kb-inset, 0px);
   }
 
   #pause-overlay::after {
@@ -5146,7 +5158,9 @@ body.ui-hidden > canvas {
   #pause-overlay .customization-box {
     width: 100%;
     max-width: 100%;
-    max-height: calc(100% - max(18px, env(safe-area-inset-top, 0px) + 8px));
+    max-height: calc(
+      var(--vvh, 100dvh) - max(18px, env(safe-area-inset-top, 0px) + 8px)
+    );
     border-radius: 22px 22px 0 0;
     border-left: none;
     border-right: none;
@@ -5164,14 +5178,19 @@ body.ui-hidden > canvas {
   #language-overlay {
     justify-content: flex-end;
     overflow: hidden;
-    padding: max(18px, env(safe-area-inset-top, 0px)) 0 0;
+    padding: calc(
+        var(--vv-offset-top, 0px) + max(18px, env(safe-area-inset-top, 0px))
+      )
+      0 var(--kb-inset, 0px);
   }
 
   :is(#achievements-overlay, #people-overlay, #help-overlay, #language-overlay)
     .achievements-content {
     width: 100%;
     max-width: 100%;
-    max-height: calc(100% - max(20px, env(safe-area-inset-top, 0px) + 10px));
+    max-height: calc(
+      var(--vvh, 100dvh) - max(20px, env(safe-area-inset-top, 0px) + 10px)
+    );
     margin: 0;
     border-radius: 22px 22px 0 0;
     border-left: none;
@@ -5200,6 +5219,35 @@ body.ui-hidden > canvas {
     .fullscreen-map-recenter-btn {
     bottom: calc(var(--map-bottom) + 230px);
   }
+}
+
+html[data-kb-open='true'] #pause-overlay .customization-box {
+  max-height: calc(
+    var(--vvh, 100dvh) - max(10px, env(safe-area-inset-top, 0px) + 4px)
+  );
+  min-height: 0;
+  overflow: hidden;
+  animation: none;
+  gap: 8px;
+  padding-bottom: 10px;
+}
+
+html[data-kb-open='true'] #pause-overlay #fly-solo {
+  justify-content: flex-start;
+}
+
+html[data-kb-open='true'] #pause-overlay .pause-panel:not(.active),
+html[data-kb-open='true'] #pause-overlay .pause-actions-row,
+html[data-kb-open='true'] #pause-overlay .pause-credit,
+html[data-kb-open='true'] #pause-overlay .pause-footer,
+html[data-kb-open='true'] #pause-overlay .pause-metadata {
+  display: none;
+}
+
+html[data-kb-open='true'] #pause-overlay #resume-btn {
+  height: 36px;
+  margin-top: 0;
+  font-size: 14px;
 }
 
 @media (max-width: 360px) {

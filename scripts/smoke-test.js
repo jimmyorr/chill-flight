@@ -347,6 +347,10 @@ async function checkPage(
     if (!(afterSwitch.workers > beforeSwitch.workers)) {
       failPage(tag, 'switching low -> mid did not rebuild terrain chunks');
     }
+    await page.evaluate(() => {
+      localStorage.removeItem('chill_flight_graphics_preset');
+      localStorage.removeItem('chill_flight_graphics_preset_manual');
+    });
     await closePage();
     console.log(
       `  preset switch low -> mid: gl ok, rebuilt (${beforeSwitch.workers} -> ${afterSwitch.workers} worker replies)`
