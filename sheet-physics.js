@@ -446,11 +446,16 @@ if (typeof document !== 'undefined') {
     {capture: true, passive: true}
   );
 
-  // Suppress trusted ghost click after a sheet drag or flick release
+  // Suppress trusted ghost click after a sheet drag or flick release. A
+  // keyboard click (Enter/Space, detail 0) is never a ghost, so it goes through.
   document.addEventListener(
     'click',
     (e) => {
-      if (e.isTrusted && performance.now() < suppressClickUntil) {
+      if (
+        e.isTrusted &&
+        e.detail !== 0 &&
+        performance.now() < suppressClickUntil
+      ) {
         e.preventDefault();
         e.stopImmediatePropagation();
       }
