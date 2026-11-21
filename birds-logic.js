@@ -22,6 +22,12 @@
 //                S-curves across the wind gradient (upwind climb, downwind swoop).
 
 const TAU = Math.PI * 2;
+// Ground under each bird is probed this often (s; the caller can pass a
+// slower env.floorProbeInterval for far birds), this far ahead along its
+// path (s), and the bird kept this far (units) above it
+const FLOOR_PROBE_INTERVAL = 0.12;
+const FLOOR_PROBE_LEAD = 0.6;
+const FLOOR_CLEARANCE = 6;
 
 export const BIRD_STATES = {
   CRUISE: 'cruise',
@@ -1064,6 +1070,11 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
         wantYaw = Math.atan2(-tangX, -tangZ);
         wantBank = Math.sign(data.circleSpeed) * 0.32;
         if (data.stateTimer <= 0 && data.cy > waterLevel + 24) {
+          // Only plunge for fish over the water, not over the shore or a cliff
+          if ((data.floorY ?? waterLevel) > waterLevel + 0.5) {
+            data.stateTimer = 1.5;
+            break;
+          }
           data.state = BIRD_STATES.KITE;
           data.divePhase = 0;
         }
@@ -1094,7 +1105,7 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
         targetY = data.cy - Math.sin(p * Math.PI) * depth;
         if (!data.splashed && prevPhase < 0.5 && data.divePhase >= 0.5) {
           data.splashed = true;
-          out.splash = true;
+          out.splash = (data.floorY ?? waterLevel) <= waterLevel + 0.5;
         }
         const tangX = -Math.sin(data.angle) * Math.sign(data.circleSpeed);
         const tangZ = Math.cos(data.angle) * Math.sign(data.circleSpeed);
@@ -1190,9 +1201,14 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
         wantPitch = clamp((wantY - baseY) * 0.015, -0.1, 0.24);
         wantBank = Math.sign(data.circleSpeed) * 0.34;
         if (data.stateTimer <= 0) {
-          data.state = BIRD_STATES.FORAGE;
-          data.divePhase = 0;
-          data.splashed = false;
+          if ((data.floorY ?? waterLevel) > waterLevel + 0.5) {
+            // Over the shore: wheel on and try again a moment later
+            data.stateTimer = 1.5;
+          } else {
+            data.state = BIRD_STATES.FORAGE;
+            data.divePhase = 0;
+            data.splashed = false;
+          }
         }
       } else {
         // Plunge dive (0..0.45), stationary surface float/scoop (0.45..0.72), climb out
@@ -1209,7 +1225,7 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
           // Hold horizontal position on the water while bobbing on the swell
           if (!data.splashed && prev < 0.45) {
             data.splashed = true;
-            out.splash = true;
+            out.splash = (data.floorY ?? waterLevel) <= waterLevel + 0.5;
           }
           targetY = waterLevel + 1.8 + swell * 0.5;
           wantPitch = 0.04;
@@ -1432,6 +1448,46 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
         0.7
       );
       wantBank = clamp(wantBank + 0.55 * evadeWeight, -0.95, 0.95);
+    }
+  }
+
+  // Keep every bird above the ground: the flight paths above are drawn round
+  // a centre point with water level as their floor, but a coastal circle or a
+  // meadow orbit crosses shores, hills and cliffs. The ground under the bird
+  // and a little ahead of it is probed a few times a second (staggered), and
+  // the bird is lifted smoothly over it
+  if (env.getElev) {
+    const slot = Math.floor(
+      (env.elapsed || 0) / (env.floorProbeInterval || FLOOR_PROBE_INTERVAL) +
+        (data.flapPhase || 0) / TAU
+    );
+    if (slot !== data.floorSlot) {
+      data.floorSlot = slot;
+      const lead = FLOOR_PROBE_LEAD / Math.max(dt, 1e-3);
+      const aheadX = targetX + (targetX - curX) * lead;
+      const aheadZ = targetZ + (targetZ - curZ) * lead;
+      data.floorY = Math.max(
+        waterLevel,
+        env.getElev(targetX, targetZ),
+        env.getElev(aheadX, aheadZ)
+      );
+    }
+    // (over open water a plunge-diver may touch the surface)
+    const groundY = data.floorY ?? waterLevel;
+    const floorY =
+      groundY > waterLevel + 0.5 ? groundY + FLOOR_CLEARANCE : waterLevel + 1;
+    if (data.type === 'goose') {
+      // (geese keep their own 250-unit climb; this only stops a cliff face)
+      if (targetY < floorY) targetY = floorY;
+    } else {
+      // Eased lift so a bird rises over a ridge instead of popping up
+      data.floorLift = Math.max(
+        0,
+        (data.floorLift || 0) +
+          (Math.max(0, floorY - targetY) - (data.floorLift || 0)) *
+            (1 - Math.exp(-8 * dt))
+      );
+      targetY = Math.max(targetY + data.floorLift, floorY - 2);
     }
   }
 

@@ -34,6 +34,10 @@ const SPLASH_VISIBLE_DIST_SQ = 900 * 900;
 // Chunk bounding radius around the player aircraft within which startle/wake
 // checks run; chunks farther away skip per-bird threat math completely
 const CHUNK_THREAT_RADIUS_SQ = 1150 * 1150;
+// Birds nearer the camera than this probe the ground under them every 0.12 s,
+// farther ones every FLOOR_FAR_INTERVAL s (birds-logic.js keeps them above it)
+const FLOOR_NEAR_DIST_SQ = 1500 * 1500;
+const FLOOR_FAR_INTERVAL = 0.6;
 // Initial instance capacity per species rig (doubles automatically on demand)
 const INITIAL_RIG_CAPACITY = 128;
 
@@ -130,6 +134,7 @@ const _env = {
   getElev: getElevation,
   aircraft: _aircraft,
   checkAircraft: false,
+  floorProbeInterval: 0.12,
 };
 
 const _pose = {
@@ -271,6 +276,11 @@ export function updateBirds(delta, elapsed, camPos) {
         data.visible = false;
         continue;
       }
+
+      // Near birds check the ground under them often (they'd be seen going
+      // through a hill); far ones now and then
+      _env.floorProbeInterval =
+        birdDistSq < FLOOR_NEAR_DIST_SQ ? 0.12 : FLOOR_FAR_INTERVAL;
 
       // Step behavioral state machine & trajectory
       stepBirdState(data, data.x, data.y, data.z, _env, delta, _pose);

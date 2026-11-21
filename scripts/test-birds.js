@@ -459,7 +459,7 @@ const WATER = 45.5;
       sx,
       sy,
       sz,
-      {...baseEnv, elapsed: i / 60},
+      {...baseEnv, getElev: () => WATER - 8, elapsed: i / 60},
       1 / 60,
       pose
     );
@@ -514,7 +514,7 @@ const WATER = 45.5;
       px,
       py,
       pz,
-      {...baseEnv, elapsed: i / 60},
+      {...baseEnv, getElev: () => WATER - 8, elapsed: i / 60},
       1 / 60,
       pose
     );
@@ -967,6 +967,80 @@ const WATER = 45.5;
     maxErr < 1e-5,
     `maxErr=${maxErr}`
   );
+}
+
+// 10. Every species stays above a hill its path crosses, and gulls and
+// pelicans only plunge (and splash) over water
+{
+  const HILL = 260;
+  // A hill rising across the east half of each bird's circle
+  const hillElev = (x) => (x > 0 ? HILL : WATER - 8);
+  const env = {
+    elapsed: 0,
+    dayFactor: 1,
+    rain: 0,
+    windDirX: 0.8,
+    windDirZ: 0.6,
+    windStrength: 1,
+    waterLevel: WATER,
+    getElev: hillElev,
+    aircraft: {active: false},
+    checkAircraft: false,
+  };
+  const rng = mulberry32(99);
+  const birds = generateChunkBirds({
+    worldOffsetX: 0,
+    worldOffsetZ: 0,
+    chunkSize: 1500,
+    waterLevel: WATER,
+    waterShare: 0.5,
+    minElev: WATER - 8,
+    maxElev: HILL,
+    swampFactor: 0.5,
+    farmFactor: 0.5,
+    canyonFactor: 0.5,
+    fallsFactor: 1,
+    isAlienChunk: false,
+    lighthousePos: {x: 0, y: 60, z: 0},
+    sailboatPositions: [{x: -100, z: 0}],
+    rockArchPositions: [],
+    pierPositions: [{x: 0, z: 0}],
+    windDirX: 0.8,
+    windDirZ: 0.6,
+    getElev: hillElev,
+    rng,
+  });
+  let worst = Infinity;
+  let worstType = '';
+  let landSplashes = 0;
+  const out = {};
+  for (const b of birds) {
+    let x = b.x;
+    let y = b.y;
+    let z = b.z;
+    for (let i = 0; i < 60 * 90; i++) {
+      env.elapsed = i / 60;
+      stepBirdState(b, x, y, z, env, 1 / 60, out);
+      x = out.x;
+      y = out.y;
+      z = out.z;
+      // (after the first probe has run)
+      if (i > 30) {
+        const clear = y - Math.max(WATER, hillElev(x));
+        if (clear < worst) {
+          worst = clear;
+          worstType = b.type;
+        }
+      }
+      if (out.splash && hillElev(x) > WATER) landSplashes++;
+    }
+  }
+  check(
+    `Birds crossing a ${HILL}-unit hill stay above it (${birds.length} birds)`,
+    birds.length > 0 && worst > -2,
+    `worst clearance ${worst.toFixed(1)} (${worstType})`
+  );
+  check('Gulls and pelicans never splash down on land', landSplashes === 0);
 }
 
 if (failed) {
