@@ -11,6 +11,7 @@ import {
   xmasToWorld,
   xmasVillagePlacements,
 } from './xmas-village-logic.js';
+import {generateChunkBirds} from './birds-logic.js';
 
 function hue2rgb(p, q, t) {
   let tempT = t;
@@ -434,13 +435,6 @@ const GOAT_CHANCE = 0.018;
 const DEER_CHANCE = 0.03;
 export const GOAT_COLORS = [0xece6da, 0xd8c8a8, 0x8a6a4a, 0x47403a, 0xb0a79c];
 export const DEER_COLORS = [0xa0703f, 0x8f6239, 0xb2804d, 0x7d5634];
-// Birds: the chance of a flock of gulls over a coastal chunk (one that's
-// part land, part water) and over open sea, none north of GULL_MAX_NORTH
-// (the frozen lakes); and of a hawk over a mostly dry chunk
-const GULL_COAST_CHANCE = 0.2;
-const GULL_SEA_CHANCE = 0.04;
-const GULL_MAX_NORTH = -22000;
-const HAWK_CHANCE = 0.22;
 // The share of the ice floes with a seal or two lying on them
 const SEAL_FLOE_CHANCE = 0.45;
 // Joshua trees: share of the desert's trees, and their tufts' colour
@@ -7833,127 +7827,88 @@ export function generateChunkData({
     });
   }
 
-  const birds = [];
-  const isAlienChunk =
-    ChillFlightLogic.alienAt(worldOffsetX, worldOffsetZ, simplex) >
-    ALIEN_PROPS_AT;
-  // Gulls over the coasts (any but the frozen far north), now and then out
-  // at sea, and a few always round a lighthouse; hawks over the land only
-  let wetPoints = 0;
-  for (let k = 0; k < heightGrid.length; k++) {
-    if (heightGrid[k] < WATER_LEVEL) wetPoints++;
-  }
-  const waterShare = wetPoints / heightGrid.length;
-  const gullChance =
-    worldOffsetZ < GULL_MAX_NORTH
-      ? 0
-      : waterShare >= 0.92
-        ? GULL_SEA_CHANCE
-        : waterShare > 0.08
-          ? GULL_COAST_CHANCE
-          : 0;
-  const pushGulls = (cx, cz, cy, n, radius) => {
-    for (let i = 0; i < n; i++) {
-      birds.push({
-        type: 'seagull',
-        scale: 2.5 + rng() * 1.0,
-        x: cx,
-        y: cy,
-        z: cz,
-        circleSpeed: 0.4 + rng() * 0.2,
-        circleRadius: radius + rng() * radius * 0.8,
-        circleCenter: {x: cx, y: cy + (rng() - 0.5) * 40, z: cz},
-        angle: rng() * Math.PI * 2,
-        flapPhase: rng() * Math.PI * 2,
-        flapSpeed: 10.0 + rng() * 5.0,
-        flapDuration: 2.0 + rng() * 2.0,
-        soarDuration: 3.0 + rng() * 3.0,
-        diveTimer: rng() * 10,
-        nextDiveWait: 10.0 + rng() * 20.0,
-      });
+  let birds = [];
+  if (_enableObjects) {
+    const isAlienChunk =
+      ChillFlightLogic.alienAt(worldOffsetX, worldOffsetZ, simplex) >
+      ALIEN_PROPS_AT;
+    let wetPoints = 0;
+    let minElev = Infinity;
+    let maxElev = -Infinity;
+    for (let k = 0; k < heightGrid.length; k++) {
+      const hk = heightGrid[k];
+      if (hk < WATER_LEVEL) wetPoints++;
+      if (hk < minElev) minElev = hk;
+      if (hk > maxElev) maxElev = hk;
     }
-  };
-  if (!isAlienChunk) {
-    const roll = rng();
-    if (roll < gullChance) {
-      const cx = worldOffsetX + (rng() - 0.5) * chunkSize;
-      const cz = worldOffsetZ + (rng() - 0.5) * chunkSize;
-      const cy =
-        Math.max(WATER_LEVEL, getElevation(cx, cz, elevParams)) +
-        40 +
-        rng() * 60;
-      pushGulls(cx, cz, cy, 2 + Math.floor(rng() * 4), 50);
-    } else if (waterShare < 0.5 && rng() < HAWK_CHANCE) {
-      const baseX = worldOffsetX + (rng() - 0.5) * chunkSize;
-      const baseZ = worldOffsetZ + (rng() - 0.5) * chunkSize;
-      const baseY = Math.min(
-        400,
-        getElevation(baseX, baseZ, elevParams) + 150 + rng() * 200
-      );
-      birds.push({
-        type: 'hawk',
-        scale: 4.0,
-        x: baseX,
-        y: baseY,
-        z: baseZ,
-        rotY: rng() * Math.PI * 2,
-        circleSpeed: 0.3 + rng() * 0.2,
-        circleRadius: 150 + rng() * 100,
-        circleCenter: {x: baseX, y: baseY, z: baseZ},
-        angle: rng() * Math.PI * 2,
-        flapPhase: rng() * Math.PI * 2,
-        flapSpeed: 8.0 + rng() * 4.0,
-        flapDuration: 3.0 + rng() * 3.0,
-        soarDuration: 4.0 + rng() * 4.0,
-      });
-    }
-  }
-  // A few gulls wheeling round each lighthouse's lantern (Montauk's too)
-  if (lighthousePos) {
-    pushGulls(
-      worldOffsetX + lighthousePos.x,
-      worldOffsetZ + lighthousePos.z,
-      lighthousePos.y + 150,
-      3 + Math.floor(rng() * 2),
-      45
+    const waterShare = wetPoints / heightGrid.length;
+    const chunkSwampFactor = ChillFlightLogic.swampFactorAt(
+      worldOffsetX,
+      worldOffsetZ,
+      simplex
     );
-  }
-
-  if (!isAlienChunk && rng() < 0.04) {
-    const flockSize = 7 + Math.floor(rng() * 6);
-    const baseX = worldOffsetX + (rng() - 0.5) * chunkSize;
-    const baseZ = worldOffsetZ + (rng() - 0.5) * chunkSize;
-    let baseY = getElevation(baseX, baseZ, elevParams) + 400 + rng() * 600;
-    if (baseY > 1200) baseY = 1200;
-
-    const baseRotationY = rng() * Math.PI * 2;
-    const speed = 1.1 + rng() * 0.2;
-
-    for (let i = 0; i < flockSize; i++) {
-      let offsetX = 0;
-      let offsetZ = 0;
-      if (i > 0) {
-        const row = Math.floor((i + 1) / 2);
-        const side = i % 2 === 0 ? 1 : -1;
-        offsetX = side * row * 35;
-        offsetZ = row * 35;
-      }
-
-      const localPos = rotateY(offsetX, offsetZ, baseRotationY);
-
-      birds.push({
-        type: 'goose',
-        x: baseX + localPos.x,
-        y: baseY,
-        z: baseZ + localPos.z,
-        rotY: baseRotationY,
-        speed,
-        flapPhase: rng() * Math.PI * 2,
-        flapSpeed: 8.0 + rng() * 2.0,
-        flapDuration: 1000.0,
-        soarDuration: 0.0,
-      });
-    }
+    const chunkCanyonFactor = ChillFlightLogic.canyonRockAt(
+      worldOffsetX,
+      worldOffsetZ,
+      simplex
+    );
+    const chunkFallsFactor = ChillFlightLogic.fallsSiteAt(
+      worldOffsetX,
+      worldOffsetZ,
+      simplex
+    )
+      ? 1
+      : 0;
+    const chunkVillageNoise = simplex.noise2D(
+      worldOffsetX * 0.0011 + 71.3,
+      worldOffsetZ * 0.0011 - 29.7
+    );
+    const chunkFarmFactor = Math.max(
+      barnPositions.length > 0 || windmillPositions.length > 0 ? 0.5 : 0,
+      Math.max(0, Math.min(1, (chunkVillageNoise + 0.05) / 0.2)) *
+        (1 - Math.min(1, chunkSwampFactor * 2))
+    );
+    // O(1) heightGrid sample instead of re-evaluating procedural getElevation()
+    const gridStride = segments + 1;
+    const sampleChunkElev = (wx, wz) => {
+      const u = Math.max(
+        0,
+        Math.min(
+          segments,
+          Math.round(((wx - worldOffsetX) / chunkSize + 0.5) * segments)
+        )
+      );
+      const v = Math.max(
+        0,
+        Math.min(
+          segments,
+          Math.round(((wz - worldOffsetZ) / chunkSize + 0.5) * segments)
+        )
+      );
+      return heightGrid[v * gridStride + u];
+    };
+    birds = generateChunkBirds({
+      worldOffsetX,
+      worldOffsetZ,
+      chunkSize,
+      waterLevel: WATER_LEVEL,
+      waterShare,
+      minElev: Number.isFinite(minElev) ? minElev : WATER_LEVEL,
+      maxElev: Number.isFinite(maxElev) ? maxElev : WATER_LEVEL,
+      swampFactor: chunkSwampFactor,
+      farmFactor: chunkFarmFactor,
+      canyonFactor: chunkCanyonFactor,
+      fallsFactor: chunkFallsFactor,
+      isAlienChunk,
+      lighthousePos,
+      sailboatPositions,
+      rockArchPositions,
+      pierPositions,
+      windDirX: WIND_DIR_X,
+      windDirZ: WIND_DIR_Z,
+      getElev: sampleChunkElev,
+      rng,
+    });
   }
 
   const instanceData = collector.finish();

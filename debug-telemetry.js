@@ -22,6 +22,7 @@ import {performanceMonitor} from './game-performance.js';
 import {getStartupDiagnostics, sharePerfReport} from './perf-hud.js';
 import {terrainWorkerManager} from './terrain-worker-manager.js';
 import {globalInstancer} from './terrain-chunks.js';
+import {getBirdDebugStats} from './birds.js';
 import {
   manualCloudCover,
   precipitation,
@@ -466,6 +467,11 @@ function updateThings() {
   }
   updateDOM('debug-traffic', String(trafficCount()));
   updateDOM('debug-road-cars', String(roadCarCount()));
+  const bs = getBirdDebugStats();
+  updateDOM(
+    'debug-birds',
+    `${bs.visible} / ${bs.loaded} (${bs.drawCalls} calls)`
+  );
   const {landmarks} = chunkRange();
   const marks = getCachedElement('debug-landmarks');
   const markHtml = Object.entries(landmarks)

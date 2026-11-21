@@ -13,6 +13,7 @@ import {
   WINDMILL_ROT_Y,
 } from './terrain-gen.js';
 import {ART_PAINTED, ART_POST} from './art-style.js';
+import {assembleBird, getBirdPropParts} from './bird-models.js';
 import * as polyforkLighthouse from './third-party/polyfork/old-lighthouse-48ca6c.mjs';
 import * as polyforkCottage from './third-party/polyfork/porch-front-cottage-620c29.mjs';
 import {createAsset as createPolyforkDolphin} from './third-party/polyfork/dolphin-base.mjs';
@@ -2699,144 +2700,14 @@ export var castleRuinsMat = createMaterial({
   flatShading: true,
 }); // weathered stone
 
-function taperWingGeometry(geo, startX, endX, taperFactor, sweepFactor = 0) {
-  const pos = geo.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i);
-    const fraction = Math.max(0, Math.min(1, (x - startX) / (endX - startX)));
-    const z = pos.getZ(i);
-    // Taper the wing width (Z) and add sweep back (translating Z by fraction * sweepFactor)
-    // We adjust Z based on its sign to taper towards the center line
-    const sign = Math.sign(z) || 1;
-    const absZ = Math.abs(z);
-    const newAbsZ = absZ * (1 - fraction * taperFactor);
-    // Sweep back: pushing the whole section back along Z
-    // Assuming +Z is backward (tail direction). We add to Z directly.
-    pos.setZ(i, newAbsZ * sign + fraction * sweepFactor);
-  }
-  geo.computeVertexNormals();
-}
-
-// Bird geometry
-// Hawk geometries
-var hawkBodyGeo = new THREE.BoxGeometry(1.2, 0.8, 3.5);
-var hawkBellyGeo = new THREE.BoxGeometry(1.25, 0.2, 2.5);
-hawkBellyGeo.translate(0, -0.35, -0.2);
-var hawkHeadGeo = new THREE.BoxGeometry(0.8, 0.8, 1.0);
-hawkHeadGeo.translate(0, 0.2, -2.0);
-var hawkBeakGeo = new THREE.ConeGeometry(0.3, 0.6, 4);
-hawkBeakGeo.rotateX(-Math.PI / 2);
-hawkBeakGeo.translate(0, 0.1, -2.8);
-var hawkTailGeo = new THREE.BoxGeometry(1.4, 0.2, 1.5);
-hawkTailGeo.translate(0, 0, 2.2);
-var hawkWingGeo = new THREE.BoxGeometry(5, 0.1, 2.5);
-hawkWingGeo.translate(2.5, 0, 0);
-taperWingGeometry(hawkWingGeo, 0, 5, 0.5, 0.8);
-
-var hawkBrownMat = createMaterial({color: 0x4a2e15, flatShading: true});
-var hawkLightMat = createMaterial({color: 0xd2b48c, flatShading: true}); // Tan belly
-var hawkBeakMat = createMaterial({color: 0xffcc00, flatShading: true}); // Yellow beak
-
-// Seagull geometries
-var seagullBodyGeo = new THREE.BoxGeometry(1.0, 0.7, 3.0);
-var seagullHeadGeo = new THREE.BoxGeometry(0.7, 0.7, 0.9);
-seagullHeadGeo.translate(0, 0.3, -1.8);
-var seagullBeakGeo = new THREE.ConeGeometry(0.2, 0.7, 4);
-seagullBeakGeo.rotateX(-Math.PI / 2);
-seagullBeakGeo.translate(0, 0.2, -2.6);
-var seagullTailGeo = new THREE.BoxGeometry(1.2, 0.2, 1.2);
-seagullTailGeo.translate(0, 0, 1.8);
-var seagullWingGeo = new THREE.BoxGeometry(4.5, 0.1, 1.8);
-seagullWingGeo.translate(2.25, 0, 0);
-taperWingGeometry(seagullWingGeo, 0, 4.75, 0.5, 0.6);
-var seagullWingTipGeo = new THREE.BoxGeometry(1.5, 0.11, 1.6);
-seagullWingTipGeo.translate(4.0, 0, 0);
-taperWingGeometry(seagullWingTipGeo, 0, 4.75, 0.5, 0.6);
-
-var seagullWhiteMat = createMaterial({color: 0xffffff, flatShading: true});
-var seagullGreyMat = createMaterial({color: 0xcccccc, flatShading: true});
-var seagullBlackMat = createMaterial({color: 0x333333, flatShading: true});
-var seagullBeakMat = createMaterial({color: 0xffd54f, flatShading: true});
-
+// Bird assemblies & prop descriptors live in bird-models.js (3-mesh shared
+// vertex-color rigs across all eight species).
 export function assembleHawk(scale) {
-  const bird = new THREE.Group();
-  const body = new THREE.Mesh(hawkBodyGeo, hawkBrownMat);
-  const belly = new THREE.Mesh(hawkBellyGeo, hawkLightMat);
-  const head = new THREE.Mesh(hawkHeadGeo, hawkBrownMat);
-  const beak = new THREE.Mesh(hawkBeakGeo, hawkBeakMat);
-  const tail = new THREE.Mesh(hawkTailGeo, hawkBrownMat);
-  const wingL = new THREE.Mesh(hawkWingGeo, hawkBrownMat);
-  const wingR = new THREE.Mesh(hawkWingGeo, hawkBrownMat);
-  wingL.rotation.y = Math.PI;
-  bird.add(body, belly, head, beak, tail, wingL, wingR);
-  bird.scale.set(scale, scale, scale);
-  bird.userData.wings = [wingL, wingR];
-  return bird;
+  return assembleBird('hawk', scale);
 }
-
 export function assembleSeagull(scale) {
-  const bird = new THREE.Group();
-  const body = new THREE.Mesh(seagullBodyGeo, seagullWhiteMat);
-  const head = new THREE.Mesh(seagullHeadGeo, seagullWhiteMat);
-  const beak = new THREE.Mesh(seagullBeakGeo, seagullBeakMat);
-  const tail = new THREE.Mesh(seagullTailGeo, seagullWhiteMat);
-
-  const wingL = new THREE.Group();
-  const wingBaseL = new THREE.Mesh(seagullWingGeo, seagullGreyMat);
-  const wingTipL = new THREE.Mesh(seagullWingTipGeo, seagullBlackMat);
-  wingL.add(wingBaseL, wingTipL);
-  wingL.rotation.y = Math.PI; // flip for left
-
-  const wingR = new THREE.Group();
-  const wingBaseR = new THREE.Mesh(seagullWingGeo, seagullGreyMat);
-  const wingTipR = new THREE.Mesh(seagullWingTipGeo, seagullBlackMat);
-  wingR.add(wingBaseR, wingTipR);
-
-  bird.add(body, head, beak, tail, wingL, wingR);
-  bird.scale.set(scale, scale, scale);
-  bird.userData.wings = [wingL, wingR];
-  return bird;
+  return assembleBird('seagull', scale);
 }
-
-// Canada Goose geometries
-export var gooseBodyGeo = new THREE.BoxGeometry(1.2, 0.9, 3.5);
-export var gooseNeckGeo = new THREE.CylinderGeometry(0.25, 0.35, 2.5, 6);
-gooseNeckGeo.rotateX(Math.PI / 2);
-gooseNeckGeo.translate(0, 0.5, -2.5);
-export var gooseHeadGeo = new THREE.BoxGeometry(0.6, 0.6, 1.2);
-gooseHeadGeo.translate(0, 0.5, -4.0);
-export var gooseBeakGeo = new THREE.ConeGeometry(0.2, 0.8, 4);
-gooseBeakGeo.rotateX(-Math.PI / 2);
-gooseBeakGeo.translate(0, 0.5, -4.8);
-export var gooseCheekGeo = new THREE.BoxGeometry(0.65, 0.3, 0.5);
-gooseCheekGeo.translate(0, 0.4, -4.0);
-export var gooseTailGeo = new THREE.BoxGeometry(0.8, 0.4, 1.5);
-gooseTailGeo.translate(0, 0.2, 2.0);
-export var gooseWhiteTailGeo = new THREE.BoxGeometry(1.0, 0.5, 1.0);
-gooseWhiteTailGeo.translate(0, -0.1, 1.5);
-
-export var gooseBrownMat = createMaterial({color: 0x8b7355, flatShading: true});
-export var gooseWingGeo = new THREE.BoxGeometry(6, 0.1, 2);
-gooseWingGeo.translate(3, 0, 0);
-taperWingGeometry(gooseWingGeo, 0, 6, 0.6, 1.0);
-// Everything but the wings in one mesh, its parts coloured per vertex: a goose
-// is drawn with 3 meshes instead of 9, and flocks fly kilometres away
-export var gooseStaticGeo = mergeBufferGeometries(
-  [
-    [gooseBodyGeo, 0x8b7355],
-    [gooseNeckGeo, 0x222222],
-    [gooseHeadGeo, 0x222222],
-    [gooseBeakGeo, 0x222222],
-    [gooseCheekGeo, 0xffffff],
-    [gooseWhiteTailGeo, 0xffffff],
-    [gooseTailGeo, 0x222222],
-  ].map(([geo, hex]) => paintGeometry(geo.clone(), hex))
-);
-export var gooseStaticMat = createMaterial({
-  color: 0xffffff,
-  vertexColors: true,
-  flatShading: true,
-});
 
 // Windmill geometries
 // Windmills: Polyfork's Windmill (farm-models.js), the tower and its sails
@@ -4533,124 +4404,15 @@ export const ModelAssembler = {
           {geo: fireCoreGeo, mat: fireMat, pos: [0, 2, 0], rot: [0, rotY, 0]},
         ];
       case 'hawk':
-        return [
-          {
-            geo: hawkBodyGeo,
-            mat: hawkBrownMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: hawkBellyGeo,
-            mat: hawkLightMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: hawkHeadGeo,
-            mat: hawkBrownMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: hawkBeakGeo,
-            mat: hawkBeakMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: hawkTailGeo,
-            mat: hawkBrownMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: hawkWingGeo,
-            mat: hawkBrownMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: hawkWingGeo,
-            mat: hawkBrownMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-            scale: [-1, 1, 1],
-          },
-        ];
       case 'seagull':
-        return [
-          {
-            geo: seagullBodyGeo,
-            mat: seagullWhiteMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: seagullHeadGeo,
-            mat: seagullWhiteMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: seagullBeakGeo,
-            mat: seagullBeakMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: seagullTailGeo,
-            mat: seagullWhiteMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: seagullWingGeo,
-            mat: seagullGreyMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: seagullWingTipGeo,
-            mat: seagullBlackMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: seagullWingGeo,
-            mat: seagullGreyMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY + Math.PI, 0],
-          },
-          {
-            geo: seagullWingTipGeo,
-            mat: seagullBlackMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY + Math.PI, 0],
-          },
-        ];
       case 'goose':
-        return [
-          {
-            geo: gooseStaticGeo,
-            mat: gooseStaticMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: gooseWingGeo,
-            mat: gooseBrownMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: gooseWingGeo,
-            mat: gooseBrownMat,
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-            scale: [-1, 1, 1],
-          },
-        ];
+      case 'heron':
+      case 'egret':
+      case 'pelican':
+      case 'swallow':
+      case 'raven':
+      case 'albatross':
+        return getBirdPropParts(id, rotY);
       case 'sailboat': {
         const bodyId = (opts.bodyId || 0) % boatHullPalette.length;
         return [

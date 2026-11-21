@@ -9,7 +9,6 @@ import {
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {
   animationUniforms,
-  birdChunks,
   chunks,
   fireMat,
   getElevation,
@@ -20,11 +19,11 @@ import {
   SAIL_FURL,
   sampleGround,
   smokeMat,
-  strayBirds,
   waterUniforms,
   watercraftChunks,
   whiteSmokeMat,
 } from './terrain-geometry.js';
+import {updateBirds} from './birds.js';
 import {
   BASE_FLIGHT_SPEED,
   LIGHTHOUSE_BEAM_OPACITY_MAX,
@@ -131,13 +130,6 @@ const GHOST_SHIP_SINK =
 const GHOST_SHIP_GLOW_MAX = 0.35;
 const GHOST_SHIP_GLOW_NEW_MOON = 0.15;
 const _furledSail = new THREE.Matrix4();
-// A hawk or gull flies off when the plane comes this close (units), this far
-// (units), and is back circling after this long (s)
-const BIRD_STARTLE_RADIUS = 90;
-const BIRD_STARTLE_DISTANCE = 60;
-const BIRD_STARTLE_TIME = 4;
-const GOOSE_GROUND_INTERVAL = 0.25;
-const _birdAway = new THREE.Vector3();
 const _camWorldPos = new THREE.Vector3();
 
 // How locked the follow camera is to the plane in aerobatics, 0 to 1. Rolls
@@ -1110,196 +1102,8 @@ export function updateFlightCamera(delta, nowTime) {
   whiteSmokeMat.opacity = 0.6 - state.dayFactor * 0.3;
 
   // Animate Birds
-  const activeBirds = birdChunks;
   const camPos = getCameraWorldPosition(_camWorldPos);
-  // Geese hide past the prop draw distance like the houses below them (each
-  // is 9 meshes, and a dot that far off)
-  const gooseDrawDistSq = performanceMonitor.getEffectiveLOD() ** 2;
-  activeBirds.forEach((chunkGroup) => {
-    // Optimization: Distance culling (6000 units) for the hawks and seagulls
-    // circling a distant chunk. Geese always animate: a flock flies far from
-    // its chunk (or has outlived it, in strayBirds) and can still be in view
-    const checkPos = chunkGroup.userData.worldPosition || chunkGroup.position;
-    const chunkIsFar =
-      chunkGroup !== strayBirds &&
-      checkPos.distanceToSquared(camPos) > 36000000;
-
-    if (chunkGroup.userData.birds) {
-      chunkGroup.userData.birds.forEach((bird) => {
-        // (hidden, not just left still: each is several meshes, and a
-        // speck that far off)
-        if (chunkIsFar && bird.userData.type !== 'goose') {
-          bird.visible = false;
-          return;
-        }
-        bird.visible = state.dayFactor > 0.1;
-        if (!bird.visible) return;
-        // Still animated, so the flock is where it should be when it shows
-        if (bird.userData.type === 'goose')
-          bird.visible =
-            state._enableObjects &&
-            bird.position.distanceToSquared(camPos) < gooseDrawDistSq;
-
-        const data = bird.userData;
-        const flapSpeed = data.flapSpeed || 2;
-        const flapPhase = data.flapPhase || 0;
-        const flapDuration = data.flapDuration || 4.0;
-        const soarDuration = data.soarDuration || 6.0;
-
-        const totalCycle = flapDuration + soarDuration;
-        const cycleProgress =
-          (clock.getElapsed() + flapPhase * 10) % totalCycle;
-        const isSoaring = cycleProgress > flapDuration;
-
-        let flap = 0;
-        if (!isSoaring) {
-          let amplitude = 0.5;
-          const transitionTime = 0.5; // 0.5s smooth fade envelope
-          if (cycleProgress < transitionTime) {
-            amplitude *= cycleProgress / transitionTime;
-          } else if (flapDuration - cycleProgress < transitionTime) {
-            amplitude *= (flapDuration - cycleProgress) / transitionTime;
-          }
-          flap =
-            Math.sin(clock.getElapsed() * flapSpeed + flapPhase) * amplitude;
-        }
-        // A hawk or gull the plane comes close to flaps off out of its way
-        // and drifts back to its circle (startle: {t, dir}, the way it goes)
-        const startle = data.startle;
-        if (startle) {
-          startle.t += delta;
-          flap = Math.sin(startle.t * 22) * 0.8;
-          if (startle.t > BIRD_STARTLE_TIME) data.startle = null;
-        }
-        if (data.wings) {
-          data.wings[0].rotation.z = flap;
-          data.wings[1].rotation.z = flap;
-        }
-        bird.translateZ(-(data.speed * delta * 50));
-
-        if (data.type === 'hawk' || data.type === 'seagull') {
-          data.angle += data.circleSpeed * delta;
-          const targetX =
-            data.circleCenter.x + Math.cos(data.angle) * data.circleRadius;
-          const targetZ =
-            data.circleCenter.z + Math.sin(data.angle) * data.circleRadius;
-
-          // Back where it would be without last frame's startle
-          if (data.startleOffset) {
-            bird.position.sub(data.startleOffset);
-            data.startleOffset = null;
-          }
-          let targetY = bird.position.y;
-          let tiltZ = 0.3; // Bank angle for circling
-          let tiltX = 0; // Pitch angle
-
-          // Seagull diving logic
-          if (data.type === 'seagull') {
-            if (data.isDiving) {
-              data.diveTimer += delta;
-              const diveProgress = data.diveTimer / data.diveDuration;
-              if (diveProgress > 1.0) {
-                data.isDiving = false;
-                data.diveTimer = 0;
-              } else {
-                // Parabolic dive towards WATER_LEVEL
-                const baseHeight = data.circleCenter.y;
-                // We want to dive down to water level and back up
-                const diveDepth = baseHeight - WATER_LEVEL - 5;
-                // sine wave from 0 to PI makes a parabola-like curve
-                const diveOffset = Math.sin(diveProgress * Math.PI) * diveDepth;
-                targetY = baseHeight - diveOffset;
-
-                // Pitch down then up
-                tiltX = Math.sin(diveProgress * Math.PI * 2) * -0.8;
-                tiltZ = 0; // Stop banking while diving
-              }
-            } else {
-              data.diveTimer += delta;
-              if (data.diveTimer > data.nextDiveWait) {
-                data.isDiving = true;
-                data.diveTimer = 0;
-                data.diveDuration = 3.0 + Math.random() * 2.0;
-                data.nextDiveWait = 10.0 + Math.random() * 20.0;
-              }
-            }
-          }
-
-          bird.lookAt(
-            data.circleCenter.x +
-              Math.cos(data.angle - 0.1) * data.circleRadius,
-            data.type === 'seagull' && data.isDiving
-              ? targetY
-              : bird.position.y,
-            data.circleCenter.z + Math.sin(data.angle - 0.1) * data.circleRadius
-          );
-
-          bird.rotation.z = tiltZ;
-          bird.rotation.x += tiltX;
-
-          bird.position.set(targetX, targetY, targetZ);
-          if (!data.startle && !state.isFreeCamera) {
-            _birdAway.subVectors(bird.position, planeGroup.position);
-            if (_birdAway.lengthSq() < BIRD_STARTLE_RADIUS ** 2) {
-              _birdAway.normalize();
-              _birdAway.y = Math.max(0.3, _birdAway.y + 0.4);
-              data.startle = {t: 0, dir: _birdAway.clone().normalize()};
-            }
-          }
-          if (data.startle) {
-            // Out fast, back slowly
-            const t = data.startle.t;
-            const out =
-              t < 0.6
-                ? Math.sin((t / 0.6) * Math.PI * 0.5)
-                : 1 - THREE.MathUtils.smoothstep(t, 0.6, BIRD_STARTLE_TIME);
-            data.startleOffset = data.startle.dir
-              .clone()
-              .multiplyScalar(out * BIRD_STARTLE_DISTANCE);
-            bird.position.add(data.startleOffset);
-          }
-        } else if (data.type === 'goose') {
-          // Prevent geese from flying into the volcano or terrain; refresh
-          // 4 times a second, staggered by each flock's heading
-          const phase = (((bird.rotation.y / (Math.PI * 2)) % 1) + 1) % 1;
-          const slot = Math.floor(
-            clock.getElapsed() / GOOSE_GROUND_INTERVAL + phase
-          );
-          if (slot !== data.groundSlot) {
-            data.groundSlot = slot;
-            data.groundY = getElevation(bird.position.x, bird.position.z);
-          }
-          const groundY = data.groundY;
-          const minClearance = 250;
-          if (bird.position.y < groundY + minClearance) {
-            bird.position.y +=
-              (groundY + minClearance - bird.position.y) * 3.0 * delta;
-          }
-        }
-
-        // Collide check (goose trigger)
-        if (data.type === 'goose' && !state.isFreeCamera) {
-          const distToPlaneSq = bird.position.distanceToSquared(
-            planeGroup.position
-          );
-          if (distToPlaneSq < 625) {
-            Achievements.unlock('geese_police');
-          }
-        }
-      });
-    }
-  });
-
-  // Stray geese (their chunk has unloaded) go once they're 15000 units away,
-  // where a goose is under a pixel (chunks unload nearer, at about 9000 units
-  // on ultra, where a flock still shows as a V of dots)
-  const strays = strayBirds.userData.birds;
-  for (let i = strays.length - 1; i >= 0; i--) {
-    if (strays[i].position.distanceToSquared(camPos) > 225000000) {
-      strayBirds.remove(strays[i]);
-      strays.splice(i, 1);
-    }
-  }
+  updateBirds(delta, clock.getElapsed(), camPos);
 
   // Animate Lighthouse Beam directly if active chunk is present
   if (chunks.has('5,2')) {

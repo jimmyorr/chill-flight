@@ -13,6 +13,7 @@ import '../airplane.js';
 import '../vr-models.js';
 import '../low-poly.js';
 import '../tree-models.js';
+import '../bird-models.js';
 import '../terrain-geometry.js';
 
 import * as THREE from 'three';
@@ -1610,6 +1611,12 @@ function viewModel(type, e, colorSeed = 0) {
     'hawk',
     'seagull',
     'goose',
+    'heron',
+    'egret',
+    'pelican',
+    'swallow',
+    'raven',
+    'albatross',
   ];
   const isFrontFacing = frontFacingTypes.includes(type);
   const maxDimension = Math.max(finalSize.x, finalSize.y, finalSize.z);

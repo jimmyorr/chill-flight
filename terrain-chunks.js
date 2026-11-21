@@ -15,6 +15,7 @@ import {
 import {breakwaterTopIn} from './breakwater-logic.js';
 import {createWaterfall} from './waterfalls.js';
 import {scene} from './scene.js';
+import {getBirdRigIndex} from './bird-models.js';
 import {
   BRIDGE_SEGMENT_LENGTH,
   ModelAssembler,
@@ -22,8 +23,6 @@ import {
   VOLCANO_Z,
   _terrainGeometryPool,
   _waterGeometryPool,
-  assembleHawk,
-  assembleSeagull,
   barnBodyGeo,
   barnMat,
   barnRoofGeo,
@@ -111,12 +110,8 @@ import {
   fruitTreeGeos,
   getElevation,
   getInstancedMesh,
-  gooseBrownMat,
-  gooseStaticGeo,
   penguinGeo,
   penguinMat,
-  gooseStaticMat,
-  gooseWingGeo,
   houseBodyGeo,
   houseChimneyGeo,
   houseChimneyMat,
@@ -4303,95 +4298,27 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     group.userData.pirateReflections = reflections;
   }
 
-  // 4. Generate Birds
+  // 4. Generate Birds (plain JS state records rendered via global InstancedMesh pool in birds.js)
   group.userData.birds = [];
   // This chunk's own geese may still be flying as strays from when it last
   // unloaded; they're replaced by its new flock
   const chunkKey = `${chunkX},${chunkZ}`;
   const strays = strayBirds.userData.birds;
   for (let i = strays.length - 1; i >= 0; i--) {
-    if (strays[i].userData.sourceKey === chunkKey) {
-      strayBirds.remove(strays[i]);
+    if (strays[i].sourceKey === chunkKey) {
       strays.splice(i, 1);
     }
   }
 
   if (ChillFlightLogic.TRAFFIC_PARAM !== false) {
-    workerData.chunkProps.birds.forEach((bData) => {
-      if (bData.type === 'seagull') {
-        const seagull = assembleSeagull(bData.scale);
-        seagull.position.set(bData.x, bData.y, bData.z);
-
-        seagull.userData.type = 'seagull';
-        seagull.userData.speed = 0.5;
-        seagull.userData.circleSpeed = bData.circleSpeed;
-        seagull.userData.circleRadius = bData.circleRadius;
-        seagull.userData.circleCenter = new THREE.Vector3(
-          bData.circleCenter.x,
-          bData.circleCenter.y,
-          bData.circleCenter.z
-        );
-        seagull.userData.angle = bData.angle;
-        seagull.userData.flapPhase = bData.flapPhase;
-        seagull.userData.flapSpeed = bData.flapSpeed;
-        seagull.userData.flapDuration = bData.flapDuration;
-        seagull.userData.soarDuration = bData.soarDuration;
-        seagull.userData.isDiving = false;
-        seagull.userData.diveTimer = bData.diveTimer;
-        seagull.userData.nextDiveWait = bData.nextDiveWait;
-
-        objectsGroup.add(seagull);
-        group.userData.birds.push(seagull);
-      } else if (bData.type === 'hawk') {
-        const hawk = assembleHawk(bData.scale);
-        hawk.position.set(bData.x, bData.y, bData.z);
-        hawk.rotation.y = bData.rotY;
-
-        hawk.userData.type = 'hawk';
-        hawk.userData.speed = 0.4;
-        hawk.userData.circleSpeed = bData.circleSpeed;
-        hawk.userData.circleRadius = bData.circleRadius;
-        hawk.userData.circleCenter = new THREE.Vector3(
-          bData.circleCenter.x,
-          bData.circleCenter.y,
-          bData.circleCenter.z
-        );
-        hawk.userData.angle = bData.angle;
-        hawk.userData.flapPhase = bData.flapPhase;
-        hawk.userData.flapSpeed = bData.flapSpeed;
-        hawk.userData.flapDuration = bData.flapDuration;
-        hawk.userData.soarDuration = bData.soarDuration;
-        hawk.userData.isDiving = false;
-
-        objectsGroup.add(hawk);
-        group.userData.birds.push(hawk);
-      } else if (bData.type === 'goose') {
-        const goose = new THREE.Group();
-        const body = new THREE.Mesh(gooseStaticGeo, gooseStaticMat);
-        const wingL = new THREE.Mesh(gooseWingGeo, gooseBrownMat);
-        const wingR = new THREE.Mesh(gooseWingGeo, gooseBrownMat);
-        wingL.rotation.y = Math.PI;
-        goose.add(body, wingL, wingR);
-        goose.scale.set(3.5, 3.5, 3.5);
-        goose.userData.wings = [wingL, wingR];
-
-        goose.position.set(bData.x, bData.y, bData.z);
-        goose.rotation.y = bData.rotY;
-
-        goose.userData.type = 'goose';
-        goose.userData.speed = bData.speed;
-        goose.userData.flapPhase = bData.flapPhase;
-        goose.userData.flapSpeed = bData.flapSpeed;
-        goose.userData.flapDuration = bData.flapDuration;
-        goose.userData.soarDuration = bData.soarDuration;
-        goose.userData.isDiving = false;
-
-        // Not with the chunk's props: those hide past the prop draw distance
-        // from the chunk, and a flock flies far from where it spawned
-        group.add(goose);
-        group.userData.birds.push(goose);
-      }
-    });
+    for (const bData of workerData.chunkProps.birds) {
+      group.userData.birds.push(
+        Object.assign({}, bData, {
+          rigIndex: getBirdRigIndex(bData.type, bData.variant),
+          visible: false,
+        })
+      );
+    }
   }
 
   if (group.userData.birds.length > 0) {
@@ -4400,16 +4327,11 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
 
   // Casting shadows: everything but water, smoke, beams, decals and what
   // can't show one (road paint flat on the deck, mirrored boats under the
-  // water, waterline foam, birds in the air): each that casts is another
-  // draw in the shadow pass
+  // water, waterline foam): each that casts is another draw in the shadow pass
   const castsNoShadow = (child) => {
     if (child.userData.noShadow) return true;
     if (child.material === reflectionMat || child.material === boatRimMat)
       return true;
-    for (let o = child.parent; o && o !== group; o = o.parent) {
-      const t = o.userData.type;
-      if (t === 'seagull' || t === 'hawk' || t === 'goose') return true;
-    }
     return false;
   };
   group.traverse((child) => {
@@ -4809,9 +4731,8 @@ export function updateChunks() {
       // Its geese fly on as strays rather than vanishing mid-sky
       if (group.userData.birds) {
         for (const bird of group.userData.birds) {
-          if (bird.userData.type !== 'goose') continue;
-          bird.userData.sourceKey = key;
-          strayBirds.attach(bird);
+          if (bird.type !== 'goose') continue;
+          bird.sourceKey = key;
           strayBirds.userData.birds.push(bird);
         }
       }
