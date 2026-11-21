@@ -688,7 +688,9 @@ function stepBuggy(dt) {
     ) {
       return 'barrier';
     }
-    const rise = s.height - oldHeight;
+    // In the air, from the tyres' height rather than the ground under them:
+    // a steep bank still below it (jumping a river's gorge) is no wall
+    const rise = s.height - (airborne ? Math.max(oldHeight, pos.y) : oldHeight);
     const moved = Math.hypot(x - oldX, z - oldZ);
     if (
       !onWater &&
