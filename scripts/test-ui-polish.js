@@ -372,13 +372,19 @@ async function runWebPolishPass(browser) {
     await settleAnimations(page);
 
     const sheetPhysics = await page.evaluate(async () => {
-      document.querySelector('.pause-tab[data-tab="settings"]').click();
+      document.querySelector('.pause-tab[data-tab="flight"]').click();
       const resumeBtn = document.getElementById('resume-btn');
+      const actionsRow = document.querySelector('.pause-actions-row');
+      const resumeRect = resumeBtn.getBoundingClientRect();
+      const actionsRect = actionsRow.getBoundingClientRect();
+
       resumeBtn.dispatchEvent(
         new PointerEvent('pointerdown', {
           pointerId: 1,
           button: 0,
           pointerType: 'mouse',
+          clientX: resumeRect.left + resumeRect.width / 2,
+          clientY: resumeRect.top + resumeRect.height / 2,
           bubbles: true,
         })
       );
@@ -393,11 +399,84 @@ async function runWebPolishPass(browser) {
       );
       const pressedAfterUp = resumeBtn.dataset.pressed ?? null;
 
+      // Upward bottom-to-top swipe on Pause body must NOT lift customization-box
+      // and must clear [data-pressed] once past 10px slop
+      const pauseBox = document.querySelector(
+        '#pause-overlay .customization-box'
+      );
+      const zenRow = document.querySelector('label[for="zen-toggle-input"]');
+      const zr = zenRow.getBoundingClientRect();
+      const zx = zr.left + zr.width / 2;
+      const zy = zr.top + zr.height / 2;
+      zenRow.dispatchEvent(
+        new PointerEvent('pointerdown', {
+          pointerId: 4,
+          button: 0,
+          pointerType: 'mouse',
+          clientX: zx,
+          clientY: zy,
+          bubbles: true,
+        })
+      );
+      const rowPressedInitially = zenRow.dataset.pressed;
+      zenRow.dispatchEvent(
+        new PointerEvent('pointermove', {
+          pointerId: 4,
+          button: 0,
+          pointerType: 'mouse',
+          clientX: zx,
+          clientY: zy - 80,
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+      const pauseTransformOnUpSwipe = pauseBox.style.transform;
+      const rowPressedAfterUpSwipe = zenRow.dataset.pressed ?? null;
+      zenRow.dispatchEvent(
+        new PointerEvent('pointerup', {
+          pointerId: 4,
+          button: 0,
+          pointerType: 'mouse',
+          clientX: zx,
+          clientY: zy - 80,
+          bubbles: true,
+        })
+      );
+
+      document.querySelector('.pause-tab[data-tab="settings"]').click();
       document.getElementById('language-picker-btn').click();
-      return {pressedDuringDown, pressedAfterUp};
+      return {
+        pressedDuringDown,
+        pressedAfterUp,
+        resumeBelowActions: resumeRect.top >= actionsRect.bottom - 1,
+        resumeHeight: resumeRect.height,
+        rowPressedInitially,
+        rowPressedAfterUpSwipe,
+        pauseTransformOnUpSwipe,
+      };
     });
     assert.equal(sheetPhysics.pressedDuringDown, 'true');
     assert.equal(sheetPhysics.pressedAfterUp, null);
+    assert.equal(
+      sheetPhysics.resumeBelowActions,
+      true,
+      'expected RESUME row below the 4 utility buttons'
+    );
+    assert.ok(
+      sheetPhysics.resumeHeight >= 45.5,
+      `expected mobile RESUME height >= 46px, got ${sheetPhysics.resumeHeight}`
+    );
+    assert.equal(sheetPhysics.rowPressedInitially, 'true');
+    assert.equal(
+      sheetPhysics.rowPressedAfterUpSwipe,
+      null,
+      'expected [data-pressed] to clear once finger moves > 10px'
+    );
+    assert.equal(
+      sheetPhysics.pauseTransformOnUpSwipe,
+      '',
+      'upward swipe on Pause menu body must not lift customization-box'
+    );
 
     await settleAnimations(page);
 
@@ -412,7 +491,7 @@ async function runWebPolishPass(browser) {
       const cx = r.left + r.width / 2;
       const cy = r.top + r.height / 2;
 
-      // Upward drag -> damped negative rubber-band offset (capped <= 28px)
+      // Upward drag on grabber also keeps bottom-anchored sheet planted at 0px
       grabber.dispatchEvent(
         new PointerEvent('pointerdown', {
           pointerId: 2,
@@ -443,11 +522,7 @@ async function runWebPolishPass(browser) {
           cancelable: true,
         })
       );
-      const rubberTransform = sheet.style.transform;
-      const rubberY = parseFloat(
-        rubberTransform.match(/translate3d\(0(?:px)?,\s*(-?[\d.]+)px/)?.[1] ||
-          '0'
-      );
+      const upwardGrabberTransform = sheet.style.transform;
       grabber.dispatchEvent(
         new PointerEvent('pointerup', {
           pointerId: 2,
@@ -457,8 +532,8 @@ async function runWebPolishPass(browser) {
           bubbles: true,
         })
       );
-      await new Promise((res) => setTimeout(res, 300));
-      const stillOpenAfterRubber =
+      await new Promise((res) => setTimeout(res, 120));
+      const stillOpenAfterUpward =
         getComputedStyle(document.getElementById('language-overlay'))
           .display !== 'none';
 
@@ -508,14 +583,11 @@ async function runWebPolishPass(browser) {
         getComputedStyle(document.getElementById('language-overlay'))
           .display === 'none';
 
-      return {rubberY, stillOpenAfterRubber, closedAfterFlick};
+      return {upwardGrabberTransform, stillOpenAfterUpward, closedAfterFlick};
     });
 
-    assert.ok(
-      dragResult.rubberY < -10 && dragResult.rubberY >= -28.5,
-      `expected damped rubber-band offset in (-28.5, -10), got ${dragResult.rubberY}`
-    );
-    assert.equal(dragResult.stillOpenAfterRubber, true);
+    assert.equal(dragResult.upwardGrabberTransform, '');
+    assert.equal(dragResult.stillOpenAfterUpward, true);
     assert.equal(dragResult.closedAfterFlick, true);
 
     // 4. WAI-ARIA roving tabindex, modal inert stack, Tab trap, & focus return

@@ -888,6 +888,7 @@ export class InputManager {
         target.closest('#achievements-overlay') ||
         target.closest('#people-overlay') ||
         target.closest('#help-overlay') ||
+        target.closest('#language-overlay') ||
         target.closest('#fullscreen-map-overlay') ||
         target.closest('#loading-overlay') ||
         target.closest('#debug-menu') ||
@@ -896,6 +897,7 @@ export class InputManager {
         target.closest('#mobile-action-menu') ||
         target.closest('#minimap-container') ||
         target.closest('#npc-dialog') ||
+        target.closest('#perf-hud') ||
         target.closest('.color-swatch'));
 
     if (!isUI && !this.state.isPaused) {

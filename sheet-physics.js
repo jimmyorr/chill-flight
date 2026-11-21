@@ -20,8 +20,6 @@ const PRESS_SELECTOR = [
   'a[href]',
 ].join(', ');
 
-const MAX_RUBBER_PX = 28;
-const RUBBER_SCALE_PX = 90;
 const FLICK_VELOCITY_PX_PER_MS = 0.45;
 const FLICK_MIN_OFFSET_PX = 22;
 
@@ -46,8 +44,7 @@ function isVisibleOverlay(el) {
 }
 
 function computeSheetOffset(rawDy) {
-  if (rawDy >= 0) return rawDy;
-  return -MAX_RUBBER_PX * (1 - Math.exp(rawDy / RUBBER_SCALE_PX));
+  return rawDy > 0 ? rawDy : 0;
 }
 
 function findScrollableAncestor(target, sheetEl) {
@@ -70,6 +67,8 @@ function findScrollableAncestor(target, sheetEl) {
 
 if (typeof document !== 'undefined') {
   let pressedEl = null;
+  let pressedStartX = 0;
+  let pressedStartY = 0;
 
   const clearPressed = () => {
     if (pressedEl) {
@@ -87,7 +86,22 @@ if (typeof document !== 'undefined') {
       const hit = target?.closest(PRESS_SELECTOR);
       if (hit instanceof HTMLElement) {
         pressedEl = hit;
+        pressedStartX = e.clientX;
+        pressedStartY = e.clientY;
         pressedEl.dataset.pressed = 'true';
+      }
+    },
+    {capture: true, passive: true}
+  );
+
+  document.addEventListener(
+    'pointermove',
+    (e) => {
+      if (
+        pressedEl &&
+        Math.hypot(e.clientX - pressedStartX, e.clientY - pressedStartY) > 10
+      ) {
+        clearPressed();
       }
     },
     {capture: true, passive: true}
@@ -246,9 +260,14 @@ if (typeof document !== 'undefined') {
         return;
       }
 
+      if (dy < 0) {
+        gesture.aborted = true;
+        return;
+      }
+
       if (gesture.scrollEl) {
         const curTop = gesture.scrollEl.scrollTop;
-        if (gesture.startScrollTop > 1 || curTop > 1 || dy < 0) {
+        if (gesture.startScrollTop > 1 || curTop > 1) {
           gesture.aborted = true;
           return;
         }
@@ -349,6 +368,15 @@ if (typeof document !== 'undefined') {
   document.addEventListener(
     'touchmove',
     (e) => {
+      if (pressedEl && e.changedTouches.length > 0) {
+        const pt = e.changedTouches[0];
+        if (
+          Math.hypot(pt.clientX - pressedStartX, pt.clientY - pressedStartY) >
+          10
+        ) {
+          clearPressed();
+        }
+      }
       if (!gesture || gesture.kind !== 'touch') return;
       for (let i = 0; i < e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
