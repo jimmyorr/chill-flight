@@ -1062,7 +1062,7 @@ async function runNativePolishPass(browser) {
     assert.equal(kbCheck.codeClear, true);
     assert.equal(kbCheck.nameClear, true);
 
-    // 4. Throttle drag selection detents + quick-menu LIGHT impact + unlock SUCCESS notification
+    // 4. Throttle drag stays silent (no continuous haptics) + quick-menu LIGHT impact + unlock SUCCESS notification
     await page.setViewport({
       width: 375,
       height: 667,
@@ -1129,9 +1129,11 @@ async function runNativePolishPass(browser) {
       return {throttleMethods, lightImpacts, successNotifs};
     });
 
-    assert.ok(flightHaptics.throttleMethods.includes('selectionStart'));
-    assert.ok(flightHaptics.throttleMethods.includes('selectionChanged'));
-    assert.ok(flightHaptics.throttleMethods.includes('selectionEnd'));
+    assert.deepEqual(
+      flightHaptics.throttleMethods,
+      [],
+      'throttle drag must not tick haptics'
+    );
     assert.ok(flightHaptics.lightImpacts >= 2);
     assert.equal(flightHaptics.successNotifs, 1);
     assert.deepEqual(errors, []);

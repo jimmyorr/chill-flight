@@ -60,7 +60,7 @@ import {resetAutopilot} from './autopilot.js';
 import {isSmokeOn, toggleSmoke} from './particles.js';
 import {t} from './i18n.js';
 import {refreshThemeChrome} from './ui-theme.js';
-import {selectionHaptic, uiImpactHaptic} from './haptics.js';
+import {uiImpactHaptic} from './haptics.js';
 
 /* --- MOBILE ACTION MENU --- */
 const menuContainer = document.getElementById('mobile-action-menu');
@@ -322,32 +322,11 @@ function setThrottleFromPointer(e) {
 }
 
 let throttleDragPointerId = null;
-let lastDetentBucket = null;
-let lastDetentBelowStall = null;
-let lastDetentInBoost = null;
-let lastDetentAt = -Infinity;
-
-function readThrottleDetent() {
-  const target = state.targetFlightSpeed;
-  const max = getMaxFlightSpeedMult();
-  const ktsPerMult = BASE_FLIGHT_SPEED * 60;
-  const kts = Math.round(target * ktsPerMult);
-  const bucket = target === 0 ? -1 : Math.floor(kts / 10);
-  const stalls = activePlaneType !== 'buggy';
-  const {stallKts} = planeHandling();
-  const belowStall = Boolean(
-    stalls && stallKts !== undefined && kts < stallKts
-  );
-  const boost = state.mpSpeedBoost || 1;
-  const inBoost = Boolean(boost > 1 && target > max / boost + 1e-6);
-  return {bucket, belowStall, inBoost};
-}
 
 if (throttleEl) {
   const endThrottleDrag = (e) => {
     if (throttleDragPointerId !== e.pointerId) return;
     throttleDragPointerId = null;
-    selectionHaptic('end');
   };
   throttleEl.addEventListener('pointerdown', (e) => {
     if (e.cancelable) e.preventDefault();
@@ -359,22 +338,9 @@ if (throttleEl) {
     } catch {
       // Synthetic pointer events may not have an active browser pointer id.
     }
-    const prev = readThrottleDetent();
-    selectionHaptic('start');
     setThrottleFromPointer(e);
-    const next = readThrottleDetent();
-    lastDetentBucket = next.bucket;
-    lastDetentBelowStall = next.belowStall;
-    lastDetentInBoost = next.inBoost;
-    if (
-      next.bucket !== prev.bucket ||
-      next.belowStall !== prev.belowStall ||
-      next.inBoost !== prev.inBoost
-    ) {
-      lastDetentAt = performance.now();
-      selectionHaptic('changed');
-    }
   });
+  // No haptic ticks while dragging (no continuous haptics)
   throttleEl.addEventListener('pointermove', (e) => {
     if (
       !throttleEl.hasPointerCapture(e.pointerId) &&
@@ -384,21 +350,6 @@ if (throttleEl) {
     }
     e.stopPropagation();
     setThrottleFromPointer(e);
-    const next = readThrottleDetent();
-    if (
-      next.bucket !== lastDetentBucket ||
-      next.belowStall !== lastDetentBelowStall ||
-      next.inBoost !== lastDetentInBoost
-    ) {
-      lastDetentBucket = next.bucket;
-      lastDetentBelowStall = next.belowStall;
-      lastDetentInBoost = next.inBoost;
-      const now = performance.now();
-      if (now - lastDetentAt >= 20) {
-        lastDetentAt = now;
-        selectionHaptic('changed');
-      }
-    }
   });
   throttleEl.addEventListener('pointerup', endThrottleDrag);
   throttleEl.addEventListener('pointercancel', endThrottleDrag);

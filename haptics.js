@@ -79,7 +79,7 @@ export function setHapticsEnabled(on) {
 }
 
 // Subtle selection tick for tabs, segmented controls, swatches, language rows,
-// and continuous throttle detents ('start' -> 'changed' -> 'end', or 'tap').
+// ('tap', or 'start' -> 'changed' -> 'end' for a drag).
 export function selectionHaptic(phase = 'tap') {
   const p = enabled ? plugin() : null;
   if (!p) return;
