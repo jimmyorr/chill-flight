@@ -37,6 +37,7 @@ export const SFX_EVENTS = [
   {key: 'scrape', label: 'Scraping a wall'},
   {key: 'portal', label: 'Portal wormhole'},
   {key: 'fireworks', label: 'Fireworks'},
+  {key: 'geese', label: 'Startled geese'},
 ];
 
 const STORAGE_KEY = 'chill_flight_sfx_events';
@@ -735,6 +736,114 @@ export function playFireworkBurst(
   }
 }
 
+const GOOSE_LEVEL = 0.28;
+let lastGooseStartle = 0;
+
+// Single two-syllable Canada goose alarm call ("hr-ONK!") shaped through a
+// nasal vocal-tract bandpass formant plus warm chest fundamental.
+function gooseHonk(t0, baseFreq, gainScale, dur, out) {
+  const reed = ctx.createOscillator();
+  reed.type = 'sawtooth';
+  const body = ctx.createOscillator();
+  body.type = 'triangle';
+
+  const onset = baseFreq * 0.74;
+  const peak = baseFreq * 1.18;
+  const tail = baseFreq * 0.96;
+  reed.frequency.setValueAtTime(onset, t0);
+  reed.frequency.setValueAtTime(onset * 1.05, t0 + 0.038);
+  reed.frequency.exponentialRampToValueAtTime(peak, t0 + 0.058);
+  reed.frequency.exponentialRampToValueAtTime(tail, t0 + dur);
+
+  body.frequency.setValueAtTime(onset * 2.01, t0);
+  body.frequency.exponentialRampToValueAtTime(peak * 2.01, t0 + 0.058);
+  body.frequency.exponentialRampToValueAtTime(tail * 2.01, t0 + dur);
+
+  const formant = ctx.createBiquadFilter();
+  formant.type = 'bandpass';
+  formant.Q.value = 2.8;
+  formant.frequency.setValueAtTime(980, t0);
+  formant.frequency.exponentialRampToValueAtTime(1280, t0 + 0.062);
+  formant.frequency.exponentialRampToValueAtTime(1020, t0 + dur);
+
+  const warmth = ctx.createBiquadFilter();
+  warmth.type = 'lowpass';
+  warmth.frequency.value = 680;
+
+  const reedGain = ctx.createGain();
+  reedGain.gain.value = 0.85;
+  const bodyGain = ctx.createGain();
+  bodyGain.gain.value = 0.32;
+
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, t0);
+  env.gain.exponentialRampToValueAtTime(gainScale * 0.55, t0 + 0.018);
+  env.gain.exponentialRampToValueAtTime(gainScale, t0 + 0.062);
+  env.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+
+  reed.connect(reedGain);
+  reedGain.connect(formant);
+  reed.connect(warmth);
+  body.connect(bodyGain);
+  bodyGain.connect(formant);
+  formant.connect(env);
+  warmth.connect(env);
+  env.connect(out);
+
+  reed.start(t0);
+  body.start(t0);
+  reed.stop(t0 + dur + 0.04);
+  body.stop(t0 + dur + 0.04);
+}
+
+// Startled flock chorus of overlapping goose honks and brisk wingbeat whooshes
+// when buzzing a flying-V skein or flushing grazing meadow geese.
+export function playGooseStartle(distance = 0.2, force = false, pan = 0) {
+  if ((!force && !isSfxEventEnabled('geese')) || !ready(force)) return;
+  const d = THREE.MathUtils.clamp(distance, 0, 1);
+  if (!force && d > 0.96) return;
+  if (!force && ctx.currentTime - lastGooseStartle < 1.8) return;
+  lastGooseStartle = ctx.currentTime;
+
+  let out = bus;
+  if (pan && ctx.createStereoPanner) {
+    out = ctx.createStereoPanner();
+    out.pan.value = THREE.MathUtils.clamp(pan, -1, 1) * (0.72 - d * 0.25);
+    out.connect(bus);
+  }
+
+  const loud = (1 - d * 0.78) * GOOSE_LEVEL;
+  const t = ctx.currentTime + 0.015;
+  const voices = [
+    [0.0, 415, 1.0, 0.19],
+    [0.11, 468, 0.82, 0.16],
+    [0.24, 392, 0.76, 0.21],
+    [0.39, 446, 0.62, 0.17],
+  ];
+  for (const [dt, freq, scale, dur] of voices) {
+    const jitter = 0.96 + Math.random() * 0.08;
+    gooseHonk(t + dt, freq * jitter, loud * scale, dur, out);
+  }
+
+  // Heavy wingbeats clapping the air as the flock scatters
+  if (d < 0.75) {
+    const wingGain = 0.22 * (1 - d / 0.75) * GOOSE_LEVEL;
+    for (let i = 0; i < 5; i++) {
+      const wt = t + 0.02 + i * 0.082 + Math.random() * 0.018;
+      noiseBurst(wt, {
+        type: 'bandpass',
+        freq: 340 + (i % 2) * 50,
+        freqEnd: 195,
+        q: 1.1,
+        gain: wingGain * (0.85 + Math.random() * 0.3),
+        attack: 0.012,
+        decay: 0.055,
+        out,
+      });
+    }
+  }
+}
+
 // Audition each one-shot from the debug menu and sound lab, even when it's
 // switched off
 export const SFX_EVENT_PLAYERS = {
@@ -764,6 +873,7 @@ export const SFX_EVENT_PLAYERS = {
     playFireworkLaunch(0.12, true);
     setTimeout(() => playFireworkBurst(0.18, true, true), 780);
   },
+  geese: () => playGooseStartle(0.15, true),
   race: () => {
     for (let i = 0; i < 4; i++) {
       setTimeout(() => playRaceBeep(i === 3, true), i * 1000);

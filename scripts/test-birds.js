@@ -406,6 +406,136 @@ const WATER = 45.5;
     `maxDev=${maxSlotDeviation.toFixed(1)}, finalDev=${finalDev.toFixed(2)}`
   );
 
+  // 3a-ii. Formation-wide V-flock startle ripple (`flockId` + `gooseStartled`):
+  // Passing outside the left wingtip (-250, so only -128 is in direct range and
+  // +96 is 346 u away) ripples the startle away from the plane across the whole
+  // V-echelon, and slicing down the center (x = 0) splits left/right arms apart.
+  const makeSkein = (flockId) =>
+    [
+      {row: 0, right: 0, back: 0, seed: 0.2},
+      {row: 2, right: -64, back: 68, seed: 0.4},
+      {row: 4, right: -128, back: 136, seed: 0.6},
+      {row: 3, right: 96, back: 102, seed: 0.8},
+    ].map((s) => ({
+      type: 'goose',
+      flockId,
+      x: s.right,
+      y: 420,
+      z: s.back,
+      leaderX: 0,
+      leaderY: 420,
+      leaderZ: 0,
+      slotRight: s.right,
+      slotBack: s.back,
+      slotWorldX: s.right,
+      slotWorldZ: s.back,
+      rotY: 0,
+      speed: 60,
+      row: s.row,
+      flapPhase: s.row * -0.55,
+      flapSpeed: 6.0,
+      flapDuration: 1000,
+      soarDuration: 0,
+      weatherSeed: s.seed,
+    }));
+
+  const skein = makeSkein(4242);
+  const wingtipPassEnv = {
+    ...baseEnv,
+    elapsed: 20,
+    checkAircraft: true,
+    aircraft: {
+      active: true,
+      x: -250,
+      y: 420,
+      z: 136,
+      fx: 0,
+      fy: 0,
+      fz: -1,
+      speed: 165,
+      isJet: false,
+    },
+  };
+  let sawStartledSignal = false;
+  const maxDevs = [0, 0, 0, 0];
+  const shiftAwayX = [0, 0, 0, 0];
+  for (let f = 0; f < 360; f++) {
+    const envNow =
+      f === 0
+        ? wingtipPassEnv
+        : {...baseEnv, elapsed: 20 + (f + 1) / 60, checkAircraft: false};
+    for (let k = 0; k < skein.length; k++) {
+      const b = skein[k];
+      stepBirdState(b, b.x, b.y, b.z, envNow, 1 / 60, pose);
+      b.x = pose.x;
+      b.y = pose.y;
+      b.z = pose.z;
+      if (pose.gooseStartled) sawStartledSignal = true;
+      const dx = b.x - (b.leaderX + b.slotWorldX);
+      const dz = b.z - (b.leaderZ + b.slotWorldZ);
+      const dev = Math.hypot(dx, dz);
+      if (dev > maxDevs[k]) {
+        maxDevs[k] = dev;
+        shiftAwayX[k] = dx;
+      }
+    }
+  }
+  const allScatteredAway =
+    maxDevs.every((d) => d > 35) && shiftAwayX.every((dx) => dx > 20);
+  const allRegrouped = skein.every(
+    (b) =>
+      b.state === BIRD_STATES.CRUISE &&
+      Math.hypot(
+        b.x - (b.leaderX + b.slotWorldX),
+        b.z - (b.leaderZ + b.slotWorldZ)
+      ) < 0.5
+  );
+
+  const splitSkein = makeSkein(4243);
+  const centerSliceEnv = {
+    ...baseEnv,
+    elapsed: 40,
+    checkAircraft: true,
+    aircraft: {
+      active: true,
+      x: 0,
+      y: 420,
+      z: 80,
+      fx: 0,
+      fy: 0,
+      fz: -1,
+      speed: 180,
+      isJet: false,
+    },
+  };
+  let leftSplitX = 0;
+  let rightSplitX = 0;
+  for (let f = 0; f < 60; f++) {
+    const envNow =
+      f === 0
+        ? centerSliceEnv
+        : {...baseEnv, elapsed: 40 + (f + 1) / 60, checkAircraft: false};
+    for (let k = 0; k < splitSkein.length; k++) {
+      const b = splitSkein[k];
+      stepBirdState(b, b.x, b.y, b.z, envNow, 1 / 60, pose);
+      b.x = pose.x;
+      b.y = pose.y;
+      b.z = pose.z;
+      const dx = b.x - (b.leaderX + b.slotWorldX);
+      if (k === 1 && dx < leftSplitX) leftSplitX = dx;
+      if (k === 3 && dx > rightSplitX) rightSplitX = dx;
+    }
+  }
+  check(
+    'Buzzing a V-flock ripples startle across all geese (away on wingtip pass, splitting arms on center slice) and regroups',
+    sawStartledSignal &&
+      allScatteredAway &&
+      allRegrouped &&
+      leftSplitX < -40 &&
+      rightSplitX > 40,
+    `devs=${maxDevs.map((d) => d.toFixed(1)).join(',')}, splitL=${leftSplitX.toFixed(1)}, splitR=${rightSplitX.toFixed(1)}`
+  );
+
   // 3b. Hawk: thermal spiral climb + downwind drift -> stoop/glide transition
   const hawk = {
     type: 'hawk',

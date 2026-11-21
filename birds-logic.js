@@ -55,10 +55,10 @@ export const BIRD_SPECIES = {
     flapSpeed: 6.0,
     flapAmp: 0.45,
     dihedral: 0.02,
-    startleRadius: 110,
+    startleRadius: 155,
     roostStartleRadius: 185,
-    evadeDuration: 4.8,
-    evadeDist: 75,
+    evadeDuration: 5.2,
+    evadeDist: 105,
   },
   hawk: {
     scaleMin: 3.8,
@@ -655,6 +655,10 @@ export function generateChunkBirds({
     const speed = rand(54, 66); // units/s (~1.1-1.3 * 50 in legacy scale)
     const leaderFlapPhase = rng() * TAU;
     const spacing = 34;
+    const flockChunkX = Math.round(worldOffsetX / chunkSize);
+    const flockChunkZ = Math.round(worldOffsetZ / chunkSize);
+    const flockId =
+      ((flockChunkX & 0x7fff) << 16) | (flockChunkZ & 0x7fff) || 1;
 
     let leftRow = 0;
     let rightRow = 0;
@@ -682,6 +686,7 @@ export function generateChunkBirds({
       localToWorldXZ(offRight, offBack, baseRotY, _slot);
       birds.push({
         type: 'goose',
+        flockId,
         scale: rand(3.35, 3.65),
         x: baseX + _slot.x,
         y: baseY + rand(-2.5, 2.5),
@@ -1396,14 +1401,58 @@ const _threat = {
   strength: 0,
 };
 
+// Fixed-size zero-allocation ring buffer of recent migratory goose V-flock
+// startle events so startling one bird ripples an outward peel-break wave
+// across the rest of its V-echelon (`flockId`).
+const FLOCK_ALERT_SLOTS = 8;
+const _flockAlertIds = new Int32Array(FLOCK_ALERT_SLOTS);
+const _flockAlertTimes = new Float64Array(FLOCK_ALERT_SLOTS);
+const _flockAlertAx = new Float32Array(FLOCK_ALERT_SLOTS);
+const _flockAlertAz = new Float32Array(FLOCK_ALERT_SLOTS);
+const _flockAlertFx = new Float32Array(FLOCK_ALERT_SLOTS);
+const _flockAlertFz = new Float32Array(FLOCK_ALERT_SLOTS);
+const _flockAlertStr = new Float32Array(FLOCK_ALERT_SLOTS);
+let _flockAlertCursor = 0;
+
+function broadcastGooseFlockAlert(flockId, elapsed, aircraft, strength) {
+  for (let i = 0; i < FLOCK_ALERT_SLOTS; i++) {
+    if (
+      _flockAlertIds[i] === flockId &&
+      Math.abs(elapsed - _flockAlertTimes[i]) < 1.2
+    ) {
+      if (strength > _flockAlertStr[i]) _flockAlertStr[i] = strength;
+      return;
+    }
+  }
+  const idx = _flockAlertCursor;
+  _flockAlertCursor = (_flockAlertCursor + 1) % FLOCK_ALERT_SLOTS;
+  _flockAlertIds[idx] = flockId;
+  _flockAlertTimes[idx] = elapsed;
+  _flockAlertAx[idx] = aircraft.x;
+  _flockAlertAz[idx] = aircraft.z;
+  _flockAlertFx[idx] = aircraft.fx;
+  _flockAlertFz[idx] = aircraft.fz;
+  _flockAlertStr[idx] = strength;
+}
+
+function findGooseFlockAlert(flockId, elapsed) {
+  for (let i = 0; i < FLOCK_ALERT_SLOTS; i++) {
+    if (_flockAlertIds[i] !== flockId) continue;
+    const age = elapsed - _flockAlertTimes[i];
+    if (age >= -0.05 && age <= 0.85) return i;
+  }
+  return -1;
+}
+
 // --- PER-BIRD STATE MACHINE & TRAJECTORY STEP ---
 // Updates `data` in place and writes the new world pose `{x, y, z, pitch, yaw,
-// bank, wingFold, splash, flushed, visible}` into `out` with zero heap allocations.
+// bank, wingFold, splash, flushed, gooseStartled, visible}` into `out` with zero heap allocations.
 export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
   const dt = clamp(rawDelta, 0, 0.1);
   const spec = BIRD_SPECIES[data.type] || BIRD_SPECIES.seagull;
   out.splash = false;
   out.flushed = false;
+  out.gooseStartled = false;
   out.wingFold = data.wingFold ?? (data.state === BIRD_STATES.ROOST ? 1 : 0);
   out.flap = data.wingFlap ?? 0;
 
@@ -1499,6 +1548,9 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
       data.evadeOx = 0;
       data.evadeOy = 0;
       data.evadeOz = 0;
+      if (data.type === 'goose') {
+        out.gooseStartled = true;
+      }
     }
   }
 
@@ -1508,7 +1560,12 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
     data.state === BIRD_STATES.SETTLE;
 
   // 1b. Airborne aircraft proximity & wake turbulence check
-  if (!inGroundCycle && env.checkAircraft && data.evadeT <= 0) {
+  if (
+    !inGroundCycle &&
+    env.checkAircraft &&
+    data.evadeT <= 0 &&
+    !(data.evadeDelay > 0)
+  ) {
     evaluateAircraftThreat(
       curX,
       curY,
@@ -1519,6 +1576,7 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
     );
     if (_threat.triggered) {
       data.evadeT = 0.001;
+      data.evadeDelay = 0;
       data.evadeDx = _threat.dx;
       data.evadeDy = _threat.dy;
       data.evadeDz = _threat.dz;
@@ -1526,12 +1584,90 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
       if (_threat.wake) {
         data.wakeRoll = (_threat.dx >= 0 ? 1 : -1) * 0.75 * _threat.strength;
       }
+      if (data.type === 'goose') {
+        out.gooseStartled = true;
+      }
       if (isMigratoryGoose) {
         data.state = BIRD_STATES.EVADE;
+        if (data.flockId) {
+          const alertClock = env.elapsed ?? 0;
+          broadcastGooseFlockAlert(
+            data.flockId,
+            alertClock,
+            env.aircraft,
+            _threat.strength
+          );
+          data.lastFlockAlertTime = alertClock;
+        }
       }
       if (data.homeRoost) {
         data.orbitTimeLeft = Math.max(data.orbitTimeLeft || 0, 20);
       }
+    }
+  }
+
+  // 1c. Propagate V-formation alarm ripple across fellow geese in the same skein
+  if (
+    isMigratoryGoose &&
+    data.flockId &&
+    data.evadeT <= 0 &&
+    !(data.evadeDelay > 0)
+  ) {
+    const slotIdx = findGooseFlockAlert(data.flockId, env.elapsed ?? 0);
+    if (slotIdx >= 0 && data.lastFlockAlertTime !== _flockAlertTimes[slotIdx]) {
+      data.lastFlockAlertTime = _flockAlertTimes[slotIdx];
+      const ax = _flockAlertAx[slotIdx];
+      const az = _flockAlertAz[slotIdx];
+      const afx = _flockAlertFx[slotIdx];
+      const afz = _flockAlertFz[slotIdx];
+      const aStr = _flockAlertStr[slotIdx];
+
+      // Peel outward along this bird's arm of the V + away from aircraft's path
+      const rx = curX - ax;
+      const rz = curZ - az;
+      const along = rx * afx + rz * afz;
+      let latX = rx - along * afx;
+      let latZ = rz - along * afz;
+      const latLen = Math.hypot(latX, latZ) || 1;
+      latX /= latLen;
+      latZ /= latLen;
+
+      const armSign =
+        data.slotRight < -1
+          ? -1
+          : data.slotRight > 1
+            ? 1
+            : (data.weatherSeed ?? 0.5) < 0.5
+              ? -1
+              : 1;
+      const wingOutX = Math.cos(data.rotY) * armSign;
+      const wingOutZ = -Math.sin(data.rotY) * armSign;
+      let mixX = latX * 0.75 + wingOutX * 0.35;
+      let mixZ = latZ * 0.75 + wingOutZ * 0.35;
+      const awayDot = mixX * latX + mixZ * latZ;
+      if (awayDot < 0.4) {
+        mixX += latX * (0.4 - awayDot);
+        mixZ += latZ * (0.4 - awayDot);
+      }
+      const seed = data.weatherSeed ?? 0.5;
+      const vert = (seed - 0.42) * 0.68;
+      const norm = Math.hypot(mixX, vert, mixZ) || 1;
+
+      data.evadeDx = mixX / norm;
+      data.evadeDy = vert / norm;
+      data.evadeDz = mixZ / norm;
+      data.evadeMag =
+        spec.evadeDist * (0.55 + 0.4 * aStr) * (0.85 + 0.3 * seed);
+      data.evadeDelay = Math.min(0.24, Math.max(0.02, (data.row || 0) * 0.04));
+      data.state = BIRD_STATES.EVADE;
+    }
+  }
+
+  if (!inGroundCycle && data.evadeDelay > 0) {
+    data.evadeDelay -= dt;
+    if (data.evadeDelay <= 0) {
+      data.evadeDelay = 0;
+      data.evadeT = 0.001;
     }
   }
 
@@ -1556,7 +1692,11 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
       data.evadeOy = data.evadeDy * data.evadeMag * evadeWeight;
       data.evadeOz = data.evadeDz * data.evadeMag * evadeWeight;
     }
-  } else if (isMigratoryGoose && data.state === BIRD_STATES.EVADE) {
+  } else if (
+    isMigratoryGoose &&
+    data.state === BIRD_STATES.EVADE &&
+    !(data.evadeDelay > 0)
+  ) {
     data.state = BIRD_STATES.CRUISE;
   }
   if (Math.abs(data.wakeRoll) > 1e-3) {
@@ -1867,13 +2007,18 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
         wantYaw = data.rotY;
         wantPitch = clamp(climbDiff * 0.004, -0.18, 0.28);
         if (evadeWeight > 0.05) {
-          // Bank into evasion break, then opposite bank while sliding back into V
-          const escaping = data.evadeT < 0.65 ? 1 : -0.45;
+          // Bank and pitch into evasion peel-break, then counter-bank back into V
+          const escaping = data.evadeT < 0.8 ? 1 : -0.45;
           const sideDot =
             data.evadeDx * Math.cos(data.rotY) -
             data.evadeDz * Math.sin(data.rotY);
-          wantYaw = data.rotY - sideDot * 0.42 * evadeWeight * escaping;
-          wantBank = -sideDot * 0.55 * evadeWeight * escaping;
+          wantYaw = data.rotY - sideDot * 0.56 * evadeWeight * escaping;
+          wantPitch = clamp(
+            wantPitch + data.evadeDy * 0.45 * evadeWeight * escaping,
+            -0.35,
+            0.42
+          );
+          wantBank = -sideDot * 0.68 * evadeWeight * escaping;
         }
         break;
       }

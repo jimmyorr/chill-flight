@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import {BASE_FLIGHT_SPEED, WATER_LEVEL} from './constants.js';
 import {scene} from './scene.js';
+import {camera} from './sky.js';
 import {state} from './state.js';
 import {WIND_DIR_X, WIND_DIR_Z} from './terrain-gen.js';
 import {BIRD_SPECIES, computeWingFlap, stepBirdState} from './birds-logic.js';
@@ -26,11 +27,15 @@ import {Achievements} from './achievements.js';
 import {precipitation} from './weather-manager.js';
 import {activePlaneType, planeGroup} from './airplane.js';
 import {whaleSplash} from './particles.js';
+import {playGooseStartle} from './sfx-events.js';
 
 // Max squared distance from camera before stray migratory geese despawn (15 km)
 const STRAY_MAX_DIST_SQ = 15000 * 15000;
 // Max distance from camera at which diving seabirds emit water-splash particles
 const SPLASH_VISIBLE_DIST_SQ = 900 * 900;
+// Max distance from camera at which startled geese honk audibly
+const GOOSE_AUDIO_DIST = 520;
+const GOOSE_AUDIO_DIST_SQ = GOOSE_AUDIO_DIST * GOOSE_AUDIO_DIST;
 // Chunk bounding radius around the player aircraft within which startle/wake
 // checks run; chunks farther away skip per-bird threat math completely
 const CHUNK_THREAT_RADIUS_SQ = 1150 * 1150;
@@ -110,6 +115,7 @@ function growRigBucket(bucket) {
 const _lastPlanePos = new THREE.Vector3();
 let _hasLastPlane = false;
 const _fallbackFwd = new THREE.Vector3();
+const _camRight = new THREE.Vector3(1, 0, 0);
 
 const _aircraft = {
   active: false,
@@ -148,6 +154,7 @@ const _pose = {
   wingFold: 0,
   splash: false,
   flushed: false,
+  gooseStartled: false,
   visible: true,
 };
 
@@ -219,6 +226,7 @@ export function updateBirds(delta, elapsed, camPos) {
   const camX = camPos.x;
   const camY = camPos.y;
   const camZ = camPos.z;
+  _camRight.set(1, 0, 0).applyQuaternion(camera.quaternion);
 
   for (let r = 0; r < _rigBuckets.length; r++) {
     _rigBuckets[r].count = 0;
@@ -242,14 +250,13 @@ export function updateBirds(delta, elapsed, camPos) {
     const chunkBeyondAllLocal =
       !isStrayGroup && chunkCamDistSq > chunkCullDistSq;
 
-    // Spatial early-out for aircraft proximity/wake checks
+    // Spatial early-out for resident birds' aircraft proximity/wake checks
     let chunkNearPlane = isStrayGroup && _aircraft.active;
     if (!isStrayGroup && _aircraft.active) {
       const pdx = checkPos.x - _aircraft.x;
       const pdz = checkPos.z - _aircraft.z;
       chunkNearPlane = pdx * pdx + pdz * pdz < CHUNK_THREAT_RADIUS_SQ;
     }
-    _env.checkAircraft = chunkNearPlane;
 
     for (let i = 0; i < birds.length; i++) {
       const data = birds[i];
@@ -263,6 +270,20 @@ export function updateBirds(delta, elapsed, camPos) {
       if (chunkBeyondAllLocal && !isMigratoryGoose) {
         data.visible = false;
         continue;
+      }
+
+      // Migratory V-geese roam kilometers away from their spawn chunk before
+      // it unloads, so test their live position rather than the spawn chunk's
+      if (isMigratoryGoose) {
+        if (_aircraft.active) {
+          const gpx = data.x - _aircraft.x;
+          const gpz = data.z - _aircraft.z;
+          _env.checkAircraft = gpx * gpx + gpz * gpz < CHUNK_THREAT_RADIUS_SQ;
+        } else {
+          _env.checkAircraft = false;
+        }
+      } else {
+        _env.checkAircraft = chunkNearPlane;
       }
 
       const bdx = data.x - camX;
@@ -342,8 +363,19 @@ export function updateBirds(delta, elapsed, camPos) {
         Achievements.unlock('ruffling_feathers');
       }
 
-      // Achievement check: close pass to a migratory goose ('geese_police')
-      if (isMigratoryGoose && _aircraft.active) {
+      // Startled geese honk and unlock 'geese_police' ('Startle a goose')
+      if (_pose.gooseStartled && _aircraft.active) {
+        Achievements.unlock('geese_police');
+        if (birdDistSq < GOOSE_AUDIO_DIST_SQ) {
+          const dist = Math.sqrt(birdDistSq) || 1;
+          const pan =
+            ((_pose.x - camX) * _camRight.x +
+              (_pose.y - camY) * _camRight.y +
+              (_pose.z - camZ) * _camRight.z) /
+            dist;
+          playGooseStartle(dist / GOOSE_AUDIO_DIST, false, pan);
+        }
+      } else if (isMigratoryGoose && _aircraft.active) {
         const gdx = _pose.x - _aircraft.x;
         const gdy = _pose.y - _aircraft.y;
         const gdz = _pose.z - _aircraft.z;
