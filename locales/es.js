@@ -977,4 +977,6 @@ export default {
   Black: 'Negro',
   'Steering sensitivity': 'Sensibilidad de giro',
   'World map': 'Mapa del mundo',
+  'Ruffling feathers': 'Alborotando el plumaje',
+  'Scatter a flock of ground birds': 'Espanta una bandada de aves en tierra',
 };

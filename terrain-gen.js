@@ -7868,24 +7868,61 @@ export function generateChunkData({
       Math.max(0, Math.min(1, (chunkVillageNoise + 0.05) / 0.2)) *
         (1 - Math.min(1, chunkSwampFactor * 2))
     );
-    // O(1) heightGrid sample instead of re-evaluating procedural getElevation()
-    const gridStride = segments + 1;
-    const sampleChunkElev = (wx, wz) => {
-      const u = Math.max(
-        0,
-        Math.min(
-          segments,
-          Math.round(((wx - worldOffsetX) / chunkSize + 0.5) * segments)
-        )
-      );
-      const v = Math.max(
-        0,
-        Math.min(
-          segments,
-          Math.round(((wz - worldOffsetZ) / chunkSize + 0.5) * segments)
-        )
-      );
-      return heightGrid[v * gridStride + u];
+    const chunkSnowFactor = ChillFlightLogic.snowFactorAt(
+      worldOffsetZ,
+      ChillFlightLogic.snowNoiseShift(worldOffsetX, worldOffsetZ, simplex)
+    );
+    const chunkSouthInf =
+      Math.max(0, worldOffsetZ / 4500) +
+      ChillFlightLogic.desertShift(worldOffsetX, worldOffsetZ, simplex);
+    const chunkDesertFactor = Math.max(
+      0,
+      Math.min(1, (chunkSouthInf - 0.7) * 1.5)
+    );
+    // Exact O(1) triangle-interpolated heightGrid sample so grounded beach &
+    // meadow birds stand flush on the rendered terrain mesh
+    const sampleChunkElev = (wx, wz) =>
+      meshHeightAtLocal(wx - worldOffsetX, wz - worldOffsetZ);
+    const isClearBirdGround = (wx, wz, checkWoods) => {
+      if (
+        ChillFlightLogic.isOnAirport(wx, wz, 55) ||
+        ChillFlightLogic.highwayDistance(wx, wz) <
+          ChillFlightLogic.ROAD_WIDTH + 32 ||
+        ChillFlightLogic.isOnAccessRoad(wx, wz, 28, simplex, elevParams) ||
+        ChillFlightLogic.isOnSlipRoad(wx, wz, 28, simplex, elevParams)
+      ) {
+        return false;
+      }
+      const lx = wx - worldOffsetX;
+      const lz = wz - worldOffsetZ;
+      const nearProp = (list, r2) => {
+        for (let i = 0; i < list.length; i++) {
+          const dx = list[i].x - lx;
+          const dz = list[i].z - lz;
+          if (dx * dx + dz * dz < r2) return true;
+        }
+        return false;
+      };
+      if (
+        nearProp(housePositions, 576) ||
+        nearProp(twoStoryHousePositions, 576) ||
+        nearProp(barnPositions, 784) ||
+        nearProp(landmarkPositions, 784)
+      ) {
+        return false;
+      }
+      if (
+        checkWoods &&
+        (nearProp(treePositions, 256) ||
+          nearProp(deciduousTreePositions, 256) ||
+          nearProp(tallDeciduousTreePositions, 256) ||
+          nearProp(broadleafOakTreePositions, 256) ||
+          nearProp(oakTreePositions, 256) ||
+          nearProp(birchTreePositions, 256))
+      ) {
+        return false;
+      }
+      return true;
     };
     birds = generateChunkBirds({
       worldOffsetX,
@@ -7899,11 +7936,15 @@ export function generateChunkData({
       farmFactor: chunkFarmFactor,
       canyonFactor: chunkCanyonFactor,
       fallsFactor: chunkFallsFactor,
+      snowFactor: chunkSnowFactor,
+      desertFactor: chunkDesertFactor,
       isAlienChunk,
       lighthousePos,
       sailboatPositions,
       rockArchPositions,
       pierPositions,
+      reedPositions: swampReedPositions,
+      isClearGround: isClearBirdGround,
       windDirX: WIND_DIR_X,
       windDirZ: WIND_DIR_Z,
       getElev: sampleChunkElev,

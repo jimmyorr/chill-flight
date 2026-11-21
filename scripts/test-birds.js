@@ -11,6 +11,7 @@ import {
   BIRD_STATES,
   computeWingFlap,
   evaluateAircraftThreat,
+  evaluateRoostThreat,
   generateChunkBirds,
   stepBirdState,
 } from '../birds-logic.js';
@@ -99,14 +100,21 @@ const WATER = 45.5;
     `len=${polarBirds.length}`
   );
 
-  // Sweep chunks per biome to confirm all 8 archetypes & heron/egret morphs appear
+  // Sweep chunks per biome to confirm all 10 archetypes, morphs & roosting flocks appear
   const rng = mulberry32(1337);
   const counts = {};
   let sawBlueHeron = false;
   let sawWhiteEgret = false;
+  let sawDrakeDuck = false;
+  let sawHenDuck = false;
+  let roostDucks = 0;
+  let roostHerons = 0;
+  let roostPlovers = 0;
+  let roostGulls = 0;
+  let roostGeese = 0;
 
   for (let i = 0; i < 80; i++) {
-    // Swamp / bayou
+    // Swamp / bayou with marshy reeds
     for (const b of generateChunkBirds({
       worldOffsetX: -9000,
       worldOffsetZ: 8000,
@@ -116,14 +124,22 @@ const WATER = 45.5;
       minElev: 43,
       maxElev: 54,
       swampFactor: 0.75,
-      getElev: () => 46,
+      reedPositions: [
+        {x: -40, y: WATER - 0.1, z: 30},
+        {x: 85, y: WATER - 0.2, z: -60},
+      ],
+      getElev: (x) => (x < -9000 ? WATER - 0.6 : WATER + 0.4),
       rng,
     })) {
       counts[b.type] = (counts[b.type] || 0) + 1;
       if (b.type === 'heron' && b.variant === 0) sawBlueHeron = true;
       if (b.type === 'heron' && b.variant === 1) sawWhiteEgret = true;
+      if (b.type === 'duck' && b.variant === 0) sawDrakeDuck = true;
+      if (b.type === 'duck' && b.variant === 1) sawHenDuck = true;
+      if (b.homeRoost && b.type === 'duck') roostDucks++;
+      if (b.homeRoost && b.type === 'heron') roostHerons++;
     }
-    // Coastal surf with pier & sea arch
+    // Coastal surf & sandy beach slope with pier & sea arch
     for (const b of generateChunkBirds({
       worldOffsetX: -6000,
       worldOffsetZ: 4000,
@@ -134,10 +150,12 @@ const WATER = 45.5;
       maxElev: 90,
       pierPositions: [{x: 10, z: 10}],
       rockArchPositions: [{x: -50, z: 40}],
-      getElev: (x) => (x < -6000 ? 28 : 60),
+      getElev: (x) => WATER + (x - -6000) * 0.04,
       rng,
     })) {
       counts[b.type] = (counts[b.type] || 0) + 1;
+      if (b.homeRoost && b.type === 'plover') roostPlovers++;
+      if (b.homeRoost && b.type === 'seagull') roostGulls++;
     }
     // Deep open ocean
     for (const b of generateChunkBirds({
@@ -167,6 +185,7 @@ const WATER = 45.5;
       rng,
     })) {
       counts[b.type] = (counts[b.type] || 0) + 1;
+      if (b.homeRoost && b.type === 'goose') roostGeese++;
     }
     // Mountain ridge & canyon
     for (const b of generateChunkBirds({
@@ -187,15 +206,24 @@ const WATER = 45.5;
     }
   }
 
-  const allEight = Object.keys(BIRD_SPECIES).every((k) => (counts[k] || 0) > 0);
+  const allTen = Object.keys(BIRD_SPECIES).every((k) => (counts[k] || 0) > 0);
   check(
-    'All 8 bird species spawn in their respective habitats',
-    allEight,
+    'All 10 bird species spawn in their respective habitats',
+    allTen,
     JSON.stringify(counts)
   );
   check(
-    'Bayou/marsh habitat spawns both Great Blue Heron and Great White Egret morphs',
-    sawBlueHeron && sawWhiteEgret
+    'Bayou/marsh habitat spawns both Great Blue Heron/White Egret and Mallard drake/hen morphs',
+    sawBlueHeron && sawWhiteEgret && sawDrakeDuck && sawHenDuck
+  );
+  check(
+    'Grounded/roosting flocks spawn across marshy reeds (ducks & herons), sandy beaches (plovers & gulls), and meadows (geese)',
+    roostDucks > 0 &&
+      roostHerons > 0 &&
+      roostPlovers > 0 &&
+      roostGulls > 0 &&
+      roostGeese > 0,
+    `ducks=${roostDucks}, herons=${roostHerons}, plovers=${roostPlovers}, gulls=${roostGulls}, geese=${roostGeese}`
   );
 }
 
@@ -763,6 +791,258 @@ const WATER = 45.5;
       maxBankStep < 0.08,
     `climb=${climbIntoWind}, swoop=${swoopDownwind}, minSpd=${minAlbSpeed.toFixed(1)}, maxBankStep=${maxBankStep.toFixed(3)}`
   );
+
+  // 3i. Reactive ground/marsh roost -> flush -> soar -> settle -> roost lifecycle
+  const highOverflight = {};
+  const lowLeft = {};
+  const lowRight = {};
+  evaluateRoostThreat(
+    0,
+    WATER + 0.6,
+    -120,
+    {
+      active: true,
+      x: 0,
+      y: WATER + 260,
+      z: 0,
+      fx: 0,
+      fy: 0,
+      fz: -1,
+      speed: 180,
+    },
+    175,
+    highOverflight
+  );
+  evaluateRoostThreat(
+    -18,
+    WATER + 0.6,
+    -130,
+    {active: true, x: 0, y: WATER + 35, z: 0, fx: 0, fy: 0, fz: -1, speed: 165},
+    175,
+    lowLeft
+  );
+  evaluateRoostThreat(
+    18,
+    WATER + 0.6,
+    -130,
+    {active: true, x: 0, y: WATER + 35, z: 0, fx: 0, fy: 0, fz: -1, speed: 165},
+    175,
+    lowRight
+  );
+  check(
+    'Roost threat ignores high overflights (>145 u) and splits low passes laterally away from nose',
+    !highOverflight.triggered &&
+      lowLeft.triggered &&
+      lowRight.triggered &&
+      lowLeft.dx < -0.25 &&
+      lowRight.dx > 0.25
+  );
+
+  const duck = {
+    type: 'duck',
+    variant: 0,
+    scale: 2.6,
+    homeRoost: true,
+    state: BIRD_STATES.ROOST,
+    wingFold: 1,
+    x: 0,
+    y: WATER + 0.56,
+    z: 0,
+    roostX: 0,
+    roostY: WATER + 0.56,
+    roostZ: 0,
+    roostWater: true,
+    roostYaw: 0.4,
+    rotY: 0.4,
+    idleSeed: 0.2,
+    flushDelay: 0.1,
+    scatterAngle: 0.18,
+    cx: 0,
+    cy: WATER + 42,
+    cz: 0,
+    circleRadius: 86,
+    circleSpeed: 0.42,
+    speed: 34,
+    angle: 0,
+    flapPhase: 0.5,
+    flapSpeed: 13.8,
+    flapDuration: 3.2,
+    soarDuration: 0.9,
+  };
+  let dx = duck.x;
+  let dy = duck.y;
+  let dz = duck.z;
+  let sawDabble = false;
+  for (let i = 0; i < 360; i++) {
+    stepBirdState(
+      duck,
+      dx,
+      dy,
+      dz,
+      {...baseEnv, elapsed: i / 60, getElev: () => WATER - 0.8},
+      1 / 60,
+      pose
+    );
+    dx = pose.x;
+    dy = pose.y;
+    dz = pose.z;
+    if (pose.pitch < -0.22) sawDabble = true;
+  }
+  check(
+    'Roosting marsh duck keeps wings folded (wingFold ~ 1) and performs dabbling dips',
+    duck.state === BIRD_STATES.ROOST &&
+      pose.wingFold > 0.98 &&
+      sawDabble &&
+      Math.hypot(dx, dz) < 5,
+    `fold=${pose.wingFold.toFixed(2)}, dabble=${sawDabble}`
+  );
+
+  // Low airplane skim triggers staggered FLUSH + water splash + unfurled climb into SOAR
+  let sawFlushEvent = false;
+  let sawFlushSplash = false;
+  let maxStepJump = 0;
+  let reachedSoar = false;
+  let maxFlushAlt = dy;
+  for (let i = 0; i < 300; i++) {
+    const prevX = dx;
+    const prevY = dy;
+    const prevZ = dz;
+    const lowPlane =
+      i < 25
+        ? {
+            active: true,
+            x: 10,
+            y: WATER + 28,
+            z: 110 - i * 4,
+            fx: 0,
+            fy: 0,
+            fz: -1,
+            speed: 170,
+            isJet: false,
+          }
+        : {active: false};
+    stepBirdState(
+      duck,
+      dx,
+      dy,
+      dz,
+      {
+        ...baseEnv,
+        elapsed: 6 + i / 60,
+        getElev: () => WATER - 0.8,
+        checkAircraft: i < 25,
+        aircraft: lowPlane,
+      },
+      1 / 60,
+      pose
+    );
+    const jump = Math.hypot(pose.x - prevX, pose.y - prevY, pose.z - prevZ);
+    if (jump > maxStepJump) maxStepJump = jump;
+    dx = pose.x;
+    dy = pose.y;
+    dz = pose.z;
+    if (pose.flushed) sawFlushEvent = true;
+    if (pose.splash) sawFlushSplash = true;
+    if (dy > maxFlushAlt) maxFlushAlt = dy;
+    if (duck.state === BIRD_STATES.SOAR) reachedSoar = true;
+  }
+  check(
+    'Startled duck flushes with water splash, unfolds wings, climbs >28 u, and joins SOAR with zero snap',
+    sawFlushEvent &&
+      sawFlushSplash &&
+      reachedSoar &&
+      pose.wingFold === 0 &&
+      maxFlushAlt > WATER + 28 &&
+      maxStepJump < 1.5,
+    `alt=${(maxFlushAlt - WATER).toFixed(1)}, maxJump=${maxStepJump.toFixed(2)}`
+  );
+
+  // Advance calm cooldown so flushed duck glides via SETTLE back to marsh ROOST
+  let sawSettle = false;
+  for (let i = 0; i < 2100; i++) {
+    stepBirdState(
+      duck,
+      dx,
+      dy,
+      dz,
+      {...baseEnv, elapsed: 12 + i / 60, getElev: () => WATER - 0.8},
+      1 / 60,
+      pose
+    );
+    dx = pose.x;
+    dy = pose.y;
+    dz = pose.z;
+    if (duck.state === BIRD_STATES.SETTLE) sawSettle = true;
+    if (sawSettle && duck.state === BIRD_STATES.ROOST) break;
+  }
+  check(
+    'Flushed duck settles smoothly back onto marsh roost with wings refolded once undisturbed',
+    sawSettle &&
+      duck.state === BIRD_STATES.ROOST &&
+      pose.wingFold > 0.98 &&
+      Math.hypot(dx - duck.roostX, dz - duck.roostZ) < 4,
+    `state=${duck.state}, fold=${pose.wingFold.toFixed(2)}`
+  );
+
+  // 3j. Wingbeat phase smoothness at large session elapsed time (1 hour = 3600s):
+  // guards against `elapsed * rate(t)` phase windup during FLUSH and EVADE.
+  let maxFlapStep = 0;
+  let lastFlap = pose.flap;
+  for (let i = 0; i < 600; i++) {
+    const tSession = 3600 + i / 60;
+    const buzz =
+      i === 10
+        ? {
+            active: true,
+            x: dx + 8,
+            y: WATER + 26,
+            z: dz + 95,
+            fx: 0,
+            fy: 0,
+            fz: -1,
+            speed: 175,
+            isJet: true,
+          }
+        : i === 280
+          ? {
+              active: true,
+              x: dx + 12,
+              y: dy,
+              z: dz + 60,
+              fx: 0,
+              fy: 0,
+              fz: -1,
+              speed: 190,
+              isJet: true,
+            }
+          : {active: false};
+    stepBirdState(
+      duck,
+      dx,
+      dy,
+      dz,
+      {
+        ...baseEnv,
+        elapsed: tSession,
+        getElev: () => WATER - 0.8,
+        checkAircraft: i === 10 || i === 280,
+        aircraft: buzz,
+      },
+      1 / 60,
+      pose
+    );
+    dx = pose.x;
+    dy = pose.y;
+    dz = pose.z;
+    const step = Math.abs(pose.flap - lastFlap);
+    if (step > maxFlapStep) maxFlapStep = step;
+    lastFlap = pose.flap;
+  }
+  check(
+    'Wingbeat flap stays smooth (< 0.16 rad/frame at 60 Hz) during FLUSH and EVADE even at elapsed = 3600s',
+    maxFlapStep < 0.16,
+    `maxFlapStep=${maxFlapStep.toFixed(4)}`
+  );
 }
 
 // --- 4. 3D RIG BUDGET, SYMMETRY & SHARED MATERIAL ---
@@ -777,6 +1057,9 @@ const WATER = 45.5;
     'swallow',
     'raven',
     'albatross',
+    'duck',
+    'duck_hen',
+    'plover',
   ];
   let allThreeMeshes = true;
   let allSymmetric = true;
@@ -784,7 +1067,11 @@ const WATER = 45.5;
 
   for (const t of modelTypes) {
     const group =
-      t === 'egret' ? assembleBird('heron', 4.0, 1) : assembleBird(t, 4.0, 0);
+      t === 'egret'
+        ? assembleBird('heron', 4.0, 1)
+        : t === 'duck_hen'
+          ? assembleBird('duck', 2.6, 1)
+          : assembleBird(t, 4.0, 0);
     const meshes = [];
     group.traverse((c) => {
       if (c.isMesh) meshes.push(c);
@@ -886,6 +1173,17 @@ const WATER = 45.5;
   };
   const out = {};
   let finiteOk = true;
+  // Warm up JIT inline caches and let geometry-build GC settle before timing
+  for (let w = 0; w < 30; w++) {
+    env.elapsed = w / 60;
+    for (let i = 0; i < flock.length; i++) {
+      const item = flock[i];
+      stepBirdState(item.data, item.x, item.y, item.z, env, 1 / 60, out);
+      item.x = out.x;
+      item.y = out.y;
+      item.z = out.z;
+    }
+  }
   const t0 = performance.now();
   for (let frame = 0; frame < 600; frame++) {
     env.elapsed = frame / 60;
@@ -968,6 +1266,38 @@ const WATER = 45.5;
     'writeBirdMatrices matches Three.js YXZ Group + child wing world matrices (< 1e-5)',
     maxErr < 1e-5,
     `maxErr=${maxErr}`
+  );
+
+  // Verify folded-wing InstancedMesh matrices preserve outward winding (det > 0)
+  // across full unfurl interpolation (fold = 0, 0.5, 1.0)
+  const det3 = (m, o) =>
+    m[o] * (m[o + 5] * m[o + 10] - m[o + 6] * m[o + 9]) -
+    m[o + 4] * (m[o + 1] * m[o + 10] - m[o + 2] * m[o + 9]) +
+    m[o + 8] * (m[o + 1] * m[o + 6] - m[o + 2] * m[o + 5]);
+  let foldDetsPositive = true;
+  for (const fold of [0, 0.35, 0.7, 1.0]) {
+    writeBirdMatrices(
+      bodyArr,
+      wingRArr,
+      wingLArr,
+      0,
+      10,
+      46,
+      -20,
+      -0.2,
+      1.1,
+      0.15,
+      0.3,
+      2.6,
+      fold
+    );
+    if (det3(wingRArr, 0) <= 0 || det3(wingLArr, 0) <= 0) {
+      foldDetsPositive = false;
+    }
+  }
+  check(
+    'Folded-wing InstancedMesh transforms preserve positive 3x3 determinant across unfurl range',
+    foldDetsPositive
   );
 }
 

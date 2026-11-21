@@ -431,6 +431,7 @@ function viewModel(type, e, colorSeed = 0) {
     'birch',
     'broadleaf_oak',
     'oak',
+    'duck',
     'vr_stick',
     'vr_throttle',
     'vr_hand',
@@ -1617,6 +1618,9 @@ function viewModel(type, e, colorSeed = 0) {
     'swallow',
     'raven',
     'albatross',
+    'duck',
+    'duck_hen',
+    'plover',
   ];
   const isFrontFacing = frontFacingTypes.includes(type);
   const maxDimension = Math.max(finalSize.x, finalSize.y, finalSize.z);

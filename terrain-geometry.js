@@ -4412,7 +4412,13 @@ export const ModelAssembler = {
       case 'swallow':
       case 'raven':
       case 'albatross':
-        return getBirdPropParts(id, rotY);
+      case 'duck':
+      case 'duck_hen':
+      case 'plover':
+        return getBirdPropParts(
+          id === 'duck' && (opts.bodyId || 0) % 2 === 1 ? 'duck_hen' : id,
+          rotY
+        );
       case 'sailboat': {
         const bodyId = (opts.bodyId || 0) % boatHullPalette.length;
         return [

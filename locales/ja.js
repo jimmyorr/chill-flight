@@ -961,4 +961,6 @@ export default {
   Black: 'チャコール',
   'Steering sensitivity': '操作感度',
   'World map': 'ワールドマップ',
+  'Ruffling feathers': '羽ばたきパニック',
+  'Scatter a flock of ground birds': '水辺や地面の鳥の群れを飛び立たせる',
 };

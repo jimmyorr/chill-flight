@@ -3,23 +3,19 @@
 // the terrain web workers (terrain-gen.js), the main-thread bird runtime
 // (birds.js), and the headless simulation test suite (scripts/test-birds.js).
 //
-// Eight ecological archetypes tailored to Chill Flight's biomes:
-//   - goose:     High-altitude asymmetric V/J echelons; vortex-lagged wingbeats,
-//                staggered terrain clearance, aircraft V-split & smooth regroup.
+// Nine ecological archetypes tailored to Chill Flight's biomes (including
+// reactive ground, marsh-reed, beach, and meadow flocks that flush on low passes):
+//   - goose:     High-altitude asymmetric V/J echelons + grazing meadow flocks.
 //   - hawk:      Inland thermal climber (drifts downwind while spiraling up,
 //                glides upwind to next thermal) with occasional hunting stoops.
-//   - seagull:   Coastal/lighthouse/sea-arch/boat wheeler; kites into the wind
-//                before plunge-diving to the water with a surface splash.
-//   - heron:     Swamp/bayou/river skimmer (Great Blue & White Egret morphs);
-//                slow deep wingbeats, meandering low patrol & water-skim glides.
-//   - pelican:   Coastal wave-skimming single-file squadron in ground effect,
-//                periodically climbing to wheel and plunge-fish.
-//   - swallow:   Agile low-AGL meadow/canyon/waterfall insect darter; rapid
-//                banked figure-8 jinks, shelters in heavy rain, confetti scatter.
-//   - raven:     Mountain/canyon/cuesta ridge-lift surfer aligned cross-wind,
-//                with occasional playful corvid barrel-rolls in updrafts.
-//   - albatross: Deep-ocean dynamic soarer; locked sabre wings carving banked
-//                S-curves across the wind gradient (upwind climb, downwind swoop).
+//   - seagull:   Coastal/lighthouse/sea-arch/boat wheeler + loafing beach flocks.
+//   - heron:     Swamp/bayou/river skimmer & reed wader (Great Blue & White Egret).
+//   - pelican:   Coastal foraging pelicans wheeling, skimming swells & plunge-fishing.
+//   - swallow:   Agile low-AGL meadow/canyon/waterfall insect darter.
+//   - raven:     Mountain/canyon/cuesta ridge-lift surfer with playful 360 rolls.
+//   - albatross: Deep-ocean dynamic soarer carving figure-8 wind-gradient S-turns.
+//   - duck:      Mallard drakes & hens dabbling in marshy reeds & calm shallows,
+//                bursting off the water with splashes when startled.
 
 const TAU = Math.PI * 2;
 // Ground under each bird is probed this often (s; the caller can pass a
@@ -30,6 +26,9 @@ const FLOOR_PROBE_LEAD = 0.6;
 const FLOOR_CLEARANCE = 6;
 
 export const BIRD_STATES = {
+  ROOST: 'roost',
+  FLUSH: 'flush',
+  SETTLE: 'settle',
   CRUISE: 'cruise',
   SOAR: 'soar',
   THERMAL: 'thermal',
@@ -50,13 +49,14 @@ export const BIRD_SPECIES = {
   goose: {
     scaleMin: 3.3,
     scaleMax: 3.7,
-    drawDistSq: 0, // uses dynamic prop LOD distance, strays cull at 15,000
+    drawDistSq: 5600 * 5600, // migratory V-geese use propLodSq; meadow geese use drawDistSq
     minDayFactor: 0.08,
     maxRain: 0.92,
-    flapSpeed: 8.4,
-    flapAmp: 0.52,
+    flapSpeed: 6.0,
+    flapAmp: 0.45,
     dihedral: 0.02,
     startleRadius: 110,
+    roostStartleRadius: 185,
     evadeDuration: 4.8,
     evadeDist: 75,
   },
@@ -66,8 +66,8 @@ export const BIRD_SPECIES = {
     drawDistSq: 6600 * 6600,
     minDayFactor: 0.14,
     maxRain: 0.65,
-    flapSpeed: 7.2,
-    flapAmp: 0.48,
+    flapSpeed: 5.8,
+    flapAmp: 0.42,
     dihedral: 0.08, // classic Buteo V-dihedral while soaring
     startleRadius: 115,
     evadeDuration: 4.2,
@@ -79,10 +79,11 @@ export const BIRD_SPECIES = {
     drawDistSq: 5800 * 5800,
     minDayFactor: 0.08,
     maxRain: 0.95,
-    flapSpeed: 10.5,
-    flapAmp: 0.5,
+    flapSpeed: 7.0,
+    flapAmp: 0.42,
     dihedral: 0.03,
     startleRadius: 95,
+    roostStartleRadius: 175,
     evadeDuration: 3.8,
     evadeDist: 65,
   },
@@ -92,10 +93,11 @@ export const BIRD_SPECIES = {
     drawDistSq: 5600 * 5600,
     minDayFactor: 0.05, // active at dawn and dusk in the marshes
     maxRain: 0.85,
-    flapSpeed: 4.2, // slow, deep, majestic strokes
-    flapAmp: 0.62,
+    flapSpeed: 3.9, // slow, deep, majestic strokes
+    flapAmp: 0.54,
     dihedral: -0.04, // slightly bowed/cupped wings
     startleRadius: 125,
+    roostStartleRadius: 180,
     evadeDuration: 4.6,
     evadeDist: 70,
   },
@@ -105,8 +107,8 @@ export const BIRD_SPECIES = {
     drawDistSq: 6000 * 6000,
     minDayFactor: 0.09,
     maxRain: 0.9,
-    flapSpeed: 5.4,
-    flapAmp: 0.46,
+    flapSpeed: 4.7,
+    flapAmp: 0.4,
     dihedral: 0.03,
     startleRadius: 105,
     evadeDuration: 4.2,
@@ -118,8 +120,8 @@ export const BIRD_SPECIES = {
     drawDistSq: 3200 * 3200, // tiny agile flyers: tighter cull saves draw calls
     minDayFactor: 0.14,
     maxRain: 0.48, // insectivores shelter when rain sets in
-    flapSpeed: 19.5,
-    flapAmp: 0.58,
+    flapSpeed: 11.2,
+    flapAmp: 0.44,
     dihedral: -0.02,
     startleRadius: 85,
     evadeDuration: 2.6,
@@ -131,8 +133,8 @@ export const BIRD_SPECIES = {
     drawDistSq: 5800 * 5800,
     minDayFactor: 0.05,
     maxRain: 0.82,
-    flapSpeed: 8.6,
-    flapAmp: 0.5,
+    flapSpeed: 6.2,
+    flapAmp: 0.43,
     dihedral: 0.04,
     startleRadius: 88,
     evadeDuration: 3.4,
@@ -144,12 +146,40 @@ export const BIRD_SPECIES = {
     drawDistSq: 7200 * 7200,
     minDayFactor: 0.06,
     maxRain: 1.0, // flies right through ocean squalls
-    flapSpeed: 4.0,
-    flapAmp: 0.34,
+    flapSpeed: 3.4,
+    flapAmp: 0.3,
     dihedral: 0.02,
     startleRadius: 120,
     evadeDuration: 4.5,
     evadeDist: 85,
+  },
+  duck: {
+    scaleMin: 2.35,
+    scaleMax: 2.85,
+    drawDistSq: 4800 * 4800,
+    minDayFactor: 0.06,
+    maxRain: 0.95,
+    flapSpeed: 8.6,
+    flapAmp: 0.42,
+    dihedral: 0.01,
+    startleRadius: 105,
+    roostStartleRadius: 175,
+    evadeDuration: 3.4,
+    evadeDist: 62,
+  },
+  plover: {
+    scaleMin: 1.25,
+    scaleMax: 1.55,
+    drawDistSq: 3800 * 3800,
+    minDayFactor: 0.07,
+    maxRain: 0.9,
+    flapSpeed: 9.2,
+    flapAmp: 0.42,
+    dihedral: -0.01,
+    startleRadius: 90,
+    roostStartleRadius: 170,
+    evadeDuration: 3.0,
+    evadeDist: 55,
   },
 };
 
@@ -162,6 +192,7 @@ export const HABITAT_LIMITS = {
   ALBATROSS_MAX_NORTH: -19500,
   RAVEN_MAX_NORTH: -28500,
   GOOSE_MAX_NORTH: -26000,
+  DUCK_MAX_NORTH: -20500,
 };
 
 function clamp(v, lo, hi) {
@@ -217,11 +248,15 @@ export function generateChunkBirds({
   farmFactor = 0,
   canyonFactor = 0,
   fallsFactor = 0,
+  snowFactor = 0,
+  desertFactor = 0,
   isAlienChunk = false,
   lighthousePos = null,
   sailboatPositions = null,
   rockArchPositions = null,
   pierPositions = null,
+  reedPositions = null,
+  isClearGround = null,
   windDirX = 0.8,
   windDirZ = 0.6,
   getElev,
@@ -255,7 +290,7 @@ export function generateChunkBirds({
         cz,
         angle: ang,
         flapPhase: rng() * TAU,
-        flapSpeed: rand(9.5, 13.5),
+        flapSpeed: rand(6.4, 7.6),
         flapDuration: rand(2.0, 3.8),
         soarDuration: rand(3.2, 5.8),
         stateTimer: rand(4, 18),
@@ -404,7 +439,7 @@ export function generateChunkBirds({
           angle: pAng,
           rank: i,
           flapPhase: rng() * TAU,
-          flapSpeed: rand(4.7, 5.8),
+          flapSpeed: rand(4.4, 5.1),
           flapDuration: rand(1.9, 2.6),
           soarDuration: rand(5.2, 8.2),
           stateTimer: rand(4, 22),
@@ -502,7 +537,7 @@ export function generateChunkBirds({
           jinkFreq: rand(2.4, 3.6),
           jinkPhase: rng() * TAU,
           flapPhase: rng() * TAU,
-          flapSpeed: rand(18.0, 23.0),
+          flapSpeed: rand(10.5, 12.2),
           flapDuration: rand(1.1, 2.0),
           soarDuration: rand(0.7, 1.4),
           weatherSeed: rng(),
@@ -562,7 +597,7 @@ export function generateChunkBirds({
           angle: ang,
           circleSpeed: rand(0.26, 0.36) * (rng() < 0.5 ? 1 : -1),
           flapPhase: rng() * TAU,
-          flapSpeed: rand(7.8, 9.6),
+          flapSpeed: rand(5.8, 6.8),
           flapDuration: rand(1.8, 3.0),
           soarDuration: rand(4.5, 7.5),
           nextPlayWait: rand(14, 32),
@@ -596,7 +631,7 @@ export function generateChunkBirds({
         climbRate: rand(6.5, 10.5),
         angle: hAng,
         flapPhase: rng() * TAU,
-        flapSpeed: rand(6.8, 8.8),
+        flapSpeed: rand(5.4, 6.4),
         flapDuration: rand(2.2, 3.6),
         soarDuration: rand(5.5, 9.0),
         nextStoopWait: rand(28, 55),
@@ -663,11 +698,435 @@ export function generateChunkBirds({
         row,
         // Wingtip-vortex phase lag: wingbeats ripple smoothly back down the V!
         flapPhase: leaderFlapPhase - row * 0.55 + rand(-0.08, 0.08),
-        flapSpeed: rand(8.0, 9.2),
+        flapSpeed: 6.0 + rand(-0.04, 0.04),
         flapDuration: 1000.0,
         soarDuration: 0.0,
         weatherSeed: rng(),
       });
+    }
+  }
+
+  // 7. Reactive ground, marsh-reed, sandy-beach & open-meadow roosting flocks:
+  // birds rest with folded wings (idle dabbling, stalking, hopping, or grazing)
+  // and scatter skyward when a low-flying aircraft or rally vehicle approaches.
+  const windYaw = Math.atan2(wx, wz);
+  const roostPlaced = [];
+  const pushRoostBird = (opts) => {
+    const minSepSq = (opts.minSep || 7.2) * (opts.minSep || 7.2);
+    for (let k = 0; k < roostPlaced.length; k++) {
+      const dx = roostPlaced[k].x - opts.x;
+      const dz = roostPlaced[k].z - opts.z;
+      if (dx * dx + dz * dz < minSepSq) return false;
+    }
+    roostPlaced.push({x: opts.x, z: opts.z});
+    const ryaw = wrapAngle(windYaw + rand(-0.7, 0.7));
+    birds.push({
+      type: opts.type,
+      variant: opts.variant || 0,
+      scale: opts.scale,
+      homeRoost: true,
+      state: BIRD_STATES.ROOST,
+      wingFold: 1,
+      x: opts.x,
+      y: opts.y,
+      z: opts.z,
+      roostX: opts.x,
+      roostY: opts.y,
+      roostZ: opts.z,
+      roostClear: opts.roostClear ?? 0.62,
+      roostWater: Boolean(opts.roostWater),
+      roostYaw: ryaw,
+      rotY: ryaw,
+      shoreTangX: opts.shoreTangX ?? 1,
+      shoreTangZ: opts.shoreTangZ ?? 0,
+      shoreUpX: opts.shoreUpX ?? 0,
+      shoreUpZ: opts.shoreUpZ ?? -1,
+      idleSeed: rng() * TAU,
+      flushDelay: rand(0, 0.25),
+      scatterAngle: rand(-0.48, 0.48),
+      cx: opts.x,
+      cy: opts.y + opts.orbitHeight,
+      cz: opts.z,
+      circleRadius: opts.circleRadius,
+      circleSpeed: opts.circleSpeed,
+      patrolRadius: opts.patrolRadius || 155,
+      speed: opts.speed || 28,
+      angle: rng() * TAU,
+      flapPhase: rng() * TAU,
+      flapSpeed: opts.flapSpeed,
+      flapDuration: opts.flapDuration,
+      soarDuration: opts.soarDuration,
+      stateTimer: rand(8, 20),
+      nextForageWait: rand(14, 28),
+      weatherSeed: rng(),
+    });
+    return true;
+  };
+
+  // 7a. Marshy reeds & calm shallows: Mallard duck rafts + stalking herons/egrets
+  const hasReeds = reedPositions && reedPositions.length > 0;
+  if (hasReeds && worldOffsetZ >= HABITAT_LIMITS.DUCK_MAX_NORTH) {
+    if (rng() < 0.58) {
+      const reed = reedPositions[Math.floor(rng() * reedPositions.length)];
+      const baseX = worldOffsetX + (reed.x || 0);
+      const baseZ = worldOffsetZ + (reed.z || 0);
+      const duckCount = 4 + Math.floor(rng() * 4); // 4..7 Mallards
+      const dirSign = rng() < 0.5 ? 1 : -1;
+      for (let i = 0; i < duckCount; i++) {
+        // Sample around the reed clump to place ducks in actual shallow water
+        let dx = 0;
+        let dz = 0;
+        let foundWater = false;
+        for (let s = 0; s < 12; s++) {
+          const ang = rng() * TAU;
+          const dist = rand(8, 38);
+          const tx = baseX + Math.cos(ang) * dist;
+          const tz = baseZ + Math.sin(ang) * dist;
+          if (getElev(tx, tz) <= waterLevel - 0.35) {
+            dx = tx;
+            dz = tz;
+            foundWater = true;
+            break;
+          }
+        }
+        if (!foundWater) continue;
+        pushRoostBird({
+          type: 'duck',
+          variant: rng() < 0.54 ? 0 : 1, // Drake & Hen Mallards
+          scale: rand(1.55, 1.85),
+          minSep: 6.5,
+          x: dx,
+          y: waterLevel + 0.36,
+          z: dz,
+          roostClear: 0.36,
+          roostWater: true,
+          orbitHeight: rand(34, 52),
+          circleRadius: rand(72, 118),
+          circleSpeed: rand(0.36, 0.52) * dirSign,
+          speed: rand(31, 38),
+          flapSpeed: rand(8.2, 9.4),
+          flapDuration: rand(2.4, 3.8),
+          soarDuration: rand(1.1, 2.0),
+        });
+      }
+    }
+
+    if (rng() < 0.36) {
+      const reed = reedPositions[Math.floor(rng() * reedPositions.length)];
+      const baseX = worldOffsetX + (reed.x || 0);
+      const baseZ = worldOffsetZ + (reed.z || 0);
+      const waderCount = rng() < 0.36 ? 2 : 1;
+      const variant = rng() < 0.48 ? 1 : 0; // Great Egret or Great Blue Heron
+      for (let i = 0; i < waderCount; i++) {
+        const wxSpot = baseX + rand(-10, 10) + i * 12;
+        const wzSpot = baseZ + rand(-10, 10) - i * 9;
+        const elev = getElev(wxSpot, wzSpot);
+        if (elev >= waterLevel - 1.2 && elev <= waterLevel + 2.0) {
+          const waderScale = rand(1.85, 2.2);
+          const waderClear = 2.15 * waderScale;
+          pushRoostBird({
+            type: 'heron',
+            variant,
+            scale: waderScale,
+            minSep: 9.0,
+            x: wxSpot,
+            y: Math.max(waterLevel - 0.35, elev) + waderClear,
+            z: wzSpot,
+            roostClear: waderClear,
+            roostWater: elev < waterLevel + 0.1,
+            orbitHeight: rand(24, 38),
+            circleRadius: rand(120, 175),
+            circleSpeed: rand(0.16, 0.24) * (rng() < 0.5 ? 1 : -1),
+            patrolRadius: rand(135, 195),
+            speed: rand(19, 23),
+            flapSpeed: rand(3.7, 4.3),
+            flapDuration: rand(5.5, 8.5),
+            soarDuration: rand(2.2, 4.0),
+          });
+        }
+      }
+    }
+  } else if (
+    worldOffsetZ >= HABITAT_LIMITS.DUCK_MAX_NORTH &&
+    waterShare >= 0.05 &&
+    waterShare <= 0.78 &&
+    snowFactor < 0.35 &&
+    desertFactor < 0.3 &&
+    swampFactor < 0.25 &&
+    rng() < 0.2
+  ) {
+    // Calm temperate pond/lake/river shallows outside the bayou
+    for (let s = 0; s < 8; s++) {
+      const tx = worldOffsetX + rand(-0.4, 0.4) * chunkSize;
+      const tz = worldOffsetZ + rand(-0.4, 0.4) * chunkSize;
+      const th = getElev(tx, tz);
+      if (th < waterLevel - 3.2 || th > waterLevel - 0.4) continue;
+      if (isClearGround && !isClearGround(tx, tz, false)) continue;
+      // Confirm shoreline proximity within 42 units so ducks hug calm banks
+      const nearBank =
+        getElev(tx + 42, tz) > waterLevel + 0.4 ||
+        getElev(tx - 42, tz) > waterLevel + 0.4 ||
+        getElev(tx, tz + 42) > waterLevel + 0.4 ||
+        getElev(tx, tz - 42) > waterLevel + 0.4;
+      if (!nearBank) continue;
+
+      const duckCount = 4 + Math.floor(rng() * 3); // 4..6 Mallards
+      const dirSign = rng() < 0.5 ? 1 : -1;
+      for (let i = 0; i < duckCount; i++) {
+        const dx = tx + rand(-16, 16);
+        const dz = tz + rand(-16, 16);
+        if (getElev(dx, dz) > waterLevel - 0.3) continue;
+        pushRoostBird({
+          type: 'duck',
+          variant: rng() < 0.54 ? 0 : 1,
+          scale: rand(1.55, 1.85),
+          minSep: 6.5,
+          x: dx,
+          y: waterLevel + 0.36,
+          z: dz,
+          roostClear: 0.36,
+          roostWater: true,
+          orbitHeight: rand(34, 52),
+          circleRadius: rand(72, 118),
+          circleSpeed: rand(0.36, 0.52) * dirSign,
+          speed: rand(31, 38),
+          flapSpeed: rand(8.2, 9.4),
+          flapDuration: rand(2.4, 3.8),
+          soarDuration: rand(1.1, 2.0),
+        });
+      }
+      break;
+    }
+  }
+
+  // 7b. Sandy beaches & sandbars: scurrying Piping Plovers & loafing Coastal Gulls
+  if (
+    worldOffsetZ >= HABITAT_LIMITS.GULL_MAX_NORTH &&
+    waterShare >= 0.08 &&
+    waterShare <= 0.92 &&
+    snowFactor < 0.4 &&
+    swampFactor < 0.25 &&
+    rng() < 0.68
+  ) {
+    // Try up to 3 wet-to-dry bisection rays so narrow beaches on coastal
+    // headlands and islands (like Montauk) are reliably discovered
+    for (let ray = 0; ray < 3; ray++) {
+      let wetX = 0;
+      let wetZ = 0;
+      let hasWet = false;
+      let dryX = 0;
+      let dryZ = 0;
+      let hasDry = false;
+      for (let s = 0; s < 14 && (!hasWet || !hasDry); s++) {
+        const px = worldOffsetX + rand(-0.44, 0.44) * chunkSize;
+        const pz = worldOffsetZ + rand(-0.44, 0.44) * chunkSize;
+        const ph = getElev(px, pz);
+        if (!hasWet && ph < waterLevel - 0.5) {
+          wetX = px;
+          wetZ = pz;
+          hasWet = true;
+        } else if (!hasDry && ph > waterLevel + 2.6) {
+          dryX = px;
+          dryZ = pz;
+          hasDry = true;
+        }
+      }
+      if (!hasWet || !hasDry) continue;
+
+      let ax = wetX;
+      let az = wetZ;
+      let bx0 = dryX;
+      let bz0 = dryZ;
+      for (let step = 0; step < 6; step++) {
+        const mx = (ax + bx0) * 0.5;
+        const mz = (az + bz0) * 0.5;
+        if (getElev(mx, mz) < waterLevel + 1.5) {
+          ax = mx;
+          az = mz;
+        } else {
+          bx0 = mx;
+          bz0 = mz;
+        }
+      }
+      const tx = (ax + bx0) * 0.5;
+      const tz = (az + bz0) * 0.5;
+      const th = getElev(tx, tz);
+      const hE = getElev(tx + 12, tz);
+      const hW = getElev(tx - 12, tz);
+      const hN = getElev(tx, tz - 12);
+      const hS = getElev(tx, tz + 12);
+      const slopeSpan = Math.max(hE, hW, hN, hS) - Math.min(hE, hW, hN, hS);
+
+      if (
+        th < waterLevel + 0.35 ||
+        th > waterLevel + 5.4 ||
+        slopeSpan > 5.0 ||
+        (isClearGround && !isClearGround(tx, tz, false))
+      ) {
+        continue;
+      }
+
+      // Shoreline tangent & upslope unit vectors
+      const gradX = hE - hW;
+      const gradZ = hS - hN;
+      const gLen = Math.hypot(gradX, gradZ) || 1;
+      const upX = gradX / gLen;
+      const upZ = gradZ / gLen;
+      const tangX = -upZ;
+      const tangZ = upX;
+      const dirSign = rng() < 0.5 ? 1 : -1;
+      const beachRoll = rng();
+      const spawnPlovers = beachRoll < 0.62;
+      const spawnGulls = beachRoll >= 0.38;
+
+      if (spawnPlovers) {
+        // Scurrying Piping Plovers right down along the wet surf line
+        const ploverCount = 6 + Math.floor(rng() * 5); // 6..10 plovers
+        for (let i = 0; i < ploverCount; i++) {
+          for (let attempt = 0; attempt < 4; attempt++) {
+            const along = rand(-34, 34);
+            const across = rand(-8, 2);
+            const bx = tx + tangX * along + upX * across;
+            const bz = tz + tangZ * along + upZ * across;
+            const by = getElev(bx, bz);
+            if (by < waterLevel + 0.2 || by > waterLevel + 2.8) continue;
+            if (isClearGround && !isClearGround(bx, bz, false)) continue;
+            const ploverScale = rand(1.25, 1.55);
+            const ploverClear = 1.12 * ploverScale;
+            const tangSign = rng() < 0.5 ? 1 : -1;
+            if (
+              pushRoostBird({
+                type: 'plover',
+                scale: ploverScale,
+                minSep: 4.8,
+                x: bx,
+                y: by + ploverClear,
+                z: bz,
+                roostClear: ploverClear,
+                roostWater: false,
+                shoreTangX: tangX * tangSign,
+                shoreTangZ: tangZ * tangSign,
+                shoreUpX: upX,
+                shoreUpZ: upZ,
+                orbitHeight: rand(18, 30),
+                circleRadius: rand(38, 66),
+                circleSpeed: rand(0.58, 0.82) * dirSign,
+                speed: rand(28, 35),
+                flapSpeed: rand(8.8, 9.8),
+                flapDuration: rand(1.8, 3.0),
+                soarDuration: rand(0.8, 1.5),
+              })
+            ) {
+              break;
+            }
+          }
+        }
+      }
+
+      if (spawnGulls) {
+        // Loafing Coastal Gulls standing on open beach sand
+        const gullOffset = spawnPlovers ? 42 : 0;
+        const gullCount = 5 + Math.floor(rng() * 5); // 5..9 beach gulls
+        for (let i = 0; i < gullCount; i++) {
+          for (let attempt = 0; attempt < 5; attempt++) {
+            const along = gullOffset + rand(-30, 30);
+            const across = rand(-6, 3);
+            const bx = tx + tangX * along + upX * across;
+            const bz = tz + tangZ * along + upZ * across;
+            const by = getElev(bx, bz);
+            if (by < waterLevel + 0.35 || by > waterLevel + 3.4) continue;
+            if (isClearGround && !isClearGround(bx, bz, false)) continue;
+            const gullScale = rand(1.55, 1.9);
+            const gullClear = 0.98 * gullScale;
+            if (
+              pushRoostBird({
+                type: 'seagull',
+                scale: gullScale,
+                minSep: 7.2,
+                x: bx,
+                y: by + gullClear,
+                z: bz,
+                roostClear: gullClear,
+                roostWater: false,
+                shoreTangX: tangX,
+                shoreTangZ: tangZ,
+                shoreUpX: upX,
+                shoreUpZ: upZ,
+                orbitHeight: rand(44, 72),
+                circleRadius: rand(52, 92),
+                circleSpeed: rand(0.38, 0.56) * dirSign,
+                speed: rand(25, 31),
+                flapSpeed: rand(6.4, 7.6),
+                flapDuration: rand(2.0, 3.6),
+                soarDuration: rand(3.2, 5.6),
+              })
+            ) {
+              break;
+            }
+          }
+        }
+      }
+      break;
+    }
+  }
+
+  // 7c. Open temperate meadows & pastures: foraging Canada Geese gaggles
+  if (
+    worldOffsetZ >= HABITAT_LIMITS.DUCK_MAX_NORTH &&
+    waterShare < 0.45 &&
+    snowFactor < 0.25 &&
+    desertFactor < 0.2 &&
+    swampFactor < 0.2 &&
+    rng() < (farmFactor > 0.2 ? 0.28 : 0.16)
+  ) {
+    for (let s = 0; s < 8; s++) {
+      const tx = worldOffsetX + rand(-0.4, 0.4) * chunkSize;
+      const tz = worldOffsetZ + rand(-0.4, 0.4) * chunkSize;
+      const th = getElev(tx, tz);
+      if (th < waterLevel + 6 || th > waterLevel + 150) continue;
+      if (isClearGround && !isClearGround(tx, tz, true)) continue;
+
+      const hE = getElev(tx + 16, tz);
+      const hW = getElev(tx - 16, tz);
+      const hN = getElev(tx, tz - 16);
+      const hS = getElev(tx, tz + 16);
+      if (Math.max(hE, hW, hN, hS) - Math.min(hE, hW, hN, hS) > 3.0) continue;
+
+      const gaggleSize = 5 + Math.floor(rng() * 4); // 5..8 grazing geese
+      const dirSign = rng() < 0.5 ? 1 : -1;
+      for (let i = 0; i < gaggleSize; i++) {
+        for (let attempt = 0; attempt < 4; attempt++) {
+          const gx = tx + rand(-24, 24);
+          const gz = tz + rand(-24, 24);
+          const gy = getElev(gx, gz);
+          if (gy < waterLevel + 4) continue;
+          if (isClearGround && !isClearGround(gx, gz, true)) continue;
+          const gooseScale = rand(1.75, 2.05);
+          const gooseClear = 1.16 * gooseScale;
+          if (
+            pushRoostBird({
+              type: 'goose',
+              scale: gooseScale,
+              minSep: 8.2,
+              x: gx,
+              y: gy + gooseClear,
+              z: gz,
+              roostClear: gooseClear,
+              roostWater: false,
+              orbitHeight: rand(52, 82),
+              circleRadius: rand(88, 142),
+              circleSpeed: rand(0.28, 0.42) * dirSign,
+              speed: rand(34, 42),
+              flapSpeed: rand(5.8, 6.4),
+              flapDuration: rand(3.8, 5.8),
+              soarDuration: rand(1.4, 2.6),
+            })
+          ) {
+            break;
+          }
+        }
+      }
+      break;
     }
   }
 
@@ -755,56 +1214,176 @@ export function evaluateAircraftThreat(bx, by, bz, aircraft, baseRadius, out) {
   return out;
 }
 
+// Evaluates whether a grounded, marsh-wading, or water-resting bird at
+// `(bx, by, bz)` is startled into flight (`FLUSH`) by a low-flying aircraft or
+// approaching ground/hover vehicle. High-altitude overflights (>145 u above)
+// pass peacefully overhead without spooking flocks on the ground.
+export function evaluateRoostThreat(bx, by, bz, aircraft, baseRadius, out) {
+  out.triggered = false;
+  out.wake = false;
+  out.dx = 0;
+  out.dy = 0;
+  out.dz = 0;
+  out.strength = 0;
+  if (!aircraft || !aircraft.active) return out;
+
+  const altAbove = aircraft.y - by;
+  if (altAbove < -35 || altAbove > 145) return out;
+
+  const rx = bx - aircraft.x;
+  const rz = bz - aircraft.z;
+  const hDistSq = rx * rx + rz * rz;
+
+  const speedBoost = clamp(aircraft.speed / 120, 0.72, 1.42);
+  const jetMult = aircraft.isJet ? 1.2 : 1.0;
+  const effRadius = (baseRadius || 175) * speedBoost * jetMult;
+
+  if (hDistSq < effRadius * effRadius) {
+    const hDist = Math.sqrt(hDistSq);
+    let radX = hDist > 1e-3 ? rx / hDist : -aircraft.fz;
+    let radZ = hDist > 1e-3 ? rz / hDist : aircraft.fx;
+
+    // Lateral peel-off perpendicular to vehicle heading so flocks dead ahead
+    // split apart into a natural wave on either side of the flight line
+    const fLen = Math.hypot(aircraft.fx, aircraft.fz);
+    let fx = fLen > 1e-3 ? aircraft.fx / fLen : 0;
+    let fz = fLen > 1e-3 ? aircraft.fz / fLen : -1;
+    const crossSide = rx * -fz + rz * fx >= 0 ? 1 : -1;
+    const latX = -fz * crossSide;
+    const latZ = fx * crossSide;
+
+    let escX = radX * 0.58 + latX * 0.42;
+    let escZ = radZ * 0.58 + latZ * 0.42;
+    const escLen = Math.hypot(escX, escZ) || 1;
+    escX /= escLen;
+    escZ /= escLen;
+
+    out.triggered = true;
+    out.dx = escX;
+    out.dy = 0.48;
+    out.dz = escZ;
+    out.strength = 1 - hDist / effRadius;
+    return out;
+  }
+
+  // Low high-speed pass whose trailing wake sweeps across the roost
+  if (aircraft.speed > 85 && hDistSq < 235 * 235) {
+    const along =
+      rx * aircraft.fx + (by - aircraft.y) * aircraft.fy + rz * aircraft.fz;
+    if (along < -10 && along > -220) {
+      const distSq = hDistSq + altAbove * altAbove;
+      const radialSq = Math.max(0, distSq - along * along);
+      const wakeR = 54 * (aircraft.isJet ? 1.2 : 1.0);
+      if (radialSq < wakeR * wakeR) {
+        const hDist = Math.sqrt(hDistSq) || 1;
+        out.triggered = true;
+        out.wake = true;
+        out.dx = rx / hDist;
+        out.dy = 0.45;
+        out.dz = rz / hDist;
+        out.strength = 0.7;
+      }
+    }
+  }
+  return out;
+}
+
 // --- WING KINEMATICS ---
+// Incrementally integrates each bird's wingbeat phase (`data.wingPhase += rate * dt`)
+// and applies C1 exponential smoothing (`data.wingFlap`) so time-varying flap rates
+// during `FLUSH` or `EVADE` never wind phase backwards with global `elapsed` time,
+// and state transitions (`FLUSH -> SOAR`, `SOAR -> FORAGE`, `SETTLE`) never snap.
+function stepWingKinematics(data, spec, dt) {
+  const baseSpeed = data.flapSpeed || spec.flapSpeed;
+  let targetFlap;
+  if (data.state === BIRD_STATES.ROOST) {
+    targetFlap = 0;
+  } else if (data.state === BIRD_STATES.FLUSH) {
+    if ((data.flushT ?? 0) < 0) {
+      targetFlap = 0.08;
+    } else {
+      const u = clamp((data.flushT || 0) / (data.flushDur || 3.3), 0, 1);
+      const urgency = 1 - u * 0.65;
+      const rate = baseSpeed * (1.1 + 0.24 * urgency);
+      const amp = spec.flapAmp * (1.04 + 0.14 * urgency);
+      data.wingPhase = (data.wingPhase + rate * dt) % TAU;
+      targetFlap = spec.dihedral + Math.sin(data.wingPhase) * amp;
+    }
+  } else if (data.state === BIRD_STATES.SETTLE) {
+    const p = data.settlePhase || 0;
+    if (p < 0.72) {
+      targetFlap = spec.dihedral * 1.3;
+    } else {
+      const flare = Math.sin(clamp((p - 0.72) / 0.26, 0, 1) * Math.PI);
+      data.wingPhase = (data.wingPhase + baseSpeed * 0.95 * dt) % TAU;
+      targetFlap =
+        spec.dihedral + Math.sin(data.wingPhase) * spec.flapAmp * 0.72 * flare;
+    }
+  } else if (data.evadeT > 0) {
+    const urgency = 1 - clamp(data.evadeT / spec.evadeDuration, 0, 1);
+    const rate = baseSpeed * (1.12 + 0.25 * urgency);
+    const amp = spec.flapAmp * (1.04 + 0.16 * urgency);
+    data.wingPhase = (data.wingPhase + rate * dt) % TAU;
+    targetFlap = spec.dihedral + Math.sin(data.wingPhase) * amp;
+  } else if (
+    data.type === 'pelican' &&
+    data.state === BIRD_STATES.FORAGE &&
+    data.divePhase >= 0.45 &&
+    data.divePhase < 0.72
+  ) {
+    // Pelicans floating stationary on water hold wings gently tucked
+    targetFlap = 0.04;
+  } else if (data.state === BIRD_STATES.FORAGE && data.divePhase < 0.55) {
+    // Plunge-diving gulls & pelicans sweep wings back during descent
+    targetFlap = -0.18;
+  } else if (data.state === BIRD_STATES.PLAY) {
+    // Ravens tuck wings briefly mid-barrel-roll
+    targetFlap = 0.05;
+  } else {
+    const flapDur = data.flapDuration ?? 3.0;
+    const soarDur = data.soarDuration ?? 4.0;
+    data.wingPhase = (data.wingPhase + baseSpeed * dt) % TAU;
+    if (soarDur <= 0.01) {
+      targetFlap = spec.dihedral + Math.sin(data.wingPhase) * spec.flapAmp;
+    } else {
+      const effSoar =
+        data.state === BIRD_STATES.THERMAL || data.state === BIRD_STATES.SKIM
+          ? soarDur * 1.45
+          : soarDur;
+      const total = flapDur + effSoar;
+      data.wingCycleT = (data.wingCycleT + dt) % total;
+      if (data.wingCycleT > flapDur) {
+        targetFlap = spec.dihedral;
+      } else {
+        const fade = Math.min(0.65, flapDur * 0.35);
+        let env = 1;
+        if (data.wingCycleT < fade) env = smoothstep(data.wingCycleT, 0, fade);
+        else if (flapDur - data.wingCycleT < fade) {
+          env = smoothstep(flapDur - data.wingCycleT, 0, fade);
+        }
+        targetFlap =
+          spec.dihedral + Math.sin(data.wingPhase) * spec.flapAmp * env;
+      }
+    }
+  }
+
+  const flapEase = (16.0 * dt) / (1 + 16.0 * dt);
+  data.wingFlap += (targetFlap - data.wingFlap) * flapEase;
+  return data.wingFlap;
+}
+
 // Returns the right-wing rotation angle `flap` (radians; left wing uses `-flap`
 // on mirrored wing geometry so dihedral & flap stay symmetric).
 export function computeWingFlap(data, elapsed) {
+  if (data.wingFlap !== undefined) {
+    return data.wingFlap;
+  }
   const spec = BIRD_SPECIES[data.type] || BIRD_SPECIES.seagull;
-  if (data.evadeT > 0) {
-    // Urgent high-frequency evasion strokes tapering back to normal rhythm
-    const urgency = 1 - clamp(data.evadeT / spec.evadeDuration, 0, 1);
-    const rate = spec.flapSpeed * (1.35 + 1.15 * urgency);
-    const amp = spec.flapAmp * (1.1 + 0.45 * urgency);
-    return spec.dihedral + Math.sin(elapsed * rate + data.flapPhase) * amp;
-  }
-
-  // Plunge-diving gulls & pelicans tuck wings back/flat during steep descent
-  if (data.state === BIRD_STATES.FORAGE && data.divePhase < 0.55) {
-    return -0.18;
-  }
-  // Ravens tuck wings briefly mid-barrel-roll
-  if (data.state === BIRD_STATES.PLAY) {
-    return 0.05;
-  }
-
-  const flapDur = data.flapDuration ?? 3.0;
-  const soarDur = data.soarDuration ?? 4.0;
-  if (soarDur <= 0.01) {
-    return (
-      spec.dihedral +
-      Math.sin(elapsed * data.flapSpeed + data.flapPhase) * spec.flapAmp
-    );
-  }
-
-  // Hawks in thermal climb & pelicans in low skim spend extra time soaring
-  const effSoar =
-    data.state === BIRD_STATES.THERMAL || data.state === BIRD_STATES.SKIM
-      ? soarDur * 1.45
-      : soarDur;
-  const total = flapDur + effSoar;
-  const cyc = (((elapsed + data.flapPhase * 3.7) % total) + total) % total;
-  if (cyc > flapDur) {
-    return spec.dihedral;
-  }
-
-  const fade = Math.min(0.45, flapDur * 0.35);
-  let env = 1;
-  if (cyc < fade) env = cyc / fade;
-  else if (flapDur - cyc < fade) env = (flapDur - cyc) / fade;
-
+  if (data.state === BIRD_STATES.ROOST) return 0;
+  const baseSpeed = data.flapSpeed || spec.flapSpeed;
   return (
     spec.dihedral +
-    Math.sin(elapsed * data.flapSpeed + data.flapPhase) * spec.flapAmp * env
+    Math.sin((elapsed || 0) * baseSpeed + (data.flapPhase || 0)) * spec.flapAmp
   );
 }
 
@@ -819,14 +1398,18 @@ const _threat = {
 
 // --- PER-BIRD STATE MACHINE & TRAJECTORY STEP ---
 // Updates `data` in place and writes the new world pose `{x, y, z, pitch, yaw,
-// bank, splash, visible}` into `out` with zero heap allocations.
+// bank, wingFold, splash, flushed, visible}` into `out` with zero heap allocations.
 export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
   const dt = clamp(rawDelta, 0, 0.1);
   const spec = BIRD_SPECIES[data.type] || BIRD_SPECIES.seagull;
   out.splash = false;
+  out.flushed = false;
+  out.wingFold = data.wingFold ?? (data.state === BIRD_STATES.ROOST ? 1 : 0);
+  out.flap = data.wingFlap ?? 0;
 
-  // Diurnal & storm visibility check (geese still advance position when hidden
-  // by distance LOD, handled by the caller; night puts all birds to roost)
+  // Diurnal & storm visibility check (migratory geese still advance position
+  // when hidden by distance LOD, handled by the caller; night puts birds to roost)
+  const isMigratoryGoose = data.type === 'goose' && !data.homeRoost;
   const day = env.dayFactor ?? 1;
   const rain = env.rain ?? 0;
   const weatherClear =
@@ -834,28 +1417,35 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
     (data.weatherSeed ?? 0.5) >
       (rain - spec.maxRain) / (1 - spec.maxRain + 1e-4);
   out.visible = day > spec.minDayFactor && weatherClear;
-  if (day <= spec.minDayFactor && data.type !== 'goose') {
+  if (day <= spec.minDayFactor && !isMigratoryGoose) {
     out.x = curX;
     out.y = curY;
     out.z = curZ;
     out.pitch = 0;
-    out.yaw = data.yaw || 0;
+    out.yaw = data.yaw ?? data.rotY ?? 0;
     out.bank = 0;
     return out;
   }
 
-  // Initialize lazy runtime fields once
-  if (data.state === undefined) {
-    data.state =
-      data.type === 'goose'
-        ? BIRD_STATES.CRUISE
-        : data.type === 'hawk'
-          ? BIRD_STATES.THERMAL
-          : data.type === 'pelican'
-            ? BIRD_STATES.SKIM
-            : data.type === 'swallow'
-              ? BIRD_STATES.DART
-              : BIRD_STATES.SOAR;
+  // Initialize lazy runtime fields once (including pre-seeded states like ROOST)
+  if (!data._init) {
+    data._init = true;
+    if (data.state === undefined) {
+      data.state =
+        data.type === 'goose'
+          ? BIRD_STATES.CRUISE
+          : data.type === 'hawk'
+            ? BIRD_STATES.THERMAL
+            : data.type === 'pelican'
+              ? BIRD_STATES.SKIM
+              : data.type === 'swallow'
+                ? BIRD_STATES.DART
+                : BIRD_STATES.SOAR;
+    }
+    data.wingFold = data.wingFold ?? (data.state === BIRD_STATES.ROOST ? 1 : 0);
+    data.wingPhase = data.flapPhase || 0;
+    data.wingCycleT = (data.flapPhase || 0) * 1.9;
+    data.wingFlap = data.state === BIRD_STATES.ROOST ? 0 : spec.dihedral;
     data.evadeT = 0;
     data.evadeOx = 0;
     data.evadeOy = 0;
@@ -873,8 +1463,52 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
   const windVz = (env.windDirZ ?? 0.6) * 6.5 * windStrength;
   const waterLevel = env.waterLevel ?? 45.5;
 
-  // 1. Check aircraft proximity & wake turbulence when chunk is near the plane
-  if (env.checkAircraft && data.evadeT <= 0) {
+  const isRoostOrSettle =
+    data.state === BIRD_STATES.ROOST || data.state === BIRD_STATES.SETTLE;
+
+  // 1a. Grounded / marsh / beach roost startle check (`ROOST` or `SETTLE` -> `FLUSH`)
+  if (isRoostOrSettle && env.checkAircraft) {
+    evaluateRoostThreat(
+      curX,
+      curY,
+      curZ,
+      env.aircraft,
+      spec.roostStartleRadius || 175,
+      _threat
+    );
+    if (_threat.triggered) {
+      const sa = data.scatterAngle || 0;
+      const cs = Math.cos(sa);
+      const ss = Math.sin(sa);
+      const fdx = _threat.dx * cs - _threat.dz * ss;
+      const fdz = _threat.dx * ss + _threat.dz * cs;
+      const fromSettle = data.state === BIRD_STATES.SETTLE;
+
+      data.state = BIRD_STATES.FLUSH;
+      data.flushT = fromSettle ? 0 : -(data.flushDelay || 0);
+      data.flushDur = 3.1 + ((data.idleSeed || 0) % 0.75);
+      data.flushDx = fdx;
+      data.flushDz = fdz;
+      data.flushSpeed =
+        (data.type === 'heron' ? 23 : 38) * (0.9 + 0.25 * _threat.strength);
+      data.flushClimb =
+        (data.type === 'heron' ? 11.5 : 16.5) * (0.9 + 0.25 * _threat.strength);
+      data.flushedEmitted = false;
+      data.orbitTimeLeft = 24 + ((data.idleSeed || 0) % 10);
+      data.evadeT = 0;
+      data.evadeOx = 0;
+      data.evadeOy = 0;
+      data.evadeOz = 0;
+    }
+  }
+
+  const inGroundCycle =
+    data.state === BIRD_STATES.ROOST ||
+    data.state === BIRD_STATES.FLUSH ||
+    data.state === BIRD_STATES.SETTLE;
+
+  // 1b. Airborne aircraft proximity & wake turbulence check
+  if (!inGroundCycle && env.checkAircraft && data.evadeT <= 0) {
     evaluateAircraftThreat(
       curX,
       curY,
@@ -892,22 +1526,25 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
       if (_threat.wake) {
         data.wakeRoll = (_threat.dx >= 0 ? 1 : -1) * 0.75 * _threat.strength;
       }
-      if (data.type === 'goose') {
+      if (isMigratoryGoose) {
         data.state = BIRD_STATES.EVADE;
+      }
+      if (data.homeRoost) {
+        data.orbitTimeLeft = Math.max(data.orbitTimeLeft || 0, 20);
       }
     }
   }
 
   // Advance evasion impulse & wake-vortex roll decay
   let evadeWeight = 0;
-  if (data.evadeT > 0) {
+  if (!inGroundCycle && data.evadeT > 0) {
     data.evadeT += dt;
     if (data.evadeT >= spec.evadeDuration) {
       data.evadeT = 0;
       data.evadeOx = 0;
       data.evadeOy = 0;
       data.evadeOz = 0;
-      if (data.type === 'goose') data.state = BIRD_STATES.CRUISE;
+      if (isMigratoryGoose) data.state = BIRD_STATES.CRUISE;
     } else {
       // Fast burst away over first 0.65s, smooth regroup glide back to slot
       const u = data.evadeT;
@@ -919,7 +1556,7 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
       data.evadeOy = data.evadeDy * data.evadeMag * evadeWeight;
       data.evadeOz = data.evadeDz * data.evadeMag * evadeWeight;
     }
-  } else if (data.type === 'goose' && data.state === BIRD_STATES.EVADE) {
+  } else if (isMigratoryGoose && data.state === BIRD_STATES.EVADE) {
     data.state = BIRD_STATES.CRUISE;
   }
   if (Math.abs(data.wakeRoll) > 1e-3) {
@@ -935,504 +1572,826 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
   let wantPitch = 0;
   let wantBank = 0;
 
-  // --- 2. ARCHETYPE BEHAVIORS ---
-  switch (data.type) {
-    case 'goose': {
-      // Advance virtual V-leader along heading + subtle crosswind drift
-      const fwdX = -Math.sin(data.rotY);
-      const fwdZ = -Math.cos(data.rotY);
-      const stepFwd = (data.speed || 58) * dt;
-      data.leaderX =
-        (data.leaderX ?? curX - (data.slotWorldX || 0)) +
-        fwdX * stepFwd +
-        windVx * 0.18 * dt;
-      data.leaderZ =
-        (data.leaderZ ?? curZ - (data.slotWorldZ || 0)) +
-        fwdZ * stepFwd +
-        windVz * 0.18 * dt;
+  // --- 2A. REACTIVE ROOST / FLUSH / SETTLE STATES ---
+  if (data.state === BIRD_STATES.ROOST) {
+    data.wingFold += (1 - data.wingFold) * (1 - Math.exp(-8.0 * dt));
+    const t = env.elapsed || 0;
+    const seed = data.idleSeed || 0;
+    const rx0 = data.roostX ?? curX;
+    const ry0 = data.roostY ?? curY;
+    const rz0 = data.roostZ ?? curZ;
+    const ryaw = data.roostYaw ?? 0;
 
-      const slotX = data.leaderX + (data.slotWorldX || 0);
-      const slotZ = data.leaderZ + (data.slotWorldZ || 0);
+    if (data.type === 'duck') {
+      // Lazy marsh-reed figure-8 paddling + water swell bob + dabbling dips
+      const ph = t * 0.42 + seed;
+      const lx = Math.sin(ph) * 2.8;
+      const lz = Math.sin(ph * 2) * 1.5;
+      const vx = Math.cos(ph) * 2.8 * 0.42;
+      const vz = Math.cos(ph * 2) * 3.0 * 0.42;
+      let nx = rx0 + lx;
+      let nz = rz0 + lz;
+      if (env.getElev && env.getElev(nx, nz) > waterLevel - 0.15) {
+        nx = rx0;
+        nz = rz0;
+      }
+      targetX = nx;
+      targetZ = nz;
+      targetY = ry0 + Math.sin(t * 1.9 + seed) * 0.14;
+      if (vx * vx + vz * vz > 0.02) {
+        wantYaw = Math.atan2(-vx, -vz);
+      }
+      const cyc = (t + seed * 2.1) % 5.6;
+      if (cyc < 0.95) {
+        wantPitch = -0.42 * Math.sin((cyc / 0.95) * Math.PI);
+      }
+    } else if (data.type === 'heron') {
+      // Upright reed-bed wading posture with slow watchful scans & fishing strikes
+      targetX = rx0;
+      targetZ = rz0;
+      targetY = ry0 + (data.roostWater ? Math.sin(t * 1.7 + seed) * 0.04 : 0);
+      wantYaw = ryaw + Math.sin(t * 0.48 + seed) * 0.32;
+      wantPitch = 0;
+      const cyc = (t + seed * 3.1) % 7.4;
+      if (cyc < 0.55) {
+        wantPitch = -0.46 * Math.sin((cyc / 0.55) * Math.PI);
+      }
+    } else if (data.type === 'plover') {
+      // Signature Piping Plover surf-line run-stop-peck scurry along the wet sand
+      const cyc = (t + seed * 1.3) % 4.6;
+      const txDir = data.shoreTangX ?? 1;
+      const tzDir = data.shoreTangZ ?? 0;
+      const uxDir = data.shoreUpX ?? 0;
+      const uzDir = data.shoreUpZ ?? -1;
+      let sAlong;
+      let sUp = 0;
+      let hop = 0;
+      let dirSign;
+      if (cyc < 1.15) {
+        const u = cyc / 1.15;
+        sAlong = -3.8 + 7.6 * smoothstep(u, 0, 1);
+        sUp = -1.1 * Math.sin(u * Math.PI);
+        hop = Math.abs(Math.sin(t * 22 + seed)) * 0.1;
+        dirSign = 1;
+      } else if (cyc < 2.3) {
+        sAlong = 3.8;
+        dirSign = 1;
+        if (cyc > 1.45 && cyc < 1.85) {
+          wantPitch = -0.44 * Math.sin(((cyc - 1.45) / 0.4) * Math.PI);
+        }
+      } else if (cyc < 3.45) {
+        const u = (cyc - 2.3) / 1.15;
+        sAlong = 3.8 - 7.6 * smoothstep(u, 0, 1);
+        sUp = 0.9 * Math.sin(u * Math.PI);
+        hop = Math.abs(Math.sin(t * 22 + seed)) * 0.1;
+        dirSign = -1;
+      } else {
+        sAlong = -3.8;
+        dirSign = -1;
+        if (cyc > 3.75 && cyc < 4.15) {
+          wantPitch = -0.44 * Math.sin(((cyc - 3.75) / 0.4) * Math.PI);
+        }
+      }
+      targetX = rx0 + txDir * sAlong + uxDir * sUp;
+      targetZ = rz0 + tzDir * sAlong + uzDir * sUp;
+      const dh = env.getElev
+        ? env.getElev(targetX, targetZ) - env.getElev(rx0, rz0)
+        : 0;
+      targetY = Math.max(waterLevel + 0.35, ry0 + dh) + hop;
+      wantYaw = Math.atan2(-txDir * dirSign, -tzDir * dirSign);
+    } else if (data.type === 'seagull') {
+      // Beach loafing with periodic little hops and sand-pecking dips
+      const walkPh = t * 0.28 + seed;
+      targetX = rx0 + Math.cos(walkPh) * 1.5;
+      targetZ = rz0 + Math.sin(walkPh * 1.3) * 1.5;
+      const cyc = (t + seed * 1.7) % 6.2;
+      let hopY = 0;
+      if (cyc < 0.52) {
+        hopY = 0.78 * Math.sin((cyc / 0.52) * Math.PI);
+        wantPitch = 0.12;
+      } else if (cyc > 2.2 && cyc < 2.85) {
+        wantPitch = -0.34 * Math.sin(((cyc - 2.2) / 0.65) * Math.PI);
+      }
+      const dh = env.getElev
+        ? env.getElev(targetX, targetZ) - env.getElev(rx0, rz0)
+        : 0;
+      targetY = Math.max(waterLevel + 0.4, ry0 + dh) + hopY;
+      wantYaw = ryaw + Math.sin(walkPh * 0.8) * 0.42;
+    } else {
+      // Grazing meadow geese: slow pasture walk + grass-pecking dips
+      const walkPh = t * 0.22 + seed;
+      const vx = -Math.sin(walkPh) * 2.4 * 0.22;
+      const vz = Math.cos(walkPh) * 1.8 * 0.22;
+      targetX = rx0 + Math.cos(walkPh) * 2.4;
+      targetZ = rz0 + Math.sin(walkPh) * 1.8;
+      const dh = env.getElev
+        ? env.getElev(targetX, targetZ) - env.getElev(rx0, rz0)
+        : 0;
+      targetY = Math.max(waterLevel + 1.0, ry0 + dh);
+      wantYaw =
+        vx * vx + vz * vz > 0.01
+          ? lerpAngle(ryaw, Math.atan2(-vx, -vz), 0.35)
+          : ryaw;
+      const cyc = (t + seed * 1.9) % 4.8;
+      if (cyc < 1.35) {
+        wantPitch = -0.48 * Math.sin((cyc / 1.35) * Math.PI);
+      }
+    }
+  } else if (data.state === BIRD_STATES.FLUSH) {
+    const prevT = data.flushT ?? 0;
+    data.flushT = prevT + dt;
+    if (data.flushT < 0) {
+      // Staggered pre-jump alert crouch (0..250 ms) so the flock lifts as a wave
+      data.wingFold += (0.72 - data.wingFold) * (1 - Math.exp(-14.0 * dt));
+      wantYaw = Math.atan2(-data.flushDx, -data.flushDz);
+      wantPitch = 0.16;
+    } else {
+      if (!data.flushedEmitted) {
+        data.flushedEmitted = true;
+        out.flushed = true;
+        if (
+          data.roostWater &&
+          (!env.getElev || env.getElev(curX, curZ) <= waterLevel + 0.2)
+        ) {
+          out.splash = true;
+        }
+      }
+      data.wingFold = clamp(1 - data.flushT / 0.2, 0, 1);
+      const dur = data.flushDur || 3.3;
+      const u = clamp(data.flushT / dur, 0, 1);
 
-      // Staggered 4 Hz terrain lookahead so V-flocks climb smoothly over peaks
+      // Gentle arc onto orbit direction while climbing steeply away
+      const turnRate = (data.circleSpeed || 0.36) * 0.45 * u * dt;
+      const ct = Math.cos(turnRate);
+      const st = Math.sin(turnRate);
+      const nx = data.flushDx * ct - data.flushDz * st;
+      const nz = data.flushDx * st + data.flushDz * ct;
+      data.flushDx = nx;
+      data.flushDz = nz;
+
+      const hSpd = (data.flushSpeed || 36) * (1 - 0.18 * u);
+      const vSpd = (data.flushClimb || 15) * (1 - 0.78 * u * u);
+      targetX = curX + nx * hSpd * dt;
+      targetZ = curZ + nz * hSpd * dt;
+      let minFloor = waterLevel + 1.5;
       if (env.getElev) {
-        const phase = (((data.rotY / TAU) % 1) + 1) % 1;
-        const slot = Math.floor((env.elapsed || 0) / 0.25 + phase);
-        if (slot !== data.groundSlot) {
-          data.groundSlot = slot;
-          // Probe slightly ahead of the goose so climb starts before a ridge
-          data.groundY = env.getElev(slotX + fwdX * 80, slotZ + fwdZ * 80);
-        }
+        minFloor = Math.max(minFloor, env.getElev(targetX, targetZ) + 2.0);
       }
-      const minAlt = Math.max(waterLevel, data.groundY ?? waterLevel) + 250;
-      const baseAlt = Math.max(data.leaderY ?? curY, minAlt);
-      const climbDiff = baseAlt - (curY - (data.evadeOy || 0));
-      const baseCurY =
-        curY -
-        (data.evadeOy || 0) +
-        clamp(climbDiff * 2.4 * dt, -18 * dt, 32 * dt);
+      targetY = Math.max(minFloor, curY + vSpd * dt);
 
-      targetX = slotX + data.evadeOx;
-      targetY = Math.max(waterLevel + 12, baseCurY + data.evadeOy);
-      targetZ = slotZ + data.evadeOz;
+      wantYaw = Math.atan2(-nx, -nz);
+      wantPitch = clamp(Math.atan2(vSpd, hSpd) * 1.1, 0.06, 0.52);
+      wantBank =
+        Math.sign(data.circleSpeed || 1) * 0.34 * smoothstep(u, 0.22, 1.0);
 
-      wantYaw = data.rotY;
-      wantPitch = clamp(climbDiff * 0.004, -0.18, 0.28);
-      if (evadeWeight > 0.05) {
-        // Bank into evasion break, then opposite bank while sliding back into V
-        const escaping = data.evadeT < 0.65 ? 1 : -0.45;
-        const sideDot =
-          data.evadeDx * Math.cos(data.rotY) -
-          data.evadeDz * Math.sin(data.rotY);
-        wantYaw = data.rotY - sideDot * 0.42 * evadeWeight * escaping;
-        wantBank = -sideDot * 0.55 * evadeWeight * escaping;
-      }
-      break;
-    }
-
-    case 'hawk': {
-      // State cycle: THERMAL (spiral climb + downwind drift) <-> GLIDE (upwind
-      // return) + occasional FORAGE stoop
-      data.nextStoopWait = (data.nextStoopWait ?? 40) - dt;
-      if (data.state === BIRD_STATES.THERMAL) {
-        data.angle += data.circleSpeed * dt;
-        // Thermal column drifts gently downwind while the hawk climbs
-        data.cx += windVx * 0.28 * dt;
-        data.cz += windVz * 0.28 * dt;
-        data.cy += (data.climbRate || 8) * dt;
-        if (data.cy >= (data.thermalTop || data.homeY + 120)) {
-          data.state =
-            data.nextStoopWait <= 0 ? BIRD_STATES.FORAGE : BIRD_STATES.GLIDE;
-          data.divePhase = 0;
-          if (data.state === BIRD_STATES.FORAGE) {
-            data.nextStoopWait = 38 + ((data.flapPhase * 7) % 25);
-          }
-        }
-        targetX = data.cx + Math.cos(data.angle) * data.circleRadius;
-        targetZ = data.cz + Math.sin(data.angle) * data.circleRadius;
-        targetY = data.cy;
-        const tangX = -Math.sin(data.angle) * Math.sign(data.circleSpeed);
-        const tangZ = Math.cos(data.angle) * Math.sign(data.circleSpeed);
-        wantYaw = Math.atan2(-tangX, -tangZ);
-        wantPitch = 0.06;
-        wantBank = Math.sign(data.circleSpeed) * 0.36;
-      } else if (data.state === BIRD_STATES.FORAGE) {
-        // Swift shallow raptor stoop and zoom recovery
-        data.divePhase += dt / 3.4;
-        data.angle += data.circleSpeed * 1.25 * dt;
-        const stoopDrop = Math.sin(Math.min(1, data.divePhase) * Math.PI) * 85;
-        targetX = data.cx + Math.cos(data.angle) * data.circleRadius * 0.85;
-        targetZ = data.cz + Math.sin(data.angle) * data.circleRadius * 0.85;
-        targetY = Math.max(waterLevel + 35, data.cy - stoopDrop);
-        const tangX = -Math.sin(data.angle) * Math.sign(data.circleSpeed);
-        const tangZ = Math.cos(data.angle) * Math.sign(data.circleSpeed);
-        wantYaw = Math.atan2(-tangX, -tangZ);
-        wantPitch = -Math.cos(data.divePhase * Math.PI) * 0.55;
-        wantBank = Math.sign(data.circleSpeed) * 0.22;
-        if (data.divePhase >= 1) {
-          data.state = BIRD_STATES.GLIDE;
-        }
-      } else {
-        // GLIDE: gently lose altitude while gliding back toward home upwind thermal
-        const dx = (data.homeX ?? data.cx) - data.cx;
-        const dz = (data.homeZ ?? data.cz) - data.cz;
-        const dist = Math.hypot(dx, dz);
-        const glideSpeed = 34;
-        if (dist > 8) {
-          data.cx += (dx / dist) * glideSpeed * dt;
-          data.cz += (dz / dist) * glideSpeed * dt;
-          wantYaw = Math.atan2(-dx, -dz);
-        }
-        data.cy = Math.max(data.homeY ?? 220, data.cy - 14 * dt);
-        data.angle += data.circleSpeed * 0.5 * dt;
-        targetX = data.cx + Math.cos(data.angle) * data.circleRadius * 0.6;
-        targetZ = data.cz + Math.sin(data.angle) * data.circleRadius * 0.6;
-        targetY = data.cy;
-        wantPitch = -0.09;
-        wantBank = Math.sign(data.circleSpeed) * 0.16;
-        if (dist <= 22 && data.cy <= (data.homeY ?? 220) + 8) {
-          data.state = BIRD_STATES.THERMAL;
-        }
-      }
-      break;
-    }
-
-    case 'seagull': {
-      // SOAR wheeling -> brief upwind KITE hover -> parabolic FORAGE dive to water
-      if (data.state === BIRD_STATES.SOAR) {
-        data.angle += data.circleSpeed * dt;
-        data.stateTimer -= dt;
-        targetX = data.cx + Math.cos(data.angle) * data.circleRadius;
-        targetZ = data.cz + Math.sin(data.angle) * data.circleRadius;
-        targetY = data.cy + Math.sin(data.angle * 2 + data.flapPhase) * 6;
-        const tangX = -Math.sin(data.angle) * Math.sign(data.circleSpeed);
-        const tangZ = Math.cos(data.angle) * Math.sign(data.circleSpeed);
-        wantYaw = Math.atan2(-tangX, -tangZ);
-        wantBank = Math.sign(data.circleSpeed) * 0.32;
-        if (data.stateTimer <= 0 && data.cy > waterLevel + 24) {
-          // Only plunge for fish over the water, not over the shore or a cliff
-          if ((data.floorY ?? waterLevel) > waterLevel + 0.5) {
-            data.stateTimer = 1.5;
-            break;
-          }
-          data.state = BIRD_STATES.KITE;
-          data.divePhase = 0;
-        }
-      } else if (data.state === BIRD_STATES.KITE) {
-        // Turn nose into the wind and hover-flutter for 1.1s spotting fish
-        data.divePhase += dt / 1.1;
-        data.angle += data.circleSpeed * 0.18 * dt;
-        targetX = data.cx + Math.cos(data.angle) * data.circleRadius;
-        targetZ = data.cz + Math.sin(data.angle) * data.circleRadius;
-        targetY = data.cy + Math.sin(data.divePhase * Math.PI) * 5;
-        wantYaw = Math.atan2(env.windDirX ?? 0.8, env.windDirZ ?? 0.6);
-        wantPitch = 0.15;
-        wantBank = 0;
-        if (data.divePhase >= 1) {
-          data.state = BIRD_STATES.FORAGE;
-          data.divePhase = 0;
-          data.splashed = false;
-        }
-      } else {
-        // FORAGE: parabolic plunge to WATER_LEVEL + 2 and climb out
-        const prevPhase = data.divePhase;
-        data.divePhase += dt / 3.4;
-        data.angle += data.circleSpeed * 0.55 * dt;
-        const p = Math.min(1, data.divePhase);
-        const depth = Math.max(10, data.cy - (waterLevel + 2.5));
-        targetX = data.cx + Math.cos(data.angle) * data.circleRadius;
-        targetZ = data.cz + Math.sin(data.angle) * data.circleRadius;
-        targetY = data.cy - Math.sin(p * Math.PI) * depth;
-        if (!data.splashed && prevPhase < 0.5 && data.divePhase >= 0.5) {
-          data.splashed = true;
-          out.splash = (data.floorY ?? waterLevel) <= waterLevel + 0.5;
-        }
-        const tangX = -Math.sin(data.angle) * Math.sign(data.circleSpeed);
-        const tangZ = Math.cos(data.angle) * Math.sign(data.circleSpeed);
-        wantYaw = Math.atan2(-tangX, -tangZ);
-        wantPitch = -Math.cos(p * Math.PI) * 0.78;
-        wantBank = 0.08 * Math.sign(data.circleSpeed);
-        if (data.divePhase >= 1) {
+      if (data.flushT >= dur) {
+        data.wingFold = 0;
+        if (data.type === 'heron') {
+          // C0-exact handoff into Lissajous marsh patrol (`lx = lz = 0` at angle 0)
+          data.cx = targetX;
+          data.cz = targetZ;
+          data.cy = targetY;
+          data.angle = 0;
+          data.rotY = Math.atan2(-nx, -nz);
+          data.state = BIRD_STATES.CRUISE;
+          data.stateTimer = 8.5;
+        } else {
+          // C1-exact position + tangent handoff onto overhead wheeling circle
+          const sign = Math.sign(data.circleSpeed || 0.38) || 1;
+          const R = data.circleRadius || 85;
+          data.angle = Math.atan2(-nx * sign, nz * sign);
+          data.cx = targetX - Math.cos(data.angle) * R;
+          data.cz = targetZ - Math.sin(data.angle) * R;
+          data.cy = targetY;
           data.state = BIRD_STATES.SOAR;
           data.stateTimer = data.nextForageWait || 18;
         }
       }
-      break;
     }
+  } else if (data.state === BIRD_STATES.SETTLE) {
+    data.settlePhase = (data.settlePhase || 0) + dt / (data.settleDur || 4.5);
+    const p = clamp(data.settlePhase, 0, 1);
+    const s = smoothstep(p, 0, 1);
+    const sx0 = data.settleStartX ?? curX;
+    const sy0 = data.settleStartY ?? curY;
+    const sz0 = data.settleStartZ ?? curZ;
+    const rx0 = data.roostX ?? curX;
+    const ry0 = data.roostY ?? curY;
+    const rz0 = data.roostZ ?? curZ;
 
-    case 'heron': {
-      // Lazy figure-8 / Lissajous marsh patrol alternating CRUISE (24-38 u)
-      // and low SKIM glide (8-12 u above water/reeds)
-      const rate = (data.speed || 21) / (data.patrolRadius || 165);
-      const prevX = curX - (data.evadeOx || 0);
-      const prevZ = curZ - (data.evadeOz || 0);
-      data.angle += rate * dt;
-      data.stateTimer -= dt;
-      if (data.stateTimer <= 0) {
-        data.state =
-          data.state === BIRD_STATES.SKIM
-            ? BIRD_STATES.CRUISE
-            : BIRD_STATES.SKIM;
-        data.stateTimer = data.state === BIRD_STATES.SKIM ? 6.5 : 10.5;
+    targetX = sx0 + (rx0 - sx0) * s;
+    targetZ = sz0 + (rz0 - sz0) * s;
+    const descent = 1 - Math.pow(1 - p, 1.65);
+    targetY = sy0 + (ry0 - sy0) * descent;
+    data.wingFold = p > 0.82 ? smoothstep(p, 0.82, 1.0) : 0;
+
+    const dx = rx0 - sx0;
+    const dz = rz0 - sz0;
+    const appYaw =
+      dx * dx + dz * dz > 1 ? Math.atan2(-dx, -dz) : data.roostYaw || 0;
+    wantYaw =
+      p > 0.76
+        ? lerpAngle(appYaw, data.roostYaw ?? appYaw, smoothstep(p, 0.76, 1.0))
+        : appYaw;
+    wantPitch = p < 0.74 ? -0.14 : 0.18 * (1 - smoothstep(p, 0.92, 1.0));
+    wantBank = 0;
+
+    if (data.settlePhase >= 1) {
+      data.state = BIRD_STATES.ROOST;
+      data.wingFold = 1;
+      if (
+        data.roostWater &&
+        (!env.getElev || env.getElev(targetX, targetZ) <= waterLevel + 0.2)
+      ) {
+        out.splash = true;
       }
-
-      const r = data.patrolRadius || 165;
-      const lx = Math.sin(data.angle) * r;
-      const lz = Math.sin(data.angle * 2) * r * 0.48;
-      const rot = rotateXZ(lx, lz, data.rotY || 0);
-      const nextX = data.cx + rot.x;
-      const nextZ = data.cz + rot.z;
-
-      if (env.getElev) {
-        const slot = Math.floor(
-          (env.elapsed || 0) / 0.4 + (data.flapPhase % 1)
-        );
-        if (slot !== data.groundSlot) {
-          data.groundSlot = slot;
-          data.groundY = Math.max(waterLevel, env.getElev(nextX, nextZ));
-        }
-      }
-      const floorY = data.groundY ?? waterLevel;
-      const wantAlt = floorY + (data.state === BIRD_STATES.SKIM ? 9.0 : 28.0);
-      const baseCurY = curY - (data.evadeOy || 0);
-      const nextY =
-        baseCurY + clamp((wantAlt - baseCurY) * 1.4 * dt, -10 * dt, 10 * dt);
-
-      const vx = (nextX - prevX) / Math.max(dt, 1e-3);
-      const vz = (nextZ - prevZ) / Math.max(dt, 1e-3);
-      if (vx * vx + vz * vz > 0.5) {
-        const nextYaw = Math.atan2(-vx, -vz);
-        const yawRate = wrapAngle(nextYaw - data.yaw) / Math.max(dt, 1e-3);
-        wantYaw = nextYaw;
-        wantBank = clamp(-yawRate * 0.45, -0.32, 0.32);
-      }
-      wantPitch = clamp((wantAlt - baseCurY) * 0.015, -0.14, 0.14);
-      targetX = nextX;
-      targetY = nextY;
-      targetZ = nextZ;
-      break;
     }
+  } else {
+    data.wingFold = 0;
 
-    case 'pelican': {
-      // Independent wide-wheeling coastal pelicans: low swell SKIM -> high
-      // baitball SOAR -> steep FORAGE plunge-dive that bob-floats in place on
-      // the water while scooping fish before climbing back into orbit
-      data.stateTimer -= dt;
-      const swell = Math.sin((env.elapsed || 0) * 1.6 + data.angle * 3) * 1.4;
-      const skimH = data.skimOffset ?? 9.5;
-      const soarH = data.soarOffset ?? 68;
-
-      if (data.state === BIRD_STATES.SKIM) {
-        data.angle += data.circleSpeed * dt;
-        const wantY = waterLevel + skimH + swell;
-        const baseY = curY - (data.evadeOy || 0);
-        targetY = baseY + clamp((wantY - baseY) * 2.2 * dt, -18 * dt, 18 * dt);
-        wantPitch = clamp((wantY - baseY) * 0.02, -0.12, 0.12);
-        wantBank = Math.sign(data.circleSpeed) * 0.22;
-        if (data.stateTimer <= 0) {
-          data.state = BIRD_STATES.SOAR;
-          data.stateTimer = 6.5;
+    // --- 2B. AIRBORNE ARCHETYPE BEHAVIORS ---
+    switch (data.type) {
+      case 'goose': {
+        if (data.homeRoost) {
+          // Flushed meadow geese wheel cohesively over their pasture before resettling
+          data.angle += (data.circleSpeed || 0.34) * dt;
+          targetX = data.cx + Math.cos(data.angle) * data.circleRadius;
+          targetZ = data.cz + Math.sin(data.angle) * data.circleRadius;
+          targetY = data.cy + Math.sin(data.angle * 2 + data.flapPhase) * 4.5;
+          const sign = Math.sign(data.circleSpeed || 1);
+          const tangX = -Math.sin(data.angle) * sign;
+          const tangZ = Math.cos(data.angle) * sign;
+          wantYaw = Math.atan2(-tangX, -tangZ);
+          wantPitch = 0.03;
+          wantBank = sign * 0.28;
+          break;
         }
-      } else if (data.state === BIRD_STATES.SOAR) {
-        data.angle += data.circleSpeed * dt;
-        const wantY = waterLevel + soarH;
-        const baseY = curY - (data.evadeOy || 0);
-        targetY = baseY + clamp((wantY - baseY) * 1.5 * dt, -16 * dt, 22 * dt);
-        wantPitch = clamp((wantY - baseY) * 0.015, -0.1, 0.24);
-        wantBank = Math.sign(data.circleSpeed) * 0.34;
-        if (data.stateTimer <= 0) {
-          if ((data.floorY ?? waterLevel) > waterLevel + 0.5) {
-            // Over the shore: wheel on and try again a moment later
-            data.stateTimer = 1.5;
-          } else {
+        // Advance virtual V-leader along heading + subtle crosswind drift
+        const fwdX = -Math.sin(data.rotY);
+        const fwdZ = -Math.cos(data.rotY);
+        const stepFwd = (data.speed || 58) * dt;
+        data.leaderX =
+          (data.leaderX ?? curX - (data.slotWorldX || 0)) +
+          fwdX * stepFwd +
+          windVx * 0.18 * dt;
+        data.leaderZ =
+          (data.leaderZ ?? curZ - (data.slotWorldZ || 0)) +
+          fwdZ * stepFwd +
+          windVz * 0.18 * dt;
+
+        const slotX = data.leaderX + (data.slotWorldX || 0);
+        const slotZ = data.leaderZ + (data.slotWorldZ || 0);
+
+        // Staggered 4 Hz terrain lookahead so V-flocks climb smoothly over peaks
+        if (env.getElev) {
+          const phase = (((data.rotY / TAU) % 1) + 1) % 1;
+          const slot = Math.floor((env.elapsed || 0) / 0.25 + phase);
+          if (slot !== data.groundSlot) {
+            data.groundSlot = slot;
+            // Probe slightly ahead of the goose so climb starts before a ridge
+            data.groundY = env.getElev(slotX + fwdX * 80, slotZ + fwdZ * 80);
+          }
+        }
+        const minAlt = Math.max(waterLevel, data.groundY ?? waterLevel) + 250;
+        const baseAlt = Math.max(data.leaderY ?? curY, minAlt);
+        const climbDiff = baseAlt - (curY - (data.evadeOy || 0));
+        const baseCurY =
+          curY -
+          (data.evadeOy || 0) +
+          clamp(climbDiff * 2.4 * dt, -18 * dt, 32 * dt);
+
+        targetX = slotX + data.evadeOx;
+        targetY = Math.max(waterLevel + 12, baseCurY + data.evadeOy);
+        targetZ = slotZ + data.evadeOz;
+
+        wantYaw = data.rotY;
+        wantPitch = clamp(climbDiff * 0.004, -0.18, 0.28);
+        if (evadeWeight > 0.05) {
+          // Bank into evasion break, then opposite bank while sliding back into V
+          const escaping = data.evadeT < 0.65 ? 1 : -0.45;
+          const sideDot =
+            data.evadeDx * Math.cos(data.rotY) -
+            data.evadeDz * Math.sin(data.rotY);
+          wantYaw = data.rotY - sideDot * 0.42 * evadeWeight * escaping;
+          wantBank = -sideDot * 0.55 * evadeWeight * escaping;
+        }
+        break;
+      }
+
+      case 'hawk': {
+        // State cycle: THERMAL (spiral climb + downwind drift) <-> GLIDE (upwind
+        // return) + occasional FORAGE stoop
+        data.nextStoopWait = (data.nextStoopWait ?? 40) - dt;
+        if (data.state === BIRD_STATES.THERMAL) {
+          data.angle += data.circleSpeed * dt;
+          // Thermal column drifts gently downwind while the hawk climbs
+          data.cx += windVx * 0.28 * dt;
+          data.cz += windVz * 0.28 * dt;
+          data.cy += (data.climbRate || 8) * dt;
+          if (data.cy >= (data.thermalTop || data.homeY + 120)) {
+            data.state =
+              data.nextStoopWait <= 0 ? BIRD_STATES.FORAGE : BIRD_STATES.GLIDE;
+            data.divePhase = 0;
+            if (data.state === BIRD_STATES.FORAGE) {
+              data.nextStoopWait = 38 + ((data.flapPhase * 7) % 25);
+            }
+          }
+          targetX = data.cx + Math.cos(data.angle) * data.circleRadius;
+          targetZ = data.cz + Math.sin(data.angle) * data.circleRadius;
+          targetY = data.cy;
+          const tangX = -Math.sin(data.angle) * Math.sign(data.circleSpeed);
+          const tangZ = Math.cos(data.angle) * Math.sign(data.circleSpeed);
+          wantYaw = Math.atan2(-tangX, -tangZ);
+          wantPitch = 0.06;
+          wantBank = Math.sign(data.circleSpeed) * 0.36;
+        } else if (data.state === BIRD_STATES.FORAGE) {
+          // Swift shallow raptor stoop and zoom recovery
+          data.divePhase += dt / 3.4;
+          data.angle += data.circleSpeed * 1.25 * dt;
+          const stoopDrop =
+            Math.sin(Math.min(1, data.divePhase) * Math.PI) * 85;
+          targetX = data.cx + Math.cos(data.angle) * data.circleRadius * 0.85;
+          targetZ = data.cz + Math.sin(data.angle) * data.circleRadius * 0.85;
+          targetY = Math.max(waterLevel + 35, data.cy - stoopDrop);
+          const tangX = -Math.sin(data.angle) * Math.sign(data.circleSpeed);
+          const tangZ = Math.cos(data.angle) * Math.sign(data.circleSpeed);
+          wantYaw = Math.atan2(-tangX, -tangZ);
+          wantPitch = -Math.cos(data.divePhase * Math.PI) * 0.55;
+          wantBank = Math.sign(data.circleSpeed) * 0.22;
+          if (data.divePhase >= 1) {
+            data.state = BIRD_STATES.GLIDE;
+          }
+        } else {
+          // GLIDE: gently lose altitude while gliding back toward home upwind thermal
+          const dx = (data.homeX ?? data.cx) - data.cx;
+          const dz = (data.homeZ ?? data.cz) - data.cz;
+          const dist = Math.hypot(dx, dz);
+          const glideSpeed = 34;
+          if (dist > 8) {
+            data.cx += (dx / dist) * glideSpeed * dt;
+            data.cz += (dz / dist) * glideSpeed * dt;
+            wantYaw = Math.atan2(-dx, -dz);
+          }
+          data.cy = Math.max(data.homeY ?? 220, data.cy - 14 * dt);
+          data.angle += data.circleSpeed * 0.5 * dt;
+          targetX = data.cx + Math.cos(data.angle) * data.circleRadius * 0.6;
+          targetZ = data.cz + Math.sin(data.angle) * data.circleRadius * 0.6;
+          targetY = data.cy;
+          wantPitch = -0.09;
+          wantBank = Math.sign(data.circleSpeed) * 0.16;
+          if (dist <= 22 && data.cy <= (data.homeY ?? 220) + 8) {
+            data.state = BIRD_STATES.THERMAL;
+          }
+        }
+        break;
+      }
+
+      case 'seagull': {
+        // SOAR wheeling -> brief upwind KITE hover -> parabolic FORAGE dive to water
+        if (data.state === BIRD_STATES.SOAR) {
+          data.angle += data.circleSpeed * dt;
+          data.stateTimer -= dt;
+          targetX = data.cx + Math.cos(data.angle) * data.circleRadius;
+          targetZ = data.cz + Math.sin(data.angle) * data.circleRadius;
+          targetY = data.cy + Math.sin(data.angle * 2 + data.flapPhase) * 6;
+          const tangX = -Math.sin(data.angle) * Math.sign(data.circleSpeed);
+          const tangZ = Math.cos(data.angle) * Math.sign(data.circleSpeed);
+          wantYaw = Math.atan2(-tangX, -tangZ);
+          wantBank = Math.sign(data.circleSpeed) * 0.32;
+          if (data.stateTimer <= 0 && data.cy > waterLevel + 24) {
+            // Only plunge for fish over the water, not over the shore or a cliff
+            if ((data.floorY ?? waterLevel) > waterLevel + 0.5) {
+              data.stateTimer = 1.5;
+              break;
+            }
+            data.state = BIRD_STATES.KITE;
+            data.divePhase = 0;
+          }
+        } else if (data.state === BIRD_STATES.KITE) {
+          // Turn nose into the wind and hover-flutter for 1.1s spotting fish
+          data.divePhase += dt / 1.1;
+          data.angle += data.circleSpeed * 0.18 * dt;
+          targetX = data.cx + Math.cos(data.angle) * data.circleRadius;
+          targetZ = data.cz + Math.sin(data.angle) * data.circleRadius;
+          targetY = data.cy + Math.sin(data.divePhase * Math.PI) * 5;
+          wantYaw = Math.atan2(env.windDirX ?? 0.8, env.windDirZ ?? 0.6);
+          wantPitch = 0.15;
+          wantBank = 0;
+          if (data.divePhase >= 1) {
             data.state = BIRD_STATES.FORAGE;
             data.divePhase = 0;
             data.splashed = false;
           }
-        }
-      } else {
-        // Plunge dive (0..0.45), stationary surface float/scoop (0.45..0.72), climb out
-        const prev = data.divePhase;
-        data.divePhase += dt / 4.2;
-        const p = Math.min(1, data.divePhase);
-        if (p < 0.45) {
-          const u = p / 0.45;
-          data.angle += data.circleSpeed * (1 - u * 0.85) * dt;
-          targetY = waterLevel + soarH - smoothstep(u, 0, 1) * (soarH - 2);
-          wantPitch = -0.82 * Math.sin(u * Math.PI);
-          wantBank = 0;
-        } else if (p < 0.72) {
-          // Hold horizontal position on the water while bobbing on the swell
-          if (!data.splashed && prev < 0.45) {
+        } else {
+          // FORAGE: parabolic plunge to WATER_LEVEL + 2 and climb out
+          const prevPhase = data.divePhase;
+          data.divePhase += dt / 3.4;
+          data.angle += data.circleSpeed * 0.55 * dt;
+          const p = Math.min(1, data.divePhase);
+          const depth = Math.max(10, data.cy - (waterLevel + 2.5));
+          targetX = data.cx + Math.cos(data.angle) * data.circleRadius;
+          targetZ = data.cz + Math.sin(data.angle) * data.circleRadius;
+          targetY = data.cy - Math.sin(p * Math.PI) * depth;
+          if (!data.splashed && prevPhase < 0.5 && data.divePhase >= 0.5) {
             data.splashed = true;
             out.splash = (data.floorY ?? waterLevel) <= waterLevel + 0.5;
           }
-          targetY = waterLevel + 1.8 + swell * 0.5;
-          wantPitch = 0.04;
-          wantBank = 0;
-        } else {
-          const u = (p - 0.72) / 0.28;
-          data.angle += data.circleSpeed * smoothstep(u, 0, 1) * dt;
-          targetY = waterLevel + 2.0 + smoothstep(u, 0, 1) * (skimH - 2.0);
-          wantPitch = 0.22;
-          wantBank = Math.sign(data.circleSpeed) * 0.16;
-        }
-        if (data.divePhase >= 1) {
-          data.state = BIRD_STATES.SKIM;
-          data.stateTimer = data.nextForageWait || 22;
-        }
-      }
-
-      targetX = data.cx + Math.cos(data.angle) * data.circleRadius;
-      targetZ = data.cz + Math.sin(data.angle) * data.circleRadius;
-      const tangX = -Math.sin(data.angle) * Math.sign(data.circleSpeed);
-      const tangZ = Math.cos(data.angle) * Math.sign(data.circleSpeed);
-      wantYaw = Math.atan2(-tangX, -tangZ);
-      break;
-    }
-
-    case 'swallow': {
-      // Fast low-AGL insect-hawking Lissajous + analytical derivatives (zero dt jitter)
-      const t = env.elapsed || 0;
-      const w = data.dartSpeed || 1.1;
-      const jf = data.jinkFreq || 3.0;
-      const jp = data.jinkPhase || 0;
-      const A = data.orbitA || 55;
-      const B = data.orbitB || 38;
-
-      data.angle += w * dt;
-      const ca = Math.cos(data.angle);
-      const sa = Math.sin(data.angle);
-      const c2 = Math.cos(data.angle * 2);
-      const s2 = Math.sin(data.angle * 2);
-      const jinkPhase = t * jf + jp;
-
-      const lx = ca * A + Math.sin(jinkPhase) * 9;
-      const lz = s2 * B;
-      const dlx = -sa * A * w + Math.cos(jinkPhase) * 9 * jf;
-      const dlz = 2 * c2 * B * w;
-      const ddlx = -ca * A * w * w - Math.sin(jinkPhase) * 9 * jf * jf;
-      const ddlz = -4 * s2 * B * w * w;
-
-      const cRot = Math.cos(data.orbitRot || 0);
-      const sRot = Math.sin(data.orbitRot || 0);
-      targetX = data.cx + lx * cRot - lz * sRot;
-      targetZ = data.cz + lx * sRot + lz * cRot;
-      targetY =
-        data.cy +
-        Math.sin(data.angle * 3 + jp) * 7.5 +
-        Math.cos(t * 2.8 + data.flapPhase) * 2.5;
-
-      const vx = dlx * cRot - dlz * sRot;
-      const vz = dlx * sRot + dlz * cRot;
-      const ax = ddlx * cRot - ddlz * sRot;
-      const az = ddlx * sRot + ddlz * cRot;
-      const vy =
-        Math.cos(data.angle * 3 + jp) * 22.5 * w -
-        Math.sin(t * 2.8 + data.flapPhase) * 7.0;
-      const hSpd = Math.hypot(vx, vz);
-      if (hSpd > 0.5) {
-        wantYaw = Math.atan2(-vx, -vz);
-        wantBank = clamp(-(vx * az - vz * ax) / (hSpd * 95), -0.95, 0.95);
-        wantPitch = clamp(Math.atan2(vy, hSpd), -0.55, 0.55);
-      }
-      break;
-    }
-
-    case 'raven': {
-      // Cross-wind elongated ridge-lift racecourse + analytical curvature bank
-      // + playful 360 updraft rolls
-      const windLiftBoost = 0.85 + 0.35 * windStrength;
-      const wEff = (data.circleSpeed || 0.32) * windLiftBoost;
-      data.angle += wEff * dt;
-      data.nextPlayWait = (data.nextPlayWait ?? 20) - dt;
-      if (data.state !== BIRD_STATES.PLAY && data.nextPlayWait <= 0) {
-        data.state = BIRD_STATES.PLAY;
-        data.divePhase = 0;
-      }
-
-      const L = data.ridgeHalfLen || 175;
-      const W = data.ridgeWidth || 65;
-      const sa = Math.sin(data.angle);
-      const ca = Math.cos(data.angle);
-      const along = sa * L;
-      const across = ca * W;
-      const dAlong = ca * L * wEff;
-      const dAcross = -sa * W * wEff;
-      const ddAlong = -sa * L * wEff * wEff;
-      const ddAcross = -ca * W * wEff * wEff;
-
-      const axAxis = data.axisX ?? -0.6;
-      const azAxis = data.axisZ ?? 0.8;
-      const perpX = -azAxis;
-      const perpZ = axAxis;
-      targetX = data.cx + axAxis * along + perpX * across;
-      targetZ = data.cz + azAxis * along + perpZ * across;
-
-      if (env.getElev) {
-        const slot = Math.floor(
-          (env.elapsed || 0) / 0.35 + (data.flapPhase % 1)
-        );
-        if (slot !== data.groundSlot) {
-          data.groundSlot = slot;
-          const sampled = Math.max(waterLevel, env.getElev(targetX, targetZ));
-          data.groundY = sampled;
-          if (data.smoothedGroundY === undefined) {
-            data.smoothedGroundY = sampled;
+          const tangX = -Math.sin(data.angle) * Math.sign(data.circleSpeed);
+          const tangZ = Math.cos(data.angle) * Math.sign(data.circleSpeed);
+          wantYaw = Math.atan2(-tangX, -tangZ);
+          wantPitch = -Math.cos(p * Math.PI) * 0.78;
+          wantBank = 0.08 * Math.sign(data.circleSpeed);
+          if (data.divePhase >= 1) {
+            data.state = BIRD_STATES.SOAR;
+            data.stateTimer = data.nextForageWait || 18;
           }
         }
-      }
-      if (data.smoothedGroundY !== undefined && data.groundY !== undefined) {
-        data.smoothedGroundY +=
-          (data.groundY - data.smoothedGroundY) * (1 - Math.exp(-2.6 * dt));
-      }
-      const groundRef = data.smoothedGroundY ?? data.groundY ?? waterLevel;
-      const ridgeClear = groundRef + 55;
-      const liftWave = Math.sin(data.angle * 2) * 14 * windLiftBoost;
-      targetY = Math.max(ridgeClear, data.cy + liftWave);
-
-      const vx = axAxis * dAlong + perpX * dAcross;
-      const vz = azAxis * dAlong + perpZ * dAcross;
-      const accX = axAxis * ddAlong + perpX * ddAcross;
-      const accZ = azAxis * ddAlong + perpZ * ddAcross;
-      const vy = Math.cos(data.angle * 2) * 28 * windLiftBoost * wEff;
-      const hSpd = Math.hypot(vx, vz);
-      if (hSpd > 0.5) {
-        wantYaw = Math.atan2(-vx, -vz);
-        wantPitch = clamp(Math.atan2(vy, hSpd), -0.35, 0.35);
-        wantBank = clamp(-(vx * accZ - vz * accX) / (hSpd * 28), -0.58, 0.58);
+        break;
       }
 
-      if (data.state === BIRD_STATES.PLAY) {
-        // Joyful ~1.1-second 360-degree axial corvid barrel roll in ridge lift!
-        data.divePhase += dt / 1.05;
-        const u = Math.min(1, data.divePhase);
-        // Smooth C1 roll profile: 0 -> 2*PI with zero rate at entry and exit
-        wantBank += smoothstep(u, 0, 1) * TAU;
-        if (data.divePhase >= 1) {
-          data.state = BIRD_STATES.SOAR;
-          data.nextPlayWait = 18 + ((data.flapPhase * 5) % 20);
+      case 'heron': {
+        // Lazy figure-8 / Lissajous marsh patrol alternating CRUISE (24-38 u)
+        // and low SKIM glide (8-12 u above water/reeds)
+        const rate = (data.speed || 21) / (data.patrolRadius || 165);
+        const prevX = curX - (data.evadeOx || 0);
+        const prevZ = curZ - (data.evadeOz || 0);
+        data.angle += rate * dt;
+        data.stateTimer -= dt;
+        if (data.stateTimer <= 0) {
+          data.state =
+            data.state === BIRD_STATES.SKIM
+              ? BIRD_STATES.CRUISE
+              : BIRD_STATES.SKIM;
+          data.stateTimer = data.state === BIRD_STATES.SKIM ? 6.5 : 10.5;
+        }
+
+        const r = data.patrolRadius || 165;
+        const lx = Math.sin(data.angle) * r;
+        const lz = Math.sin(data.angle * 2) * r * 0.48;
+        const rot = rotateXZ(lx, lz, data.rotY || 0);
+        const nextX = data.cx + rot.x;
+        const nextZ = data.cz + rot.z;
+
+        if (env.getElev) {
+          const slot = Math.floor(
+            (env.elapsed || 0) / 0.4 + (data.flapPhase % 1)
+          );
+          if (slot !== data.groundSlot) {
+            data.groundSlot = slot;
+            data.groundY = Math.max(waterLevel, env.getElev(nextX, nextZ));
+          }
+        }
+        const floorY = data.groundY ?? waterLevel;
+        const wantAlt = floorY + (data.state === BIRD_STATES.SKIM ? 9.0 : 28.0);
+        const baseCurY = curY - (data.evadeOy || 0);
+        const nextY =
+          baseCurY + clamp((wantAlt - baseCurY) * 1.4 * dt, -10 * dt, 10 * dt);
+
+        const vx = (nextX - prevX) / Math.max(dt, 1e-3);
+        const vz = (nextZ - prevZ) / Math.max(dt, 1e-3);
+        if (vx * vx + vz * vz > 0.5) {
+          const nextYaw = Math.atan2(-vx, -vz);
+          const yawRate = wrapAngle(nextYaw - data.yaw) / Math.max(dt, 1e-3);
+          wantYaw = nextYaw;
+          wantBank = clamp(-yawRate * 0.45, -0.32, 0.32);
+        }
+        wantPitch = clamp((wantAlt - baseCurY) * 0.015, -0.14, 0.14);
+        targetX = nextX;
+        targetY = nextY;
+        targetZ = nextZ;
+        break;
+      }
+
+      case 'pelican': {
+        // Independent wide-wheeling coastal pelicans: low swell SKIM -> high
+        // baitball SOAR -> steep FORAGE plunge-dive that bob-floats in place on
+        // the water while scooping fish before climbing back into orbit
+        data.stateTimer -= dt;
+        const swell = Math.sin((env.elapsed || 0) * 1.6 + data.angle * 3) * 1.4;
+        const skimH = data.skimOffset ?? 9.5;
+        const soarH = data.soarOffset ?? 68;
+
+        if (data.state === BIRD_STATES.SKIM) {
+          data.angle += data.circleSpeed * dt;
+          const wantY = waterLevel + skimH + swell;
+          const baseY = curY - (data.evadeOy || 0);
+          targetY =
+            baseY + clamp((wantY - baseY) * 2.2 * dt, -18 * dt, 18 * dt);
+          wantPitch = clamp((wantY - baseY) * 0.02, -0.12, 0.12);
+          wantBank = Math.sign(data.circleSpeed) * 0.22;
+          if (data.stateTimer <= 0) {
+            data.state = BIRD_STATES.SOAR;
+            data.stateTimer = 6.5;
+          }
+        } else if (data.state === BIRD_STATES.SOAR) {
+          data.angle += data.circleSpeed * dt;
+          const wantY = waterLevel + soarH;
+          const baseY = curY - (data.evadeOy || 0);
+          targetY =
+            baseY + clamp((wantY - baseY) * 1.5 * dt, -16 * dt, 22 * dt);
+          wantPitch = clamp((wantY - baseY) * 0.015, -0.1, 0.24);
+          wantBank = Math.sign(data.circleSpeed) * 0.34;
+          if (data.stateTimer <= 0) {
+            if ((data.floorY ?? waterLevel) > waterLevel + 0.5) {
+              // Over the shore: wheel on and try again a moment later
+              data.stateTimer = 1.5;
+            } else {
+              data.state = BIRD_STATES.FORAGE;
+              data.divePhase = 0;
+              data.splashed = false;
+            }
+          }
+        } else {
+          // Plunge dive (0..0.45), stationary surface float/scoop (0.45..0.72), climb out
+          const prev = data.divePhase;
+          data.divePhase += dt / 4.2;
+          const p = Math.min(1, data.divePhase);
+          if (p < 0.45) {
+            const u = p / 0.45;
+            data.angle += data.circleSpeed * (1 - u * 0.85) * dt;
+            targetY = waterLevel + soarH - smoothstep(u, 0, 1) * (soarH - 2);
+            wantPitch = -0.82 * Math.sin(u * Math.PI);
+            wantBank = 0;
+          } else if (p < 0.72) {
+            // Hold horizontal position on the water while bobbing on the swell
+            if (!data.splashed && prev < 0.45) {
+              data.splashed = true;
+              out.splash = (data.floorY ?? waterLevel) <= waterLevel + 0.5;
+            }
+            targetY = waterLevel + 1.8 + swell * 0.5;
+            wantPitch = 0.04;
+            wantBank = 0;
+          } else {
+            const u = (p - 0.72) / 0.28;
+            data.angle += data.circleSpeed * smoothstep(u, 0, 1) * dt;
+            targetY = waterLevel + 2.0 + smoothstep(u, 0, 1) * (skimH - 2.0);
+            wantPitch = 0.22;
+            wantBank = Math.sign(data.circleSpeed) * 0.16;
+          }
+          if (data.divePhase >= 1) {
+            data.state = BIRD_STATES.SKIM;
+            data.stateTimer = data.nextForageWait || 22;
+          }
+        }
+
+        targetX = data.cx + Math.cos(data.angle) * data.circleRadius;
+        targetZ = data.cz + Math.sin(data.angle) * data.circleRadius;
+        const tangX = -Math.sin(data.angle) * Math.sign(data.circleSpeed);
+        const tangZ = Math.cos(data.angle) * Math.sign(data.circleSpeed);
+        wantYaw = Math.atan2(-tangX, -tangZ);
+        break;
+      }
+
+      case 'swallow': {
+        // Fast low-AGL insect-hawking Lissajous + analytical derivatives (zero dt jitter)
+        const t = env.elapsed || 0;
+        const w = data.dartSpeed || 1.1;
+        const jf = data.jinkFreq || 3.0;
+        const jp = data.jinkPhase || 0;
+        const A = data.orbitA || 55;
+        const B = data.orbitB || 38;
+
+        data.angle += w * dt;
+        const ca = Math.cos(data.angle);
+        const sa = Math.sin(data.angle);
+        const c2 = Math.cos(data.angle * 2);
+        const s2 = Math.sin(data.angle * 2);
+        const jinkPhase = t * jf + jp;
+
+        const lx = ca * A + Math.sin(jinkPhase) * 9;
+        const lz = s2 * B;
+        const dlx = -sa * A * w + Math.cos(jinkPhase) * 9 * jf;
+        const dlz = 2 * c2 * B * w;
+        const ddlx = -ca * A * w * w - Math.sin(jinkPhase) * 9 * jf * jf;
+        const ddlz = -4 * s2 * B * w * w;
+
+        const cRot = Math.cos(data.orbitRot || 0);
+        const sRot = Math.sin(data.orbitRot || 0);
+        targetX = data.cx + lx * cRot - lz * sRot;
+        targetZ = data.cz + lx * sRot + lz * cRot;
+        targetY =
+          data.cy +
+          Math.sin(data.angle * 3 + jp) * 7.5 +
+          Math.cos(t * 2.8 + data.flapPhase) * 2.5;
+
+        const vx = dlx * cRot - dlz * sRot;
+        const vz = dlx * sRot + dlz * cRot;
+        const ax = ddlx * cRot - ddlz * sRot;
+        const az = ddlx * sRot + ddlz * cRot;
+        const vy =
+          Math.cos(data.angle * 3 + jp) * 22.5 * w -
+          Math.sin(t * 2.8 + data.flapPhase) * 7.0;
+        const hSpd = Math.hypot(vx, vz);
+        if (hSpd > 0.5) {
+          wantYaw = Math.atan2(-vx, -vz);
+          wantBank = clamp(-(vx * az - vz * ax) / (hSpd * 95), -0.95, 0.95);
+          wantPitch = clamp(Math.atan2(vy, hSpd), -0.55, 0.55);
+        }
+        break;
+      }
+
+      case 'raven': {
+        // Cross-wind elongated ridge-lift racecourse + analytical curvature bank
+        // + playful 360 updraft rolls
+        const windLiftBoost = 0.85 + 0.35 * windStrength;
+        const wEff = (data.circleSpeed || 0.32) * windLiftBoost;
+        data.angle += wEff * dt;
+        data.nextPlayWait = (data.nextPlayWait ?? 20) - dt;
+        if (data.state !== BIRD_STATES.PLAY && data.nextPlayWait <= 0) {
+          data.state = BIRD_STATES.PLAY;
+          data.divePhase = 0;
+        }
+
+        const L = data.ridgeHalfLen || 175;
+        const W = data.ridgeWidth || 65;
+        const sa = Math.sin(data.angle);
+        const ca = Math.cos(data.angle);
+        const along = sa * L;
+        const across = ca * W;
+        const dAlong = ca * L * wEff;
+        const dAcross = -sa * W * wEff;
+        const ddAlong = -sa * L * wEff * wEff;
+        const ddAcross = -ca * W * wEff * wEff;
+
+        const axAxis = data.axisX ?? -0.6;
+        const azAxis = data.axisZ ?? 0.8;
+        const perpX = -azAxis;
+        const perpZ = axAxis;
+        targetX = data.cx + axAxis * along + perpX * across;
+        targetZ = data.cz + azAxis * along + perpZ * across;
+
+        if (env.getElev) {
+          const slot = Math.floor(
+            (env.elapsed || 0) / 0.35 + (data.flapPhase % 1)
+          );
+          if (slot !== data.groundSlot) {
+            data.groundSlot = slot;
+            const sampled = Math.max(waterLevel, env.getElev(targetX, targetZ));
+            data.groundY = sampled;
+            if (data.smoothedGroundY === undefined) {
+              data.smoothedGroundY = sampled;
+            }
+          }
+        }
+        if (data.smoothedGroundY !== undefined && data.groundY !== undefined) {
+          data.smoothedGroundY +=
+            (data.groundY - data.smoothedGroundY) * (1 - Math.exp(-2.6 * dt));
+        }
+        const groundRef = data.smoothedGroundY ?? data.groundY ?? waterLevel;
+        const ridgeClear = groundRef + 55;
+        const liftWave = Math.sin(data.angle * 2) * 14 * windLiftBoost;
+        targetY = Math.max(ridgeClear, data.cy + liftWave);
+
+        const vx = axAxis * dAlong + perpX * dAcross;
+        const vz = azAxis * dAlong + perpZ * dAcross;
+        const accX = axAxis * ddAlong + perpX * ddAcross;
+        const accZ = azAxis * ddAlong + perpZ * ddAcross;
+        const vy = Math.cos(data.angle * 2) * 28 * windLiftBoost * wEff;
+        const hSpd = Math.hypot(vx, vz);
+        if (hSpd > 0.5) {
+          wantYaw = Math.atan2(-vx, -vz);
+          wantPitch = clamp(Math.atan2(vy, hSpd), -0.35, 0.35);
+          wantBank = clamp(-(vx * accZ - vz * accX) / (hSpd * 28), -0.58, 0.58);
+        }
+
+        if (data.state === BIRD_STATES.PLAY) {
+          // Joyful ~1.1-second 360-degree axial corvid barrel roll in ridge lift!
+          data.divePhase += dt / 1.05;
+          const u = Math.min(1, data.divePhase);
+          // Smooth C1 roll profile: 0 -> 2*PI with zero rate at entry and exit
+          wantBank += smoothstep(u, 0, 1) * TAU;
+          if (data.divePhase >= 1) {
+            data.state = BIRD_STATES.SOAR;
+            data.nextPlayWait = 18 + ((data.flapPhase * 5) % 20);
+          }
+        }
+        break;
+      }
+
+      case 'albatross': {
+        // Sweeping figure-8 dynamic soaring across the ocean wind gradient:
+        // continuous 42-75 units/s airspeed (never stalls at turnarounds) with
+        // exact analytical tangent & centripetal bank (zero dt jitter).
+        // Climbs from wave troughs (+10 u) to +62 u while turning into -wind,
+        // then banks smoothly to swoop downwind back over the swells.
+        const wx = data.windX ?? 0.8;
+        const wz = data.windZ ?? 0.6;
+        const crossX = -wz * (data.crossSign || 1);
+        const crossZ = wx * (data.crossSign || 1);
+
+        const w = data.soarFreq || 0.17;
+        const A = data.crossAmp ?? 360;
+        const B = data.windAmp ?? 140;
+        data.soarPhase += w * dt;
+
+        const th = data.soarPhase;
+        const s1 = Math.sin(th);
+        const c1 = Math.cos(th);
+        const s2 = Math.sin(th * 2);
+        const c2 = Math.cos(th * 2);
+
+        // Position relative to sea anchor (cx, cz)
+        const sCross = A * s1;
+        const sWind = -B * s2;
+        targetX = data.cx + crossX * sCross + wx * sWind;
+        targetZ = data.cz + crossZ * sCross + wz * sWind;
+        targetY = waterLevel + 36 + 26 * s2;
+
+        // Exact analytical first & second derivatives with respect to time
+        const vCross = A * w * c1;
+        const vWind = -2 * B * w * c2;
+        const vy = 52 * w * c2;
+        const aCross = -A * w * w * s1;
+        const aWind = 4 * B * w * w * s2;
+
+        const vx = crossX * vCross + wx * vWind;
+        const vz = crossZ * vCross + wz * vWind;
+        const accX = crossX * aCross + wx * aWind;
+        const accZ = crossZ * aCross + wz * aWind;
+        const hSpd = Math.hypot(vx, vz);
+
+        if (hSpd > 0.5) {
+          wantYaw = Math.atan2(-vx, -vz);
+          wantPitch = clamp(Math.atan2(vy, hSpd), -0.36, 0.36);
+          wantBank = clamp(-(vx * accZ - vz * accX) / (hSpd * 18), -0.78, 0.78);
+        }
+        break;
+      }
+
+      case 'duck': {
+        // Brisk low-altitude wheeling orbit over marsh reeds or pond shallows
+        const w = data.circleSpeed || 0.42;
+        const R = data.circleRadius || 88;
+        data.angle += w * dt;
+        targetX = data.cx + Math.cos(data.angle) * R;
+        targetZ = data.cz + Math.sin(data.angle) * R;
+        targetY = data.cy + Math.sin(data.angle * 2 + data.flapPhase) * 3.5;
+        const sign = Math.sign(w) || 1;
+        const tangX = -Math.sin(data.angle) * sign;
+        const tangZ = Math.cos(data.angle) * sign;
+        wantYaw = Math.atan2(-tangX, -tangZ);
+        wantPitch = 0.04;
+        wantBank = sign * 0.36;
+        break;
+      }
+
+      case 'plover': {
+        // Nimble low-altitude shorebird wheeling with steep synchronized banks
+        const w = data.circleSpeed || 0.68;
+        const R = data.circleRadius || 52;
+        data.angle += w * dt;
+        targetX = data.cx + Math.cos(data.angle) * R;
+        targetZ = data.cz + Math.sin(data.angle) * R;
+        targetY = data.cy + Math.sin(data.angle * 2 + data.flapPhase) * 2.5;
+        const sign = Math.sign(w) || 1;
+        const tangX = -Math.sin(data.angle) * sign;
+        const tangZ = Math.cos(data.angle) * sign;
+        wantYaw = Math.atan2(-tangX, -tangZ);
+        wantPitch = 0.03;
+        wantBank = sign * 0.48;
+        break;
+      }
+
+      default:
+        break;
+    }
+
+    // Flushed ground/marsh flocks eventually glide back down to their roost
+    // once the player has flown well clear
+    if (
+      data.homeRoost &&
+      data.state !== BIRD_STATES.FORAGE &&
+      data.state !== BIRD_STATES.KITE
+    ) {
+      data.orbitTimeLeft = (data.orbitTimeLeft ?? 24) - dt;
+      if (data.orbitTimeLeft <= 0) {
+        let safeToLand = true;
+        if (env.checkAircraft && env.aircraft && env.aircraft.active) {
+          const adx = (data.roostX ?? targetX) - env.aircraft.x;
+          const adz = (data.roostZ ?? targetZ) - env.aircraft.z;
+          if (adx * adx + adz * adz < 240 * 240) {
+            safeToLand = false;
+            data.orbitTimeLeft = 8;
+          }
+        }
+        if (safeToLand) {
+          data.state = BIRD_STATES.SETTLE;
+          data.settleStartX = targetX;
+          data.settleStartY = targetY;
+          data.settleStartZ = targetZ;
+          data.settlePhase = 0;
+          const distHome = Math.hypot(
+            (data.roostX ?? targetX) - targetX,
+            (data.roostZ ?? targetZ) - targetZ
+          );
+          data.settleDur = clamp(distHome / 28, 3.4, 6.8);
         }
       }
-      break;
     }
-
-    case 'albatross': {
-      // Sweeping figure-8 dynamic soaring across the ocean wind gradient:
-      // continuous 42-75 units/s airspeed (never stalls at turnarounds) with
-      // exact analytical tangent & centripetal bank (zero dt jitter).
-      // Climbs from wave troughs (+10 u) to +62 u while turning into -wind,
-      // then banks smoothly to swoop downwind back over the swells.
-      const wx = data.windX ?? 0.8;
-      const wz = data.windZ ?? 0.6;
-      const crossX = -wz * (data.crossSign || 1);
-      const crossZ = wx * (data.crossSign || 1);
-
-      const w = data.soarFreq || 0.17;
-      const A = data.crossAmp ?? 360;
-      const B = data.windAmp ?? 140;
-      data.soarPhase += w * dt;
-
-      const th = data.soarPhase;
-      const s1 = Math.sin(th);
-      const c1 = Math.cos(th);
-      const s2 = Math.sin(th * 2);
-      const c2 = Math.cos(th * 2);
-
-      // Position relative to sea anchor (cx, cz)
-      const sCross = A * s1;
-      const sWind = -B * s2;
-      targetX = data.cx + crossX * sCross + wx * sWind;
-      targetZ = data.cz + crossZ * sCross + wz * sWind;
-      targetY = waterLevel + 36 + 26 * s2;
-
-      // Exact analytical first & second derivatives with respect to time
-      const vCross = A * w * c1;
-      const vWind = -2 * B * w * c2;
-      const vy = 52 * w * c2;
-      const aCross = -A * w * w * s1;
-      const aWind = 4 * B * w * w * s2;
-
-      const vx = crossX * vCross + wx * vWind;
-      const vz = crossZ * vCross + wz * vWind;
-      const accX = crossX * aCross + wx * aWind;
-      const accZ = crossZ * aCross + wz * aWind;
-      const hSpd = Math.hypot(vx, vz);
-
-      if (hSpd > 0.5) {
-        wantYaw = Math.atan2(-vx, -vz);
-        wantPitch = clamp(Math.atan2(vy, hSpd), -0.36, 0.36);
-        wantBank = clamp(-(vx * accZ - vz * accX) / (hSpd * 18), -0.78, 0.78);
-      }
-      break;
-    }
-
-    default:
-      break;
   }
 
-  // Apply non-goose evasion offset on top of nominal habitat trajectory
-  if (data.type !== 'goose' && evadeWeight > 0) {
+  // Apply non-migratory-goose evasion offset on top of nominal airborne trajectory
+  if (!isMigratoryGoose && !inGroundCycle && evadeWeight > 0) {
     targetX += data.evadeOx;
     targetY = Math.max(waterLevel + 3, targetY + data.evadeOy);
     targetZ += data.evadeOz;
@@ -1472,27 +2431,36 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
         env.getElev(aheadX, aheadZ)
       );
     }
-    // (over open water a plunge-diver may touch the surface)
-    const groundY = data.floorY ?? waterLevel;
-    const floorY =
-      groundY > waterLevel + 0.5 ? groundY + FLOOR_CLEARANCE : waterLevel + 1;
-    if (data.type === 'goose') {
-      // (geese keep their own 250-unit climb; this only stops a cliff face)
-      if (targetY < floorY) targetY = floorY;
-    } else {
-      // Eased lift so a bird rises over a ridge instead of popping up
-      data.floorLift = Math.max(
-        0,
-        (data.floorLift || 0) +
-          (Math.max(0, floorY - targetY) - (data.floorLift || 0)) *
-            (1 - Math.exp(-8 * dt))
+    if (inGroundCycle) {
+      data.floorLift = 0;
+      const minSurface = Math.max(
+        waterLevel + 0.3,
+        env.getElev(targetX, targetZ) + 0.3
       );
-      targetY = Math.max(targetY + data.floorLift, floorY - 2);
+      if (targetY < minSurface) targetY = minSurface;
+    } else {
+      // (over open water a plunge-diver may touch the surface)
+      const groundY = data.floorY ?? waterLevel;
+      const floorY =
+        groundY > waterLevel + 0.5 ? groundY + FLOOR_CLEARANCE : waterLevel + 1;
+      if (data.type === 'goose' && !data.homeRoost) {
+        // (migratory geese keep their own 250-unit climb; this only stops a cliff face)
+        if (targetY < floorY) targetY = floorY;
+      } else {
+        // Eased lift so a bird rises over a ridge instead of popping up
+        data.floorLift = Math.max(
+          0,
+          (data.floorLift || 0) +
+            (Math.max(0, floorY - targetY) - (data.floorLift || 0)) *
+              (1 - Math.exp(-8 * dt))
+        );
+        targetY = Math.max(targetY + data.floorLift, floorY - 2);
+      }
     }
   }
 
   // Smoothly filter attitude angles (skip yaw/bank filter clamp during raven 360 roll)
-  const attEase = 1 - Math.exp(-9.0 * dt);
+  const attEase = (9.0 * dt) / (1 + 9.0 * dt);
   data.yaw = lerpAngle(data.yaw, wantYaw, attEase);
   data.pitch += (wantPitch - data.pitch) * attEase;
   if (data.type === 'raven' && data.state === BIRD_STATES.PLAY) {
@@ -1507,5 +2475,7 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
   out.pitch = data.pitch;
   out.yaw = data.yaw;
   out.bank = data.bank;
+  out.wingFold = data.wingFold;
+  out.flap = stepWingKinematics(data, spec, dt);
   return out;
 }

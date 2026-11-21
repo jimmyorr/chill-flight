@@ -948,4 +948,6 @@ export default {
   Black: '차콜 블랙',
   'Steering sensitivity': '조종 감도',
   'World map': '세계 지도',
+  'Ruffling feathers': '푸드덕 날아오르기',
+  'Scatter a flock of ground birds': '땅이나 물가의 새 떼를 날아오르게 하기',
 };

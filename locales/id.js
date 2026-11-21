@@ -984,4 +984,7 @@ export default {
   Black: 'Hitam',
   'Steering sensitivity': 'Sensitivitas kemudi',
   'World map': 'Peta dunia',
+  'Ruffling feathers': 'Bulu berhamburan',
+  'Scatter a flock of ground birds':
+    'Kejutkan kawanan burung di darat hingga terbang',
 };

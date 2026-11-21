@@ -927,4 +927,6 @@ export default {
   Black: '炭黑',
   'Steering sensitivity': '转向灵敏度',
   'World map': '世界地图',
+  'Ruffling feathers': '惊起飞羽',
+  'Scatter a flock of ground birds': '惊飞一群栖息的鸟儿',
 };

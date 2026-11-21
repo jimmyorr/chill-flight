@@ -4728,10 +4728,10 @@ export function updateChunks() {
       Math.abs(cx - currentChunkX) > renderDistance + 1 ||
       Math.abs(cz - currentChunkZ) > renderDistance + 1
     ) {
-      // Its geese fly on as strays rather than vanishing mid-sky
+      // Migratory V-geese fly on as strays rather than vanishing mid-sky
       if (group.userData.birds) {
         for (const bird of group.userData.birds) {
-          if (bird.type !== 'goose') continue;
+          if (bird.type !== 'goose' || bird.homeRoost) continue;
           bird.sourceKey = key;
           strayBirds.userData.birds.push(bird);
         }

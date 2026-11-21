@@ -982,4 +982,6 @@ export default {
   Black: 'Noir',
   'Steering sensitivity': 'Sensibilité de pilotage',
   'World map': 'Carte du monde',
+  'Ruffling feathers': 'Volée de plumes',
+  'Scatter a flock of ground birds': "Fais s'envoler un groupe d'oiseaux posés",
 };

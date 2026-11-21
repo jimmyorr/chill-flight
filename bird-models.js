@@ -1,15 +1,16 @@
 // --- BIRD 3D MODELS ---
-// Sculpted low-poly, vertex-colored bird models for all eight Chill Flight
+// Sculpted low-poly, vertex-colored bird models for all nine Chill Flight
 // archetypes: goose, hawk, seagull, heron (Great Blue & White Egret morphs),
-// pelican, swallow, raven, and albatross.
+// pelican, swallow, raven, albatross, and duck (Mallard drake & hen morphs).
 //
 // Performance design:
 // - Every bird rig has 3 geometries (static body + right wing + X-mirrored left
 //   wing) sharing ONE single `birdVertexColorMat` across all species, adding
 //   zero custom shader compilations at startup.
 // - At runtime (`birds.js`), all active birds across all loaded chunks render
-//   through a global `InstancedMesh` pool (~12-24 draw calls total instead of
-//   hundreds of individual per-bird `THREE.Mesh` calls and `Object3D` nodes).
+//   through a global `InstancedMesh` pool (~12-27 draw calls total instead of
+//   hundreds of individual per-bird `THREE.Mesh` calls and `Object3D` nodes),
+//   including grounded/roosting flocks whose wings fold smoothly via `wingFold`.
 // - Left wings use true X-mirrored geometry (`mirrorGeometryX`) rather than Y
 //   180-deg rotation so backward sweep, gull-wing wrist bends, and camber match
 //   symmetrically on both sides (`wingR` flaps `+flap`, `wingL` flaps `-flap`).
@@ -144,19 +145,34 @@ function finishBirdRig(bodyParts, wingRParts) {
 }
 
 // --- 1. CANADA GOOSE ---
-function buildGooseRig() {
-  const body = [
-    cBox(1.15, 0.88, 3.2, 0, 0, 0, 0x8b7355),
-    cBox(1.02, 0.55, 1.8, 0, -0.28, 0.3, 0xa89478),
-    // Outstretched black neck, head, white cheek strap, and bill
-    cCyl(0.24, 0.34, 2.3, 6, 0, 0.42, -2.35, 0x222428, Math.PI / 2 - 0.14),
-    cBox(0.56, 0.56, 1.08, 0, 0.62, -3.75, 0x222428),
-    cBox(0.6, 0.28, 0.46, 0, 0.52, -3.72, 0xf8fafc),
-    cCone(0.19, 0.72, 4, 0, 0.58, -4.55, 0x2a2d32),
-    // White upper-tail coverts + black wedge tail
-    cBox(0.96, 0.46, 0.95, 0, -0.05, 1.65, 0xf8fafc),
-    cBox(0.78, 0.26, 1.15, 0, 0.12, 2.15, 0x222428),
-  ];
+function buildGooseRig(standing = false) {
+  const body = standing
+    ? [
+        cBox(1.15, 0.88, 3.05, 0, 0.04, 0.08, 0x8b7355, 0.08),
+        cBox(1.02, 0.55, 1.8, 0, -0.24, 0.25, 0xa89478, 0.08),
+        // Upright grazing black neck, head, white cheek strap, and bill
+        cCyl(0.22, 0.32, 1.85, 6, 0, 0.98, -1.28, 0x222428, -0.22),
+        cBox(0.56, 0.56, 1.04, 0, 1.88, -1.56, 0x222428),
+        cBox(0.6, 0.28, 0.46, 0, 1.78, -1.54, 0xf8fafc),
+        cCone(0.19, 0.72, 4, 0, 1.84, -2.32, 0x2a2d32),
+        // White upper-tail coverts, black tail, and dark standing legs
+        cBox(0.96, 0.46, 0.95, 0, -0.06, 1.68, 0xf8fafc),
+        cBox(0.78, 0.26, 1.12, 0, 0.08, 2.12, 0x222428),
+        cCyl(0.065, 0.055, 0.92, 5, -0.26, -0.74, 0.12, 0x1e293b, 0.06),
+        cCyl(0.065, 0.055, 0.92, 5, 0.26, -0.74, 0.12, 0x1e293b, 0.06),
+      ]
+    : [
+        cBox(1.15, 0.88, 3.2, 0, 0, 0, 0x8b7355),
+        cBox(1.02, 0.55, 1.8, 0, -0.28, 0.3, 0xa89478),
+        // Outstretched black neck, head, white cheek strap, and bill
+        cCyl(0.24, 0.34, 2.3, 6, 0, 0.42, -2.35, 0x222428, Math.PI / 2 - 0.14),
+        cBox(0.56, 0.56, 1.08, 0, 0.62, -3.75, 0x222428),
+        cBox(0.6, 0.28, 0.46, 0, 0.52, -3.72, 0xf8fafc),
+        cCone(0.19, 0.72, 4, 0, 0.58, -4.55, 0x2a2d32),
+        // White upper-tail coverts + black wedge tail
+        cBox(0.96, 0.46, 0.95, 0, -0.05, 1.65, 0xf8fafc),
+        cBox(0.78, 0.26, 1.15, 0, 0.12, 2.15, 0x222428),
+      ];
   const wingR = [
     wingPanel({
       x0: 0.45,
@@ -235,14 +251,25 @@ function buildHawkRig() {
 }
 
 // --- 3. COASTAL SEAGULL ---
-function buildSeagullRig() {
-  const body = [
-    cBox(0.96, 0.72, 2.85, 0, 0, 0, 0xf8fafc),
-    cBox(0.92, 0.22, 1.85, 0, 0.32, -0.1, 0xcbd5e1), // pale grey mantle
-    cBox(0.68, 0.68, 0.92, 0, 0.28, -1.72, 0xf8fafc),
-    cCone(0.18, 0.68, 4, 0, 0.2, -2.48, 0xfbbf24),
-    cBox(1.12, 0.16, 1.22, 0, 0.04, 1.82, 0xf8fafc),
-  ];
+function buildSeagullRig(standing = false) {
+  const body = standing
+    ? [
+        cBox(0.96, 0.74, 2.65, 0, 0.04, 0.06, 0xf8fafc, 0.1),
+        cBox(0.92, 0.22, 1.8, 0, 0.36, -0.02, 0xcbd5e1, 0.1),
+        cCyl(0.24, 0.28, 0.55, 6, 0, 0.46, -1.12, 0xf8fafc, -0.22),
+        cBox(0.68, 0.66, 0.88, 0, 0.78, -1.32, 0xf8fafc),
+        cCone(0.18, 0.68, 4, 0, 0.72, -2.02, 0xfbbf24),
+        cBox(1.08, 0.16, 1.15, 0, -0.06, 1.68, 0xf8fafc, 0.08),
+        cCyl(0.055, 0.045, 0.78, 5, -0.22, -0.62, 0.08, 0xfbbf24, 0.08),
+        cCyl(0.055, 0.045, 0.78, 5, 0.22, -0.62, 0.08, 0xfbbf24, 0.08),
+      ]
+    : [
+        cBox(0.96, 0.72, 2.85, 0, 0, 0, 0xf8fafc),
+        cBox(0.92, 0.22, 1.85, 0, 0.32, -0.1, 0xcbd5e1), // pale grey mantle
+        cBox(0.68, 0.68, 0.92, 0, 0.28, -1.72, 0xf8fafc),
+        cCone(0.18, 0.68, 4, 0, 0.2, -2.48, 0xfbbf24),
+        cBox(1.12, 0.16, 1.22, 0, 0.04, 1.82, 0xf8fafc),
+      ];
   // Classic M-gull wing bend: inner arm rises to wrist, outer hand angles back
   const wingR = [
     wingPanel({
@@ -289,30 +316,65 @@ function buildSeagullRig() {
 }
 
 // --- 4. GREAT BLUE HERON & GREAT WHITE EGRET ---
-function buildHeronRig(isEgret = false) {
+function buildHeronRig(isEgret = false, standing = false) {
   const bodyHex = isEgret ? 0xf8fafc : 0x64748b;
   const neckHex = isEgret ? 0xf8fafc : 0x94a3b8;
   const primaryHex = isEgret ? 0xeef2f6 : 0x334155;
   const legHex = isEgret ? 0x1e293b : 0x475569;
   const billHex = isEgret ? 0xf59e0b : 0xe2a03f;
 
-  const body = [
-    // Slender wading body
-    cBox(0.95, 0.78, 2.95, 0, 0, 0, bodyHex),
-    // Tucked S-curve neck folded back over shoulders in flight
-    cCyl(0.2, 0.26, 1.15, 6, 0, 0.22, -1.55, neckHex, Math.PI / 2 + 0.45),
-    cCyl(0.18, 0.21, 0.95, 6, 0, 0.56, -1.42, neckHex, Math.PI / 2 - 0.55),
-    cBox(0.52, 0.48, 0.92, 0, 0.74, -1.88, isEgret ? 0xf8fafc : 0xe2e8f0),
-    // Long dagger bill pointing level ahead
-    cCone(0.15, 1.45, 4, 0, 0.7, -2.98, billHex),
-    // Short wedge tail + iconic long trailing stilt legs extending behind!
-    cBox(0.76, 0.18, 0.92, 0, 0.05, 1.75, bodyHex),
-    cCyl(0.065, 0.055, 3.2, 5, -0.2, -0.14, 2.95, legHex, Math.PI / 2 + 0.04),
-    cCyl(0.065, 0.055, 3.2, 5, 0.2, -0.14, 2.95, legHex, Math.PI / 2 + 0.04),
-  ];
+  const body = standing
+    ? [
+        // Upright wading body, tall stalking neck, level dagger bill & vertical stilt legs
+        cBox(0.95, 0.78, 2.75, 0, 0.06, 0.08, bodyHex, 0.16),
+        cCyl(0.19, 0.25, 1.55, 6, 0, 0.92, -1.02, neckHex, -0.18),
+        cBox(0.52, 0.48, 0.92, 0, 1.72, -1.24, isEgret ? 0xf8fafc : 0xe2e8f0),
+        cCone(0.15, 1.45, 4, 0, 1.68, -2.32, billHex),
+        cBox(0.76, 0.18, 0.92, 0, -0.18, 1.68, bodyHex, 0.16),
+        cCyl(0.065, 0.055, 2.05, 5, -0.22, -1.22, 0.12, legHex, 0.04),
+        cCyl(0.065, 0.055, 2.05, 5, 0.22, -1.22, 0.12, legHex, 0.04),
+      ]
+    : [
+        // Slender wading body
+        cBox(0.95, 0.78, 2.95, 0, 0, 0, bodyHex),
+        // Tucked S-curve neck folded back over shoulders in flight
+        cCyl(0.2, 0.26, 1.15, 6, 0, 0.22, -1.55, neckHex, Math.PI / 2 + 0.45),
+        cCyl(0.18, 0.21, 0.95, 6, 0, 0.56, -1.42, neckHex, Math.PI / 2 - 0.55),
+        cBox(0.52, 0.48, 0.92, 0, 0.74, -1.88, isEgret ? 0xf8fafc : 0xe2e8f0),
+        // Long dagger bill pointing level ahead
+        cCone(0.15, 1.45, 4, 0, 0.7, -2.98, billHex),
+        // Short wedge tail + iconic long trailing stilt legs extending behind!
+        cBox(0.76, 0.18, 0.92, 0, 0.05, 1.75, bodyHex),
+        cCyl(
+          0.065,
+          0.055,
+          3.2,
+          5,
+          -0.2,
+          -0.14,
+          2.95,
+          legHex,
+          Math.PI / 2 + 0.04
+        ),
+        cCyl(
+          0.065,
+          0.055,
+          3.2,
+          5,
+          0.2,
+          -0.14,
+          2.95,
+          legHex,
+          Math.PI / 2 + 0.04
+        ),
+      ];
   if (!isEgret) {
     // Dark slate crown & trailing occipital crest plume on Great Blue Heron
-    body.push(cBox(0.54, 0.18, 1.15, 0, 0.96, -1.62, 0x1e293b, -0.12));
+    body.push(
+      standing
+        ? cBox(0.54, 0.18, 1.15, 0, 1.96, -1.02, 0x1e293b, -0.08)
+        : cBox(0.54, 0.18, 1.15, 0, 0.96, -1.62, 0x1e293b, -0.12)
+    );
   }
 
   // Broad, deeply arched/cupped wading wings
@@ -524,16 +586,174 @@ function buildAlbatrossRig() {
   return finishBirdRig(body, wingR);
 }
 
+// --- 9. MALLARD DUCK (DRAKE & HEN MORPHS) ---
+function buildDuckRig(isHen = false) {
+  const flankHex = isHen ? 0xa6845e : 0xcbd5e1;
+  const backHex = isHen ? 0x6e5034 : 0x645b52;
+  const breastHex = isHen ? 0x8c6744 : 0x6b341e;
+  const headHex = isHen ? 0x9c7853 : 0x0f6e44;
+  const neckHex = isHen ? 0x94704d : 0x0e623d;
+  const billHex = isHen ? 0xd97706 : 0xeab308;
+  const rumpHex = isHen ? 0x5c4228 : 0x1e242b;
+  const tailHex = isHen ? 0xd6c2a8 : 0xf8fafc;
+  const innerWingHex = isHen ? 0x7d5d3e : 0x78716c;
+
+  const body = [
+    // Buoyant dabbling-duck hull, back saddle, and rounded breast
+    cBox(1.14, 0.8, 2.72, 0, 0, 0.06, flankHex),
+    cBox(1.04, 0.22, 1.92, 0, 0.34, 0.0, backHex),
+    cBox(1.06, 0.56, 1.12, 0, -0.06, -1.04, breastHex),
+    // Upright-angled neck, rounded Mallard head, and flat spatulate bill
+    cCyl(0.21, 0.25, 0.86, 6, 0, 0.52, -1.62, neckHex, Math.PI / 2 - 0.68),
+    cBox(0.62, 0.58, 0.86, 0, 0.84, -1.92, headHex),
+    cBox(0.36, 0.16, 0.78, 0, 0.74, -2.62, billHex, 0.06),
+    // Upturned rump and crisp tail wedge
+    cBox(0.92, 0.36, 0.78, 0, 0.05, 1.54, rumpHex),
+    cBox(0.8, 0.16, 0.86, 0, 0.14, 1.9, tailHex, 0.18),
+  ];
+  if (!isHen) {
+    // Crisp white neck collar ring on the Mallard drake
+    body.push(
+      cCyl(0.24, 0.27, 0.24, 6, 0, 0.28, -1.45, 0xf8fafc, Math.PI / 2 - 0.62)
+    );
+  } else {
+    // Dark chocolate crown stripe on the Mallard hen
+    body.push(cBox(0.58, 0.15, 0.82, 0, 1.08, -1.9, 0x452f1a));
+  }
+
+  // Swept dabbling-duck wings with iridescent cobalt-blue speculum band
+  const wingR = [
+    wingPanel({
+      x0: 0.44,
+      x1: 2.25,
+      zLead0: -0.76,
+      zTrail0: 0.82,
+      zLead1: -0.56,
+      zTrail1: 0.86,
+      y0: 0.12,
+      y1: 0.22,
+      t0: 0.14,
+      t1: 0.1,
+      hex: innerWingHex,
+    }),
+    wingPanel({
+      x0: 2.25,
+      x1: 3.35,
+      zLead0: -0.56,
+      zTrail0: 0.86,
+      zLead1: -0.18,
+      zTrail1: 0.94,
+      y0: 0.22,
+      y1: 0.18,
+      t0: 0.1,
+      t1: 0.07,
+      hex: 0x1d4ed8,
+    }),
+    wingPanel({
+      x0: 3.35,
+      x1: 4.8,
+      zLead0: -0.18,
+      zTrail0: 0.94,
+      zLead1: 0.42,
+      zTrail1: 1.08,
+      y0: 0.18,
+      y1: 0.06,
+      t0: 0.07,
+      t1: 0.035,
+      hex: 0x2f2925,
+    }),
+  ];
+  return finishBirdRig(body, wingR);
+}
+
+// --- 10. PIPING PLOVER ---
+function buildPloverRig() {
+  const sandHex = 0xd6cec0;
+  const whiteHex = 0xf8fafc;
+  const bandHex = 0x1e242b;
+  const legHex = 0xf97316;
+
+  const body = [
+    // Plump snowy-white shorebird body with pale dry-sand dorsal mantle
+    cBox(1.06, 0.78, 2.15, 0, 0, 0.04, whiteHex),
+    cBox(0.98, 0.24, 1.68, 0, 0.34, 0.02, sandHex),
+    // Signature black breast-band collar across the upper chest
+    cBox(1.08, 0.22, 0.36, 0, 0.06, -0.92, bandHex),
+    // Round plover head, pale sand crown, white forehead & crisp black brow bar
+    cBox(0.68, 0.64, 0.78, 0, 0.44, -1.24, whiteHex),
+    cBox(0.64, 0.2, 0.68, 0, 0.7, -1.2, sandHex),
+    cBox(0.66, 0.14, 0.18, 0, 0.62, -1.58, bandHex),
+    // Stubby two-tone orange-and-black shorebird bill
+    cBox(0.2, 0.14, 0.32, 0, 0.4, -1.74, legHex),
+    cCone(0.09, 0.24, 4, 0, 0.4, -1.98, 0x111827),
+    // Short sand-and-white tail + spindly orange running legs underneath
+    cBox(0.72, 0.16, 0.72, 0, 0.12, 1.32, sandHex),
+    cCyl(0.055, 0.045, 0.95, 5, -0.22, -0.68, 0.12, legHex, 0.22),
+    cCyl(0.055, 0.045, 0.95, 5, 0.22, -0.68, 0.12, legHex, 0.22),
+  ];
+
+  // Pointed shorebird wings with crisp white wingbar and slate primary tips
+  const wingR = [
+    wingPanel({
+      x0: 0.42,
+      x1: 2.05,
+      zLead0: -0.64,
+      zTrail0: 0.66,
+      zLead1: -0.46,
+      zTrail1: 0.68,
+      y0: 0.1,
+      y1: 0.18,
+      t0: 0.12,
+      t1: 0.08,
+      hex: sandHex,
+    }),
+    wingPanel({
+      x0: 2.05,
+      x1: 2.95,
+      zLead0: -0.46,
+      zTrail0: 0.68,
+      zLead1: -0.14,
+      zTrail1: 0.74,
+      y0: 0.18,
+      y1: 0.14,
+      t0: 0.08,
+      t1: 0.06,
+      hex: whiteHex,
+    }),
+    wingPanel({
+      x0: 2.95,
+      x1: 4.15,
+      zLead0: -0.14,
+      zTrail0: 0.74,
+      zLead1: 0.42,
+      zTrail1: 0.88,
+      y0: 0.14,
+      y1: 0.04,
+      t0: 0.06,
+      t1: 0.03,
+      hex: 0x334155,
+    }),
+  ];
+  return finishBirdRig(body, wingR);
+}
+
 const RIGS = {
-  goose: buildGooseRig(),
+  goose: buildGooseRig(false),
   hawk: buildHawkRig(),
-  seagull: buildSeagullRig(),
-  heron: buildHeronRig(false),
-  egret: buildHeronRig(true),
+  seagull: buildSeagullRig(false),
+  heron: buildHeronRig(false, false),
+  egret: buildHeronRig(true, false),
   pelican: buildPelicanRig(),
   swallow: buildSwallowRig(),
   raven: buildRavenRig(),
   albatross: buildAlbatrossRig(),
+  duck: buildDuckRig(false),
+  duck_hen: buildDuckRig(true),
+  plover: buildPloverRig(),
+  goose_stand: buildGooseRig(true),
+  seagull_stand: buildSeagullRig(true),
+  heron_stand: buildHeronRig(false, true),
+  egret_stand: buildHeronRig(true, true),
 };
 
 export const BIRD_RIG_KEYS = [
@@ -546,6 +766,13 @@ export const BIRD_RIG_KEYS = [
   'swallow',
   'raven',
   'albatross',
+  'duck',
+  'duck_hen',
+  'plover',
+  'goose_stand',
+  'seagull_stand',
+  'heron_stand',
+  'egret_stand',
 ];
 
 export const BIRD_RIG_LIST = BIRD_RIG_KEYS.map((k) => RIGS[k]);
@@ -560,22 +787,94 @@ const RIG_INDEX = {
   swallow: 6,
   raven: 7,
   albatross: 8,
+  duck: 9,
+  duck_hen: 10,
+  plover: 11,
+  goose_stand: 12,
+  seagull_stand: 13,
+  heron_stand: 14,
+  egret_stand: 15,
 };
 
-export function getBirdRigIndex(type, variant = 0) {
+export function getBirdRigIndex(type, variant = 0, wingFold = 0) {
+  if (wingFold > 0.55) {
+    if (type === 'goose') return RIG_INDEX.goose_stand;
+    if (type === 'seagull') return RIG_INDEX.seagull_stand;
+    if (type === 'heron') {
+      return variant === 1 ? RIG_INDEX.egret_stand : RIG_INDEX.heron_stand;
+    }
+  }
   if (type === 'heron' && variant === 1) return RIG_INDEX.egret;
+  if (type === 'duck' && variant === 1) return RIG_INDEX.duck_hen;
   return RIG_INDEX[type] ?? RIG_INDEX.seagull;
 }
 
 export function getBirdRig(type, variant = 0) {
   if (type === 'heron' && variant === 1) return RIGS.egret;
+  if (type === 'duck' && variant === 1) return RIGS.duck_hen;
   return RIGS[type] || RIGS.seagull;
+}
+
+// Composes `out = B * L` for a folded/unfurling wing in local body space,
+// where `B` sits at `bodyArr[o..o+15]` and `s` is `+1` (right) or `-1` (left).
+function writeFoldedWingMatrix(bodyArr, wingArr, o, s, flap, fold) {
+  const f = flap * (1 - fold);
+  const cf = Math.cos(s * f);
+  const sf = Math.sin(s * f);
+  const u = 1 - fold;
+
+  // At fold = 0: pure R_z(s * flap). At fold = 1: shoulder-pinned sleek flank
+  // tuck (`x' = 0.015*x + s*0.44`, `y' = s*0.015*x + 0.88*y + 0.06`,
+  // `z' = s*0.24*x + 0.88*z - 0.03`) keeping primaries level against the flanks.
+  const l00 = cf * u + 0.015 * fold;
+  const l10 = sf * u + s * 0.015 * fold;
+  const l20 = s * 0.24 * fold;
+
+  const l01 = -sf * u;
+  const l11 = cf * u + 0.88 * fold;
+
+  const l22 = u + 0.88 * fold;
+
+  const tx = s * 0.44 * fold;
+  const ty = 0.06 * fold;
+  const tz = -0.03 * fold;
+
+  const b00 = bodyArr[o];
+  const b10 = bodyArr[o + 1];
+  const b20 = bodyArr[o + 2];
+  const b01 = bodyArr[o + 4];
+  const b11 = bodyArr[o + 5];
+  const b21 = bodyArr[o + 6];
+  const b02 = bodyArr[o + 8];
+  const b12 = bodyArr[o + 9];
+  const b22 = bodyArr[o + 10];
+
+  wingArr[o] = b00 * l00 + b01 * l10 + b02 * l20;
+  wingArr[o + 1] = b10 * l00 + b11 * l10 + b12 * l20;
+  wingArr[o + 2] = b20 * l00 + b21 * l10 + b22 * l20;
+  wingArr[o + 3] = 0;
+
+  wingArr[o + 4] = b00 * l01 + b01 * l11;
+  wingArr[o + 5] = b10 * l01 + b11 * l11;
+  wingArr[o + 6] = b20 * l01 + b21 * l11;
+  wingArr[o + 7] = 0;
+
+  wingArr[o + 8] = b02 * l22;
+  wingArr[o + 9] = b12 * l22;
+  wingArr[o + 10] = b22 * l22;
+  wingArr[o + 11] = 0;
+
+  wingArr[o + 12] = bodyArr[o + 12] + b00 * tx + b01 * ty + b02 * tz;
+  wingArr[o + 13] = bodyArr[o + 13] + b10 * tx + b11 * ty + b12 * tz;
+  wingArr[o + 14] = bodyArr[o + 14] + b20 * tx + b21 * ty + b22 * tz;
+  wingArr[o + 15] = 1;
 }
 
 // Writes column-major 4x4 world matrices for a bird's body, right wing (+flap),
 // and left wing (-flap) directly into InstancedMesh Float32Arrays.
 // Matches Three.js `Euler(pitch, yaw, bank, 'YXZ')` + uniform `scale` + child
-// `wing.rotation.z = +/-flap` (`R_y(yaw) * R_x(pitch) * R_z(bank +/- flap) * s`).
+// `wing.rotation.z = +/-flap` (`R_y(yaw) * R_x(pitch) * R_z(bank +/- flap) * s`),
+// and smoothly folds wings against the flanks when `wingFold > 0`.
 export function writeBirdMatrices(
   bodyArr,
   wingRArr,
@@ -588,7 +887,8 @@ export function writeBirdMatrices(
   yaw,
   bank,
   flap,
-  scale
+  scale,
+  wingFold = 0
 ) {
   const a = Math.cos(pitch);
   const b = Math.sin(pitch);
@@ -626,6 +926,13 @@ export function writeBirdMatrices(
   bodyArr[o + 13] = py;
   bodyArr[o + 14] = pz;
   bodyArr[o + 15] = 1;
+
+  if (wingFold > 1e-4) {
+    const fold = wingFold > 1 ? 1 : wingFold;
+    writeFoldedWingMatrix(bodyArr, wingRArr, o, 1, flap, fold);
+    writeFoldedWingMatrix(bodyArr, wingLArr, o, -1, flap, fold);
+    return;
+  }
 
   // 2. Right wing: A * R_z(bank + flap)
   const cr = Math.cos(bank + flap);

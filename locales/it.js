@@ -980,4 +980,6 @@ export default {
   Black: 'Nero',
   'Steering sensitivity': 'Sensibilità di guida',
   'World map': 'Mappa del mondo',
+  'Ruffling feathers': 'Piume scompigliate',
+  'Scatter a flock of ground birds': 'Fai alzare in volo uno stormo a terra',
 };

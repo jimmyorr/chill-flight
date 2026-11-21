@@ -974,4 +974,6 @@ export default {
   Black: 'Чорний',
   'Steering sensitivity': 'Чутливість керування',
   'World map': 'Карта світу',
+  'Ruffling feathers': 'Збурене пір’я',
+  'Scatter a flock of ground birds': 'Сполохай зграю птахів на землі',
 };

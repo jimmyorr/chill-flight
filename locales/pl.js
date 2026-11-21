@@ -978,4 +978,6 @@ export default {
   Black: 'Czarny',
   'Steering sensitivity': 'Czułość sterowania',
   'World map': 'Mapa świata',
+  'Ruffling feathers': 'Pióra w górę',
+  'Scatter a flock of ground birds': 'Poderwij do lotu stado ptaków z ziemi',
 };

@@ -975,4 +975,6 @@ export default {
   Black: 'Preto',
   'Steering sensitivity': 'Sensibilidade do controle',
   'World map': 'Mapa-múndi',
+  'Ruffling feathers': 'Agitando as penas',
+  'Scatter a flock of ground birds': 'Espante um bando de aves no chão',
 };

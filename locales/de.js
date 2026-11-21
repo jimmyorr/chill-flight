@@ -983,4 +983,7 @@ export default {
   Black: 'Anthrazit',
   'Steering sensitivity': 'Steuerempfindlichkeit',
   'World map': 'Weltkarte',
+  'Ruffling feathers': 'Aufgescheucht',
+  'Scatter a flock of ground birds':
+    'Scheuche einen Schwarm Vögel vom Boden auf',
 };

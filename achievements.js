@@ -153,6 +153,12 @@ export const Achievements = (function () {
       hint: 'Startle a goose',
     },
     {
+      id: 'ruffling_feathers',
+      title: 'Ruffling feathers',
+      emoji: '🦆',
+      hint: 'Scatter a flock of ground birds',
+    },
+    {
       id: 'penguin_parade',
       title: 'Happy feet',
       emoji: '🐧',

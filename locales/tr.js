@@ -982,4 +982,6 @@ export default {
   Black: 'Kömür siyahı',
   'Steering sensitivity': 'Yönlendirme hassasiyeti',
   'World map': 'Dünya haritası',
+  'Ruffling feathers': 'Tüyleri kabartmak',
+  'Scatter a flock of ground birds': 'Yerdeki bir kuş sürüsünü havalandır',
 };

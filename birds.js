@@ -144,7 +144,10 @@ const _pose = {
   pitch: 0,
   yaw: 0,
   bank: 0,
+  flap: 0,
+  wingFold: 0,
   splash: false,
+  flushed: false,
   visible: true,
 };
 
@@ -250,14 +253,14 @@ export function updateBirds(delta, elapsed, camPos) {
 
     for (let i = 0; i < birds.length; i++) {
       const data = birds[i];
-      const isGoose = data.type === 'goose';
+      const isMigratoryGoose = data.type === 'goose' && !data.homeRoost;
 
       if (!objectsEnabled) {
         data.visible = false;
-        if (!isGoose) continue;
+        if (!isMigratoryGoose) continue;
       }
 
-      if (chunkBeyondAllLocal && !isGoose) {
+      if (chunkBeyondAllLocal && !isMigratoryGoose) {
         data.visible = false;
         continue;
       }
@@ -268,11 +271,11 @@ export function updateBirds(delta, elapsed, camPos) {
       const birdDistSq = bdx * bdx + bdy * bdy + bdz * bdz;
 
       const spec = BIRD_SPECIES[data.type] || BIRD_SPECIES.seagull;
-      const maxDistSq = isGoose
+      const maxDistSq = isMigratoryGoose
         ? propLodSq
         : Math.min(spec.drawDistSq, propLodSq);
 
-      if (!isGoose && birdDistSq > maxDistSq) {
+      if (!isMigratoryGoose && birdDistSq > maxDistSq) {
         data.visible = false;
         continue;
       }
@@ -294,13 +297,19 @@ export function updateBirds(delta, elapsed, camPos) {
       data.visible = visibleNow;
 
       if (visibleNow) {
+        const fold = _pose.wingFold || 0;
         const rigIdx =
-          data.rigIndex ?? getBirdRigIndex(data.type, data.variant);
+          fold > 0.55
+            ? getBirdRigIndex(data.type, data.variant, fold)
+            : (data.rigIndex ?? getBirdRigIndex(data.type, data.variant));
         const bucket = _rigBuckets[rigIdx];
         if (bucket.count >= bucket.capacity) {
           growRigBucket(bucket);
         }
-        const flap = computeWingFlap(data, elapsed);
+        const flap = _pose.flap ?? computeWingFlap(data, elapsed);
+        const effScale = data.homeRoost
+          ? (data.scale || 2.0) * (1 + 0.38 * (1 - fold))
+          : data.scale || 3.5;
         writeBirdMatrices(
           bucket.bodyMesh.instanceMatrix.array,
           bucket.wingRMesh.instanceMatrix.array,
@@ -313,18 +322,28 @@ export function updateBirds(delta, elapsed, camPos) {
           _pose.yaw,
           _pose.bank,
           flap,
-          data.scale || 3.5
+          effScale,
+          fold
         );
         bucket.count++;
 
-        // Surface spray puff when a gull or pelican plunge-fishes nearby
+        // Surface spray puff when seabirds plunge-fish or ducks flush off water
         if (_pose.splash && birdDistSq < SPLASH_VISIBLE_DIST_SQ) {
-          whaleSplash(_pose.x, _pose.z, data.type === 'pelican' ? 0.36 : 0.24);
+          whaleSplash(
+            _pose.x,
+            _pose.z,
+            data.type === 'pelican' ? 0.36 : data.type === 'duck' ? 0.2 : 0.24
+          );
         }
       }
 
-      // Achievement check: close pass to a goose ('geese_police')
-      if (isGoose && _aircraft.active) {
+      // Achievement check: startling a grounded/marsh/beach flock ('ruffling_feathers')
+      if (_pose.flushed && _aircraft.active) {
+        Achievements.unlock('ruffling_feathers');
+      }
+
+      // Achievement check: close pass to a migratory goose ('geese_police')
+      if (isMigratoryGoose && _aircraft.active) {
         const gdx = _pose.x - _aircraft.x;
         const gdy = _pose.y - _aircraft.y;
         const gdz = _pose.z - _aircraft.z;
