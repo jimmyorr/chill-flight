@@ -229,6 +229,11 @@ function smoothMax(a, b, k) {
   return (a + b + Math.sqrt(d * d + k * k)) * 0.5;
 }
 
+// First-order ease of a toward b at the given rate (1/s), frame-rate independent
+function easeToward(a, b, rate, dt) {
+  return a + (b - a) * (1 - Math.exp(-rate * dt));
+}
+
 function smoothstep(x, e0, e1) {
   const t = clamp((x - e0) / (e1 - e0 || 1), 0, 1);
   return t * t * (3 - 2 * t);
@@ -2060,11 +2065,49 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
         // State cycle: THERMAL (spiral climb + downwind drift) <-> GLIDE (upwind
         // return) + occasional FORAGE stoop
         data.nextStoopWait = (data.nextStoopWait ?? 40) - dt;
+        // Circle size and turn rate per state, eased so the hawk swings
+        // wider or tighter instead of jumping sideways when it changes state
+        const hawkRad =
+          data.state === BIRD_STATES.THERMAL
+            ? 1
+            : data.state === BIRD_STATES.FORAGE
+              ? 0.85
+              : 0.6;
+        const hawkRate =
+          data.state === BIRD_STATES.THERMAL
+            ? 1
+            : data.state === BIRD_STATES.FORAGE
+              ? 1.25
+              : 0.5;
+        if (data.radMul === undefined) {
+          data.radMul = hawkRad;
+          data.radMulV = 0;
+        }
+        springTo(data, 'radMul', 'radMulV', hawkRad, 1.2, dt);
+        data.rateMul = easeToward(data.rateMul ?? hawkRate, hawkRate, 2, dt);
+        const hawkR = data.circleRadius * data.radMul;
+        // The circle's centre drifts downwind in a thermal and heads home in
+        // a glide; its velocity is eased too, so the hawk doesn't lurch
+        const homeDx = (data.homeX ?? data.cx) - data.cx;
+        const homeDz = (data.homeZ ?? data.cz) - data.cz;
+        const homeDist = Math.hypot(homeDx, homeDz);
+        let driftX = 0;
+        let driftZ = 0;
         if (data.state === BIRD_STATES.THERMAL) {
-          data.angle += data.circleSpeed * dt;
-          // Thermal column drifts gently downwind while the hawk climbs
-          data.cx += windVx * 0.28 * dt;
-          data.cz += windVz * 0.28 * dt;
+          driftX = windVx * 0.28;
+          driftZ = windVz * 0.28;
+        } else if (data.state === BIRD_STATES.GLIDE && homeDist > 1) {
+          const glideSpeed = Math.min(34, homeDist * 0.8);
+          driftX = (homeDx / homeDist) * glideSpeed;
+          driftZ = (homeDz / homeDist) * glideSpeed;
+        }
+        data.driftVx = easeToward(data.driftVx ?? driftX, driftX, 1.5, dt);
+        data.driftVz = easeToward(data.driftVz ?? driftZ, driftZ, 1.5, dt);
+        data.cx += data.driftVx * dt;
+        data.cz += data.driftVz * dt;
+        if (data.state === BIRD_STATES.THERMAL) {
+          data.angle += data.circleSpeed * data.rateMul * dt;
+          // (the thermal column drifts gently downwind while the hawk climbs)
           data.cy += (data.climbRate || 8) * dt;
           if (data.cy >= (data.thermalTop || data.homeY + 120)) {
             data.state =
@@ -2074,8 +2117,8 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
               data.nextStoopWait = 38 + ((data.flapPhase * 7) % 25);
             }
           }
-          targetX = data.cx + Math.cos(data.angle) * data.circleRadius;
-          targetZ = data.cz + Math.sin(data.angle) * data.circleRadius;
+          targetX = data.cx + Math.cos(data.angle) * hawkR;
+          targetZ = data.cz + Math.sin(data.angle) * hawkR;
           targetY = data.cy;
           const tangX = -Math.sin(data.angle) * Math.sign(data.circleSpeed);
           const tangZ = Math.cos(data.angle) * Math.sign(data.circleSpeed);
@@ -2085,11 +2128,11 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
         } else if (data.state === BIRD_STATES.FORAGE) {
           // Swift shallow raptor stoop and zoom recovery
           data.divePhase += dt / 3.4;
-          data.angle += data.circleSpeed * 1.25 * dt;
+          data.angle += data.circleSpeed * data.rateMul * dt;
           const stoopDrop =
             Math.sin(Math.min(1, data.divePhase) * Math.PI) * 85;
-          targetX = data.cx + Math.cos(data.angle) * data.circleRadius * 0.85;
-          targetZ = data.cz + Math.sin(data.angle) * data.circleRadius * 0.85;
+          targetX = data.cx + Math.cos(data.angle) * hawkR;
+          targetZ = data.cz + Math.sin(data.angle) * hawkR;
           targetY = Math.max(waterLevel + 35, data.cy - stoopDrop);
           const tangX = -Math.sin(data.angle) * Math.sign(data.circleSpeed);
           const tangZ = Math.cos(data.angle) * Math.sign(data.circleSpeed);
@@ -2101,23 +2144,17 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
           }
         } else {
           // GLIDE: gently lose altitude while gliding back toward home upwind thermal
-          const dx = (data.homeX ?? data.cx) - data.cx;
-          const dz = (data.homeZ ?? data.cz) - data.cz;
-          const dist = Math.hypot(dx, dz);
-          const glideSpeed = 34;
-          if (dist > 8) {
-            data.cx += (dx / dist) * glideSpeed * dt;
-            data.cz += (dz / dist) * glideSpeed * dt;
-            wantYaw = Math.atan2(-dx, -dz);
+          if (homeDist > 8) {
+            wantYaw = Math.atan2(-homeDx, -homeDz);
           }
           data.cy = Math.max(data.homeY ?? 220, data.cy - 14 * dt);
-          data.angle += data.circleSpeed * 0.5 * dt;
-          targetX = data.cx + Math.cos(data.angle) * data.circleRadius * 0.6;
-          targetZ = data.cz + Math.sin(data.angle) * data.circleRadius * 0.6;
+          data.angle += data.circleSpeed * data.rateMul * dt;
+          targetX = data.cx + Math.cos(data.angle) * hawkR;
+          targetZ = data.cz + Math.sin(data.angle) * hawkR;
           targetY = data.cy;
           wantPitch = -0.09;
           wantBank = Math.sign(data.circleSpeed) * 0.16;
-          if (dist <= 22 && data.cy <= (data.homeY ?? 220) + 8) {
+          if (homeDist <= 22 && data.cy <= (data.homeY ?? 220) + 8) {
             data.state = BIRD_STATES.THERMAL;
           }
         }
@@ -2126,8 +2163,21 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
 
       case 'seagull': {
         // SOAR wheeling -> brief upwind KITE hover -> parabolic FORAGE dive to water
+        // (the gull slows into the hover and speeds back up rather than
+        // switching speed in one frame)
+        const gullRate =
+          data.state === BIRD_STATES.KITE
+            ? 0.18
+            : data.state === BIRD_STATES.FORAGE
+              ? 0.55
+              : 1;
+        if (data.rateMul === undefined) {
+          data.rateMul = gullRate;
+          data.rateMulV = 0;
+        }
+        springTo(data, 'rateMul', 'rateMulV', gullRate, 4, dt);
         if (data.state === BIRD_STATES.SOAR) {
-          data.angle += data.circleSpeed * dt;
+          data.angle += data.circleSpeed * data.rateMul * dt;
           data.stateTimer -= dt;
           targetX = data.cx + Math.cos(data.angle) * data.circleRadius;
           targetZ = data.cz + Math.sin(data.angle) * data.circleRadius;
@@ -2148,7 +2198,7 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
         } else if (data.state === BIRD_STATES.KITE) {
           // Turn nose into the wind and hover-flutter for 1.1s spotting fish
           data.divePhase += dt / 1.1;
-          data.angle += data.circleSpeed * 0.18 * dt;
+          data.angle += data.circleSpeed * data.rateMul * dt;
           targetX = data.cx + Math.cos(data.angle) * data.circleRadius;
           targetZ = data.cz + Math.sin(data.angle) * data.circleRadius;
           targetY = data.cy + Math.sin(data.divePhase * Math.PI) * 5;
@@ -2164,7 +2214,7 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
           // FORAGE: parabolic plunge to WATER_LEVEL + 2 and climb out
           const prevPhase = data.divePhase;
           data.divePhase += dt / 3.4;
-          data.angle += data.circleSpeed * 0.55 * dt;
+          data.angle += data.circleSpeed * data.rateMul * dt;
           const p = Math.min(1, data.divePhase);
           const depth = Math.max(10, data.cy - (waterLevel + 2.5));
           targetX = data.cx + Math.cos(data.angle) * data.circleRadius;
@@ -2289,7 +2339,7 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
           const p = Math.min(1, data.divePhase);
           if (p < 0.45) {
             const u = p / 0.45;
-            data.angle += data.circleSpeed * (1 - u * 0.85) * dt;
+            data.angle += data.circleSpeed * (1 - u * 0.85) * (1 - u * u) * dt;
             const fromY = data.diveFromY ?? waterLevel + soarH;
             targetY = fromY - smoothstep(u, 0, 1) * (fromY - waterLevel - 2);
             wantPitch = -0.82 * Math.sin(u * Math.PI);
