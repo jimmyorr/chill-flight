@@ -30,7 +30,12 @@ export const ROAD_VEHICLES = [
   {name: 'Delivery truck', module: deliveryTruck, weight: 2},
   {name: 'Hatchback (80s)', module: hatchback80s, weight: 2},
   {name: 'Station wagon (70s)', module: stationWagon70s, weight: 2},
-  {name: 'Pop-top camper van', module: popTopCamper, weight: 1.5},
+  {
+    name: 'Pop-top camper van',
+    module: popTopCamper,
+    weight: 1.5,
+    params: {roof: 0},
+  },
   {name: 'Police cruiser', module: policeCruiser, weight: 0.5},
 ].map((v) => ({...v, colorways: v.module.params.colorway.options}));
 
@@ -39,7 +44,7 @@ const vehicleMat = createMaterial({vertexColors: true, flatShading: true});
 // Builds one vehicle in one paint scheme: a group (front toward +z) with
 // `wheels` (spin about x) and `steers` (turn about y), and its size
 export function buildRoadVehicle(kind, colorway) {
-  const asset = kind.module.createAsset({colorway});
+  const asset = kind.module.createAsset({...kind.params, colorway});
   const wheels = [];
   const steers = [];
   asset.traverse((o) => {
