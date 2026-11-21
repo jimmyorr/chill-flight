@@ -980,4 +980,6 @@ export default {
   'World map': 'Mapa świata',
   'Ruffling feathers': 'Pióra w górę',
   'Scatter a flock of ground birds': 'Poderwij do lotu stado ptaków z ziemi',
+  'Grand finale': 'Wielki finał',
+  'Fly through a night fireworks show': 'Przeleć przez nocny pokaz fajerwerków',
 };

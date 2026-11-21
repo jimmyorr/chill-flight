@@ -68,6 +68,10 @@ export function flashLightning(
   thunderHaptic(distance);
 }
 
+export function isLightningFlashing() {
+  return _flash !== null;
+}
+
 // Start a distant storm toward angle (radians, as flashLightning), flashing
 // right away; for testing from the console
 export function startFarStorm(angle = Math.random() * Math.PI * 2) {

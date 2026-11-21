@@ -982,4 +982,7 @@ export default {
   'World map': 'Mappa del mondo',
   'Ruffling feathers': 'Piume scompigliate',
   'Scatter a flock of ground birds': 'Fai alzare in volo uno stormo a terra',
+  'Grand finale': 'Gran finale',
+  'Fly through a night fireworks show':
+    'Vola attraverso uno spettacolo di fuochi d’artificio notturno',
 };

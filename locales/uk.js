@@ -976,4 +976,6 @@ export default {
   'World map': 'Карта світу',
   'Ruffling feathers': 'Збурене пір’я',
   'Scatter a flock of ground birds': 'Сполохай зграю птахів на землі',
+  'Grand finale': 'Грандіозний фінал',
+  'Fly through a night fireworks show': 'Пролети крізь нічний феєрверк',
 };

@@ -176,6 +176,12 @@ export const Achievements = (function () {
       emoji: '🛩️',
       hint: 'Fly alongside a plane',
     },
+    {
+      id: 'grand_finale',
+      title: 'Grand finale',
+      emoji: '🎆',
+      hint: 'Fly through a night fireworks show',
+    },
     // 5. Buggy
     {
       id: 'bunny_hop',

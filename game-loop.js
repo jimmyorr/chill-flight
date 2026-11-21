@@ -159,6 +159,7 @@ import {updateDolphins} from './dolphins.js';
 import {updateGrass} from './grass.js';
 import {updateTreeWash} from './tree-wash.js';
 import {updateFireflies} from './fireflies.js';
+import {updateFireworks} from './fireworks.js';
 import {updateMultiplayer} from './multiplayer.js';
 import {updateBreakables} from './breakables.js';
 import {applyTrip, restoreTrip, updateTrip} from './mushroom-trip.js';
@@ -764,6 +765,7 @@ function performFrame(timestamp) {
   updateGrass(delta);
   updateTreeWash(delta);
   updateFireflies();
+  updateFireworks(delta);
   // --- SHADOW TEXEL SNAPPING (View-Space) ---
   updateShadowSnapping();
   // Smoothly interpolate sky shader palettes

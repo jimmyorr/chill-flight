@@ -984,4 +984,6 @@ export default {
   'World map': 'Carte du monde',
   'Ruffling feathers': 'Volée de plumes',
   'Scatter a flock of ground birds': "Fais s'envoler un groupe d'oiseaux posés",
+  'Grand finale': 'Bouquet final',
+  'Fly through a night fireworks show': 'Traverse un feu d’artifice nocturne',
 };

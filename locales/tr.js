@@ -984,4 +984,7 @@ export default {
   'World map': 'Dünya haritası',
   'Ruffling feathers': 'Tüyleri kabartmak',
   'Scatter a flock of ground birds': 'Yerdeki bir kuş sürüsünü havalandır',
+  'Grand finale': 'Büyük final',
+  'Fly through a night fireworks show':
+    'Gece havai fişek gösterisinin içinden uç',
 };

@@ -60,6 +60,9 @@ export const skyUniforms = {
   // A storm far past the horizon flickering: xz its direction, y the top of
   // its glow (dir.y), w its brightness (weather-manager.js)
   uFarStorm: {value: new THREE.Vector4(1, 0.08, 0, 0)},
+  // Night fireworks burst glow: xyz world burst position, w brightness (fireworks.js)
+  uFireworkPos: {value: new THREE.Vector4(0, 0, 0, 0)},
+  uFireworkColor: {value: new THREE.Color(1, 0.8, 0.4)},
   uNoiseTex: {value: skyNoiseTexture},
   uCameraPos: {value: new THREE.Vector3()},
   uMoonDir: moonlightUniforms.uMoonDir,

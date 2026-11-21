@@ -520,6 +520,8 @@ waterMaterial.onBeforeCompile = function (shader) {
   shader.uniforms.uCloudTypes = skyUniforms.uCloudTypes;
   shader.uniforms.uCloudCover = skyUniforms.uCloudCover;
   shader.uniforms.uSnowDeck = skyUniforms.uSnowDeck;
+  shader.uniforms.uFireworkPos = skyUniforms.uFireworkPos;
+  shader.uniforms.uFireworkColor = skyUniforms.uFireworkColor;
   shader.uniforms.uMoonDir = moonlightUniforms.uMoonDir;
   shader.uniforms.uMoonBright = moonlightUniforms.uMoonBright;
   shader.uniforms.uGlitterWarm = waterUniforms.uGlitterWarm;
@@ -632,6 +634,8 @@ waterMaterial.onBeforeCompile = function (shader) {
         uniform float uCloudDensity;
         uniform float uCloudHeight;
         uniform bool uShowClouds;
+        uniform vec4 uFireworkPos;
+        uniform vec3 uFireworkColor;
     ` +
     SKY_COLOR_GLSL +
     FAR_SEA_GLSL +
@@ -778,6 +782,16 @@ waterMaterial.onBeforeCompile = function (shader) {
           vec4 reflClouds = cloudsAlong(vWorldPosition, reflDir, uCloudHeight, uCloudDensity, uSkyTime,
                                         uSunDirection, uTopColor, uBottomColor);
           reflected = mix(reflected, reflClouds.rgb, reflClouds.a);
+        }
+        if (uFireworkPos.w > 0.001) {
+          vec3 toFw = uFireworkPos.xyz - vWorldPosition;
+          float fwDist2 = dot(toFw.xz, toFw.xz);
+          if (fwDist2 < 4500000.0) {
+            vec3 fwDirW = normalize(toFw);
+            float fwSpec = pow(max(dot(reflDir, fwDirW), 0.0), 22.0);
+            float fwFall = exp(-fwDist2 / 1400000.0);
+            reflected += uFireworkColor * (uFireworkPos.w * fwFall * (fwSpec * 1.35 + 0.12));
+          }
         }
         gl_FragColor.rgb = mix(gl_FragColor.rgb, reflected, skyFresnel * 0.85);
         gl_FragColor.a = max(gl_FragColor.a, skyFresnel * depthOpacity);

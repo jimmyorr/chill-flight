@@ -963,4 +963,6 @@ export default {
   'World map': 'ワールドマップ',
   'Ruffling feathers': '羽ばたきパニック',
   'Scatter a flock of ground birds': '水辺や地面の鳥の群れを飛び立たせる',
+  'Grand finale': 'グランドフィナーレ',
+  'Fly through a night fireworks show': '夜空の花火の中を飛び抜ける',
 };

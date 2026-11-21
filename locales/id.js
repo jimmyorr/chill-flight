@@ -987,4 +987,7 @@ export default {
   'Ruffling feathers': 'Bulu berhamburan',
   'Scatter a flock of ground birds':
     'Kejutkan kawanan burung di darat hingga terbang',
+  'Grand finale': 'Puncak pertunjukan',
+  'Fly through a night fireworks show':
+    'Terbang menembus pertunjukan kembang api malam',
 };

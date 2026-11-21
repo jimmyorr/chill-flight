@@ -977,4 +977,7 @@ export default {
   'World map': 'Mapa-múndi',
   'Ruffling feathers': 'Agitando as penas',
   'Scatter a flock of ground birds': 'Espante um bando de aves no chão',
+  'Grand finale': 'Grande final',
+  'Fly through a night fireworks show':
+    'Voe por dentro de um show de fogos à noite',
 };

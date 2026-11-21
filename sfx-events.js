@@ -36,6 +36,7 @@ export const SFX_EVENTS = [
   {key: 'bump', label: 'Bumping into other planes'},
   {key: 'scrape', label: 'Scraping a wall'},
   {key: 'portal', label: 'Portal wormhole'},
+  {key: 'fireworks', label: 'Fireworks'},
 ];
 
 const STORAGE_KEY = 'chill_flight_sfx_events';
@@ -194,7 +195,10 @@ function noiseBurst(
 }
 
 // A single enveloped oscillator note, optionally through a low-pass
-function tone(t, {type = 'sine', freq, freqEnd, gain, attack, decay, lowpass}) {
+function tone(
+  t,
+  {type = 'sine', freq, freqEnd, gain, attack, decay, lowpass, out = bus}
+) {
   const osc = ctx.createOscillator();
   osc.type = type;
   osc.frequency.setValueAtTime(freq, t);
@@ -214,7 +218,7 @@ function tone(t, {type = 'sine', freq, freqEnd, gain, attack, decay, lowpass}) {
   } else {
     osc.connect(g);
   }
-  g.connect(bus);
+  g.connect(out);
   osc.start(t);
   osc.stop(t + attack + decay + 0.05);
 }
@@ -611,6 +615,126 @@ export function playPortalWarp(force = false) {
   }
 }
 
+const FIREWORK_LEVEL = 0.48;
+
+// Soft mortar launch thump and ascending whistle when near the launch pad.
+export function playFireworkLaunch(distance = 0.25, force = false, pan = 0) {
+  if ((!force && !isSfxEventEnabled('fireworks')) || !ready(force)) return;
+  const d = THREE.MathUtils.clamp(distance, 0, 1);
+  if (!force && d > 0.45) return;
+  let out = bus;
+  if (pan && ctx.createStereoPanner) {
+    out = ctx.createStereoPanner();
+    out.pan.value = THREE.MathUtils.clamp(pan, -1, 1) * 0.7;
+    out.connect(bus);
+  }
+  const loud = (1 - d / 0.5) * FIREWORK_LEVEL;
+  const t = ctx.currentTime + (force ? 0.01 : d * 0.6);
+  tone(t, {
+    freq: 120,
+    freqEnd: 54,
+    gain: 0.35 * loud,
+    attack: 0.005,
+    decay: 0.14,
+    out,
+  });
+  noiseBurst(t + 0.02, {
+    type: 'bandpass',
+    freq: 780,
+    freqEnd: 2200,
+    q: 2.6,
+    gain: 0.24 * loud,
+    attack: 0.08,
+    decay: 0.62,
+    out,
+  });
+}
+
+// Aerial firework burst with speed-of-sound arrival delay, warm distant rolloff,
+// and optional fizzy sky-crackle pops (`crackle = true`).
+export function playFireworkBurst(
+  distance = 0.4,
+  crackle = false,
+  force = false,
+  pan = 0
+) {
+  if ((!force && !isSfxEventEnabled('fireworks')) || !ready(force)) return;
+  const d = THREE.MathUtils.clamp(distance, 0, 1);
+  if (!force && d > 0.98) return;
+  let out = bus;
+  if (pan && ctx.createStereoPanner) {
+    out = ctx.createStereoPanner();
+    out.pan.value = THREE.MathUtils.clamp(pan, -1, 1) * (0.78 - d * 0.35);
+    out.connect(bus);
+  }
+  // Speed-of-sound delay (~2.4 s across ~1.8 km, near-instant up close)
+  const t = ctx.currentTime + (force ? 0.02 : 0.04 + d * 2.4);
+  const loud = (1 - d * 0.72) * FIREWORK_LEVEL;
+  const dull = 1 - d * 0.45;
+
+  // Deep chesty mortar boom + gentle valley echo swell
+  tone(t, {
+    freq: 92,
+    freqEnd: 34,
+    gain: 0.85 * loud,
+    attack: 0.005,
+    decay: 0.42,
+    out,
+  });
+  noiseBurst(t, {
+    type: 'lowpass',
+    freq: 380 * dull,
+    freqEnd: 85,
+    q: 0.8,
+    gain: 0.82 * loud,
+    attack: 0.008,
+    decay: 0.62,
+    out,
+  });
+  noiseBurst(t + 0.16, {
+    type: 'lowpass',
+    freq: 230 * dull,
+    freqEnd: 68,
+    q: 0.7,
+    gain: 0.36 * loud,
+    attack: 0.08,
+    decay: 0.95,
+    out,
+  });
+
+  // Crisp shell snap when reasonably close
+  if (d < 0.68) {
+    noiseBurst(t, {
+      type: 'bandpass',
+      freq: 1550,
+      freqEnd: 480,
+      q: 0.65,
+      gain: 0.55 * (1 - d / 0.68) * FIREWORK_LEVEL,
+      attack: 0.003,
+      decay: 0.22,
+      out,
+    });
+  }
+
+  // Delayed fizzy gold/silver crackle pops after willow, crackle & finale shells
+  if (crackle && d < 0.84) {
+    const crackleGain = 0.26 * (1 - d / 0.84) * FIREWORK_LEVEL;
+    for (let i = 0; i < 7; i++) {
+      const ct = t + 0.28 + i * 0.11 + Math.random() * 0.08;
+      noiseBurst(ct, {
+        type: 'bandpass',
+        freq: 2600 + Math.random() * 1700,
+        freqEnd: 1800,
+        q: 2.2,
+        gain: crackleGain * (0.65 + Math.random() * 0.5),
+        attack: 0.002,
+        decay: 0.042,
+        out,
+      });
+    }
+  }
+}
+
 // Audition each one-shot from the debug menu and sound lab, even when it's
 // switched off
 export const SFX_EVENT_PLAYERS = {
@@ -636,6 +760,10 @@ export const SFX_EVENT_PLAYERS = {
     }
   },
   portal: () => playPortalWarp(true),
+  fireworks: () => {
+    playFireworkLaunch(0.12, true);
+    setTimeout(() => playFireworkBurst(0.18, true, true), 780);
+  },
   race: () => {
     for (let i = 0; i < 4; i++) {
       setTimeout(() => playRaceBeep(i === 3, true), i * 1000);

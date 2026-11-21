@@ -9,6 +9,8 @@
     uniform float uAuroraIntensity;
     uniform vec4 uFlash;
     uniform vec4 uFarStorm;
+    uniform vec4 uFireworkPos;
+    uniform vec3 uFireworkColor;
     uniform vec3 uCameraPos;
     varying vec3 vDirection;
 
@@ -367,6 +369,13 @@
             float fa = max(dot(dir, uFlash.xyz), 0.0);
             col += vec3(0.72, 0.78, 1.0) * uFlash.w
                  * (pow(fa, 6.0) * 0.32 + pow(fa, 1.5) * 0.08 + 0.03);
+        }
+
+        if (uFireworkPos.w > 0.001) {
+            vec3 fwDir = normalize(uFireworkPos.xyz - uCameraPos);
+            float fwDot = max(dot(dir, fwDir), 0.0);
+            col += uFireworkColor * uFireworkPos.w
+                 * (pow(fwDot, 36.0) * 0.42 + pow(fwDot, 5.0) * 0.07);
         }
 
         // --- AURORA BOREALIS ---

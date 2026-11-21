@@ -986,4 +986,7 @@ export default {
   'Ruffling feathers': 'Aufgescheucht',
   'Scatter a flock of ground birds':
     'Scheuche einen Schwarm Vögel vom Boden auf',
+  'Grand finale': 'Großes Finale',
+  'Fly through a night fireworks show':
+    'Fliege nachts durch ein Feuerwerk am Himmel',
 };

@@ -929,4 +929,6 @@ export default {
   'World map': '世界地圖',
   'Ruffling feathers': '驚起飛羽',
   'Scatter a flock of ground birds': '驚飛一群棲息的鳥兒',
+  'Grand finale': '壓軸煙火',
+  'Fly through a night fireworks show': '飛越夜空中的煙火秀',
 };

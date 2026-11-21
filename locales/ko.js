@@ -950,4 +950,6 @@ export default {
   'World map': '세계 지도',
   'Ruffling feathers': '푸드덕 날아오르기',
   'Scatter a flock of ground birds': '땅이나 물가의 새 떼를 날아오르게 하기',
+  'Grand finale': '그랜드 피날레',
+  'Fly through a night fireworks show': '밤하늘의 불꽃놀이 속을 날아 통과하기',
 };
