@@ -557,7 +557,10 @@ function viewModel(type, e, colorSeed = 0) {
 
           ap.traverse((child) => {
             if (child.isMesh && child.material) {
-              if (child.material === planeMat) {
+              if (
+                child.material === planeMat ||
+                child.userData.matRole === 'accent'
+              ) {
                 child.material = newAccentMat;
               } else if (child.material === planeWhiteMat) {
                 child.material = newBodyMat;
