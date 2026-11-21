@@ -656,6 +656,14 @@ export const ChillFlightLogic = {};
     if (!type) return null;
     const norm = String(type).trim().toLowerCase();
     if (norm === 'classic') return 'seaplane';
+    if (
+      norm === 'rally' ||
+      norm === 'compact' ||
+      norm === 'coupe' ||
+      norm === 'car'
+    ) {
+      return PLANE_TYPES.includes('buggy') ? 'buggy' : null;
+    }
     return PLANE_TYPES.includes(norm) ? norm : null;
   }
   const START_PLANE = normalizePlaneType(

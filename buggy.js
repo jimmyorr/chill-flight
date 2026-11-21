@@ -146,6 +146,7 @@ let velY = 0;
 let yaw = 0;
 let yawRate = 0;
 let steer = 0;
+let visualSteer = 0;
 let airborne = false;
 // How long the ground has been climbing under it (stepBuggyVertical)
 let rampTime = 0;
@@ -363,6 +364,7 @@ function enter(fall) {
   );
   yawRate = 0;
   steer = 0;
+  visualSteer = 0;
   car.lean = 0;
   car.slide = 0;
   slip = 0;
@@ -874,7 +876,26 @@ function stepBuggy(dt) {
     for (const wheel of model.wheels) wheel.rotation.x -= roll;
   }
   if (model.steerPivots) {
-    const wheelSteer = THREE.MathUtils.clamp(steer, -MAX_STEER, MAX_STEER);
+    // Physics car.steer shrinks as 1/v^2 down to ~1 deg at highway speed; use a
+    // dedicated visual steering angle so the front wheels visibly turn ~22-29
+    // deg into corners (and vector the front hover ducts on water).
+    const visIn = Math.sign(steerIn) * Math.pow(Math.abs(steerIn), 0.58);
+    const visMax = THREE.MathUtils.lerp(
+      MAX_STEER,
+      0.38,
+      Math.min(1, speed / TOP_SPEED)
+    );
+    const visTarget = visIn * visMax;
+    const visRate =
+      visTarget === 0 || Math.sign(visTarget) !== Math.sign(visualSteer)
+        ? 7.5
+        : 5.5;
+    visualSteer += THREE.MathUtils.clamp(
+      visTarget - visualSteer,
+      -visRate * dt,
+      visRate * dt
+    );
+    const wheelSteer = visualSteer * (1 - 0.35 * hoverFold);
     for (const pivot of model.steerPivots) pivot.rotation.y = wheelSteer;
   }
 

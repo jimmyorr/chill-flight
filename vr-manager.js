@@ -67,7 +67,7 @@ const PLANE_LABELS = {
   seaplane: 'Seaplane',
   twin: 'Twin',
   jet: 'Jet',
-  buggy: 'Buggy',
+  buggy: 'Rally',
 };
 
 let vrPauseMenu = null;

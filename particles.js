@@ -299,7 +299,7 @@ const GEAR_HALF_TRACK = {
 };
 // Where the pontoons end behind the plane's centre (units); the hovering
 // buggy's folded back wheels are nearer
-const PONTOON_STERN = {buggy: 3.6};
+const PONTOON_STERN = {buggy: 5.5};
 const DEFAULT_STERN = 7.5;
 const sternOf = (type) => PONTOON_STERN[type] ?? DEFAULT_STERN;
 // Below this speed on the water there's no spray or wake (speed multiplier)
@@ -338,10 +338,7 @@ const EXHAUSTS = {
     [5.8, -0.6, -1.5],
   ],
   jet: [[0, 0.02, 12.6]],
-  buggy: [
-    [-0.6, 2.9, 4.1],
-    [0.6, 2.9, 4.1],
-  ],
+  buggy: [[-1.6, 1.15, 7.0]],
 };
 
 // Contrails: thin white streaks from the engines high up (in the band
@@ -774,12 +771,7 @@ function slideSmoke(delta) {
   const count = Math.floor(slide * delta * 70 + Math.random());
   for (let i = 0; i < count; i++) {
     const side = Math.random() < 0.5 ? -1 : 1;
-    planePoint(
-      side * 2.65 + rand(-0.4, 0.4),
-      rand(2.5, 3.5),
-      groundY + 0.6,
-      _p
-    );
+    planePoint(side * 2.6 + rand(-0.4, 0.4), rand(4.0, 5.0), groundY + 0.6, _p);
     spawn(
       _p,
       {

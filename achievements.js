@@ -175,7 +175,7 @@ export const Achievements = (function () {
       id: 'bunny_hop',
       title: 'Bunny hop',
       emoji: '🐇',
-      hint: 'Hop the buggy',
+      hint: 'Hop the rally car',
     },
     {
       id: 'tokyo_drift',

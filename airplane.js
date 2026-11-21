@@ -1031,7 +1031,7 @@ planeGroup.add(headlight);
 // mostly the pool on the ground (headlightPoolUniforms in constants.js); the
 // spotlight from there still lights trees, houses and hillsides ahead.
 const PLANE_BEAM = {pos: [0, 0, -10], target: [0, -12, -100]};
-const BUGGY_BEAM = {pos: [0, 2.75, -4.7], target: [0, 1, -100]};
+const BUGGY_BEAM = {pos: [0, 2.57, -7.05], target: [0, 1, -100]};
 const BUGGY_POOL_BRIGHTNESS = 0.9;
 const _beamPos = new THREE.Vector3();
 const _beamTarget = new THREE.Vector3();

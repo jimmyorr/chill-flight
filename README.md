@@ -600,7 +600,7 @@ The game supports various URL query parameters for deep linking to specific loca
 - **`pitch`**: Starting pitch angle in degrees.
 - **`roll`**: Starting bank angle in degrees (positive banks left, negative right). It holds while the free camera freezes the plane; in flight the flight model takes over.
 - **`speed`**: Starting flight speed multiplier (e.g., `1.0`, `2.0`, `0`).
-- **`plane`** or **`vehicle`**: Initial aircraft model (`biplane`, the default, the vintage biplane; `seaplane`, a monoplane on floats; `twin`; `jet`, a swept-wing fighter; or `buggy`, to drive). `classic`, the seaplane's old name, still works.
+- **`plane`** or **`vehicle`**: Initial aircraft model (`biplane`, the default, the vintage biplane; `seaplane`, a monoplane on floats; `twin`; `jet`, a swept-wing fighter; or `rally` / `buggy`, the amphibious 5-door rally hatchback, to drive). `classic`, the seaplane's old name, and `compact` / `coupe` / `car` aliases for `rally` also work.
 - **`buggy`**: `0` or `false` hides the buggy in the pause menu, on **V** and in `plane`.
 - **`livery`**: Plane color for this visit (not saved): an index (0-7) or a name (`coral`, `teal`, `sage`, `purple`, `slate`, `sand`, `rose`, `black`).
 - **`map`**: Load a specific pre-configured map location (e.g., `long-island`).
