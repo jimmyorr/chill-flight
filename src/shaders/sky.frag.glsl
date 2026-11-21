@@ -55,13 +55,14 @@
         // The cirrus and mackerel sky are high clouds, on their own planes
         // well above the cumulus deck: from the ground they look the same,
         // but climbing toward the deck they stay far off rather than
-        // swelling into huge straight streaks across the sky. Above the deck
-        // only the cumulus shows (below)
+        // swelling into huge straight streaks across the sky. They stay
+        // overhead after climbing through the deck, since they're far above it
         float cloudHeight = uCloudHeight > 0.0 ? uCloudHeight : 3000.0;
         float distToPlane = cloudHeight - uCameraPos.y;
+        // The cumulus deck shows looking up from below it or down from above
+        bool seesDeck = (distToPlane * h) > 0.0;
         
-        // If below clouds (dist > 0), we look up (h > 0). If above clouds (dist < 0), we look down (h < 0).
-        if (uShowClouds && (distToPlane * h) > 0.0) {
+        if (uShowClouds && (seesDeck || h > 0.0)) {
             float t = distToPlane / h;
             vec2 cloudUV = (uCameraPos.xz + dir.xz * t) / cloudHeight;
             vec2 sunDir2D = length(sunDirection.xz) > 0.001 ? normalize(sunDirection.xz) : vec2(1.0, 0.0);
@@ -170,7 +171,7 @@
             // -- Layer 3: Puffy cumulus (lowest, fastest) --
             // Warped noise curls the edges into billows; fine detail breaks
             // them up up close and fades with distance so it doesn't shimmer
-            if (uCloudTypes.x > 0.0) {
+            if (seesDeck && uCloudTypes.x > 0.0) {
                 vec2 uvLow = (cloudUV + CLOUD_WIND * uTime * 0.034) * 2.0;
                 vec2 q;
                 float detail = smoothstep(0.05, 0.3, abs(h));
