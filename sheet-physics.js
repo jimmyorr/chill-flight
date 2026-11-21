@@ -162,15 +162,8 @@ if (typeof document !== 'undefined') {
       dismiss: () => hooks.fullscreenMap?.clearPin?.(),
       timer: null,
     },
-    {
-      id: 'pause-overlay',
-      getContainer: () => document.getElementById('pause-overlay'),
-      getSheet: () =>
-        document.querySelector('#pause-overlay .customization-box'),
-      isOpen: (c) => isVisibleOverlay(c) && !c.classList.contains('under-map'),
-      dismiss: () => document.getElementById('resume-btn')?.click(),
-      timer: null,
-    },
+    // Pause itself doesn't swipe closed: that would resume flight, so it
+    // takes the Resume button or Back
   ];
 
   function resetSheetStyles(entry) {
