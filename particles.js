@@ -293,7 +293,7 @@ function uploadSpawned() {
 const GEAR_HALF_TRACK = {
   seaplane: 5,
   twin: 5.8,
-  jet: 1.6,
+  jet: 1.85,
   biplane: 3.8,
   buggy: 2.6,
 };
@@ -320,7 +320,7 @@ const WINGTIPS = {
   biplane: [14.5, 2.9, -3],
   seaplane: [16, 2.8, -2.5],
   twin: [16.3, -0.2, 1],
-  jet: [11, 0.8, 4],
+  jet: [10.4, 0.18, 5.8],
 };
 const VAPOUR_SPACING = 1.5;
 // Where the engines' exhausts are (units, from the plane's centre)
@@ -337,10 +337,7 @@ const EXHAUSTS = {
     [-5.8, -0.6, -1.5],
     [5.8, -0.6, -1.5],
   ],
-  jet: [
-    [-1.1, -0.2, 14.2],
-    [1.1, -0.2, 14.2],
-  ],
+  jet: [[0, 0.02, 12.6]],
   buggy: [
     [-0.6, 2.9, 4.1],
     [0.6, 2.9, 4.1],
