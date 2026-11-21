@@ -2,29 +2,36 @@
 /**
  * scripts/test-fireworks.js
  *
- * Deterministic unit tests for Chill Flight's night fireworks system
- * (fireworks-logic.js): holiday date detection, URL overrides, clear-night
- * weather gating, forward-cone town/pier site scoring, exact drag+gravity
- * mortar ballistics, show choreography & finale timing, and achievement zone.
+ * Deterministic unit tests for Chill Flight's world-scheduled night fireworks
+ * system (fireworks-logic.js): holiday date detection, URL overrides, noon-
+ * anchored unbroken night clock, curated 8-venue world roster, fair shuffle-bag
+ * nightly rotation (zero back-to-back repeats), multiplayer-identical show
+ * plans, exact drag+gravity ballistics, and achievement canopy checks.
  */
+import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {
   COMET_DRAG,
   COMET_GRAVITY,
+  DAY_CYCLE_MS,
   FIREWORK_MODES,
   SHELL_TYPES,
+  buildFireworkVenues,
   canRunFireworks,
   emitBurstSparks,
   emitLaunchSparks,
   isFireworksHoliday,
   isInsideFireworkShow,
-  nextFireworksWait,
-  pickFireworkSite,
+  mulberry32,
+  nightClockState,
   planFireworkShow,
   resolveFireworksMode,
+  scheduledVenuesForNight,
   solveLaunchVelocity,
 } from '../fireworks-logic.js';
 
-console.log('Testing night fireworks logic, ballistics, and choreography...');
+console.log(
+  'Testing world-scheduled night fireworks venues, rotation, and ballistics...'
+);
 
 let failed = false;
 function check(name, cond, detail = '') {
@@ -34,17 +41,6 @@ function check(name, cond, detail = '') {
     console.error(`  FAIL: ${name}${detail ? ` (${detail})` : ''}`);
     failed = true;
   }
-}
-
-function mulberry32(seed) {
-  let a = seed >>> 0;
-  return function () {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
 }
 
 // 1. Holiday seed detection & URL parameter mode resolution
@@ -58,54 +54,115 @@ function mulberry32(seed) {
       !isFireworksHoliday(42)
   );
   check(
-    'resolveFireworksMode honors ?fireworks=0/1 and ?traffic=0',
-    resolveFireworksMode(20261121, null, null) === FIREWORK_MODES.RARE &&
+    'resolveFireworksMode defaults to SCHEDULED and honors ?fireworks=0/1 and ?traffic=0',
+    resolveFireworksMode(20261121, null, null) === FIREWORK_MODES.SCHEDULED &&
       resolveFireworksMode(20260704, null, null) === FIREWORK_MODES.HOLIDAY &&
       resolveFireworksMode(20261121, true, false) === FIREWORK_MODES.FORCED &&
       resolveFireworksMode(20260704, false, null) === FIREWORK_MODES.OFF &&
       resolveFireworksMode(20260704, null, false) === FIREWORK_MODES.OFF
   );
+}
 
-  const rng = mulberry32(99);
-  const waitForced = nextFireworksWait(FIREWORK_MODES.FORCED, true, rng);
-  const waitHoliday = nextFireworksWait(FIREWORK_MODES.HOLIDAY, false, rng);
-  const waitRare = nextFireworksWait(FIREWORK_MODES.RARE, false, rng);
+// 2. Noon-anchored nightClockState continuity across midnight
+{
+  const midnight = 10 * DAY_CYCLE_MS;
+  const evening = midnight - 35000; // 35 s before midnight
+  const afterMidnight = midnight + 25000; // 25 s after midnight
+  const nextNoon = midnight + 185000; // past noon next day
+
+  const sEve = nightClockState(evening);
+  const sMid = nightClockState(midnight);
+  const sLate = nightClockState(afterMidnight);
+  const sNext = nightClockState(nextNoon);
+
   check(
-    'Wait intervals scale from short forced/holiday waits to rare 2.5-4.3 min waits',
-    waitForced < 4 && waitHoliday < 70 && waitRare >= 145
+    'nightClockState keeps one unbroken nightIndex across midnight and flips at noon',
+    sEve.nightIndex === sMid.nightIndex &&
+      sMid.nightIndex === sLate.nightIndex &&
+      sNext.nightIndex === sMid.nightIndex + 1 &&
+      sEve.inWindow &&
+      sMid.inWindow &&
+      sLate.inWindow &&
+      !sNext.inWindow,
+    `eve=${sEve.nightIndex}, mid=${sMid.nightIndex}, late=${sLate.nightIndex}, next=${sNext.nightIndex}`
   );
 }
 
-// 2. Night & weather gating
+// 3. Night & weather gating
 {
   check(
-    'Fireworks run only at night under clear skies (unless forced)',
-    !canRunFireworks({mode: FIREWORK_MODES.RARE, sunY: 0.25, rain: 0}) &&
-      canRunFireworks({mode: FIREWORK_MODES.RARE, sunY: -0.35, rain: 0}) &&
-      !canRunFireworks({mode: FIREWORK_MODES.RARE, sunY: -0.4, rain: 0.25}) &&
-      !canRunFireworks({mode: FIREWORK_MODES.HOLIDAY, sunY: -0.4, snow: 0.3}) &&
+    'Fireworks run only at night outside heavy storms (unless forced)',
+    !canRunFireworks({mode: FIREWORK_MODES.SCHEDULED, sunY: 0.25, rain: 0}) &&
+      canRunFireworks({mode: FIREWORK_MODES.SCHEDULED, sunY: -0.35, rain: 0}) &&
+      !canRunFireworks({
+        mode: FIREWORK_MODES.SCHEDULED,
+        sunY: -0.4,
+        rain: 0.25,
+      }) &&
       canRunFireworks({mode: FIREWORK_MODES.FORCED, sunY: -0.2, rain: 0.3}) &&
       !canRunFireworks({mode: FIREWORK_MODES.OFF, sunY: -0.5, rain: 0})
   );
 }
 
-// 3. Town, village, and coastal pier site selection
+// 4. Deterministic 8-venue world roster, runway clearance & fair nightly shuffle-bag
 {
-  const sites = [
-    {x: 0, y: 45, z: 1200, kind: 'town'}, // behind tail (heading North = -Z)
-    {x: 120, y: 41, z: -1350, kind: 'pier'}, // directly ahead in view!
-    {x: 6500, y: 50, z: -6500, kind: 'town'}, // too far (>4000 u)
-    {x: 20, y: 45, z: -80, kind: 'village'}, // too close (<260 u)
-  ];
-  const viewer = {x: 0, z: 0, fx: 0, fz: -1};
-  const chosen = pickFireworkSite(sites, viewer, mulberry32(7));
+  const venues = buildFireworkVenues(20261121, {
+    waterLevel: 40,
+    getElev: () => 55,
+    highwayCrossing: (n) => ({x: -3200 - n * 10000, z: 1800}),
+    fallsX: 0,
+    fallsLipZ: -2750,
+  });
+
+  // Ensure every venue stays >= 450 units clear of every airport center
+  const clearOfRunways = venues.every((v) =>
+    ChillFlightLogic.AIRPORTS.every(
+      (ap) => Math.hypot(v.x - ap.x, v.z - ap.z) >= 450
+    )
+  );
   check(
-    'pickFireworkSite selects forward-hemisphere pier/town in viewing range over behind/far/underfoot sites',
-    chosen !== null && chosen.kind === 'pier' && chosen.z === -1350
+    `buildFireworkVenues creates ${venues.length} deterministic regional venues clear of airport runways`,
+    venues.length === 8 && clearOfRunways
+  );
+
+  // Check 32 consecutive nights aligned to 4 full 8-night epochs (96..127)
+  const counts = {};
+  let prevId = null;
+  let allSingle = true;
+  let anyBackToBack = false;
+  for (let night = 96; night < 128; night++) {
+    const tonight = scheduledVenuesForNight(
+      venues,
+      20261121,
+      night,
+      FIREWORK_MODES.SCHEDULED
+    );
+    if (tonight.length !== 1) allSingle = false;
+    const id = tonight[0].venue.id;
+    counts[id] = (counts[id] || 0) + 1;
+    if (id === prevId) anyBackToBack = true;
+    prevId = id;
+  }
+  const everyVenueFourTimes = venues.every((v) => counts[v.id] === 4);
+  check(
+    'Nightly shuffle-bag guarantees 1 show every night, visits every venue equally, and never repeats back-to-back',
+    allSingle && everyVenueFourTimes && !anyBackToBack,
+    `counts=${JSON.stringify(counts)}, backToBack=${anyBackToBack}`
+  );
+
+  const holidayTonight = scheduledVenuesForNight(
+    venues,
+    20261231,
+    100,
+    FIREWORK_MODES.HOLIDAY
+  );
+  check(
+    'Holiday nights light up all 8 world venues simultaneously',
+    holidayTonight.length === venues.length
   );
 }
 
-// 4. Exact drag + gravity mortar launch ballistics
+// 5. Exact drag + gravity mortar launch ballistics
 {
   const pad = {x: 100, y: 42, z: -200};
   const target = {x: 135, y: 365, z: -165};
@@ -123,30 +180,35 @@ function mulberry32(seed) {
   );
 }
 
-// 5. Show choreography, all 5 shell types, spark emission & Grand finale zone
+// 6. Multiplayer-deterministic show plan, all 5 shell types, & Grand finale zone
 {
-  const rng = mulberry32(20261231);
-  const site = {x: -1500, y: 55, z: 2400, kind: 'town'};
-  const show = planFireworkShow(site, FIREWORK_MODES.HOLIDAY, rng);
+  const site = {
+    id: 'town_0',
+    idHash: 0x11223344,
+    name: 'Crossroads town',
+    x: -3201,
+    y: 55,
+    z: 2071,
+    kind: 'town',
+  };
+  const showA = planFireworkShow(site, FIREWORK_MODES.SCHEDULED, 20261121, 42);
+  const showB = planFireworkShow(site, FIREWORK_MODES.SCHEDULED, 20261121, 42);
 
-  const FinaleShells = show.shells.filter(
-    (s) => s.launchAt >= show.finaleStart - 1e-3
+  const finaleShells = showA.shells.filter(
+    (s) => s.launchAt >= showA.finaleStart - 1e-3
   );
   check(
-    'Planned show schedules sorted shells culminating in >= 8 grand finale shells',
-    show.shells.length >= 16 &&
-      FinaleShells.length >= 8 &&
-      show.shells.every(
-        (s, i) => i === 0 || s.launchAt >= show.shells[i - 1].launchAt
-      ),
-    `total=${show.shells.length}, finale=${FinaleShells.length}`
+    'planFireworkShow is 100% deterministic per (seed, nightIndex, venue) for multiplayer sync',
+    JSON.stringify(showA) === JSON.stringify(showB) &&
+      showA.shells.length >= 28 &&
+      finaleShells.length >= 10
   );
 
-  // Verify every shell archetype emits finite sparks with zero NaNs
+  const rng = mulberry32(77);
   let totalSparks = 0;
   let allFinite = true;
   for (const type of SHELL_TYPES) {
-    const sampleShell = {...show.shells[0], type};
+    const sampleShell = {...showA.shells[0], type};
     emitLaunchSparks(sampleShell, 10, rng, (...args) => {
       totalSparks++;
       if (!args.every(Number.isFinite)) allFinite = false;
@@ -163,17 +225,17 @@ function mulberry32(seed) {
 
   check(
     'isInsideFireworkShow triggers Grand finale only inside the active burst canopy',
-    !isInsideFireworkShow(show, 0.2, site.x, site.y + 300, site.z) &&
+    !isInsideFireworkShow(showA, 0.2, site.x, site.y + 300, site.z) &&
       isInsideFireworkShow(
-        show,
-        show.firstBurstAt + 2.0,
+        showA,
+        showA.firstBurstAt + 2.0,
         site.x + 120,
         site.y + 290,
         site.z - 80
       ) &&
       !isInsideFireworkShow(
-        show,
-        show.firstBurstAt + 2.0,
+        showA,
+        showA.firstBurstAt + 2.0,
         site.x + 900,
         site.y + 290,
         site.z

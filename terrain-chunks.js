@@ -4377,44 +4377,6 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     watercraftChunks.add(group);
   }
 
-  const fireworkSites = [];
-  for (let p = 0; p < Math.min(2, pierPositions.length); p++) {
-    const pier = pierPositions[p];
-    fireworkSites.push({
-      x: worldOffsetX + pier.x + Math.sin(pier.rotY) * 32,
-      y: pier.y + 1,
-      z: worldOffsetZ + pier.z + Math.cos(pier.rotY) * 32,
-      kind: 'pier',
-    });
-  }
-  const settlementHouses =
-    housePositions.length +
-    twoStoryHousePositions.length +
-    strawHutPositions.length;
-  if (settlementHouses >= 4) {
-    let sx = 0;
-    let sy = 0;
-    let sz = 0;
-    const sumList = (arr) => {
-      for (let i = 0; i < arr.length; i++) {
-        sx += arr[i].x;
-        sy += arr[i].y;
-        sz += arr[i].z;
-      }
-    };
-    sumList(housePositions);
-    sumList(twoStoryHousePositions);
-    sumList(strawHutPositions);
-    fireworkSites.push({
-      x: worldOffsetX + sx / settlementHouses,
-      y: Math.max(WATER_LEVEL + 1, sy / settlementHouses),
-      z: worldOffsetZ + sz / settlementHouses,
-      kind: settlementHouses >= 14 ? 'town' : 'village',
-    });
-  }
-  group.userData.fireworkSites =
-    fireworkSites.length > 0 ? fireworkSites : null;
-
   group.userData.instanceData = workerData.instanceData;
   group.userData.breakables = workerData.breakables || null;
   group.userData.breakwaters = workerData.breakwaters?.length
