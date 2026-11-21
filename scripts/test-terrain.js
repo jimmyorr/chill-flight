@@ -17,9 +17,12 @@ import {fileURLToPath} from 'url';
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {simplex} from '../noise.js';
 import {
+  CROP_KIND,
   LIGHTHOUSE_PALETTES,
+  fieldAt,
   generateChunkData,
   lighthouseChunkWins,
+  sampleFarmlandCrop,
 } from '../terrain-gen.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1297,6 +1300,71 @@ console.log(
 }
 console.log(
   '  Passed: Montauk stays classic red and headland lighthouses pick deterministic nautical palettes'
+);
+
+// --- FARMLAND CORN, WILDFLOWERS, AND GREEN-STRIP GROUND TULIPS (#164) ---
+{
+  useSeed(20261121);
+  const elevParams = {
+    WATER_LEVEL: 40,
+    MOUNTAIN_LEVEL: 180,
+    MAP_WORLD_SIZE: 10000 * ChillFlightLogic.SCALE,
+    MAP_HEIGHT_SCALE: 400,
+  };
+  let sawCorn = false;
+  let sawWildflower = false;
+  let sawPasture = false;
+  let tulipFarmSamples = 0;
+  let totalFarmSamples = 0;
+  const tulipColorsSeen = new Set();
+  const out = {wheat: 0, corn: 0, tulip: 0, wildflower: 0, crop: -1};
+
+  for (let x = -22000; x <= 8000; x += 180) {
+    for (let z = -9500; z <= 9500; z += 180) {
+      const h = ChillFlightLogic.getElevation(x, z, simplex, elevParams);
+      if (h <= 44 || h >= 420) continue;
+      sampleFarmlandCrop(x, z, h, 0.04, 40, simplex, out);
+      const f = fieldAt(x, z, simplex);
+      if (f.crop === CROP_KIND.PASTURE) sawPasture = true;
+      const activeCrop = out.wheat + out.corn + out.tulip + out.wildflower;
+      if (activeCrop > 0.25) {
+        totalFarmSamples++;
+        if (out.corn > 0.35) sawCorn = true;
+        if (out.wildflower > 0.35) sawWildflower = true;
+        if (out.tulip > 0.35) {
+          tulipFarmSamples++;
+          tulipColorsSeen.add(out.crop);
+        }
+      }
+    }
+  }
+
+  // Alien zones and deep frozen north must never report farmland crops
+  sampleFarmlandCrop(64000, 0, 120, 0.02, 40, simplex, out);
+  const alienCrop = out.wheat + out.corn + out.tulip + out.wildflower;
+  sampleFarmlandCrop(0, -28000, 80, 0.02, 40, simplex, out);
+  const polarCrop = out.wheat + out.corn + out.tulip + out.wildflower;
+
+  const tulipShare = tulipFarmSamples / Math.max(1, totalFarmSamples);
+  if (
+    !sawPasture ||
+    !sawCorn ||
+    !sawWildflower ||
+    tulipColorsSeen.size < 4 ||
+    tulipShare < 0.005 ||
+    tulipShare > 0.2 ||
+    alienCrop !== 0 ||
+    polarCrop !== 0
+  ) {
+    console.error(
+      `FAIL: farmland crop invariants failed (pasture=${sawPasture}, corn=${sawCorn}, wild=${sawWildflower}, tulipColors=${tulipColorsSeen.size}, tulipShare=${tulipShare.toFixed(3)}, alien=${alienCrop}, polar=${polarCrop})`
+    );
+    process.exit(1);
+  }
+  useSeed(20260101);
+}
+console.log(
+  '  Passed: Farmland generates corn, wildflower, and 4-color ground tulip strips within temperate bounds'
 );
 
 console.log('All terrain invariant tests passed successfully!');

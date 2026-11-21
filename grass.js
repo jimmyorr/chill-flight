@@ -39,7 +39,11 @@ import {activePlaneType, planeGroup} from './airplane.js';
 import {camera, renderer} from './sky.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {simplex} from './noise.js';
-import {forEachTownStreetNear} from './terrain-gen.js';
+import {
+  CROP_KIND,
+  forEachTownStreetNear,
+  sampleFarmlandCrop,
+} from './terrain-gen.js';
 import {ART_POST} from './art-style.js';
 import {drawTrample, trample} from './tire-tracks.js';
 
@@ -71,12 +75,27 @@ const groundTex = new THREE.DataTexture(
 groundTex.magFilter = THREE.NearestFilter;
 groundTex.minFilter = THREE.NearestFilter;
 
+// Per-vertex farmland crop weights (r: wheat/barley, g: corn, b: tulip,
+// a: wildflower) on the same 12x12 terrain grid so crops never rely on
+// fragile RGB heuristics
+const fieldData = new Uint8Array(GRID * GRID * 4);
+const fieldTex = new THREE.DataTexture(
+  fieldData,
+  GRID,
+  GRID,
+  THREE.RGBAFormat,
+  THREE.UnsignedByteType
+);
+fieldTex.magFilter = THREE.NearestFilter;
+fieldTex.minFilter = THREE.NearestFilter;
+
 const uniforms = {
   uGrassCenter: {value: new THREE.Vector2()},
   uGrassRadius: {value: 85},
   uGrassTile: {value: 170},
   uGrassFade: {value: 0},
   uGround: {value: groundTex},
+  uField: {value: fieldTex},
   uGroundOrigin: {value: new THREE.Vector2()},
   uGroundStep: {value: 50},
   uRoads: {value: Array.from({length: MAX_ROADS}, () => new THREE.Vector4())},
@@ -101,6 +120,7 @@ const VERTEX_PARS = `
   uniform float uGrassTile;
   uniform float uGrassFade;
   uniform sampler2D uGround;
+  uniform sampler2D uField;
   uniform vec2 uGroundOrigin;
   uniform float uGroundStep;
   uniform vec4 uRoads[${MAX_ROADS}];
@@ -124,13 +144,58 @@ const VERTEX_MAIN = `
   // Where this tuft is: its lattice point, wrapped into the tile around the
   // field centre, so it stays put in the world as the field moves
   vec2 tileMin = uGrassCenter - 0.5 * uGrassTile;
-  vec2 wxz = tileMin + mod(aTuft.xy - tileMin, uGrassTile);
+  vec2 tuftWxz = tileMin + mod(aTuft.xy - tileMin, uGrassTile);
   float rnd = aTuft.z;
-  // Each blade of the tuft a little apart, at its own angle
+  float rTuft = fract(rnd * 17.31);
+  float tuftYaw = rnd * 6.2832;
   float bladeIdx = position.z;
-  float yaw = rnd * 6.2832 + bladeIdx * 2.1;
+  float yaw = tuftYaw + bladeIdx * 2.1;
   float r2 = fract(rnd * 17.31 + bladeIdx * 0.37);
-  wxz += vec2(cos(yaw * 1.7 + 1.0), sin(yaw * 1.7 + 1.0)) * (0.25 + 0.45 * r2);
+
+  // Sample farmland crop weights at the tuft's own position so all three
+  // blades of a corn plant, tulip or wildflower agree on what plant they form
+  vec2 gf = (tuftWxz - uGroundOrigin) / uGroundStep;
+  vec2 cfF = floor(gf);
+  vec2 ff = gf - cfF;
+  ivec2 cfi = clamp(ivec2(cfF), ivec2(0), ivec2(${GRID - 2}));
+  vec4 fA = texelFetch(uField, cfi, 0);
+  vec4 fB = texelFetch(uField, cfi + ivec2(0, 1), 0);
+  vec4 fC = texelFetch(uField, cfi + ivec2(1, 1), 0);
+  vec4 fD = texelFetch(uField, cfi + ivec2(1, 0), 0);
+  vec4 cropVec = (ff.x + ff.y <= 1.0)
+    ? fA + (fD - fA) * ff.x + (fB - fA) * ff.y
+    : fC + (fB - fC) * (1.0 - ff.x) + (fD - fC) * (1.0 - ff.y);
+  float cWheat = cropVec.r;
+  float cCorn = cropVec.g;
+  float cTulip = cropVec.b;
+  float cWild = step(cTulip, 0.05) * clamp(cropVec.a * 2.55, 0.0, 1.0);
+
+  // Pick tulip variety from the cell corner with strongest tulip weight
+  float bestT = fA.b;
+  float bestA = fA.a;
+  if (fB.b > bestT + 0.02 || (abs(fB.b - bestT) <= 0.02 && ff.y > 0.5)) {
+    bestT = fB.b;
+    bestA = fB.a;
+  }
+  if (fD.b > bestT + 0.02 || (abs(fD.b - bestT) <= 0.02 && ff.x > 0.5 && ff.y <= 0.5)) {
+    bestT = fD.b;
+    bestA = fD.a;
+  }
+  if (fC.b > bestT + 0.02 || (abs(fC.b - bestT) <= 0.02 && ff.x > 0.5 && ff.y > 0.5)) {
+    bestT = fC.b;
+    bestA = fC.a;
+  }
+  float tulipKind = clamp(floor((bestA * 255.0 - 128.0) / 32.0 + 0.5), 0.0, 3.0);
+
+  float isCorn = step(0.32, cCorn) * step(cWheat, cCorn) * step(cTulip, cCorn);
+  float isTulip = (1.0 - isCorn) * step(0.32, cTulip) * step(cWheat, cTulip);
+  float hasWildBloom = (1.0 - isCorn) * (1.0 - isTulip) * step(cWheat, 0.32)
+                     * step(fract(rnd * 13.37), cWild * 0.42);
+  float sharedStem = max(max(isCorn, isTulip), hasWildBloom * step(bladeIdx, 1.5));
+
+  vec2 tuftJitter = vec2(cos(tuftYaw * 1.7 + 1.0), sin(tuftYaw * 1.7 + 1.0)) * (0.2 + 0.35 * rTuft);
+  vec2 bladeJitter = vec2(cos(yaw * 1.7 + 1.0), sin(yaw * 1.7 + 1.0)) * (0.25 + 0.45 * r2);
+  vec2 wxz = tuftWxz + mix(bladeJitter, tuftJitter, sharedStem);
 
   // The ground under it, on the terrain mesh's triangles (abd and bcd, split
   // along b-d as PlaneGeometry does)
@@ -153,19 +218,20 @@ const VERTEX_MAIN = `
   }
   vec3 groundN = normalize(vec3(-slope.x, 1.0, -slope.y));
   vec3 groundCol = ground.yzw;
+  float loaded = step(0.01, groundCol.r + groundCol.g + groundCol.b);
 
-  // Grass on green ground, wheat on the golden wheat and barley fields
-  // (yellow: red and green well above blue, neither far ahead of the other,
-  // which leaves out orange desert sand and the young green crops). Both
-  // only above the water, off steep slopes, roads and the runway, thinning
-  // out (fewer blades, not shorter ones) where they end.
+  // Grass on green ground, wheat on golden wheat and barley fields, plus
+  // explicit farmland corn, tulip and wildflower weights from uField
   float gOverR = groundCol.g / max(groundCol.r, 1e-3);
-  float wheat = smoothstep(0.22, 0.32, min(groundCol.r, groundCol.g) - groundCol.b)
-              * smoothstep(0.75, 0.82, gOverR) * smoothstep(1.16, 1.1, gOverR);
+  float rgbWheat = smoothstep(0.22, 0.32, min(groundCol.r, groundCol.g) - groundCol.b)
+                 * smoothstep(0.75, 0.82, gOverR) * smoothstep(1.16, 1.1, gOverR);
+  float wheat = max(cWheat, rgbWheat * (1.0 - cTulip));
   float grass = smoothstep(0.015, 0.06, groundCol.g - max(groundCol.r, groundCol.b))
               * smoothstep(0.08, 0.14, groundCol.g - groundCol.b)
-              * (1.0 - wheat);
-  float density = 1.0;
+              * (1.0 - wheat) * (1.0 - isCorn) * (1.0 - isTulip);
+  float isWheat = (1.0 - isCorn) * (1.0 - isTulip) * step(grass, wheat) * step(0.05, wheat);
+
+  float density = loaded;
   density *= step(${(WATER_LEVEL + 1.5).toFixed(1)}, ground.x);
   density *= smoothstep(0.62, 0.8, groundN.y);
   for (int i = 0; i < ${MAX_ROADS}; i++) {
@@ -184,11 +250,18 @@ const VERTEX_MAIN = `
   }
   float dC = length(wxz - uGrassCenter);
   float edge = smoothstep(uGrassRadius, uGrassRadius * 0.4, dC);
-  float isWheat = step(grass, wheat);
-  float keep = step(fract(rnd * 7.13 + bladeIdx * 0.29), max(grass, wheat) * density * edge);
-  // Wheat stands about chest high on the buggy, grass about half that
-  float fullH = mix(1.4 + 1.4 * r2, 3.0 + 0.8 * r2, isWheat);
+  float cover = max(max(grass, wheat), max(cCorn, max(cTulip, cWild)));
+  float keepHash = mix(fract(rnd * 7.13 + bladeIdx * 0.29), fract(rnd * 7.13), sharedStem);
+  float keep = step(keepHash, cover * density * edge);
+
+  // Heights: grass ~1.4-2.8, tulips ~2.1-2.6, wheat ~3.0-3.8, corn ~5.2-6.5
+  float fullH = 1.4 + 1.4 * r2;
+  if (hasWildBloom > 0.5 && bladeIdx < 1.5) fullH = 1.9 + 1.0 * rTuft;
+  if (isTulip > 0.5) fullH = 2.05 + 0.55 * rTuft;
+  if (isWheat > 0.5) fullH = 3.0 + 0.8 * r2;
+  if (isCorn > 0.5) fullH = 5.2 + 1.3 * rTuft;
   float bladeH = keep * uGrassFade * fullH * mix(0.35, 1.0, edge);
+
   // Lying low along tyre tracks, so the ruts show through
   float trampled = 0.0;
   if (uTrampleSpan > 0.0) {
@@ -198,14 +271,20 @@ const VERTEX_MAIN = `
     bladeH *= 1.0 - 0.9 * trampled;
   }
 
-  // Bend: the wind's gusts, a little flutter, the blade's own lean, and
+  // Bend: the wind's gusts, a little flutter, the plant's own lean, and
   // anything pushing it aside
   vec2 wd = GRASS_WIND_DIR;
   float gust = grassGust(wxz, uTime);
-  // Wheat leans further in the gusts and barely flutters: heavy, slow waves
-  vec2 bend = wd * mix(0.18 + 0.6 * gust, 0.1 + 0.85 * gust, isWheat) * uWindStrength;
-  bend += vec2(-wd.y, wd.x) * sin(uTime * 3.1 + rnd * 40.0) * mix(0.07, 0.025, isWheat) * uWindStrength;
-  bend += vec2(cos(yaw), sin(yaw)) * mix(0.12, 0.05, isWheat);
+  float gustShare = isWheat > 0.5 ? (0.1 + 0.85 * gust)
+                  : isCorn > 0.5 ? (0.08 + 0.42 * gust)
+                  : isTulip > 0.5 ? (0.12 + 0.45 * gust)
+                  : (0.18 + 0.6 * gust);
+  float flutterShare = (isWheat > 0.5 || isCorn > 0.5) ? 0.025 : 0.065;
+  float leanYaw = sharedStem > 0.5 ? tuftYaw : yaw;
+  float leanAmt = (isWheat > 0.5 || isCorn > 0.5 || isTulip > 0.5) ? 0.045 : 0.12;
+  vec2 bend = wd * gustShare * uWindStrength;
+  bend += vec2(-wd.y, wd.x) * sin(uTime * 3.1 + rnd * 40.0) * flutterShare * uWindStrength;
+  bend += vec2(cos(leanYaw), sin(leanYaw)) * leanAmt;
   float pushed = 0.0;
   for (int i = 0; i < ${MAX_PUSH}; i++) {
     vec4 p = uPush[i];
@@ -223,28 +302,93 @@ const VERTEX_MAIN = `
   float bendAngle = min(bendLen, 1.45);
   bendAngle = mix(bendAngle, 1.35, trampled);
 
-  // The blade: position.x across (-0.5..0.5), position.y up (0..1). A wheat
-  // stalk is thin, with its middle vertices raised to make an ear at the top
-  float t = position.y;
+  // Blade geometry & colour per vegetation type (3 blades x 5 vertices)
+  float rawY = position.y;
+  float t = rawY;
   float width = 0.42 * (1.0 - 0.9 * t);
+  float orientYaw = yaw;
+  float leafOut = 0.0;
+
+  vec3 tipCol = groundCol * mix(vec3(1.18, 1.14, 0.82), vec3(1.14, 1.08, 0.8), isWheat);
+  vec3 bladeCol = mix(groundCol * mix(0.78, 0.68, isWheat), tipCol, rawY);
+
   if (isWheat > 0.5) {
-    t = t > 0.25 && t < 0.75 ? 0.7 : t;
-    width = t < 0.01 ? 0.1 : (t < 0.99 ? 0.34 : 0.0);
+    t = rawY > 0.25 && rawY < 0.75 ? 0.7 : rawY;
+    width = rawY < 0.01 ? 0.1 : (rawY < 0.99 ? 0.34 : 0.0);
+  } else if (isCorn > 0.5) {
+    if (bladeIdx < 0.5) {
+      // Feathery golden-straw tassel plume crowning the top of the maize stalk
+      t = 0.76 + rawY * 0.24;
+      width = rawY < 0.01 ? 0.08 : (rawY < 0.99 ? 0.21 : 0.0);
+      orientYaw = tuftYaw + 0.5;
+      bladeCol = mix(vec3(0.80, 0.69, 0.30), vec3(0.95, 0.87, 0.50), rawY);
+    } else if (bladeIdx < 1.5) {
+      // Broad arching deep-green maize leaf curving out from mid-stalk
+      t = 0.16 + rawY * 0.52;
+      width = rawY < 0.01 ? 0.16 : (rawY < 0.99 ? 0.46 : 0.0);
+      orientYaw = tuftYaw + 1.5708;
+      float leafSide = rTuft < 0.5 ? 1.0 : -1.0;
+      leafOut = leafSide * 1.35 * rawY * (1.3 - 0.5 * rawY);
+      bladeCol = mix(vec3(0.18, 0.42, 0.13), vec3(0.32, 0.60, 0.20), rawY);
+    } else {
+      // Slender upright maize stalk rising into the tassel base
+      t = rawY * 0.82;
+      width = rawY < 0.01 ? 0.18 : (rawY < 0.99 ? 0.13 : 0.07);
+      orientYaw = tuftYaw;
+      bladeCol = mix(vec3(0.17, 0.39, 0.12), vec3(0.28, 0.55, 0.18), rawY);
+    }
+  } else if (isTulip > 0.5) {
+    if (bladeIdx > 1.5) {
+      // Broad waxy glaucous-green basal leaf & stem rising into the cup
+      t = rawY * 0.68;
+      width = rawY < 0.01 ? 0.52 : (rawY < 0.99 ? 0.18 : 0.08);
+      orientYaw = tuftYaw + 0.78;
+      bladeCol = mix(vec3(0.17, 0.37, 0.16), vec3(0.28, 0.54, 0.24), rawY);
+    } else {
+      // Two 90-degree crossed petal quads forming a plump 3D goblet cup
+      t = 0.60 + rawY * 0.40;
+      width = rawY < 0.01 ? 0.16 : (rawY < 0.99 ? 0.62 : 0.0);
+      orientYaw = tuftYaw + bladeIdx * 1.5708;
+      vec3 petal = tulipKind < 0.5 ? vec3(0.91, 0.23, 0.23)
+                 : tulipKind < 1.5 ? vec3(0.97, 0.80, 0.20)
+                 : tulipKind < 2.5 ? vec3(0.93, 0.44, 0.65)
+                 : vec3(0.58, 0.37, 0.87);
+      bladeCol = mix(petal * 0.74, mix(petal * 1.15, vec3(1.0, 0.98, 0.92), 0.18), rawY);
+    }
+  } else if (hasWildBloom > 0.5 && bladeIdx < 1.5) {
+    if (bladeIdx < 0.5) {
+      // Wildflower blossom head perched atop blade 1's stem
+      t = 0.70 + rawY * 0.30;
+      width = rawY < 0.01 ? 0.12 : (rawY < 0.99 ? 0.44 : 0.0);
+      orientYaw = tuftYaw + 0.6;
+      float bp = fract(rnd * 31.7);
+      vec3 bTop = bp < 0.30 ? vec3(0.97, 0.81, 0.22)
+                : bp < 0.58 ? vec3(0.97, 0.96, 0.90)
+                : bp < 0.80 ? vec3(0.36, 0.56, 0.94)
+                : vec3(0.93, 0.42, 0.50);
+      vec3 bBase = (bp >= 0.30 && bp < 0.58) ? vec3(0.92, 0.76, 0.24) : bTop * 0.78;
+      bladeCol = mix(bBase, bTop, rawY);
+    } else {
+      // Green stem supporting the blossom head
+      t = rawY * 0.75;
+      width = 0.14 * (1.0 - 0.45 * rawY);
+      orientYaw = tuftYaw;
+      bladeCol = mix(groundCol * 0.75, groundCol * 1.08, rawY);
+    }
   }
+
   float a = bendAngle * t;
-  vec2 side = vec2(cos(yaw), sin(yaw));
+  vec2 side = vec2(cos(orientYaw), sin(orientYaw));
+  vec2 outPerp = vec2(-side.y, side.x);
   vec3 bladePos = vec3(wxz.x, ground.x, wxz.y);
   bladePos.xz += side * position.x * width * step(0.001, bladeH);
+  bladePos.xz += outPerp * leafOut * step(0.001, bladeH);
   bladePos.xz += bendDir * bladeH * t * sin(a) * 0.9;
   bladePos.y += bladeH * t * cos(a) - 0.15;
   vec3 bladeNormal = groundN;
 
-  // The ground's colour at the root, lighter and warmer toward the tip, and
-  // catching the light where a gust lays it over
-  // (wheat: a deeper stalk, a pale gold ear, a stronger sheen in the gusts)
-  vec3 tipCol = groundCol * mix(vec3(1.18, 1.14, 0.82), vec3(1.14, 1.08, 0.8), isWheat);
-  vec3 bladeCol = mix(groundCol * mix(0.78, 0.68, isWheat), tipCol, t);
-  bladeCol *= 1.0 + (mix(0.16, 0.28, isWheat) * gust + 0.3 * pushed) * t;
+  float sheenAmt = isWheat > 0.5 ? 0.28 : (isTulip > 0.5 ? 0.10 : 0.16);
+  bladeCol *= 1.0 + (sheenAmt * gust + 0.3 * pushed) * t;
   // Toward the field's edge, the ground's own colour, so it ends unseen
   bladeCol = mix(groundCol, bladeCol, edge);
 `;
@@ -360,7 +504,9 @@ function buildMesh(preset) {
   scene.add(mesh);
 }
 
-// The terrain vertices around the field centre: height and colour
+const _cropSample = {wheat: 0, corn: 0, tulip: 0, wildflower: 0, crop: -1};
+
+// The terrain vertices around the field centre: height, colour and crop type
 function updateGround(cx, cz) {
   const step = CHUNK_SIZE / state.SEGMENTS;
   const half = CHUNK_SIZE / 2;
@@ -388,7 +534,54 @@ function updateGround(cx, cz) {
       }
     }
   }
+  for (let j = 0; j < GRID; j++) {
+    for (let i = 0; i < GRID; i++) {
+      const k = (j * GRID + i) * 4;
+      const loaded =
+        groundData[k + 1] + groundData[k + 2] + groundData[k + 3] > 0.01;
+      if (!loaded) {
+        fieldData[k] =
+          fieldData[k + 1] =
+          fieldData[k + 2] =
+          fieldData[k + 3] =
+            0;
+        continue;
+      }
+      const x = (ix0 + i) * step - half;
+      const z = (iz0 + j) * step - half;
+      const h = groundData[k];
+      const hL = i > 0 ? groundData[k - 4] : h;
+      const hR = i < GRID - 1 ? groundData[k + 4] : h;
+      const hU = j > 0 ? groundData[k - GRID * 4] : h;
+      const hD = j < GRID - 1 ? groundData[k + GRID * 4] : h;
+      const dx = i > 0 && i < GRID - 1 ? 2 * step : step;
+      const dz = j > 0 && j < GRID - 1 ? 2 * step : step;
+      const slopeFactor = Math.min(
+        1,
+        Math.hypot((hR - hL) / dx, (hD - hU) / dz) * 0.5
+      );
+      sampleFarmlandCrop(
+        x,
+        z,
+        h,
+        slopeFactor,
+        WATER_LEVEL,
+        simplex,
+        _cropSample
+      );
+      fieldData[k] = Math.round(_cropSample.wheat * 255);
+      fieldData[k + 1] = Math.round(_cropSample.corn * 255);
+      fieldData[k + 2] = Math.round(_cropSample.tulip * 255);
+      fieldData[k + 3] =
+        _cropSample.tulip > 0
+          ? 128 +
+            Math.max(0, Math.min(3, _cropSample.crop - CROP_KIND.TULIP_RED)) *
+              32
+          : Math.round(_cropSample.wildflower * 100);
+    }
+  }
   groundTex.needsUpdate = true;
+  fieldTex.needsUpdate = true;
   uniforms.uGroundOrigin.value.set(ix0 * step - half, iz0 * step - half);
   uniforms.uGroundStep.value = step;
   return true;

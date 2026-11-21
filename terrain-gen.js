@@ -579,14 +579,50 @@ function villageAngleAt(x, z, simplex) {
 const FARM_BLOCK = 1500;
 const FIELD_WIDTH = 220;
 const FIELD_LENGTH = 480;
+export const CROP_KIND = {
+  PASTURE: -1,
+  WHEAT: 0,
+  BARLEY: 1,
+  CORN: 2,
+  YOUNG: 3,
+  BEANS: 4,
+  WILDFLOWER: 5,
+  PLOWED: 6,
+  TULIP_RED: 7,
+  TULIP_YELLOW: 8,
+  TULIP_PINK: 9,
+  TULIP_VIOLET: 10,
+};
+const STANDARD_CROP_COUNT = 7;
 const FIELD_CROP_COLORS = [
-  new Color(0xe3c255), // wheat
-  new Color(0xc2cc5c), // barley
-  new Color(0xa8d04a), // young crop
-  new Color(0x4f8a2e), // potatoes, beans
-  new Color(0x8a6242), // plowed
+  new Color(0xe3c255), // 0: wheat
+  new Color(0xc2cc5c), // 1: barley
+  new Color(0x437e2e), // 2: corn (deep summer maize green)
+  new Color(0xa8d04a), // 3: young crop
+  new Color(0x4f8a2e), // 4: potatoes, beans
+  new Color(0x82b446), // 5: wildflowers (warm floral meadow green)
+  new Color(0x8a6242), // 6: plowed
+  // Tulip strips stay natural leafy bulb-meadow green on the terrain mesh from
+  // the air, revealing their 3D blooms up close via grass.js
+  new Color(0x639d3b), // 7: scarlet tulip strip
+  new Color(0x68a13e), // 8: yellow tulip strip
+  new Color(0x639d3b), // 9: coral-pink tulip strip
+  new Color(0x5f9839), // 10: violet tulip strip
 ];
-const _field = {u: 0, v: 0, angle: 0, cx: 0, cz: 0, bx: 0, bz: 0, crop: -1};
+const _colorWildflowerSpeckle = new Color(0xdcc95e);
+const _cropColorTmp = new Color();
+const _field = {
+  u: 0,
+  v: 0,
+  angle: 0,
+  cx: 0,
+  cz: 0,
+  bx: 0,
+  bz: 0,
+  crop: -1,
+  tulipParcel: false,
+  isFlower: false,
+};
 function fieldHash(a, b, c) {
   let h = Math.imul(a, 374761393) ^ Math.imul(b, 668265263) ^ c;
   h = Math.imul(h ^ (h >>> 13), 1274126177);
@@ -618,7 +654,7 @@ export function lighthouseChunkWins(cx, cz) {
   }
   return true;
 }
-function fieldAt(x, z, simplex) {
+export function fieldAt(x, z, simplex) {
   const wx = x + simplex.noise2D(x * 0.0015 + 3.3, z * 0.0015 - 8.1) * 150;
   const wz = z + simplex.noise2D(x * 0.0015 - 6.7, z * 0.0015 + 2.9) * 150;
   const bx = Math.floor(wx / FARM_BLOCK);
@@ -640,10 +676,27 @@ function fieldAt(x, z, simplex) {
     _field.v / FIELD_LENGTH + fieldHash(bx, bz, i * 7919 + 11)
   );
   const roll = fieldHash(bx * 31 + i, bz * 17 + j, 5);
-  _field.crop =
-    roll < 0.2
-      ? -1
-      : Math.floor(((roll - 0.2) / 0.8) * FIELD_CROP_COLORS.length);
+  const tulipParcel =
+    _field.cx < -1600 &&
+    Math.abs(_field.cz) < 12000 &&
+    simplex.noise2D(_field.cx * 0.00045 - 610, _field.cz * 0.00045 + 830) >
+      0.45;
+  _field.tulipParcel = tulipParcel;
+
+  if (roll < 0.2) {
+    _field.crop = CROP_KIND.PASTURE;
+  } else if (tulipParcel && roll >= 0.56) {
+    const colorIdx = Math.floor(fieldHash(bx * 19 + i, bz * 23 + j, 733) * 4);
+    _field.crop = CROP_KIND.TULIP_RED + Math.min(3, colorIdx);
+  } else {
+    const span = tulipParcel ? 0.36 : 0.8;
+    _field.crop = Math.min(
+      STANDARD_CROP_COUNT - 1,
+      Math.floor(((roll - 0.2) / span) * STANDARD_CROP_COUNT)
+    );
+  }
+  _field.isFlower =
+    _field.crop === CROP_KIND.WILDFLOWER || _field.crop >= CROP_KIND.TULIP_RED;
   return _field;
 }
 
@@ -1108,6 +1161,109 @@ function nearTown(x, z, margin, elevParams) {
     if (t && Math.hypot(t.x - x, t.z - z) < t.radius + margin) return true;
   }
   return false;
+}
+
+// Evaluates exact farmland crop weights & kind at `(worldX, worldZ)` using the
+// same rules as `generateChunkData`, so `grass.js` knows the exact crop and
+// tulip variety while keeping aerial terrain colors natural green.
+export function sampleFarmlandCrop(
+  worldX,
+  worldZ,
+  height,
+  slopeFactor,
+  waterLevel,
+  simplexNoise,
+  out
+) {
+  out.wheat = 0;
+  out.corn = 0;
+  out.tulip = 0;
+  out.wildflower = 0;
+  out.crop = CROP_KIND.PASTURE;
+  if (ChillFlightLogic.alienAt(worldX, worldZ, simplexNoise) > ALIEN_PROPS_AT) {
+    return out;
+  }
+  const noisePath = simplexNoise.noise2D(worldX * 0.0001, worldZ * 0.0001);
+  const biomeNoise =
+    simplexNoise.noise2D(worldX * 0.0005, worldZ * 0.0005) * 0.1;
+  const snowFactor = ChillFlightLogic.snowFactorAt(
+    worldZ,
+    noisePath * 0.05 +
+      biomeNoise +
+      ChillFlightLogic.snowWobble(worldX, worldZ, simplexNoise)
+  );
+  if (snowFactor >= 0.3) return out;
+
+  const southInfluence =
+    Math.max(0, worldZ / 5000) +
+    ChillFlightLogic.desertShift(worldX, worldZ, simplexNoise);
+  const desertRaw = Math.max(
+    0,
+    Math.min(1, southInfluence + noisePath * 0.05 - biomeNoise - 2.0)
+  );
+  const desertFactor = desertRaw * desertRaw * (3 - 2 * desertRaw);
+  if (desertFactor >= 0.3) return out;
+
+  const swampFactor = ChillFlightLogic.swampFactorAt(
+    worldX,
+    worldZ,
+    simplexNoise
+  );
+  if (swampFactor >= 0.5) return out;
+
+  const eastCoastFactor =
+    Math.max(0, Math.min(1, (worldX + 2000) / 2000)) * (1 - swampFactor);
+  const sandMaxHeight =
+    waterLevel + (2 + eastCoastFactor * 10) * (1 - 0.85 * swampFactor);
+  if (height <= sandMaxHeight) return out;
+
+  const alpine = Math.max(0, Math.min(1, (-worldZ / 5000 - 0.3) / 0.7));
+  const treeLine =
+    600 -
+    200 * alpine -
+    270 * snowFactor +
+    simplexNoise.noise2D(worldX * 0.003 + 51, worldZ * 0.003 - 17) * 60;
+  if (height >= treeLine - TREE_LINE_FADE) return out;
+
+  const villageNoise = simplexNoise.noise2D(
+    worldX * 0.0011 + 71.3,
+    worldZ * 0.0011 - 29.7
+  );
+  const roadClear = 1 - ChillFlightLogic.getRoadFactor(worldX, worldZ);
+  if (roadClear <= 0) return out;
+  const farm =
+    roadClear *
+    Math.max(0, Math.min(1, (villageNoise + 0.05) / 0.2)) *
+    (1 - Math.max(0, Math.min(1, (slopeFactor - 0.1) / 0.15))) *
+    (1 - desertFactor / 0.3) *
+    (1 - snowFactor / 0.3) *
+    (1 - Math.min(1, swampFactor * 2)) *
+    Math.min(1, (treeLine - TREE_LINE_FADE - height) / 60);
+  if (farm <= 0) return out;
+
+  const forestNoise = simplexNoise.noise2D(
+    worldX * 0.005 + 100,
+    worldZ * 0.005
+  );
+  if (forestNoise > 0.2 + 0.6 * farm) return out;
+
+  const f = fieldAt(worldX, worldZ, simplexNoise);
+  out.crop = f.crop;
+  if (f.crop === CROP_KIND.WHEAT || f.crop === CROP_KIND.BARLEY) {
+    out.wheat = farm;
+  } else if (f.crop === CROP_KIND.CORN) {
+    out.corn = farm;
+  } else if (f.crop === CROP_KIND.WILDFLOWER) {
+    out.wildflower = farm;
+  } else if (f.crop >= CROP_KIND.TULIP_RED) {
+    const outsideVillage = Math.max(
+      0,
+      Math.min(1, (0.42 - villageNoise) / 0.08)
+    );
+    out.tulip = farm * outsideVillage;
+    if (out.tulip <= 0) out.crop = CROP_KIND.PASTURE;
+  }
+  return out;
 }
 
 // Calls fn(x0, z0, x1, z1, halfWidth) for each town street (a whole
@@ -3131,7 +3287,9 @@ export function generateChunkData({
       snowFactor < 0.3 &&
       swampFactor < 0.5
     ) {
+      const roadClear = 1 - ChillFlightLogic.getRoadFactor(worldX, worldZ);
       farm =
+        roadClear *
         Math.max(0, Math.min(1, (villageNoise + 0.05) / 0.2)) *
         (1 - Math.max(0, Math.min(1, (slopeFactor - 0.1) / 0.15))) *
         (1 - desertFactor / 0.3) *
@@ -3454,8 +3612,13 @@ export function generateChunkData({
             _colorForest,
             Math.min(0.4, (height - MOUNTAIN_LEVEL) / 750)
           );
-        if (farm > 0 && _field.crop >= 0)
-          _tempColorObj.lerp(FIELD_CROP_COLORS[_field.crop], farm * 0.95);
+        if (farm > 0 && _field.crop >= 0) {
+          _cropColorTmp.copy(FIELD_CROP_COLORS[_field.crop]);
+          if (_field.crop === CROP_KIND.WILDFLOWER) {
+            _cropColorTmp.lerp(_colorWildflowerSpeckle, mottle * 0.25);
+          }
+          _tempColorObj.lerp(_cropColorTmp, farm * 0.95);
+        }
         if (snowFactor > 0)
           _tempColorObj.lerp(_colorPlainsSnowTint, snowFactor);
         if (desertFactor > 0)
@@ -3661,8 +3824,10 @@ export function generateChunkData({
     }
 
     if (isStandardLand && snowFactor < 0.2 && !isFrozen) {
+      const flowerProtect =
+        farm > 0 && _field.crop >= CROP_KIND.TULIP_RED ? 1 - farm * 0.9 : 1;
       if (cherryNoise > 0.55) {
-        const factor = Math.min(1, (cherryNoise - 0.55) / 0.1);
+        const factor = Math.min(1, (cherryNoise - 0.55) / 0.1) * flowerProtect;
         const tint = isForest ? _colorCherryForestTint : _colorCherryPlainsTint;
         _tempColorObj.lerp(tint, factor * (isForest ? 0.45 : 0.3));
       } else if (!isAlienLand && desertFactor < 0.5) {
@@ -3678,7 +3843,10 @@ export function generateChunkData({
           const tint = isForest
             ? _colorAutumnForestTint
             : _colorAutumnPlainsTint;
-          _tempColorObj.lerp(tint, fall * (isForest ? 0.4 : 0.15));
+          _tempColorObj.lerp(
+            tint,
+            fall * flowerProtect * (isForest ? 0.4 : 0.15)
+          );
         }
       }
     }
@@ -4083,7 +4251,7 @@ export function generateChunkData({
       // nearest to it (hashes, not the chunk's rolls)
       if (farm > 0.4 && slopeFactor < 0.2 && snowFactor < 0.1) {
         const f = fieldAt(worldX, worldZ, simplex);
-        const tractor = f.crop >= 0 && tractorSpot(f);
+        const tractor = f.crop >= 0 && !f.isFlower && tractorSpot(f);
         if (
           tractor &&
           Math.round(tractor.x / gridSpacing) ===
