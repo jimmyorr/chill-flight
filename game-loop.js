@@ -1246,6 +1246,7 @@ function resetFlightManeuvers() {
   state.isDoingFullLoop = false;
   state.isBarrelRolling = false;
   state.isDoingFullBarrelRoll = false;
+  state.maneuverBaseSpeed = null;
 }
 hooks.resetManeuvers = resetFlightManeuvers;
 
@@ -1561,6 +1562,7 @@ function updatePhysicsAndControls(delta, nowTime) {
   state.isLooping = false;
   state.isSteepPitch = false;
   state.isDoingFullLoop = false;
+  state.maneuverBaseSpeed = null;
 
   state.manualRollSpeed = planeHandling().rollRate * BARREL_ROLL_SPEED;
 
@@ -1608,6 +1610,7 @@ function updatePhysicsAndControls(delta, nowTime) {
       state.isLooping = true;
       state.isDoingFullLoop = !scripted.surface;
       state.isBarrelRolling = true;
+      if (!scripted.surface) state.maneuverBaseSpeed = baseSpeed;
     } else if (scripted.speed !== null) {
       state.targetFlightSpeed = scripted.speed;
       state.flightSpeedMultiplier = scripted.speed;
@@ -1697,6 +1700,7 @@ function updatePhysicsAndControls(delta, nowTime) {
       const speedDip = Math.sin(THREE.MathUtils.smoothstep(s, 0, 1) * Math.PI);
       state.flightSpeedMultiplier =
         immelmann.speed * (1 - speedDip * IMMELMANN_SPEED_DIP);
+      state.maneuverBaseSpeed = immelmann.speed;
 
       planeGroup.rotation.y = immelmann.yaw;
       state._nextYaw = immelmann.yaw;
@@ -1713,6 +1717,7 @@ function updatePhysicsAndControls(delta, nowTime) {
         state.isDoingImmelmann = false;
         state.isLooping = false;
         state.isBarrelRolling = false;
+        state.maneuverBaseSpeed = null;
         const forward = _immelmannForward
           .set(0, 0, -1)
           .applyEuler(planeGroup.rotation);
@@ -1819,6 +1824,7 @@ function updatePhysicsAndControls(delta, nowTime) {
         if (loopActive || loopRecovering) {
           state.flightSpeedMultiplier =
             loopSpeed * (1 - (LOOP_SPEED_DIP * (1 - Math.cos(x))) / 2);
+          state.maneuverBaseSpeed = loopSpeed;
         }
 
         state.isLooping = loopActive || loopRecovering;

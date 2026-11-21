@@ -148,6 +148,9 @@ const _camWorldPos = new THREE.Vector3();
 const AEROBATIC_LOCK_SECONDS = 0.25;
 let anchorLock = 0;
 let loopLock = 0;
+let maneuverCam = 0;
+const _planeFwd = new THREE.Vector3();
+const _planeUp = new THREE.Vector3();
 
 // Where the vehicle was last frame, so a seat view can carry the camera along
 // with it (see firstPerson)
@@ -156,6 +159,7 @@ const _seatCarry = new THREE.Vector3();
 
 export function syncCameraAfterTeleport() {
   _followPrevValid = false;
+  maneuverCam = 0;
   if (planeGroup) {
     _lastVehiclePos.copy(planeGroup.position);
   }
@@ -313,7 +317,12 @@ export function updateFlightCamera(delta, nowTime) {
     const chaseFrame = state.airplaneModel?.chaseFrame;
 
     // The buggy's whole speed range widens the view and pulls the camera
-    // back, so its top speed feels fast
+    // back, so its top speed feels fast. During loops and Immelmanns, pin to
+    // entry airspeed so the apex speed dip never zooms the camera inward.
+    const camSpeedMult = Math.max(
+      state.flightSpeedMultiplier,
+      state.maneuverBaseSpeed || 0
+    );
     const speedFactor = state.airplaneModel?.cameraScale
       ? THREE.MathUtils.clamp(
           state.flightSpeedMultiplier / getMaxFlightSpeedMult(),
@@ -321,7 +330,7 @@ export function updateFlightCamera(delta, nowTime) {
           1
         )
       : // (a crystal rush can go past 10x: pulls back up to half as far again)
-        Math.min(1.5, (state.flightSpeedMultiplier - 0.5) / 9.5);
+        Math.min(1.5, (camSpeedMult - 0.5) / 9.5);
     const diveFactor = Math.max(0, -planeGroup.rotation.x / (Math.PI / 4)); // 1.0 at 45 degree dive
 
     // How far the camera is into the first-person view, 0 to 1 along the
@@ -379,12 +388,60 @@ export function updateFlightCamera(delta, nowTime) {
       (state.airplaneModel?.chaseLift ?? 1) *
       followZoom;
 
+    // Smooth the plane's rotation to create camera inertia, locked to it in
+    // acrobatic loops and rolls so the camera doesn't get lost
+    const lockEase = 1 - Math.exp(-delta / AEROBATIC_LOCK_SECONDS);
+    anchorLock = easeLock(
+      anchorLock,
+      state.isLooping || state.isBarrelRolling,
+      lockEase
+    );
+    loopLock = easeLock(loopLock, state.isLooping, lockEase);
+
+    // Continuous 3D attitude curve for steep climbs, steep dives, loops, and
+    // Immelmanns: rises past ~33 deg pitch (|fwd.y| > 0.55), holds across the
+    // inverted top of a loop via loopLock * max(0, -up.y), and glides smoothly
+    // back to 0 as the nose returns to level with no binary exit snap.
+    _planeFwd.set(0, 0, -1).applyQuaternion(planeGroup.quaternion);
+    _planeUp.set(0, 1, 0).applyQuaternion(planeGroup.quaternion);
+    const pitchPull = THREE.MathUtils.smoothstep(
+      Math.abs(_planeFwd.y),
+      0.55,
+      0.94
+    );
+    const loopApex = loopLock * Math.max(0, -_planeUp.y);
+    const rawManeuver = chaseFrame
+      ? 0
+      : Math.min(1.15, Math.hypot(pitchPull, loopApex * 1.15));
+    const airspeedScale = THREE.MathUtils.smoothstep(camSpeedMult, 0.35, 1.5);
+    const maneuverTarget = state.isVRPresenting
+      ? 0
+      : rawManeuver * airspeedScale;
+    const maneuverTau = maneuverTarget > maneuverCam ? 0.22 : 0.42;
+    maneuverCam +=
+      (maneuverTarget - maneuverCam) * (1 - Math.exp(-delta / maneuverTau));
+
+    // Compensate for the steady-state followStep lag that loopLock sheds when
+    // locking onto _idealCameraPos, so loop entry never pulls the camera forward
+    const followExp = delta > 0 ? Math.exp(-FOLLOW_RATE * delta) : 0;
+    const steadyLag =
+      chaseFrame || state.isVRPresenting
+        ? 0
+        : (BASE_FLIGHT_SPEED * Math.abs(camSpeedMult) * 60) / FOLLOW_RATE;
+    const lostLag =
+      loopLock > 0
+        ? (steadyLag * loopLock) /
+          Math.max(0.05, 1 - (1 - loopLock) * followExp)
+        : 0;
+
     // Track normalized maneuver intensity (0..1) for music vibe energy
-    // (music-logic.js); camera distance and FOV follow actual airspeed
-    // (speedFactor) rather than pulling back artificially on steep pitches.
     const maneuverFactor = Math.min(
       1,
-      Math.max(diveFactor, state.isLooping || state.isSteepPitch ? 1 : 0)
+      Math.max(
+        diveFactor,
+        rawManeuver,
+        state.isLooping || state.isSteepPitch ? 1 : 0
+      )
     );
     state.smoothedManeuverFactor = THREE.MathUtils.lerp(
       state.smoothedManeuverFactor,
@@ -392,29 +449,27 @@ export function updateFlightCamera(delta, nowTime) {
       1 - Math.pow(1 - 0.05, delta * 60)
     );
 
-    // FOV expands with speed, capped at 75 by default to avoid excessive
-    // distortion (80 for the buggy with ?speedCam=1); slightly wider on mobile
-    // to increase peripheral awareness
+    // FOV expands with speed (capped at 75 in level cruise) and opens wider
+    // (up to 84) during steep climbs, dives, and aerobatic loops
     const baseFov =
       FORZA_SPEED_CAM && buggyVis
         ? buggyVis.fov
         : THREE.MathUtils.lerp(60, 85, speedFactor * (1 - seatLock)) +
           (mobileCameraScale > 1.0 ? 5 : 0);
-    // (wider still during a shattered crystal's rush: crystal-rush.js)
+    const maneuverFov = maneuverCam * 13 * (1 - seatLock) * (1 - firstPerson);
     const rushFov = RUSH_FOV * rushAmount() * (1 - seatLock);
     const targetFov =
       FORZA_SPEED_CAM && buggyVis
         ? Math.min(ChillFlightLogic.BUGGY_CAMERA.MAX_FOV, baseFov + rushFov)
-        : Math.min(75, baseFov) + rushFov;
+        : Math.min(84, Math.min(75, baseFov) + maneuverFov) + rushFov;
 
-    camera.fov = THREE.MathUtils.lerp(
-      camera.fov,
-      targetFov,
-      1 - Math.pow(1 - 0.05, delta * 60)
+    const pullBack = maneuverCam * 32 * followScale * followZoom;
+    const effectiveZOffset = zOffset + pullBack + lostLag * (1 - firstPerson);
+    _cameraOffset.set(
+      0,
+      yOffset + maneuverCam * 3 * followScale * followZoom,
+      effectiveZOffset
     );
-    camera.updateProjectionMatrix();
-
-    _cameraOffset.set(0, yOffset, zOffset);
 
     // Add subtle camera vibration at high speeds/steep dives (2D only: forced
     // random camera translation causes VR motion discomfort)
@@ -440,16 +495,6 @@ export function updateFlightCamera(delta, nowTime) {
     }
 
     // 1. Calculate Follow State
-
-    // Smooth the plane's rotation to create camera inertia, locked to it in
-    // acrobatic loops and rolls so the camera doesn't get lost
-    const lockEase = 1 - Math.exp(-delta / AEROBATIC_LOCK_SECONDS);
-    anchorLock = easeLock(
-      anchorLock,
-      state.isLooping || state.isBarrelRolling,
-      lockEase
-    );
-    loopLock = easeLock(loopLock, state.isLooping, lockEase);
     _cameraAnchorQuat.slerp(
       planeGroup.quaternion,
       THREE.MathUtils.lerp(1 - Math.pow(1 - 0.15, delta * 60), 1, anchorLock)
