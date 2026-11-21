@@ -25,6 +25,11 @@ if (BUILD_MODE) {
   BASE = `http://localhost:${staticServer.address().port}/`;
 }
 const FLIGHT_MS = 8000;
+// Loading polls and returns as soon as the game starts, so a generous deadline
+// costs nothing on a fast machine. Software WebGL (cloud containers, CI) takes
+// about 85 s to load the default page, which a 60 s deadline turned into a
+// cascade of false failures.
+const LOAD_TIMEOUT_MS = 150000;
 const DEBUG_PAGE_MS = 3000;
 
 // The game gets a full flight; debug pages only need to load cleanly.
@@ -91,7 +96,7 @@ const TEST_SEED = '20260101';
 // CDP Runtime.evaluate, which would unlock Web Audio before any real input.
 // Poll with userGesture: false so loading and initial flight run under the
 // same unactivated state a player's browser starts in.
-async function waitForLoadWithoutGesture(page, timeoutMs = 60000) {
+async function waitForLoadWithoutGesture(page, timeoutMs = LOAD_TIMEOUT_MS) {
   const client = await page.createCDPSession();
   try {
     const deadline = Date.now() + timeoutMs;
@@ -266,7 +271,7 @@ async function checkPage(
   if (blackhole) {
     // Generous deadlines: a busy machine can be slow, but a real black
     // screen never paints at all.
-    await waitForLoadWithoutGesture(page, 60000);
+    await waitForLoadWithoutGesture(page, LOAD_TIMEOUT_MS);
     // A screenshot needs a painted frame; if a render-blocking third-party
     // resource hangs, the page never paints (a black screen).
     const painted = await Promise.race([
@@ -299,7 +304,7 @@ async function checkPage(
   }
 
   if (presetSwitch) {
-    await waitForLoadWithoutGesture(page, 60000);
+    await waitForLoadWithoutGesture(page, LOAD_TIMEOUT_MS);
     await new Promise((r) => setTimeout(r, 500));
     const beforeSwitch = await page.evaluate(() => {
       const gl = [...document.querySelectorAll('canvas')]
@@ -360,7 +365,7 @@ async function checkPage(
 
   if (!fly) {
     if (waitForLoad) {
-      await waitForLoadWithoutGesture(page, 60000);
+      await waitForLoadWithoutGesture(page, LOAD_TIMEOUT_MS);
     }
     await new Promise((r) => setTimeout(r, DEBUG_PAGE_MS));
     if (path === 'debug/debug-models.html') {
@@ -426,7 +431,7 @@ async function checkPage(
 
   // Wait for the loading screen to dismiss so flight begins.
   try {
-    await waitForLoadWithoutGesture(page, 60000);
+    await waitForLoadWithoutGesture(page, LOAD_TIMEOUT_MS);
   } catch (err) {
     errors.push(`[${tag}] loading screen did not dismiss: ${err.message}`);
   }
@@ -972,8 +977,9 @@ const browser = await launch({
   },
 });
 
-const PAGE_TIMEOUT_MS = 120000;
-const FLY_PAGE_TIMEOUT_MS = 180000;
+// Each page's budget covers a slow load (LOAD_TIMEOUT_MS) plus its checks
+const PAGE_TIMEOUT_MS = LOAD_TIMEOUT_MS + 90000;
+const FLY_PAGE_TIMEOUT_MS = LOAD_TIMEOUT_MS + 150000;
 try {
   for (const p of PAGES) {
     if (BUILD_MODE && p.devOnly) continue;
