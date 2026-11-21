@@ -112,6 +112,11 @@ export function requireGpu(what) {
 // pid 1). Puppeteer gives every browser it launches a temporary profile
 // named puppeteer_dev_chrome_profile-*, so a browser someone opened by hand,
 // or one another run is still using, is never touched.
+const DEFAULT_CACHE_PROFILE = path.join(
+  os.tmpdir(),
+  'chill-flight-chrome-cache'
+);
+
 export function killOrphanedChrome() {
   if (process.platform === 'win32') return;
   let rows;
@@ -125,7 +130,12 @@ export function killOrphanedChrome() {
   let killed = 0;
   for (const row of rows.split('\n')) {
     const m = row.trim().match(/^(\d+)\s+(\d+)\s+(.*)$/);
-    if (!m || m[2] !== '1' || !m[3].includes('puppeteer_dev_chrome_profile-'))
+    if (
+      !m ||
+      m[2] !== '1' ||
+      (!m[3].includes('puppeteer_dev_chrome_profile-') &&
+        !m[3].includes('chill-flight-chrome-cache'))
+    )
       continue;
     try {
       process.kill(Number(m[1]), 'SIGKILL');
@@ -223,9 +233,28 @@ export async function acquireBrowserLock(
   }
 }
 
-export async function launch({onCleanup, ...opts} = {}) {
+export async function launch({onCleanup, cleanProfile = false, ...opts} = {}) {
   const releaseLock = await acquireBrowserLock();
   killOrphanedChrome();
+  const useCacheProfile =
+    !cleanProfile &&
+    !opts.userDataDir &&
+    process.env.CHILL_FLIGHT_CLEAN_PROFILE !== '1';
+  if (useCacheProfile) {
+    fs.mkdirSync(DEFAULT_CACHE_PROFILE, {recursive: true});
+    // Clear stale Chromium singleton lock symlinks left by any SIGKILLed run
+    for (const lockName of [
+      'SingletonLock',
+      'SingletonSocket',
+      'SingletonCookie',
+    ]) {
+      try {
+        fs.rmSync(path.join(DEFAULT_CACHE_PROFILE, lockName), {force: true});
+      } catch {
+        // Ignore missing lock entries.
+      }
+    }
+  }
   let browser;
   try {
     browser = await puppeteer.launch({
@@ -234,12 +263,14 @@ export async function launch({onCleanup, ...opts} = {}) {
       pipe: true,
       protocolTimeout: 900000,
       args: GL_ARGS,
+      ...(useCacheProfile ? {userDataDir: DEFAULT_CACHE_PROFILE} : {}),
       ...opts,
     });
   } catch (err) {
     releaseLock();
     throw err;
   }
+  browser._usesCacheProfile = useCacheProfile;
   browser.once('disconnected', releaseLock);
   autoCloseOnExit(browser, () => {
     releaseLock();
@@ -267,15 +298,144 @@ export function gameUrl(query = '') {
   return BASE + '?' + params.toString();
 }
 
+// URL parameters evaluated only once at module load; changing any of these
+// requires a fresh page navigation rather than an in-tab warpGame() call.
+const LOAD_TIME_PARAMS = [
+  'seed',
+  'preset',
+  'graphics',
+  'style',
+  'cloudStyle',
+  'theme',
+  'uiTheme',
+  'lang',
+  'xmas',
+  'xmasDay',
+  'continent',
+  'islandType',
+  'island',
+  'objects',
+  'textures',
+  'grass',
+  'aboveClouds',
+  'map',
+  'vrOnly',
+  'ui',
+  'outline',
+  'brush',
+  'haze',
+  'fxaa',
+  'forza',
+  'blur',
+  'speedCam',
+  'driftCam',
+  'palette',
+  'zenith',
+  'horizon',
+  'day',
+  'dayBlue',
+];
+
+export function canReuseTab(prevQuery, nextQuery) {
+  if (typeof prevQuery !== 'string' || typeof nextQuery !== 'string') {
+    return false;
+  }
+  const a = new URL(gameUrl(prevQuery)).searchParams;
+  const b = new URL(gameUrl(nextQuery)).searchParams;
+  const normPreset = (p) => p.get('preset') || p.get('graphics') || '';
+  if (normPreset(a) !== normPreset(b)) return false;
+  const normIsland = (p) => p.get('islandType') || p.get('island') || '';
+  if (normIsland(a) !== normIsland(b)) return false;
+  for (const key of LOAD_TIME_PARAMS) {
+    if (['preset', 'graphics', 'islandType', 'island'].includes(key)) continue;
+    if ((a.get(key) || '') !== (b.get(key) || '')) return false;
+  }
+  return true;
+}
+
+// Polls until the terrain worker pool, main-thread chunk queue, and distant
+// terrain ring are all idle (using the 33 ms fastChunkDrain budget while
+// streaming), then steps 3 rendered frames so instancing, shadows, and
+// grass.js ground/crop textures settle cleanly.
+export async function waitForWorldReady(
+  page,
+  {settleMs = 150, timeoutMs = 60000} = {}
+) {
+  const started = Date.now();
+  let stableCount = 0;
+  while (Date.now() - started < timeoutMs) {
+    const ready = await page
+      .evaluate(async () => {
+        const {state} = await window.gameModule('state.js');
+        const {terrainWorkerManager} = await window.gameModule(
+          'terrain-worker-manager.js'
+        );
+        state.fastChunkDrain = true;
+        const workersIdle =
+          terrainWorkerManager.activeJobs.size === 0 &&
+          terrainWorkerManager.jobQueue.length === 0;
+        const farIdle =
+          !state.farTerrainEnabled || document.body.dataset.farReady === '1';
+        return (
+          !state.isPaused &&
+          state.chunkQueue.length === 0 &&
+          workersIdle &&
+          farIdle
+        );
+      })
+      .catch(() => false);
+    if (ready) {
+      stableCount++;
+      if (stableCount >= 2) break;
+    } else {
+      stableCount = 0;
+    }
+    await new Promise((r) => setTimeout(r, 80));
+  }
+  await page
+    .evaluate(async () => {
+      const {state} = await window.gameModule('state.js');
+      state.fastChunkDrain = false;
+      for (let i = 0; i < 3; i++) {
+        await new Promise((r) => requestAnimationFrame(r));
+      }
+    })
+    .catch(() => {});
+  if (settleMs > 0) {
+    await new Promise((r) => setTimeout(r, settleMs));
+  }
+}
+
+// Warps an already-open game tab to a new query string or view options object
+// without reloading the page or recompiling shaders (#185).
+export async function warpGame(
+  page,
+  queryOrOpts,
+  {settleMs = 120, timeoutMs = 60000} = {}
+) {
+  await page.evaluate(async (input) => {
+    const {applyViewParams} = await window.gameModule('debug-ui.js');
+    const {syncCameraAfterTeleport} =
+      await window.gameModule('flight-camera.js');
+    const {state} = await window.gameModule('state.js');
+    state.fastChunkDrain = true;
+    applyViewParams(input);
+    syncCameraAfterTeleport();
+  }, queryOrOpts);
+  if (typeof queryOrOpts === 'string') {
+    page._loadedQuery = queryOrOpts;
+  }
+  await waitForWorldReady(page, {settleMs, timeoutMs});
+}
+
 // Opens the game and waits until the terrain around the camera has loaded
-// (the chunk queue is empty) plus `settleMs` for the distant terrain ring and
-// shadows. Inside page.evaluate, reach the game's modules with
-// `await window.gameModule('sky.js')` (see below). Page errors are collected
-// in page.errors.
+// (near chunks, worker pool, and distant terrain ring idle) plus `settleMs`.
+// Inside page.evaluate, reach the game's modules with
+// `await window.gameModule('sky.js')`. Page errors are collected in page.errors.
 export async function openGame(
   browser,
   query,
-  {width = 1600, height = 900, scale = 1, settleMs = 4000} = {}
+  {width = 1600, height = 900, scale = 1, settleMs = 150} = {}
 ) {
   const page = await browser.newPage();
   page.errors = [];
@@ -283,6 +443,21 @@ export async function openGame(
   page.on('console', (m) => {
     if (m.type() === 'error') page.errors.push(m.text());
   });
+  if (browser._usesCacheProfile) {
+    // Keep WebGL/Metal shader cache and V8 code cache warm while resetting
+    // origin localStorage so saved presets/settings never leak between runs.
+    const client = await page.createCDPSession();
+    try {
+      await client.send('Storage.clearDataForOrigin', {
+        origin: new URL(BASE).origin,
+        storageTypes: 'local_storage',
+      });
+    } catch {
+      // Ignore if origin has no stored data yet.
+    } finally {
+      await client.detach().catch(() => {});
+    }
+  }
   await page.setViewport({width, height, deviceScaleFactor: scale});
   // gameModule('state.js') imports the game's own instance of a module: after
   // a hot update Vite serves modules under versioned URLs (?t=...), and a
@@ -297,19 +472,8 @@ export async function openGame(
       );
   });
   await page.goto(gameUrl(query), {waitUntil: 'load', timeout: 90000});
-  const started = Date.now();
-  // Loading dismisses itself with start=1; give chunks up to 60 s to load.
-  while (Date.now() - started < 60000) {
-    const ready = await page
-      .evaluate(async () => {
-        const {state} = await window.gameModule('state.js');
-        return !state.isPaused && state.chunkQueue.length === 0;
-      })
-      .catch(() => false);
-    if (ready) break;
-    await new Promise((r) => setTimeout(r, 500));
-  }
-  await new Promise((r) => setTimeout(r, settleMs));
+  page._loadedQuery = query;
+  await waitForWorldReady(page, {settleMs, timeoutMs: 60000});
   return page;
 }
 

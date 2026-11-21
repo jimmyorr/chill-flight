@@ -294,6 +294,10 @@ export const state = {
 
   // Free camera (debug-ui.js)
   isFreeCamera: false,
+  // Scripted post-warp chunk drain & instant sky/fog snap (dev-browser.js)
+  fastChunkDrain: false,
+  snapEnvironment: false,
+  pendingClockOverride: null,
   // Camera jolt from knocking something over (breakables.js), dying away in
   // flight-camera.js
   impactShake: 0,

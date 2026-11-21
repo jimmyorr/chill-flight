@@ -233,6 +233,7 @@ export function updateFlightCamera(delta, nowTime) {
     const rotateSpeedDrag = 0.005;
 
     // Rotation from Drag (respecting effective invertYAxis)
+    if (camera.rotation.order !== 'YXZ') camera.rotation.reorder('YXZ');
     camera.rotation.y += state.freeCamDeltaX * rotateSpeedDrag;
     camera.rotation.x +=
       state.freeCamDeltaY *

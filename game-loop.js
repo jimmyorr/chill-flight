@@ -376,6 +376,7 @@ function performFrame(timestamp) {
   // drops every other 72Hz/90Hz vsync and cuts 2D headset framerate to 36/45fps
   state.isVRPresenting = renderer && renderer.xr && renderer.xr.isPresenting;
   const bypassFpsCap =
+    state.fastChunkDrain ||
     state.isVRPresenting ||
     (inputManager._isVRHeadset && ChillFlightLogic.MAX_FPS === null);
   if (!bypassFpsCap && state.maxFPS > 0) {
@@ -402,9 +403,10 @@ function performFrame(timestamp) {
   // If the loading screen is active, give chunk generation a massive time budget (e.g., 33ms)
   // so it finishes in a fraction of a second instead of being artifically throttled for 60fps.
   const isBootLoadingScreen = state.isPaused && !state.isIntroTransitionActive;
-  const chunkBudget = isBootLoadingScreen
-    ? 33
-    : performanceMonitor.getChunkBudget();
+  const chunkBudget =
+    isBootLoadingScreen || state.fastChunkDrain
+      ? 33
+      : performanceMonitor.getChunkBudget();
   if (processChunkQueue) processChunkQueue(chunkBudget);
   const farTerrainAnchor =
     state.isFreeCamera ||
@@ -874,7 +876,7 @@ function updateCloudMood(delta, overcast) {
     storm
   );
   const types = skyUniforms.uCloudTypes.value;
-  if (first) {
+  if (first || state.snapEnvironment) {
     types.copy(target);
     skyUniforms.uCloudCover.value = cover;
   } else {
@@ -930,13 +932,17 @@ function updateDayNightCycle(delta) {
     isDebugMode ||
     state.manualTimeOfDay !== undefined ||
     state.daySpeedMultiplier !== 1 ||
+    state.pendingClockOverride !== null ||
     ChillFlightLogic.START_CLOCK !== null;
 
   if (useVirtualClock) {
     // In debug mode, we use a virtual clock that we increment ourselves,
     // allowing for speed multipliers while maintaining the same "warped" physics
     // as the wall clock.
-    if (_debugVirtualClockNow === undefined) {
+    if (state.pendingClockOverride !== null) {
+      _debugVirtualClockNow = state.pendingClockOverride;
+      state.pendingClockOverride = null;
+    } else if (_debugVirtualClockNow === undefined) {
       _debugVirtualClockNow = ChillFlightLogic.START_CLOCK ?? Date.now();
     } else {
       _debugVirtualClockNow += delta * 1000 * state.daySpeedMultiplier;
@@ -2360,7 +2366,7 @@ function updateEnvironmentLighting(delta, now) {
     // slowly, so clouds build and clear gradually (#80): a time constant of
     // CLOUD_EASE_SECONDS, whatever the frame rate
     _currentOvercast =
-      _currentOvercast === undefined
+      _currentOvercast === undefined || state.snapEnvironment
         ? weatherNoise
         : THREE.MathUtils.lerp(
             _currentOvercast,
@@ -2467,11 +2473,13 @@ function updateEnvironmentLighting(delta, now) {
     auroraLatFactor * auroraNightFactor * (1.0 - overcast) * auroraActivity
   );
   if (skyUniforms !== undefined) {
-    skyUniforms.uAuroraIntensity.value = THREE.MathUtils.lerp(
-      skyUniforms.uAuroraIntensity.value,
-      targetAuroraIntensity,
-      1 - Math.pow(1 - 0.002, delta * 60)
-    );
+    skyUniforms.uAuroraIntensity.value = state.snapEnvironment
+      ? targetAuroraIntensity
+      : THREE.MathUtils.lerp(
+          skyUniforms.uAuroraIntensity.value,
+          targetAuroraIntensity,
+          1 - Math.pow(1 - 0.002, delta * 60)
+        );
   }
 
   // Fade moon opacity: fully visible at night, subtle silhouette during day
@@ -2603,7 +2611,11 @@ function updateEnvironmentLighting(delta, now) {
     .lerp(_cloudyColor, 0.5)
     .lerp(_mistLit, 0.35 * state.dayFactor);
   _finalFogColor.lerp(_mistColor, Math.max(state.cloudBaseMist, state.inCloud));
-  scene.fog.color.lerp(_finalFogColor, 1 - Math.pow(1 - 0.05, delta * 60));
+  if (state.snapEnvironment) {
+    scene.fog.color.copy(_finalFogColor);
+  } else {
+    scene.fog.color.lerp(_finalFogColor, 1 - Math.pow(1 - 0.05, delta * 60));
+  }
 
   // Fog density follows the conditions: clear skies, morning fog, clouds,
   // precipitation, and mist lingering after rain (see computeFogDensity).
@@ -2611,7 +2623,9 @@ function updateEnvironmentLighting(delta, now) {
     state.manualBaseFogDensity !== undefined
       ? state.manualBaseFogDensity
       : ChillFlightLogic.FOG.CLEAR;
-  if (precipIntensity > fogAfterRain) {
+  if (state.snapEnvironment) {
+    fogAfterRain = precipIntensity;
+  } else if (precipIntensity > fogAfterRain) {
     fogAfterRain = precipIntensity;
   } else {
     fogAfterRain *= Math.exp(
@@ -2643,11 +2657,13 @@ function updateEnvironmentLighting(delta, now) {
     THREE.MathUtils.lerp(targetFogDensity, CLOUD_BASE_FOG, state.cloudBaseMist),
     THREE.MathUtils.lerp(targetFogDensity, IN_CLOUD_FOG, state.inCloud)
   );
-  scene.fog.density = THREE.MathUtils.lerp(
-    scene.fog.density,
-    effectiveFogDensity,
-    1 - Math.pow(1 - 0.01, delta * 60)
-  );
+  scene.fog.density = state.snapEnvironment
+    ? effectiveFogDensity
+    : THREE.MathUtils.lerp(
+        scene.fog.density,
+        effectiveFogDensity,
+        1 - Math.pow(1 - 0.01, delta * 60)
+      );
 
   // Update slider UI and values
   const fogSlider = getCachedElement('debug-fog-slider');
@@ -2683,6 +2699,7 @@ function updateEnvironmentLighting(delta, now) {
   skyUniforms.uTime.value = state.cloudTime;
   skyUniforms.uCloudDensity.value = overcast;
   updateCloudMood(delta, overcast);
+  if (state.snapEnvironment) state.snapEnvironment = false;
   if (ART_CLOUDS) updateTowerSlices();
   // Storms bring snow from where the snow cover starts (sleet in between),
   // and their clouds are a lighter grey there

@@ -569,6 +569,78 @@ export function cycleWeather() {
   log.info(`Weather cycled to: ${weatherType}`);
 }
 
+export function applyScriptedWeather({
+  clouds,
+  weather,
+  cloudHeight,
+  cloudSpeed,
+} = {}) {
+  if (clouds !== undefined) {
+    if (clouds === null) {
+      showCloudsEnabled = true;
+      manualCloudCover = null;
+    } else if (typeof clouds === 'number') {
+      showCloudsEnabled = true;
+      manualCloudCover = Math.max(0, Math.min(1, clouds));
+    } else {
+      const s = String(clouds).trim().toLowerCase();
+      if (['none', 'false', 'off'].includes(s)) {
+        showCloudsEnabled = false;
+        manualCloudCover = 0.0;
+      } else if (s === 'auto') {
+        showCloudsEnabled = true;
+        manualCloudCover = null;
+      } else if (s === 'clear') {
+        showCloudsEnabled = true;
+        manualCloudCover = 0.0;
+      } else if (s === 'scattered') {
+        showCloudsEnabled = true;
+        manualCloudCover = 0.3;
+      } else if (s === 'broken') {
+        showCloudsEnabled = true;
+        manualCloudCover = 0.6;
+      } else if (s === 'overcast') {
+        showCloudsEnabled = true;
+        manualCloudCover = 1.0;
+      } else {
+        const n = parseFloat(s);
+        if (!isNaN(n)) {
+          showCloudsEnabled = true;
+          manualCloudCover = Math.max(0, Math.min(1, n));
+        }
+      }
+    }
+    if (skyUniforms?.uShowClouds) {
+      skyUniforms.uShowClouds.value = showCloudsEnabled;
+    }
+  }
+  if (weather !== undefined && weather !== null && weather !== '') {
+    const w = String(weather).trim().toLowerCase();
+    weatherType = w === 'clear' ? 'none' : w;
+    if (weatherType === 'none') {
+      _rainLevel = 0;
+      _snowLevel = 0;
+      precipitation.rain = 0;
+      precipitation.snow = 0;
+    } else if (weatherType === 'rain') {
+      _rainLevel = RAIN_FULL;
+      _snowLevel = 0;
+    } else if (weatherType === 'snow') {
+      _snowLevel = SNOW_FULL;
+      _rainLevel = 0;
+    }
+  }
+  if (typeof cloudHeight === 'number' && !isNaN(cloudHeight)) {
+    manualCloudHeight = Math.max(500, Math.min(10000, cloudHeight));
+    if (skyUniforms?.uCloudHeight) {
+      skyUniforms.uCloudHeight.value = manualCloudHeight;
+    }
+  }
+  if (typeof cloudSpeed === 'number' && !isNaN(cloudSpeed)) {
+    manualCloudSpeed = Math.max(0, Math.min(20, cloudSpeed));
+  }
+}
+
 export function updateWeather(delta) {
   if (!snowParticles || !rainParticles) return;
 

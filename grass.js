@@ -399,6 +399,7 @@ const _fwd = new THREE.Vector3();
 const _cam = new THREE.Vector3();
 const _color = new THREE.Color();
 let lastOrigin = '';
+let lastComplete = false;
 let framesSinceGrid = 0;
 
 function buildMesh(preset) {
@@ -514,15 +515,23 @@ function updateGround(cx, cz) {
   const iz0 = Math.floor((cz + half) / step) - GRID / 2 + 1;
   const key = `${ix0},${iz0},${step}`;
   framesSinceGrid++;
-  // Chunk colours can arrive after the grid was filled, so refresh it now
-  // and then as well as when it moves
-  if (key === lastOrigin && framesSinceGrid < 30) return false;
+  // Chunk colours can arrive after the grid was filled, so keep retrying while
+  // any overlapped chunk is still streaming, then refresh periodically
+  if (key === lastOrigin && lastComplete && framesSinceGrid < 30) return false;
   lastOrigin = key;
   framesSinceGrid = 0;
+  let chunksReady = true;
   for (let j = 0; j < GRID; j++) {
     for (let i = 0; i < GRID; i++) {
       const x = (ix0 + i) * step - half;
       const z = (iz0 + j) * step - half;
+      if (
+        !chunks.has(
+          `${Math.round(x / CHUNK_SIZE)},${Math.round(z / CHUNK_SIZE)}`
+        )
+      ) {
+        chunksReady = false;
+      }
       const k = (j * GRID + i) * 4;
       groundData[k] = getElevation(x, z);
       if (sampleGroundColor(x, z, _color)) {
@@ -534,6 +543,7 @@ function updateGround(cx, cz) {
       }
     }
   }
+  lastComplete = chunksReady;
   for (let j = 0; j < GRID; j++) {
     for (let i = 0; i < GRID; i++) {
       const k = (j * GRID + i) * 4;

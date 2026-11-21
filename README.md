@@ -780,7 +780,7 @@ node scripts/shot.js out.jpg "x=0&y=413&z=0&heading=45&pitch=-4&tod=0.61"
 node scripts/shot.js out.jpg "<view 1>" "<view 2>"   # out-1.jpg, out-2.jpg
 ```
 
-Saves a screenshot of each view (the query takes the game's URL parameters; the free camera, a frozen time of day, `traffic=0` and `adaptive=0` are the defaults). It prints any page errors and exits with an error if there were some, so it also catches shader compile errors. `SIZE=1600x900`, `SCALE=1` and `SETTLE_MS=4000` set the window size, pixel density and extra wait.
+Saves a screenshot of each view (the query takes the game's URL parameters; the free camera, a frozen time of day, `traffic=0` and `adaptive=0` are the defaults). Multiple views sharing the same seed, preset and art style warp in place in one tab rather than reloading the page, and compiled WebGL shaders stay cached on disk between runs. It prints any page errors and exits with an error if there were some, so it also catches shader compile errors. `SIZE=1600x900`, `SCALE=1` and `SETTLE_MS=150` set the window size, pixel density and extra wait (`CHILL_FLIGHT_CLEAN_PROFILE=1` forces a clean Chrome profile).
 
 ```bash
 npm run bench [-- label]

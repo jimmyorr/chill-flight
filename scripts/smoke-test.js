@@ -971,6 +971,7 @@ async function exerciseControls(page, tag, onDebugEnabled) {
 }
 
 const browser = await launch({
+  cleanProfile: true,
   args: [
     ...GL_ARGS,
     // Match real desktop/mobile Chrome so blocked autoplay on load (and

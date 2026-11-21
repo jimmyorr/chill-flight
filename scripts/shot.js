@@ -9,8 +9,8 @@
 // the time of day, traffic=0 hides planes, cars and moving wildlife,
 // adaptive=0 holds full preset resolution, and xmas=off (dev-browser.js
 // gameUrl) keeps Christmas out unless the query sets xmas. Options (env):
-// SIZE=1600x900, SCALE=1, SETTLE_MS=4000.
-import {launch, openGame} from './dev-browser.js';
+// SIZE=1600x900, SCALE=1, SETTLE_MS=150.
+import {canReuseTab, launch, openGame, warpGame} from './dev-browser.js';
 import {viewQuery} from './views.js';
 
 const [out, ...queries] = process.argv.slice(2);
@@ -20,9 +20,11 @@ if (!out || queries.length === 0) {
 }
 const [width, height] = (process.env.SIZE || '1600x900').split('x').map(Number);
 const scale = Number(process.env.SCALE || 1);
-const settleMs = Number(process.env.SETTLE_MS || 4000);
+const settleMs =
+  process.env.SETTLE_MS !== undefined ? Number(process.env.SETTLE_MS) : 150;
 
 const browser = await launch();
+let page = null;
 let failed = false;
 for (const [i, query] of queries.entries()) {
   const [name, ...rest] = query.split('&');
@@ -31,12 +33,19 @@ for (const [i, query] of queries.entries()) {
   if (!q.has('timeSpeed')) q.set('timeSpeed', '0');
   if (!q.has('traffic')) q.set('traffic', '0');
   if (!q.has('adaptive')) q.set('adaptive', '0');
-  const page = await openGame(browser, q.toString(), {
-    width,
-    height,
-    scale,
-    settleMs,
-  });
+  const fullQuery = q.toString();
+  if (page && canReuseTab(page._loadedQuery, fullQuery)) {
+    page.errors.length = 0;
+    await warpGame(page, fullQuery, {settleMs});
+  } else {
+    if (page) await page.close();
+    page = await openGame(browser, fullQuery, {
+      width,
+      height,
+      scale,
+      settleMs,
+    });
+  }
   const file =
     queries.length === 1 ? out : out.replace(/(\.\w+)$/, `-${i + 1}$1`);
   await page.screenshot({
@@ -48,7 +57,7 @@ for (const [i, query] of queries.entries()) {
     failed = true;
     console.error(`  errors:\n  ${page.errors.join('\n  ')}`);
   }
-  await page.close();
 }
+if (page) await page.close();
 await browser.close();
 process.exit(failed ? 1 : 0);

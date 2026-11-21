@@ -40,6 +40,7 @@ import {
   resolvePinnedComment,
   resolveRelatedVideo,
 } from './post-short.js';
+import {canReuseTab} from './dev-browser.js';
 
 console.log(
   'Testing scripted flight, camera, drive, replay, and corridor checks...'
@@ -464,6 +465,27 @@ try {
 } finally {
   fs.rmSync(tmpMetaDir, {recursive: true, force: true});
 }
+
+// In-tab warp eligibility (dev-browser.js canReuseTab, #185)
+check(
+  'canReuseTab allows warping across position, camera, tod, clouds, weather, and plane within one world',
+  canReuseTab(
+    'seed=20260928&x=0&y=413&z=0&tod=0.614&clouds=0.2&freecam=true',
+    'seed=20260928&x=-9000&y=250&z=8000&heading=180&tod=0.735&clouds=0.45&weather=rain&plane=jet&freecam=true'
+  ) &&
+    canReuseTab(
+      'preset=mid&islandType=volcanic&x=0&z=0',
+      'graphics=mid&island=volcanic&camX=100&camY=200&camZ=300'
+    )
+);
+check(
+  'canReuseTab forces a fresh navigation when seed, preset, style, xmas, or objects change',
+  !canReuseTab('seed=20260928&x=0&z=0', 'seed=20260929&x=0&z=0') &&
+    !canReuseTab('seed=20260928&preset=mid', 'seed=20260928&preset=ultra') &&
+    !canReuseTab('seed=20260928', 'seed=20260928&style=anime') &&
+    !canReuseTab('seed=20260928', 'seed=20260928&xmas=full') &&
+    !canReuseTab('seed=20260928', 'seed=20260928&objects=0')
+);
 
 console.log(
   failed ? 'Scripted flight test failed' : 'Scripted flight test passed'

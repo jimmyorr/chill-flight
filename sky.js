@@ -309,6 +309,7 @@ export const camera = new THREE.PerspectiveCamera(
   1,
   30000
 );
+camera.rotation.order = 'YXZ';
 
 const _worldCamPos = new THREE.Vector3();
 

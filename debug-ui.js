@@ -20,6 +20,7 @@ import {
   skyUniforms,
 } from './sky.js';
 import {
+  applyScriptedWeather,
   manualCloudCover,
   manualCloudHeight,
   manualCloudSpeed,
@@ -29,11 +30,17 @@ import {
 import {chunks, getElevation, waterMaterial} from './terrain-geometry.js';
 import {scene} from './scene.js';
 import {
+  HEADLIGHT_GLOW_INTENSITY,
+  HEADLIGHT_INTENSITY,
   activePlaneType,
   getMaxFlightSpeedMult,
   headlight,
+  headlightGlow,
   planeGroup,
+  planeMat,
+  planeWhiteMat,
   poseGear,
+  setActivePlane,
 } from './airplane.js';
 import {
   _lastChunkUpdatePos,
@@ -46,6 +53,7 @@ import {
   toggleProceduralObjects,
   updateChunks,
 } from './terrain-chunks.js';
+import {updateFarTerrain} from './far-terrain.js';
 import {refreshArchDetail} from './arches.js';
 import {simplex} from './noise.js';
 import {state} from './state.js';
@@ -866,4 +874,289 @@ export function initDebugUI() {
   }
 
   window.applyGraphicsPreset = applyGraphicsPreset;
+}
+
+function parseCoordValue(val, isLatitude) {
+  if (val === null || val === undefined || val === '') return null;
+  if (typeof val === 'number') return isNaN(val) ? null : val;
+  const cleaned = String(val).trim();
+  const match = cleaned.match(
+    /^([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*([NnSsEeWw][a-zA-Z]*)?$/
+  );
+  if (!match) {
+    const parsed = parseFloat(cleaned);
+    return isNaN(parsed) ? null : parsed;
+  }
+  const num = parseFloat(match[1]);
+  const suffix = match[2] ? match[2].charAt(0).toUpperCase() : null;
+  if (isNaN(num)) return null;
+  if (suffix) {
+    if (isLatitude) return suffix === 'S' ? -Math.abs(num) : Math.abs(num);
+    return suffix === 'W' ? -Math.abs(num) : Math.abs(num);
+  }
+  return num;
+}
+
+// Warps the active vehicle, camera, time of day, weather and chunk queues in
+// place without reloading the page (scripts/dev-browser.js warpGame, shot.js).
+// Accepts either a URL query string (declarative view snapshot) or an options
+// object (incremental patch).
+export function applyViewParams(input) {
+  const isQuery = typeof input === 'string';
+  const q = isQuery ? new URLSearchParams(input.replace(/^\?/, '')) : null;
+  const getRaw = (...names) => {
+    for (const n of names) {
+      if (isQuery) {
+        if (q.has(n)) return q.get(n);
+      } else if (input && input[n] !== undefined) {
+        return input[n];
+      }
+    }
+    return undefined;
+  };
+  const getNum = (...names) => {
+    const v = getRaw(...names);
+    if (v === undefined || v === null || v === '') return null;
+    const n = typeof v === 'number' ? v : parseFloat(v);
+    return isNaN(n) ? null : n;
+  };
+  const getBool = (...names) => {
+    const v = getRaw(...names);
+    if (v === undefined || v === null) return null;
+    if (typeof v === 'boolean') return v;
+    return ChillFlightLogic.parseSwitch(String(v));
+  };
+
+  const planeVal = getRaw('plane', 'vehicle');
+  if (planeVal) {
+    setActivePlane(String(planeVal).trim().toLowerCase(), true);
+  } else if (isQuery && activePlaneType !== 'biplane') {
+    setActivePlane('biplane', true);
+  }
+
+  const liveryVal = getRaw('livery');
+  if (liveryVal !== undefined && liveryVal !== null && liveryVal !== '') {
+    const s = String(liveryVal).trim().toLowerCase();
+    const byName = ChillFlightLogic.LIVERY_NAMES.indexOf(s);
+    const idx = byName >= 0 ? byName : parseInt(s, 10);
+    if (!isNaN(idx) && ChillFlightLogic.PLANE_COLORS[idx] !== undefined) {
+      state.planeColor = ChillFlightLogic.PLANE_COLORS[idx];
+      if (planeMat?.color) planeMat.color.setHex(state.planeColor);
+      if (planeWhiteMat?.color) {
+        planeWhiteMat.color.setHex(
+          state.planeColor === 0xe8c382 ? 0x1c3144 : 0xffffff
+        );
+      }
+    }
+  }
+
+  const tod = getNum('tod');
+  if (tod !== null) {
+    state.manualTimeOfDay = tod;
+    state.timeOfDay = tod * Math.PI * 2;
+  } else if (isQuery) {
+    state.manualTimeOfDay = undefined;
+  }
+
+  const timeSpeed = getNum('timeSpeed');
+  if (timeSpeed !== null) {
+    state.daySpeedMultiplier = timeSpeed;
+  }
+
+  const clockVal = getNum('clock');
+  if (clockVal !== null) {
+    state.worldClockNow = clockVal;
+    state.pendingClockOverride = clockVal;
+  }
+
+  const cloudTime = getNum('cloudTime');
+  if (cloudTime !== null) {
+    state.cloudTime = cloudTime;
+  }
+
+  const cloudMood = getRaw('cloudMood');
+  if (cloudMood !== undefined) {
+    state.cloudMoodOverride =
+      !cloudMood || cloudMood === 'auto' ? null : String(cloudMood);
+  } else if (isQuery) {
+    state.cloudMoodOverride = null;
+  }
+
+  const rawClouds = getRaw('cloud', 'clouds', 'cloudCover', 'overcast');
+  const rawWeather = getRaw('weather');
+  const cloudHeight = getNum('cloudHeight', 'cloudAlt', 'cloudCeiling');
+  const cloudSpeed = getNum('cloudSpeed');
+  applyScriptedWeather({
+    clouds: rawClouds !== undefined ? rawClouds : isQuery ? 'auto' : undefined,
+    weather:
+      rawWeather !== undefined ? rawWeather : isQuery ? 'auto' : undefined,
+    cloudHeight: cloudHeight ?? (isQuery ? 3000 : undefined),
+    cloudSpeed: cloudSpeed ?? (isQuery ? 1 : undefined),
+  });
+  state.snapEnvironment = true;
+
+  const hdgt = getBool('headlight');
+  if (hdgt !== null) {
+    headlight.intensity = hdgt ? HEADLIGHT_INTENSITY : 0;
+    headlightGlow.intensity = hdgt ? HEADLIGHT_GLOW_INTENSITY : 0;
+  } else if (isQuery) {
+    headlight.intensity = 0;
+    headlightGlow.intensity = 0;
+  }
+
+  const lat = parseCoordValue(getRaw('lat'), true);
+  const lon = parseCoordValue(getRaw('long', 'lon'), false);
+  const alt = getNum('alt');
+  const x = getNum('x');
+  const y = getNum('y');
+  const z = getNum('z');
+  const heading = getNum('heading');
+  const pitch = getNum('pitch');
+  const roll = getNum('roll');
+  const speed = getNum('speed');
+  const gear = getBool('gear');
+
+  const camX = getNum('camX');
+  const camY = getNum('camY');
+  const camZ = getNum('camZ');
+  const camHeading = getNum('camHeading');
+  const camPitch = getNum('camPitch');
+  const lookAt = !isQuery && Array.isArray(input?.lookAt) ? input.lookAt : null;
+  const hasCamPlacement =
+    [camX, camY, camZ, camHeading, camPitch].some((v) => v !== null) ||
+    Boolean(lookAt);
+
+  const freecamFlag = getBool('freecam', 'freeCamera');
+  if (freecamFlag !== null) {
+    state.isFreeCamera = freecamFlag;
+  } else if (hasCamPlacement) {
+    state.isFreeCamera = true;
+  }
+  const freeCamToggle = document.getElementById('debug-free-cam-toggle');
+  if (freeCamToggle) freeCamToggle.checked = state.isFreeCamera;
+
+  const resolvePos = (defX, defY, defZ) => {
+    const px = x !== null ? x : lon !== null ? lon * 5000 : defX;
+    const pz = z !== null ? z : lat !== null ? -lat * 5000 : defZ;
+    let py = defY;
+    if (y !== null) {
+      py = y;
+    } else if (alt !== null) {
+      py = alt / UNITS_TO_M + 45.5;
+    } else if (x !== null || z !== null || lat !== null || lon !== null) {
+      py = getElevation(px, pz) + 400;
+    }
+    return [px, py, pz];
+  };
+
+  const placePlane = (px, py, pz) => {
+    planeGroup.position.set(px, py, pz);
+    planeGroup.rotation.order = 'YXZ';
+    if (heading !== null) {
+      planeGroup.rotation.y = THREE.MathUtils.degToRad(heading);
+    } else if (isQuery) {
+      planeGroup.rotation.y = 0;
+    }
+    if (pitch !== null) {
+      planeGroup.rotation.x = THREE.MathUtils.degToRad(pitch);
+    } else if (isQuery) {
+      planeGroup.rotation.x = 0;
+    }
+    if (roll !== null) {
+      planeGroup.rotation.z = THREE.MathUtils.degToRad(roll);
+    } else if (isQuery) {
+      planeGroup.rotation.z = 0;
+    }
+    if (speed !== null) {
+      const s = Math.max(0, Math.min(10, speed));
+      state.flightSpeedMultiplier = s;
+      state.targetFlightSpeed = Math.min(getMaxFlightSpeedMult(), s);
+    }
+    const elev = getElevation(px, pz);
+    const onWater = elev <= WATER_LEVEL + 0.1;
+    const wheelDepth = state.airplaneModel?.wheelDepth;
+    const floor = onWater
+      ? WATER_LEVEL + 4.8
+      : gear === true && wheelDepth !== undefined
+        ? elev + wheelDepth
+        : activePlaneType === 'buggy'
+          ? elev
+          : elev + 12.0;
+    if (planeGroup.position.y < floor) planeGroup.position.y = floor;
+    if (gear !== null) {
+      state.gearWanted = gear;
+      state.gearExtension = gear ? 1 : 0;
+      poseGear(state.gearExtension);
+    }
+  };
+
+  camera.rotation.order = 'YXZ';
+  camera.up.set(0, 1, 0);
+  camera.rotation.z = 0;
+  state.freeCamDeltaX = 0;
+  state.freeCamDeltaY = 0;
+
+  if (state.isFreeCamera) {
+    if (hasCamPlacement) {
+      const [px, py, pz] = resolvePos(
+        planeGroup.position.x,
+        planeGroup.position.y,
+        planeGroup.position.z
+      );
+      placePlane(px, py, pz);
+      camera.position.set(
+        camX ?? planeGroup.position.x,
+        camY ?? planeGroup.position.y,
+        camZ ?? planeGroup.position.z
+      );
+      if (lookAt && lookAt.length === 3) {
+        camera.lookAt(lookAt[0], lookAt[1], lookAt[2]);
+        camera.rotation.z = 0;
+      } else {
+        if (camHeading !== null) {
+          camera.rotation.y = THREE.MathUtils.degToRad(camHeading);
+        } else if (isQuery) {
+          camera.rotation.y = planeGroup.rotation.y;
+        }
+        if (camPitch !== null) {
+          camera.rotation.x = THREE.MathUtils.degToRad(camPitch);
+        } else if (isQuery) {
+          camera.rotation.x = 0;
+        }
+      }
+    } else {
+      const [cx, cy, cz] = resolvePos(
+        camera.position.x,
+        camera.position.y,
+        camera.position.z
+      );
+      camera.position.set(cx, cy, cz);
+      // Park the hidden reference plane 30 units below the free camera so prop
+      // LOD, grass, and the sun's shadow box center on the framed view.
+      planeGroup.position.set(cx, cy - 30, cz);
+      if (heading !== null) {
+        camera.rotation.y = THREE.MathUtils.degToRad(heading);
+      } else if (isQuery) {
+        camera.rotation.y = 0;
+      }
+      if (pitch !== null) {
+        camera.rotation.x = THREE.MathUtils.degToRad(pitch);
+      } else if (isQuery) {
+        camera.rotation.x = 0;
+      }
+    }
+    const debugMenu = document.getElementById('debug-menu');
+    if (debugMenu) debugMenu.style.display = 'block';
+  } else {
+    const [px, py, pz] = resolvePos(
+      planeGroup.position.x,
+      planeGroup.position.y,
+      planeGroup.position.z
+    );
+    placePlane(px, py, pz);
+  }
+
+  _lastChunkUpdatePos.set(Infinity, Infinity, Infinity);
+  updateChunks();
+  updateFarTerrain(state.isFreeCamera ? camera.position : planeGroup.position);
 }
