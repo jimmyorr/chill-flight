@@ -40,6 +40,10 @@
   --hud-bg-hover-b: rgba(14, 18, 28, 0.88);
   --hud-border-idle: rgba(255, 255, 255, 0.08);
   --hud-shadow-idle: 0 6px 22px rgba(0, 0, 0, 0.19);
+  --hud-value-fg: #ffd700;
+  --hud-label-fg: #9fb0c4;
+  --hud-idle-text-opacity: 0.5;
+  --hud-control-idle-opacity: 0.5;
   --text-primary: #f8fafc;
   --text-secondary: #cbd5e1;
   --text-muted: #9fb0c4;
@@ -86,14 +90,18 @@
     --surface-input: rgba(255, 255, 255, 0.9);
     --surface-floating: rgba(246, 249, 253, 0.92);
     --surface-floating-hover: rgba(255, 255, 255, 0.97);
-    --hud-bg-a: rgba(248, 250, 253, 0.72);
-    --hud-bg-b: rgba(238, 243, 249, 0.8);
-    --hud-bg-idle-a: rgba(248, 250, 253, 0.36);
-    --hud-bg-idle-b: rgba(238, 243, 249, 0.4);
-    --hud-bg-hover-a: rgba(255, 255, 255, 0.88);
-    --hud-bg-hover-b: rgba(244, 247, 252, 0.94);
-    --hud-border-idle: rgba(15, 23, 42, 0.07);
-    --hud-shadow-idle: 0 6px 22px rgba(15, 23, 42, 0.09);
+    --hud-bg-a: rgba(248, 250, 253, 0.88);
+    --hud-bg-b: rgba(238, 243, 249, 0.92);
+    --hud-bg-idle-a: rgba(248, 250, 253, 0.7);
+    --hud-bg-idle-b: rgba(238, 243, 249, 0.76);
+    --hud-bg-hover-a: rgba(255, 255, 255, 0.95);
+    --hud-bg-hover-b: rgba(244, 247, 252, 0.98);
+    --hud-border-idle: rgba(15, 23, 42, 0.12);
+    --hud-shadow-idle: 0 6px 22px rgba(15, 23, 42, 0.11);
+    --hud-value-fg: #082f49;
+    --hud-label-fg: #334155;
+    --hud-idle-text-opacity: 0.88;
+    --hud-control-idle-opacity: 0.68;
     --text-primary: #0f172a;
     --text-secondary: #334155;
     --text-muted: #475569;
@@ -122,7 +130,7 @@
     --npc-choice-bg: rgba(180, 83, 9, 0.1);
     --npc-choice-hover: rgba(180, 83, 9, 0.2);
     --knob-bg: rgba(255, 255, 255, 0.96);
-    --knob-fg: #075985;
+    --knob-fg: #082f49;
     --knob-unit: #334155;
   }
 }
@@ -140,14 +148,18 @@
   --surface-input: rgba(255, 255, 255, 0.9);
   --surface-floating: rgba(246, 249, 253, 0.92);
   --surface-floating-hover: rgba(255, 255, 255, 0.97);
-  --hud-bg-a: rgba(248, 250, 253, 0.72);
-  --hud-bg-b: rgba(238, 243, 249, 0.8);
-  --hud-bg-idle-a: rgba(248, 250, 253, 0.36);
-  --hud-bg-idle-b: rgba(238, 243, 249, 0.4);
-  --hud-bg-hover-a: rgba(255, 255, 255, 0.88);
-  --hud-bg-hover-b: rgba(244, 247, 252, 0.94);
-  --hud-border-idle: rgba(15, 23, 42, 0.07);
-  --hud-shadow-idle: 0 6px 22px rgba(15, 23, 42, 0.09);
+  --hud-bg-a: rgba(248, 250, 253, 0.88);
+  --hud-bg-b: rgba(238, 243, 249, 0.92);
+  --hud-bg-idle-a: rgba(248, 250, 253, 0.7);
+  --hud-bg-idle-b: rgba(238, 243, 249, 0.76);
+  --hud-bg-hover-a: rgba(255, 255, 255, 0.95);
+  --hud-bg-hover-b: rgba(244, 247, 252, 0.98);
+  --hud-border-idle: rgba(15, 23, 42, 0.12);
+  --hud-shadow-idle: 0 6px 22px rgba(15, 23, 42, 0.11);
+  --hud-value-fg: #082f49;
+  --hud-label-fg: #334155;
+  --hud-idle-text-opacity: 0.88;
+  --hud-control-idle-opacity: 0.68;
   --text-primary: #0f172a;
   --text-secondary: #334155;
   --text-muted: #475569;
@@ -176,7 +188,7 @@
   --npc-choice-bg: rgba(180, 83, 9, 0.1);
   --npc-choice-hover: rgba(180, 83, 9, 0.2);
   --knob-bg: rgba(255, 255, 255, 0.96);
-  --knob-fg: #075985;
+  --knob-fg: #082f49;
   --knob-unit: #334155;
 }
 
@@ -1203,7 +1215,7 @@ input[type='number'].customization-input {
 }
 
 #cockpit-ui.idle > * {
-  opacity: 0.5;
+  opacity: var(--hud-idle-text-opacity);
   transition: opacity 1.4s ease;
 }
 
@@ -1240,7 +1252,7 @@ input[type='number'].customization-input {
 
 .cockpit-label {
   font-size: 11px;
-  color: var(--text-muted);
+  color: var(--hud-label-fg);
   text-transform: uppercase;
   letter-spacing: 1.5px;
   font-weight: 600;
@@ -1255,7 +1267,7 @@ input[type='number'].customization-input {
   font-weight: 700;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  color: var(--accent-fg);
+  color: var(--hud-value-fg);
   min-width: 60px;
 }
 
@@ -1265,7 +1277,7 @@ input[type='number'].customization-input {
   letter-spacing: 1ch;
   text-indent: 1ch;
   text-transform: uppercase;
-  color: var(--accent-fg);
+  color: var(--hud-value-fg);
   display: inline-block;
   width: 120px;
 }
@@ -1640,7 +1652,7 @@ input[type='number'].customization-input {
    recede together and wake immediately on interaction */
 #throttle.idle,
 .menu-container:not(.expanded) > #mobile-menu-trigger.idle {
-  opacity: 0.5;
+  opacity: var(--hud-control-idle-opacity);
   transition: opacity 1.4s ease;
 }
 

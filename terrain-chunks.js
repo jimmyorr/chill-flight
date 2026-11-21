@@ -651,6 +651,8 @@ class GlobalInstanceManager {
       this._dirty = true;
     }
     const hasShadowCam =
+      Boolean(dirLight.castShadow) &&
+      (state.sunLightFactor ?? 1) >= 0.05 &&
       dirLight.position.distanceToSquared(dirLight.target.position) > 100;
     if (
       !this._dirty &&

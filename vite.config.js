@@ -89,6 +89,9 @@ export default defineConfig({
   server: {
     host: true,
   },
+  dev: {
+    sourcemap: false,
+  },
   worker: {
     format: 'es',
   },
@@ -112,6 +115,25 @@ export default defineConfig({
     },
   },
   plugins: [
+    // Source files are already plain untranspiled ES modules. Returning an
+    // empty Rollup sourcemap ({mappings: ''}) in dev serve mode skips Vite 8's
+    // fallback MagicString inline base64 sourcemap injection, cutting dev JS
+    // payloads ~5x over LAN Wi-Fi (e.g. chill-flight-logic.js: 1.87 MB -> 320 KB).
+    {
+      name: 'skip-dev-inline-sourcemaps',
+      apply: 'serve',
+      enforce: 'post',
+      transform(code, id) {
+        if (id.includes('node_modules')) return null;
+        if (/\.[cm]?js(\?|$)/.test(id) && !code.includes('sourceMappingURL=')) {
+          return {
+            code: `${code}\n//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IiJ9`,
+            map: null,
+          };
+        }
+        return null;
+      },
+    },
     {
       name: 'dynamic-git-info',
       transformIndexHtml: {

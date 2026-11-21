@@ -154,6 +154,7 @@ export const state = {
 
   // Input and flight controls (game-input-bindings.js)
   dismissLoadingScreen: undefined, // Hoisted for early XR events
+  startupReadyMs: null, // performance.now() when initial chunk load finished
   mouseX: 0,
   mouseY: 0,
   mouseControlActive: false, // becomes true once the mouse moves; cleared by arrow-key presses

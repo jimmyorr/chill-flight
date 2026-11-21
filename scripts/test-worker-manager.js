@@ -210,6 +210,60 @@ const settle = (promise) =>
     'a replacement worker gets the custom map before any job',
     replacement !== undefined && isMap(replacement.messages[0])
   );
+  const diag = m.getDiagnostics();
+  check(
+    'getDiagnostics tracks timeouts and completed jobs on a surviving pool',
+    diag.supported && diag.timeouts === 1 && diag.completed === 1,
+    JSON.stringify(diag)
+  );
+}
+
+// 8. Pool fallback reason is surfaced for perf debug readouts when all workers time out
+{
+  const {factory} = makeFactory(['dead', 'dead'], 'dead');
+  const m = new TerrainWorkerManager(2, {
+    createWorker: factory,
+    jobTimeoutMs: 30,
+  });
+  await Promise.all([0, 1].map((i) => settle(m.requestChunk(i, 0))));
+  const diag = m.getDiagnostics();
+  check(
+    'getDiagnostics surfaces timeout fallbackReason when workers never answer',
+    !diag.supported && diag.fallbackReason === 'timeout' && diag.timeouts === 2,
+    JSON.stringify(diag)
+  );
+}
+
+// 9. Cold-start timeout gives workers extra headroom while scripts load over slow Wi-Fi
+{
+  const slowColdFactory = () => ({
+    postMessage(payload) {
+      if (payload.type === 'customMap') return;
+      setTimeout(
+        () => this.onmessage({data: {id: payload.id, status: 'success'}}),
+        60
+      );
+    },
+    terminate() {},
+  });
+  const m = new TerrainWorkerManager(1, {
+    createWorker: slowColdFactory,
+    jobTimeoutMs: 25,
+    coldStartTimeoutMs: 120,
+  });
+  const first = await settle(m.requestChunk(0, 0));
+  check(
+    'slow cold-start worker survives within coldStartTimeoutMs instead of falling back',
+    first === 'resolved' && m.isSupported && m.hasReplied,
+    first
+  );
+  // Once warm (hasReplied === true), normal jobTimeoutMs (25ms) applies again
+  const second = await settle(m.requestChunk(1, 0));
+  check(
+    'after first reply, warm jobTimeoutMs catches stuck jobs promptly',
+    second.startsWith('rejected:'),
+    second
+  );
 }
 
 if (failed) process.exit(1);

@@ -19,7 +19,8 @@ import {
 import {activePlaneType, planeGroup} from './airplane.js';
 import {chunks, sampleGround} from './terrain-geometry.js';
 import {performanceMonitor} from './game-performance.js';
-import {sharePerfReport} from './perf-hud.js';
+import {getStartupDiagnostics, sharePerfReport} from './perf-hud.js';
+import {terrainWorkerManager} from './terrain-worker-manager.js';
 import {globalInstancer} from './terrain-chunks.js';
 import {
   manualCloudCover,
@@ -371,6 +372,30 @@ function updatePerf(avgCalls, avgTris, avgCpu) {
   updateDOM(
     'debug-chunk-budget',
     `${performanceMonitor.getChunkBudget().toFixed(1)} ms`
+  );
+  const w = terrainWorkerManager.getDiagnostics();
+  const q = state.chunkQueue ? state.chunkQueue.length : 0;
+  const workerText = !w.supported
+    ? `OFF (${w.fallbackReason || 'fallback'} · main thread)`
+    : `${w.active} ok · ${w.completed} done` +
+      (q > 0 ? ` · ${q} queued` : '') +
+      (w.timeouts > 0 ? ` · ${w.timeouts} timeout` : '');
+  setColored(
+    'debug-workers',
+    workerText,
+    !w.supported ? '#ff6b6b' : w.timeouts > 0 ? '#ffd54a' : ''
+  );
+  const s = getStartupDiagnostics();
+  const startupText =
+    (s.readyMs !== null
+      ? `${(s.readyMs / 1000).toFixed(1)} s` +
+        (s.navLoadMs > 0 ? ` (net ${(s.navLoadMs / 1000).toFixed(1)} s)` : '')
+      : 'loading') +
+    ` · ${s.resourceCount} reqs${s.isDev ? ' (dev unbundled)' : ''}`;
+  setColored(
+    'debug-startup',
+    startupText,
+    s.readyMs !== null ? perfColor(s.readyMs, 10000, 25000) : ''
   );
   const mem = renderer.info.memory;
   setColored(

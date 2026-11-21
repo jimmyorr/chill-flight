@@ -378,13 +378,23 @@ function performFrame(timestamp) {
     state.isVRPresenting ||
     (inputManager._isVRHeadset && ChillFlightLogic.MAX_FPS === null);
   if (!bypassFpsCap && state.maxFPS > 0) {
-    const timeSinceLastFrame = frameStartTime - state.lastFrameTime;
-    if (timeSinceLastFrame < state.frameMinDelay - 1) {
-      // 1ms buffer for vsync jitter
+    // Use the browser's display VSync timestamp with a 4ms jitter margin for
+    // default 60fps so 120Hz panels still step down to 60Hz (8.3ms < 12.7ms)
+    // without ever dropping slightly late 60Hz VSyncs (13-16ms) down to 30fps.
+    const vsyncNow = typeof timestamp === 'number' ? timestamp : frameStartTime;
+    const jitterMargin =
+      ChillFlightLogic.MAX_FPS === null && state.maxFPS === 60 ? 4 : 1;
+    const timeSinceLastFrame = vsyncNow - state.lastFrameTime;
+    if (
+      timeSinceLastFrame > 0 &&
+      timeSinceLastFrame < state.frameMinDelay - jitterMargin
+    ) {
       return;
     }
+    state.lastFrameTime = vsyncNow;
+  } else {
+    state.lastFrameTime = frameStartTime;
   }
-  state.lastFrameTime = frameStartTime;
 
   const now = performance.now();
   const nowTime = now;
@@ -402,6 +412,7 @@ function performFrame(timestamp) {
       : planeGroup.position;
   updateFarTerrain(farTerrainAnchor);
   if (globalInstancer) globalInstancer.rebuildAll();
+  const afterChunksTime = performance.now();
   // Timed by the frame's own timestamp (when the browser will show it), not
   // by when this code got round to running: under load frames alternate
   // between one and two screen refreshes, and moving everything by the time
@@ -758,7 +769,7 @@ function performFrame(timestamp) {
   // Smoothly interpolate sky shader palettes
   updateEnvironmentLighting(delta, now);
   // Update the particle positions
-  updateWeatherAndRendering(delta);
+  const renderCpuMs = updateWeatherAndRendering(delta);
   // --- BENCHMARKING LOGIC ---
   updateBenchmarking(delta, frameStartTime);
   updateDebugTelemetry({
@@ -768,7 +779,13 @@ function performFrame(timestamp) {
   });
   if (renderer) {
     const t = performance.now();
-    updatePerfHud(t, t - frameStartTime, renderer);
+    updatePerfHud(
+      t,
+      t - frameStartTime,
+      renderer,
+      renderCpuMs,
+      afterChunksTime - frameStartTime
+    );
   }
 }
 
@@ -2861,8 +2878,11 @@ function updateWeatherAndRendering(delta) {
   updatePlaneShadow();
   // (A knocked-over mushroom's trippy colours, only while drawing)
   applyTrip();
+  const tRender0 = performance.now();
   renderFrame(scene, camera);
+  const renderElapsed = performance.now() - tRender0;
   restoreTrip();
+  return renderElapsed;
 }
 
 function updateBenchmarking(delta, frameStartTime) {

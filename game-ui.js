@@ -909,6 +909,9 @@ if (overlay && renderer) {
     }, 50);
 
     const onLoaded = () => {
+      if (state.startupReadyMs === null) {
+        state.startupReadyMs = Math.round(performance.now());
+      }
       // Wait a tiny bit so the progress bar visually reaches 100%
       setTimeout(() => {
         if (state.vrOnlyFlow && !ChillFlightLogic.START_NOW) {

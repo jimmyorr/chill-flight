@@ -1627,13 +1627,21 @@ export function updateFlightCamera(delta, nowTime) {
   const timeStr = `${hh}:${mm}`;
 
   const dirStr = ChillFlightLogic.computeHeadingDirection(hudHeadingY);
-  const latVal = -hudTarget.position.z / state.latScale;
-  const lonVal = hudTarget.position.x / state.latScale;
-  const latStr =
-    Math.abs(latVal).toFixed(3) + '\u00b0 ' + (latVal >= 0 ? 'N' : 'S');
-  const lonStr =
-    Math.abs(lonVal).toFixed(3) + '\u00b0 ' + (lonVal >= 0 ? 'E' : 'W');
-  const coordStr = `${latStr} ${lonStr}`;
+  // Throttle high-precision coordinate text updates (~8 Hz) to avoid mutating
+  // #cockpit-ui text nodes every animation frame on mobile WebKit
+  if (
+    typeof updateFlightCamera._lastCoordAt === 'undefined' ||
+    nowTime - updateFlightCamera._lastCoordAt >= 120
+  ) {
+    updateFlightCamera._lastCoordAt = nowTime;
+    const latVal = -hudTarget.position.z / state.latScale;
+    const lonVal = hudTarget.position.x / state.latScale;
+    const latStr =
+      Math.abs(latVal).toFixed(3) + '\u00b0 ' + (latVal >= 0 ? 'N' : 'S');
+    const lonStr =
+      Math.abs(lonVal).toFixed(3) + '\u00b0 ' + (lonVal >= 0 ? 'E' : 'W');
+    updateDOM('cockpit-coords', `${latStr} ${lonStr}`);
+  }
   const altM = Math.max(0, hudTarget.position.y - 45.5) * UNITS_TO_M;
   const altStr = IMPERIAL
     ? `${Math.round(altM * M_TO_FT)} FT`
@@ -1644,7 +1652,6 @@ export function updateFlightCamera(delta, nowTime) {
 
   updateDOM('cockpit-time', timeStr);
   updateDOM('cockpit-dir', dirStr);
-  updateDOM('cockpit-coords', coordStr);
   updateDOM('cockpit-alt', altStr);
   updateDOM('cockpit-spd', spdStr);
 

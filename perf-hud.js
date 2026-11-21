@@ -11,10 +11,39 @@
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {performanceMonitor} from './game-performance.js';
 import {state} from './state.js';
+import {terrainWorkerManager} from './terrain-worker-manager.js';
+
+const IS_UNBUNDLED_DEV = Boolean(import.meta.env?.DEV);
+
+export function getStartupDiagnostics() {
+  const nav =
+    typeof performance !== 'undefined' && performance.getEntriesByType
+      ? performance.getEntriesByType('navigation')[0]
+      : null;
+  const navLoadMs =
+    nav && nav.loadEventEnd > 0 ? Math.round(nav.loadEventEnd) : 0;
+  const resourceCount =
+    typeof performance !== 'undefined' && performance.getEntriesByType
+      ? performance.getEntriesByType('resource').length
+      : 0;
+  const readyMs = state.startupReadyMs;
+  return {
+    isDev: IS_UNBUNDLED_DEV,
+    readyMs,
+    navLoadMs,
+    chunkLoadMs:
+      readyMs !== null && navLoadMs > 0
+        ? Math.max(0, readyMs - navLoadMs)
+        : null,
+    resourceCount,
+  };
+}
 
 let el = null;
 let frames = 0;
 let cpuSum = 0;
+let renSum = 0;
+let chkSum = 0;
 let worstMs = 0;
 let lastFrameAt = 0;
 let windowStart = 0;
@@ -31,7 +60,7 @@ export function setPerfReportUrl(build) {
   planeUrl = build;
 }
 
-export function updatePerfHud(now, cpuMs, renderer) {
+export function updatePerfHud(now, cpuMs, renderer, renMs = 0, chkMs = 0) {
   // The numbers are kept without ?perf=1 too, for the debug panel's report
   if (!windowStart) windowStart = now;
   if (ChillFlightLogic.PERF_HUD && !el) {
@@ -52,9 +81,11 @@ export function updatePerfHud(now, cpuMs, renderer) {
   lastFrameAt = now;
   frames++;
   cpuSum += cpuMs;
+  renSum += renMs;
+  chkSum += chkMs;
   const span = now - windowStart;
   if (span < 500) return;
-  trail.push([frames, span, cpuSum, worstMs]);
+  trail.push([frames, span, cpuSum, worstMs, renSum, chkSum]);
   let trailFrames = 0;
   let trailMs = 0;
   for (const [f, ms] of trail) {
@@ -75,15 +106,35 @@ export function updatePerfHud(now, cpuMs, renderer) {
     pixelRatio: renderer.getPixelRatio(),
   };
   if (el && now >= flashUntil) {
+    const w = terrainWorkerManager.getDiagnostics();
+    const s = getStartupDiagnostics();
+    const q = state.chunkQueue ? state.chunkQueue.length : 0;
+    let alertLine = '';
+    if (!w.supported) {
+      alertLine = `\n! workers OFF (${w.fallbackReason || 'fallback'}) · main-thread terrain`;
+    } else if (w.timeouts > 0) {
+      alertLine = `\n! worker timeouts: ${w.timeouts} (${w.active} workers)`;
+    } else if (q > 0) {
+      alertLine = `\nchunks queued: ${q} (${w.busy}/${w.active} workers)`;
+    } else if (s.isDev && s.readyMs !== null && s.readyMs >= 8000) {
+      alertLine = `\ndev load ${(s.readyMs / 1000).toFixed(1)}s (${(s.navLoadMs / 1000).toFixed(1)}s net, ${s.resourceCount} reqs) · ${w.active}w ok`;
+    }
+    const avgCpu = cpuSum / frames;
+    const avgRen = renSum / frames;
+    const avgChk = chkSum / frames;
+    const avgSim = Math.max(0, avgCpu - avgRen - avgChk);
     el.textContent =
       `${Math.round((trailFrames * 1000) / trailMs)} fps (10s)` +
       ` · now ${Math.round((frames * 1000) / span)}` +
       ` · worst ${Math.round(worstMs)} ms\n` +
-      `cpu ${(cpuSum / frames).toFixed(1)} ms · ${canvas.width}x${canvas.height}\n` +
-      `${info.calls} calls · ${(info.triangles / 1e6).toFixed(2)}M tris`;
+      `cpu ${avgCpu.toFixed(1)} ms (ren ${avgRen.toFixed(0)} · chk ${avgChk.toFixed(0)} · sim ${avgSim.toFixed(0)}) · ${canvas.width}x${canvas.height}\n` +
+      `${info.calls} calls · ${(info.triangles / 1e6).toFixed(2)}M tris${s.isDev ? ' · dev' : ''}` +
+      alertLine;
   }
   frames = 0;
   cpuSum = 0;
+  renSum = 0;
+  chkSum = 0;
   worstMs = 0;
   windowStart = now;
 }
@@ -93,12 +144,16 @@ export function buildPerfReport() {
   let f = 0;
   let ms = 0;
   let cpu = 0;
+  let ren = 0;
+  let chk = 0;
   let worst = 0;
   let lowest = Infinity;
-  for (const [wf, wms, wcpu, wworst] of trail) {
+  for (const [wf, wms, wcpu, wworst, wren = 0, wchk = 0] of trail) {
     f += wf;
     ms += wms;
     cpu += wcpu;
+    ren += wren;
+    chk += wchk;
     worst = Math.max(worst, wworst);
     lowest = Math.min(lowest, (wf * 1000) / wms);
   }
@@ -111,11 +166,16 @@ export function buildPerfReport() {
   const memory = performance.memory
     ? ` · heap ${Math.round(performance.memory.usedJSHeapSize / 1048576)} MB`
     : '';
+  const avgCpu = f ? cpu / f : 0;
+  const avgRen = f ? ren / f : 0;
+  const avgChk = f ? chk / f : 0;
+  const avgSim = Math.max(0, avgCpu - avgRen - avgChk);
   const lines = [
     `Chill Flight perf report · v${version}${commit ? ` (${commit})` : ''}`,
     `${fps} fps avg over ${Math.round(ms / 1000)} s · lowest half second ` +
       `${Number.isFinite(lowest) ? fmt(lowest) : '0'} fps · ` +
-      `worst frame ${Math.round(worst)} ms · cpu ${f ? (cpu / f).toFixed(1) : 0} ms/frame`,
+      `worst frame ${Math.round(worst)} ms · cpu ${avgCpu.toFixed(1)} ms/frame ` +
+      `(ren ${avgRen.toFixed(1)} · chk ${avgChk.toFixed(1)} · sim ${avgSim.toFixed(1)})`,
   ];
   if (last) {
     lines.push(
@@ -124,7 +184,25 @@ export function buildPerfReport() {
         ` (adaptive x${performanceMonitor.pixelRatioMultiplier.toFixed(2)})${memory}`
     );
   }
+  const w = terrainWorkerManager.getDiagnostics();
+  const s = getStartupDiagnostics();
+  const workerSummary = w.supported
+    ? `workers ${w.active} ok (${w.completed} jobs${w.timeouts ? `, ${w.timeouts} timeouts` : ''})`
+    : `workers OFF (${w.fallbackReason || 'fallback'} · main-thread terrain)`;
+  const startupSummary =
+    s.readyMs !== null
+      ? `load ${(s.readyMs / 1000).toFixed(1)}s` +
+        (s.navLoadMs > 0
+          ? ` (net ${(s.navLoadMs / 1000).toFixed(1)}s` +
+            (s.chunkLoadMs !== null
+              ? `, chunks ${(s.chunkLoadMs / 1000).toFixed(1)}s`
+              : '') +
+            ')'
+          : '') +
+        ` · ${s.resourceCount} reqs`
+      : `${s.resourceCount} reqs`;
   lines.push(
+    `${workerSummary} · ${s.isDev ? 'dev unbundled' : 'bundled'} · ${startupSummary}`,
     `preset ${state.graphicsPreset || 'auto'} · ${state.planeType || 'plane'} · ` +
       `camera ${state.cameraMode} · screen ${screen.width}x${screen.height} ` +
       `@${window.devicePixelRatio}x · ${navigator.hardwareConcurrency || '?'} cores`,
