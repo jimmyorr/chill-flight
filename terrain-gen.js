@@ -3118,7 +3118,9 @@ export function generateChunkData({
 
     const forestNoise = simplex.noise2D(worldX * 0.005 + 100, worldZ * 0.005);
     // Villages (a slow noise field, so a village is a few hundred meters
-    // across), and the farmland around them (fieldAt) on gentle ground below
+    // across), and the farmland around them (fieldAt) on gentle ground (full
+    // below about 11 degrees, gone by about 27, so a strip's straight edge
+    // never runs up a steep hillside) below
     // the upland woods. The
     // farmland is cleared of the woods, apart from the odd thick patch left as
     // woodlots between the fields.
@@ -3137,7 +3139,7 @@ export function generateChunkData({
     ) {
       farm =
         Math.max(0, Math.min(1, (villageNoise + 0.05) / 0.2)) *
-        (1 - Math.max(0, Math.min(1, (slopeFactor - 0.25) / 0.2))) *
+        (1 - Math.max(0, Math.min(1, (slopeFactor - 0.1) / 0.15))) *
         (1 - desertFactor / 0.3) *
         (1 - snowFactor / 0.3) *
         (1 - Math.min(1, swampFactor * 2)) *
