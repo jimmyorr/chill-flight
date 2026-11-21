@@ -24,6 +24,10 @@ const TAU = Math.PI * 2;
 const FLOOR_PROBE_INTERVAL = 0.12;
 const FLOOR_PROBE_LEAD = 0.6;
 const FLOOR_CLEARANCE = 6;
+// The probed ground changes in steps (one new reading per probe), so the
+// floor a bird keeps above follows it on a critically damped spring of this
+// stiffness (1/s): its height and climb rate both change smoothly
+const FLOOR_FOLLOW_OMEGA = 7;
 
 export const BIRD_STATES = {
   ROOST: 'roost',
@@ -197,6 +201,28 @@ export const HABITAT_LIMITS = {
 
 function clamp(v, lo, hi) {
   return v < lo ? lo : v > hi ? hi : v;
+}
+
+// Critically damped spring step (as in Unity's SmoothDamp): moves
+// data[key] toward target with its rate in data[velKey], so position and
+// velocity never jump even when the target does. Stable for any dt
+function springTo(data, key, velKey, target, omega, dt) {
+  const x = omega * dt;
+  const decay = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
+  const change = data[key] - target;
+  const temp = (data[velKey] + omega * change) * dt;
+  data[velKey] = (data[velKey] - omega * temp) * decay;
+  data[key] = target + (change + temp) * decay;
+  return data[key];
+}
+
+// Smooth maximum of a and b: equals the larger one when they're far apart
+// and rounds the corner over a width of k, so a path that meets the floor
+// bends up onto it instead of kinking
+function smoothMax(a, b, k) {
+  if (k <= 0) return a > b ? a : b;
+  const d = a - b;
+  return (a + b + Math.sqrt(d * d + k * k)) * 0.5;
 }
 
 function smoothstep(x, e0, e1) {
@@ -2561,9 +2587,9 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
   // and a little ahead of it is probed a few times a second (staggered), and
   // the bird is lifted smoothly over it
   if (env.getElev) {
+    const interval = env.floorProbeInterval || FLOOR_PROBE_INTERVAL;
     const slot = Math.floor(
-      (env.elapsed || 0) / (env.floorProbeInterval || FLOOR_PROBE_INTERVAL) +
-        (data.flapPhase || 0) / TAU
+      (env.elapsed || 0) / interval + (data.flapPhase || 0) / TAU
     );
     if (slot !== data.floorSlot) {
       data.floorSlot = slot;
@@ -2575,31 +2601,68 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
         env.getElev(targetX, targetZ),
         env.getElev(aheadX, aheadZ)
       );
+      // Height to keep above: clear of the land, or just over open water
+      // (where a plunge-diver may touch the surface), blended across the
+      // shoreline so it doesn't jump there
+      const floorFor = Math.max(
+        waterLevel + 1,
+        data.floorY +
+          FLOOR_CLEARANCE * smoothstep(data.floorY, waterLevel, waterLevel + 2)
+      );
+      data.floorFrom =
+        data.floorTo === undefined ? floorFor : (data.floorAt ?? floorFor);
+      data.floorTo = floorFor;
+      data.floorT = 0;
+    } else {
+      data.floorT = (data.floorT || 0) + dt;
     }
+    // Slide from the last reading to the new one over one probe interval,
+    // so the floor moves continuously instead of stepping at each probe
+    data.floorAt =
+      data.floorTo === undefined
+        ? waterLevel + 1
+        : data.floorFrom +
+          (data.floorTo - data.floorFrom) * clamp(data.floorT / interval, 0, 1);
     if (inGroundCycle) {
-      data.floorLift = 0;
+      data.floorSm = undefined;
       const minSurface = Math.max(
         waterLevel + 0.3,
         env.getElev(targetX, targetZ) + 0.3
       );
       if (targetY < minSurface) targetY = minSurface;
     } else {
-      // (over open water a plunge-diver may touch the surface)
-      const groundY = data.floorY ?? waterLevel;
-      const floorY =
-        groundY > waterLevel + 0.5 ? groundY + FLOOR_CLEARANCE : waterLevel + 1;
+      const floorY = data.floorAt;
       if (data.type === 'goose' && !data.homeRoost) {
         // (migratory geese keep their own 250-unit climb; this only stops a cliff face)
         if (targetY < floorY) targetY = floorY;
       } else {
-        // Eased lift so a bird rises over a ridge instead of popping up
-        data.floorLift = Math.max(
-          0,
-          (data.floorLift || 0) +
-            (Math.max(0, floorY - targetY) - (data.floorLift || 0)) *
-              (1 - Math.exp(-8 * dt))
+        // Follow the floor on a spring so a bird rides up over a ridge with
+        // no jolts, then round the corner where its own path meets the floor
+        // (only over land, so a plunge still reaches the water)
+        if (data.floorSm === undefined) {
+          data.floorSm = floorY;
+          data.floorVel = 0;
+        }
+        const floorSm = springTo(
+          data,
+          'floorSm',
+          'floorVel',
+          floorY,
+          FLOOR_FOLLOW_OMEGA,
+          dt
         );
-        targetY = Math.max(targetY + data.floorLift, floorY - 2);
+        const round = 8 * smoothstep(floorSm, waterLevel + 1, waterLevel + 7);
+        targetY = smoothMax(targetY, floorSm, round);
+        // (last resort on a sheer cliff the spring can't climb in time:
+        // never below the latest reading of the ground itself)
+        const hardFloor = data.floorTo - FLOOR_CLEARANCE;
+        if (targetY < hardFloor) {
+          targetY = hardFloor;
+          if (data.floorSm < hardFloor) {
+            data.floorSm = hardFloor;
+            data.floorVel = Math.max(0, data.floorVel);
+          }
+        }
       }
     }
   }
