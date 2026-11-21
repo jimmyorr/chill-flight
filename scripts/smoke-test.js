@@ -3,6 +3,9 @@
 // Usage:
 //   npm run test:browser  - against the dev server (`npm run dev` on port 5173)
 //   npm run test:build    - builds to a temp dir (not docs/) and tests that
+//   npm run test:browser:quick - only the flight and offline pages, on the
+//                           low preset: for machines without a GPU (cloud
+//                           containers), where the full run takes ~10 min
 import {GL_ARGS, launch, serveDir} from './dev-browser.js';
 import {execSync} from 'child_process';
 import fs from 'fs';
@@ -11,6 +14,8 @@ import path from 'path';
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 
 const BUILD_MODE = process.argv.includes('--build');
+// Software WebGL loads the low preset about 3x faster (~28 s vs ~90 s)
+const QUICK = process.argv.includes('--quick');
 let BASE = process.env.SMOKE_URL || 'http://localhost:5173/';
 let staticServer = null;
 let outDir = null;
@@ -34,7 +39,7 @@ const DEBUG_PAGE_MS = 3000;
 
 // The game gets a full flight; debug pages only need to load cleanly.
 const PAGES = [
-  {path: '', fly: true},
+  {path: '', fly: true, quick: true},
   // Switching low -> mid before dawn (while night shadow culling skips updates)
   // must allocate the shadow map and rebuild chunks without WebGL errors.
   {
@@ -61,7 +66,7 @@ const PAGES = [
   // Every third-party host drops every packet (e.g. a subway): the game must
   // still paint and start, and music must fall back to the bundled track
   // (issue #73).
-  {path: '?seed=1', blackhole: true},
+  {path: '?seed=1', blackhole: true, quick: true},
 ];
 
 // The bundled fallback music track.
@@ -136,6 +141,9 @@ async function checkPage(
   {path, fly, blackhole, presetSwitch, waitForLoad}
 ) {
   const pageUrl = new URL(path, BASE);
+  if (QUICK && !pageUrl.searchParams.has('preset')) {
+    pageUrl.searchParams.set('preset', 'low');
+  }
   let debugTurnedOn = pageUrl.searchParams.has('debug');
   if (!pageUrl.searchParams.has('seed')) {
     pageUrl.searchParams.set('seed', TEST_SEED);
@@ -983,6 +991,7 @@ const FLY_PAGE_TIMEOUT_MS = LOAD_TIMEOUT_MS + 150000;
 try {
   for (const p of PAGES) {
     if (BUILD_MODE && p.devOnly) continue;
+    if (QUICK && !p.quick) continue;
     const timeoutMs = p.fly ? FLY_PAGE_TIMEOUT_MS : PAGE_TIMEOUT_MS;
     let timer;
     await Promise.race([

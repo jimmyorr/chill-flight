@@ -739,6 +739,12 @@ npm run test:browser
 Loads the game and the debug pages in headless Chrome against the running dev server (`npm run dev`). Once loaded, it flies and drives the controls through the keyboard (throttle, steering, camera, weather, minimap, pause menu), checking their effects in the HUD and debug panel. It fails on any JavaScript error, failed request, or unresponsive control, and checks that the terrain workers reply. It also simulates a network where every third-party host drops every packet (e.g. a subway) and checks that the page still paints and starts, and that music falls back to the bundled track.
 
 ```bash
+npm run test:browser:quick
+```
+
+The same flight and offline checks, skipping the other pages, on the low preset. For machines without a GPU (cloud containers), where Chrome draws in software: the full run takes about 10 minutes there, the quick one about 3.
+
+```bash
 npm run test:build
 ```
 
