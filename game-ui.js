@@ -448,16 +448,19 @@ let throttleIdle = false;
 let lastThrottleBoost = 1;
 let boostChangeTimer = null;
 
+const cockpitHudEl = document.getElementById('cockpit-ui');
+
 function wakeThrottle(now) {
   throttleActiveAt = now;
   if (throttleIdle) {
     throttleIdle = false;
     throttleEl?.classList.remove('idle');
     menuTrigger?.classList.remove('idle');
+    cockpitHudEl?.classList.remove('idle');
   }
 }
 
-for (const el of [throttleEl, menuContainer]) {
+for (const el of [throttleEl, menuContainer, cockpitHudEl]) {
   if (!el) continue;
   for (const evt of ['pointerdown', 'mouseenter', 'focusin']) {
     el.addEventListener(evt, () => wakeThrottle(performance.now()));
@@ -488,6 +491,7 @@ export function updateThrottle(now) {
       throttleIdle = true;
       throttleEl.classList.add('idle');
       menuTrigger?.classList.add('idle');
+      cockpitHudEl?.classList.add('idle');
     }
     return;
   }
