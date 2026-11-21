@@ -28,6 +28,10 @@ const FLOOR_CLEARANCE = 6;
 // floor a bird keeps above follows it on a critically damped spring of this
 // stiffness (1/s): its height and climb rate both change smoothly
 const FLOOR_FOLLOW_OMEGA = 7;
+// Airborne height also rides a stiffer spring (1/s), which rounds off the
+// jumps where a flight path hands over to the next (soar -> hover -> dive ->
+// climb out) without visibly lagging the dive itself
+const HEIGHT_FOLLOW_OMEGA = 12;
 
 export const BIRD_STATES = {
   ROOST: 'roost',
@@ -1475,6 +1479,9 @@ function findGooseFlockAlert(flockId, elapsed) {
 // bank, wingFold, splash, flushed, gooseStartled, visible}` into `out` with zero heap allocations.
 export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
   const dt = clamp(rawDelta, 0, 0.1);
+  // Paths that climb or sink from the current height carry on from their
+  // own height, not the eased one drawn (see HEIGHT_FOLLOW_OMEGA)
+  if (data.ySm !== undefined && data.pathY !== undefined) curY = data.pathY;
   const spec = BIRD_SPECIES[data.type] || BIRD_SPECIES.seagull;
   out.splash = false;
   out.flushed = false;
@@ -2270,6 +2277,9 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
               data.state = BIRD_STATES.FORAGE;
               data.divePhase = 0;
               data.splashed = false;
+              // (dive from wherever it is: still climbing, or lifted
+              // over a headland, it may be well off its soar height)
+              data.diveFromY = curY - (data.evadeOy || 0);
             }
           }
         } else {
@@ -2280,7 +2290,8 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
           if (p < 0.45) {
             const u = p / 0.45;
             data.angle += data.circleSpeed * (1 - u * 0.85) * dt;
-            targetY = waterLevel + soarH - smoothstep(u, 0, 1) * (soarH - 2);
+            const fromY = data.diveFromY ?? waterLevel + soarH;
+            targetY = fromY - smoothstep(u, 0, 1) * (fromY - waterLevel - 2);
             wantPitch = -0.82 * Math.sin(u * Math.PI);
             wantBank = 0;
           } else if (p < 0.72) {
@@ -2663,6 +2674,32 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
             data.floorVel = Math.max(0, data.floorVel);
           }
         }
+      }
+    }
+  }
+
+  // Ease the height through hand-overs between flight paths (each path is
+  // smooth, but the next one starts a few metres off). Ground hopping and
+  // perching keep their exact heights
+  data.pathY = targetY;
+  if (inGroundCycle || (data.type === 'goose' && !data.homeRoost)) {
+    data.ySm = undefined;
+  } else if (
+    data.ySm === undefined ||
+    Math.abs(data.ySm - targetY) > 60 ||
+    !(data.ySm === data.ySm)
+  ) {
+    // (first frame, or back from a pause: start where the path is)
+    data.ySm = targetY;
+    data.yVel = 0;
+  } else {
+    targetY = springTo(data, 'ySm', 'yVel', targetY, HEIGHT_FOLLOW_OMEGA, dt);
+    // (still never below the last reading of the ground)
+    if (data.floorTo !== undefined && env.getElev) {
+      const hardFloor = data.floorTo - FLOOR_CLEARANCE;
+      if (targetY < hardFloor) {
+        targetY = data.ySm = hardFloor;
+        data.yVel = Math.max(0, data.yVel);
       }
     }
   }
