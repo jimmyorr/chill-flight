@@ -28,6 +28,12 @@ const FLOOR_CLEARANCE = 6;
 // floor a bird keeps above follows it on a critically damped spring of this
 // stiffness (1/s): its height and climb rate both change smoothly
 const FLOOR_FOLLOW_OMEGA = 7;
+// How fast (per second, times the push) a gull raises its circle when the
+// ground keeps lifting it
+const GULL_CIRCLE_RAISE = 0.8;
+// Gulls circling higher than this over the water (raised over a hill)
+// wheel on instead of plunging for fish
+const GULL_MAX_PLUNGE_HEIGHT = 150;
 // Airborne height also rides a stiffer spring (1/s), which rounds off the
 // jumps where a flight path hands over to the next (soar -> hover -> dive ->
 // climb out) without visibly lagging the dive itself
@@ -2186,7 +2192,11 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
           const tangZ = Math.cos(data.angle) * Math.sign(data.circleSpeed);
           wantYaw = Math.atan2(-tangX, -tangZ);
           wantBank = Math.sign(data.circleSpeed) * 0.32;
-          if (data.stateTimer <= 0 && data.cy > waterLevel + 24) {
+          if (
+            data.stateTimer <= 0 &&
+            data.cy > waterLevel + 24 &&
+            data.cy < waterLevel + GULL_MAX_PLUNGE_HEIGHT
+          ) {
             // Only plunge for fish over the water, not over the shore or a cliff
             if ((data.floorY ?? waterLevel) > waterLevel + 0.5) {
               data.stateTimer = 1.5;
@@ -2713,7 +2723,15 @@ export function stepBirdState(data, curX, curY, curZ, env, rawDelta, out) {
           dt
         );
         const round = 8 * smoothstep(floorSm, waterLevel + 1, waterLevel + 7);
+        const pathY = targetY;
         targetY = smoothMax(targetY, floorSm, round);
+        // A gull circle that runs into a hill keeps getting pushed up its
+        // face; raise the whole circle instead, so after a lap or two the
+        // gull wheels over the top rather than skimming the slope
+        const push = targetY - pathY;
+        if (data.type === 'seagull' && data.cy !== undefined && push > 1) {
+          data.cy += push * GULL_CIRCLE_RAISE * dt;
+        }
         // (last resort on a sheer cliff the spring can't climb in time:
         // never below the latest reading of the ground itself)
         const hardFloor = data.floorTo - FLOOR_CLEARANCE;
