@@ -867,7 +867,6 @@ export const EVOLUTION_SHOTS = [
       '&tod=0.62&plane=biplane&livery=coral&smoke=1&cloudMood=fair',
     afterSettleCode: `
       document.getElementById('fly-bots-btn')?.click();
-      document.getElementById('fly-tag-btn')?.click();
       document.getElementById('fly-game-race')?.click();
     `,
     moves: [

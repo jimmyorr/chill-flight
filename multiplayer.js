@@ -212,6 +212,7 @@ const localBotsRow = document.getElementById('fly-local-bots-row');
 const playersList = document.getElementById('fly-players');
 const statusText = document.getElementById('fly-status');
 const tagBtn = document.getElementById('fly-tag-btn');
+const gamesBlock = document.getElementById('fly-games-block');
 const gamesPicker = document.getElementById('fly-games');
 const gameTagBtn = document.getElementById('fly-game-tag');
 const gamePursuitBtn = document.getElementById('fly-game-pursuit');
@@ -318,7 +319,6 @@ let raceOverSince = null;
 // In someone's slipstream until then (performance.now())
 let slipUntil = 0;
 // The game picker is open (Play a game)
-let pickerOpen = false;
 let countShown = '';
 
 function myName() {
@@ -3122,26 +3122,26 @@ function renderPanel() {
   shareBtn.disabled = busy;
   if (botsRow) botsRow.hidden = !!room.local;
   const gameOn = !!tag.it || !!race.course;
+  // The games sit under the list whenever there's someone to play with;
+  // in one, a single Stop button takes the tiles' place
+  const canPlay = peers.size > 0;
+  if (gamesBlock) gamesBlock.hidden = !canPlay && !gameOn;
+  if (gamesPicker) gamesPicker.hidden = gameOn;
+  // Nobody to play with while the connection is down
+  const offline = !socket && !room.local;
+  for (const btn of [gameTagBtn, gamePursuitBtn, gameRaceBtn]) {
+    if (btn) btn.disabled = offline;
+  }
   if (tagBtn) {
-    tagBtn.hidden = peers.size === 0 && !gameOn;
-    // Nobody to play with while the connection is down
-    tagBtn.disabled = !socket && !room.local;
-    tagBtn.textContent = tag.it
-      ? tag.mode === 'pursuit'
+    tagBtn.hidden = !gameOn;
+    tagBtn.textContent =
+      tag.mode === 'pursuit' && tag.it
         ? t('Stop pursuit')
-        : t('Stop tag')
-      : race.course
-        ? t('Stop race')
-        : t('Play a game');
-    tagBtn.classList.toggle('open', pickerOpen && !gameOn);
+        : tag.it
+          ? t('Stop tag')
+          : t('Stop race');
   }
-  // Choosing a game takes the list's place a moment
-  const pickingGame = !!gamesPicker && pickerOpen && !gameOn && !tagBtn?.hidden;
-  if (gamesPicker) {
-    gamesPicker.hidden = !pickingGame;
-    playersList.parentElement.hidden = pickingGame;
-  }
-  if (localBotsRow) localBotsRow.hidden = !room.local || pickingGame;
+  if (localBotsRow) localBotsRow.hidden = !room.local;
   // In a game, live points or race places; after one, how it ended
   const raceRows = raceListing();
   const showPoints =
@@ -3345,16 +3345,6 @@ function closePanel() {
   if (state.isPaused) hooks.togglePause?.();
 }
 
-export function collapseGamesPicker({restoreFocus = false} = {}) {
-  if (!pickerOpen || !gamesPicker || gamesPicker.hidden) return false;
-  pickerOpen = false;
-  renderPanel();
-  if (restoreFocus && tagBtn && !tagBtn.hidden) {
-    tagBtn.focus({preventScroll: true});
-  }
-  return true;
-}
-
 if (RELAY && tabBtn && panel) {
   tabBtn.hidden = false;
   openPanel();
@@ -3420,37 +3410,29 @@ if (RELAY && tabBtn && panel) {
   // A flight of your own, with bots in the other seats, on this device
   // alone (Invite friends opens it up)
   botsBtn?.addEventListener('click', () => {
+    // Stay in the menu: the room view shows who's flying, and the games
     flyWithBots();
-    if (room) closePanel();
   });
-  // Play a game opens the picker; in a game, it stops it
+  // In a game, Stop ends it
   tagBtn?.addEventListener('click', () => {
     if (!room) return;
-    if (tag.it) {
-      sendTag(null);
-    } else if (race.course) {
-      endRace();
-    } else {
-      pickerOpen = !pickerOpen;
-    }
+    if (tag.it) sendTag(null);
+    else if (race.course) endRace();
     renderPanel();
   });
   gameTagBtn?.addEventListener('click', () => {
     if (!room) return;
-    pickerOpen = false;
     // Whoever starts the game is it
     sendTag(room.id, {mode: 'tag'});
     closePanel();
   });
   gamePursuitBtn?.addEventListener('click', () => {
     if (!room) return;
-    pickerOpen = false;
     startPursuit();
     closePanel();
   });
   gameRaceBtn?.addEventListener('click', () => {
     if (!room) return;
-    pickerOpen = false;
     startRace();
     if (race.course) closePanel();
     else renderPanel();

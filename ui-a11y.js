@@ -10,7 +10,6 @@ import {togglePause} from './game-state.js';
 import {disarmAchievementsReset} from './game-hud.js';
 import {collapseQuickMenu, isQuickMenuExpanded} from './game-ui.js';
 import {closeDialog, isDialogOpen} from './dialog.js';
-import {collapseGamesPicker} from './multiplayer.js';
 
 const MODAL_IDS = [
   'loading-overlay',
@@ -283,13 +282,6 @@ export function handleBackNavigation({source = 'escape'} = {}) {
   ) {
     const activeTab = pauseOverlay.querySelector('.pause-tab.active');
     const tabName = activeTab?.dataset.tab || 'flight';
-
-    if (
-      tabName === 'together' &&
-      collapseGamesPicker({restoreFocus: restoreKeyboardFocus})
-    ) {
-      return 'handled';
-    }
 
     if (source === 'native' && tabName !== 'flight') {
       const flightTab = pauseOverlay.querySelector(

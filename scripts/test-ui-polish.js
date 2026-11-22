@@ -1234,7 +1234,8 @@ async function runNativePolishPass(browser) {
         );
       }
 
-      // Together tab: invalid code ERROR haptic + #fly-games LIFO collapse
+      // Together tab: invalid code ERROR haptic; Fly with bots stays on the
+      // room, with the list and the games both in view (#192)
       document.getElementById('fly-tab').click();
       await flush();
       window.__capCalls.haptics.length = 0;
@@ -1250,18 +1251,13 @@ async function runNativePolishPass(browser) {
       }
 
       document.getElementById('fly-bots-btn').click();
-      window.__triggerNativeBack();
-      document.getElementById('fly-tab').click();
-      document.getElementById('fly-tag-btn').click();
-      if (document.getElementById('fly-games').hidden) {
-        throw new Error('Games picker did not open');
-      }
-      window.__triggerNativeBack();
       if (
-        !document.getElementById('fly-games').hidden ||
-        activeTab() !== 'together'
+        !isVisible('pause-overlay') ||
+        activeTab() !== 'together' ||
+        document.getElementById('fly-games-block').hidden ||
+        document.getElementById('fly-room').hidden
       ) {
-        throw new Error('Back did not collapse #fly-games in place');
+        throw new Error('Fly with bots did not stay on the room view');
       }
       window.__triggerNativeBack();
       if (activeTab() !== 'flight') {

@@ -892,7 +892,8 @@ async function exerciseControls(page, tag, onDebugEnabled) {
   await page.click('#fly-solo-bot-count [data-bots="1"]');
   await page.click('#fly-bots-btn');
   await wait(500);
-  if (await isPaused()) fail('Fly with bots did not unpause the game');
+  // Fly with bots stays in the menu on the new room (#192)
+  if (!(await isPaused())) fail('Fly with bots left the menu');
   const chipAfterOne = await page.$$eval(
     '#room-chip-dots > span',
     (els) => els.length
@@ -900,10 +901,9 @@ async function exerciseControls(page, tag, onDebugEnabled) {
   if (chipAfterOne !== 2) {
     fail(`expected 2 planes in room chip with 1 bot, got ${chipAfterOne}`);
   }
-  await page.keyboard.press('Escape');
-  await wait(300);
-  await page.click('#fly-tab');
-  await wait(200);
+  if (await page.$eval('#fly-games-block', (el) => el.hidden)) {
+    fail('games not shown under the list in a flight with bots');
+  }
   const oneBotState = await page.evaluate(() => ({
     bots: document.querySelectorAll('#fly-players > .fly-player').length,
     localRowVisible: !document.getElementById('fly-local-bots-row')?.hidden,

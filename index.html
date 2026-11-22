@@ -695,7 +695,12 @@
                   <div id="fly-room-label" class="fly-or">Room</div>
                   <div id="fly-room-code" class="fly-room-code"></div>
                 </div>
-                <button id="fly-share-btn" class="fly-btn">Share link</button>
+                <div class="fly-room-head-btns">
+                  <button id="fly-share-btn" class="fly-btn">Share link</button>
+                  <button id="fly-leave-btn" class="fly-btn fly-btn-quiet">
+                    Leave
+                  </button>
+                </div>
               </div>
               <div class="fly-players">
                 <!-- You, with your name to tap and change (out of tag games,
@@ -774,28 +779,28 @@
                   role="switch"
                 />
               </label>
-              <div id="fly-games" class="fly-games" hidden>
-                <button id="fly-game-tag" class="fly-game">
-                  <span class="fly-game-name">Tag</span>
-                  <span class="fly-game-rule">Stay near whoever's it</span>
-                </button>
-                <button id="fly-game-pursuit" class="fly-game">
-                  <span class="fly-game-name">Pursuit</span>
-                  <span class="fly-game-rule">Cops chase one runner</span>
-                </button>
-                <button id="fly-game-race" class="fly-game">
-                  <span class="fly-game-name">Race</span>
-                  <span class="fly-game-rule"
-                    >Through the gates, first wins</span
-                  >
-                </button>
-              </div>
-              <div class="fly-room-actions">
-                <button id="fly-tag-btn" class="fly-btn" hidden>
-                  Play a game
-                </button>
-                <button id="fly-leave-btn" class="fly-btn fly-btn-quiet">
-                  Leave
+              <!-- The games, always in view under the list (multiplayer.js);
+                   in a game, a Stop button takes the tiles' place -->
+              <div id="fly-games-block" class="fly-games-block" hidden>
+                <div class="fly-or fly-games-label">Play a game</div>
+                <div id="fly-games" class="fly-games">
+                  <button id="fly-game-tag" class="fly-game">
+                    <span class="fly-game-name">Tag</span>
+                    <span class="fly-game-rule">Stay near whoever's it</span>
+                  </button>
+                  <button id="fly-game-pursuit" class="fly-game">
+                    <span class="fly-game-name">Pursuit</span>
+                    <span class="fly-game-rule">Cops chase one runner</span>
+                  </button>
+                  <button id="fly-game-race" class="fly-game">
+                    <span class="fly-game-name">Race</span>
+                    <span class="fly-game-rule"
+                      >Through the gates, first wins</span
+                    >
+                  </button>
+                </div>
+                <button id="fly-tag-btn" class="fly-btn fly-stop-btn" hidden>
+                  Stop tag
                 </button>
               </div>
             </div>
