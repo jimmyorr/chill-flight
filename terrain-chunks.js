@@ -1523,6 +1523,18 @@ for (const [type, near, far, cap] of [
     stoneWallGeos.stoneWallRuinedFar,
     12000,
   ],
+  [
+    'stoneWallSnow',
+    stoneWallGeos.stoneWallSnow,
+    stoneWallGeos.stoneWallSnowFar,
+    25000,
+  ],
+  [
+    'stoneWallSnowRuined',
+    stoneWallGeos.stoneWallSnowRuined,
+    stoneWallGeos.stoneWallSnowRuinedFar,
+    10000,
+  ],
 ]) {
   globalInstancer.registerType(type, near, buildingMat, cap);
   globalInstancer.setFarGeometry(type, far, {

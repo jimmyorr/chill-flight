@@ -1370,20 +1370,38 @@ console.log(
   '  Passed: Farmland generates corn, wildflower, and 4-color ground tulip strips within temperate bounds'
 );
 
-// --- 26. Irish meandering dry-stone famine walls & crumbled stretches (#184) ---
+// --- 26. Irish meandering dry-stone famine walls & snow-country slate walls (#184) ---
 {
-  const {stoneWall, stoneWallFar, stoneWallRuined, stoneWallRuinedFar} =
-    buildStoneWallGeos();
+  const {
+    stoneWall,
+    stoneWallFar,
+    stoneWallRuined,
+    stoneWallRuinedFar,
+    stoneWallSnow,
+    stoneWallSnowFar,
+    stoneWallSnowRuined,
+    stoneWallSnowRuinedFar,
+  } = buildStoneWallGeos();
   const nearPos = stoneWall.attributes.position;
   const nearNorm = stoneWall.attributes.normal;
   const ruinedPos = stoneWallRuined.attributes.position;
+  const snowPos = stoneWallSnow.attributes.position;
+  const snowNorm = stoneWallSnow.attributes.normal;
+  const snowRuinedPos = stoneWallSnowRuined.attributes.position;
   const farTris = stoneWallFar.attributes.position.count / 3;
   const ruinedFarTris = stoneWallRuinedFar.attributes.position.count / 3;
+  const snowFarTris = stoneWallSnowFar.attributes.position.count / 3;
+  const snowRuinedFarTris =
+    stoneWallSnowRuinedFar.attributes.position.count / 3;
   let finiteVerts =
     nearPos.count > 0 &&
     ruinedPos.count > 0 &&
+    snowPos.count > 0 &&
+    snowRuinedPos.count > 0 &&
     farTris === 10 &&
-    ruinedFarTris === 10;
+    ruinedFarTris === 10 &&
+    snowFarTris === 10 &&
+    snowRuinedFarTris === 10;
   let topNy = 0;
   let topCount = 0;
   for (let i = 0; i < nearPos.count; i++) {
@@ -1400,9 +1418,31 @@ console.log(
       topCount++;
     }
   }
-  if (!finiteVerts || topCount === 0 || topNy / topCount <= 0) {
+  let snowTopNy = 0;
+  let snowTopCount = 0;
+  for (let i = 0; i < snowPos.count; i++) {
+    if (
+      !Number.isFinite(snowPos.getX(i)) ||
+      !Number.isFinite(snowPos.getY(i)) ||
+      !Number.isFinite(snowPos.getZ(i))
+    ) {
+      finiteVerts = false;
+      break;
+    }
+    if (snowPos.getY(i) > 2.95) {
+      snowTopNy += snowNorm.getY(i);
+      snowTopCount++;
+    }
+  }
+  if (
+    !finiteVerts ||
+    topCount === 0 ||
+    topNy / topCount <= 0 ||
+    snowTopCount === 0 ||
+    snowTopNy / snowTopCount <= 0
+  ) {
     console.error(
-      `FAIL: stoneWall geometry invalid (finite=${finiteVerts}, farTris=${farTris}, topNy=${topNy / Math.max(1, topCount)})`
+      `FAIL: stoneWall geometry invalid (finite=${finiteVerts}, farTris=${farTris}, topNy=${topNy / Math.max(1, topCount)}, snowTopNy=${snowTopNy / Math.max(1, snowTopCount)})`
     );
     process.exit(1);
   }
@@ -1502,10 +1542,71 @@ console.log(
     );
     process.exit(1);
   }
+
+  // Snow-country northern slate walls (-9, -18) and (-3, -15), south of Z = -20000
+  const snowZone = stoneWallZoneAt(-9240, -18385, simplex, elevParams);
+  if (!snowZone.active || !snowZone.snowy) {
+    console.error(
+      `FAIL: expected active snowy stone-wall zone at (-9240, -18385), got active=${snowZone.active}, snowy=${snowZone.snowy}`
+    );
+    process.exit(1);
+  }
+  const snowChunkA = generateChunkData({
+    chunkX: -9,
+    chunkZ: -18,
+    chunkSize: 1000,
+    segments: 20,
+    elevParams,
+    _enableObjects: true,
+  }).result;
+  const snowChunkB = generateChunkData({
+    chunkX: -9,
+    chunkZ: -18,
+    chunkSize: 1000,
+    segments: 20,
+    elevParams,
+    _enableObjects: true,
+  }).result;
+  const snowWallA = snowChunkA.instanceData.stoneWallSnow;
+  const snowWallB = snowChunkB.instanceData.stoneWallSnow;
+  const snowRuinedA = snowChunkA.instanceData.stoneWallSnowRuined;
+  if (
+    !snowWallA ||
+    snowWallA.count < 80 ||
+    snowWallA.count !== snowWallB?.count ||
+    !snowRuinedA ||
+    snowRuinedA.count < 15
+  ) {
+    console.error(
+      `FAIL: snow-country chunk (-9, -18) stoneWallSnow mismatch (intact=${snowWallA?.count} vs ${snowWallB?.count}, ruined=${snowRuinedA?.count})`
+    );
+    process.exit(1);
+  }
+  for (const data of [snowWallA, snowRuinedA]) {
+    const m = data.matrices;
+    for (let i = 0; i < data.count; i++) {
+      const o = i * 16;
+      const det = m[o + 5] * (m[o + 0] * m[o + 10] - m[o + 2] * m[o + 8]);
+      const wx = m[o + 12];
+      const wz = m[o + 14];
+      const roadDist = ChillFlightLogic.highwayDistance(wx, wz);
+      if (
+        !(det > 0) ||
+        wz < -20000 ||
+        roadDist < ChillFlightLogic.ROAD_WIDTH + 12 ||
+        ChillFlightLogic.isOnAirport(wx, wz, 80)
+      ) {
+        console.error(
+          `FAIL: invalid stoneWallSnow bay in chunk (-9, -18) (det=${det}, wz=${wz}, roadDist=${roadDist})`
+        );
+        process.exit(1);
+      }
+    }
+  }
   useSeed(20260101);
 }
 console.log(
-  '  Passed: Meandering multi-km Irish dry-stone famine walls and crumbled stretches hug hills clear of roads and airfields'
+  '  Passed: Meandering multi-km Irish dry-stone famine walls, snow-country slate walls, and crumbled stretches hug hills clear of roads and airfields'
 );
 
 console.log('All terrain invariant tests passed successfully!');

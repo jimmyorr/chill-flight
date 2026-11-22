@@ -119,6 +119,8 @@ const RUBBLE = {
   granite: BREAK.RUBBLE.rock,
   stoneWall: BREAK.RUBBLE.stone_wall,
   stoneWallRuined: 7,
+  stoneWallSnow: BREAK.RUBBLE.stone_wall,
+  stoneWallSnowRuined: 7,
   iceberg: BREAK.RUBBLE.iceberg,
   iceFloe: BREAK.RUBBLE.iceFloe,
 };
@@ -141,7 +143,8 @@ const ROLLS = /^(hayBale|fallenLog|swampLog)$/;
 const LAND_CRITTER = /^(sheep|goat|deer)/;
 // Critters that don't waddle (only the penguins do, in their shader)
 const STILL_CRITTER = /^(sheep|goat|deer|seal)/;
-const ROCKS = /^(rock|snowRock|desertRock|granite|stoneWall|stoneWallRuined)$/;
+const ROCKS =
+  /^(rock|snowRock|desertRock|granite|stoneWall|stoneWallRuined|stoneWallSnow|stoneWallSnowRuined)$/;
 const ICE = /^(iceberg|iceFloe)$/;
 // A real tree (not a streetlight, tent or silo), for Treehugger
 const TREE_PART =
@@ -773,7 +776,10 @@ function collapse(group, parts, x, base, z, top, radius, dx, dz, kts, spec) {
         base + (roof ? Math.max(2.5, (box.max.y - box.min.y) * 0.25) : 1)
       );
     } else if (role === 'rubble') {
-      if (/^stoneWall/.test(type)) {
+      if (/^stoneWallSnow/.test(type)) {
+        bodyColor = [0.36, 0.39, 0.43];
+        roofColor = [0.84, 0.88, 0.93];
+      } else if (/^stoneWall/.test(type)) {
         bodyColor = [0.53, 0.56, 0.58];
         roofColor = [0.41, 0.48, 0.38];
       } else {
@@ -1104,7 +1110,10 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
       4
     );
   } else if (/^stoneWall/.test(parts[0].type)) {
-    propPuffs(x, base + 1.1, z, 4.5, 2.2, dust, 16, 5, 3);
+    propPuffs(x, base + 1.1, z, 4.5, 2.2, dust, 14, 5, 3);
+    if (parts[0].type.includes('Snow')) {
+      propPuffs(x, base + 1.6, z, 4.0, 2.4, SNOW, 12, 4, 3);
+    }
   } else if (house) {
     // A bridge support standing in the water throws up spray too
     if (parts[0].type === 'bridgePierShaft' && base < WATER_LEVEL + 2) {
@@ -1816,7 +1825,7 @@ function sweep(a, b, r, mine, buggy) {
                 r,
                 copyMatrix(firstPart),
                 STONE_WALL_HALF_WIDTH,
-                firstPart.type === 'stoneWallRuined'
+                firstPart.type.endsWith('Ruined')
                   ? STONE_WALL_RUINED_HEIGHT
                   : STONE_WALL_HEIGHT
               )

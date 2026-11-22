@@ -1031,9 +1031,15 @@ function viewModel(type, e, colorSeed = 0) {
       }
       case 'stone_wall': {
         // Three connected bays of an Irish dry-stone famine wall (intact ->
-        // crumbled rubble breach with spilled stones -> intact)
-        const {stoneWall, stoneWallFar, stoneWallRuined, stoneWallRuinedFar} =
-          buildStoneWallGeos();
+        // crumbled rubble breach -> lightly snow-covered northern bay)
+        const {
+          stoneWall,
+          stoneWallFar,
+          stoneWallRuined,
+          stoneWallRuinedFar,
+          stoneWallSnow,
+          stoneWallSnowFar,
+        } = buildStoneWallGeos();
         const rows =
           lod === 'all'
             ? [
@@ -1058,7 +1064,6 @@ function viewModel(type, e, colorSeed = 0) {
             const flip = i % 2 === 1 ? -1 : 1;
             const nx = (dz / len) * flip;
             const nz = (-dx / len) * flip;
-            const ruined = i === 1;
             const mat4 = new THREE.Matrix4().set(
               nx,
               0,
@@ -1079,12 +1084,16 @@ function viewModel(type, e, colorSeed = 0) {
             );
             const geo =
               band === 'far'
-                ? ruined
+                ? i === 1
                   ? stoneWallRuinedFar
-                  : stoneWallFar
-                : ruined
+                  : i === 2
+                    ? stoneWallSnowFar
+                    : stoneWallFar
+                : i === 1
                   ? stoneWallRuined
-                  : stoneWall;
+                  : i === 2
+                    ? stoneWallSnow
+                    : stoneWall;
             const m = new THREE.Mesh(geo, buildingMat);
             m.matrixAutoUpdate = false;
             m.matrix.copy(mat4);

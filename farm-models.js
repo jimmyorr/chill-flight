@@ -211,9 +211,11 @@ function pushBoulderStone(
     yaw = 0,
     pitch = 0,
     roll = 0,
-    peak = 1.0,
+    shoulder = 0.54,
+    peak = 0.9,
     rgb,
     topRgb,
+    snowMask = 0,
   }
 ) {
   const cyaw = Math.cos(yaw);
@@ -234,28 +236,38 @@ function pushBoulderStone(
     return [cx + x3, cy + y2, cz + z3];
   };
 
-  // 6-sided irregular waist ring + 2-point pitched boulder crest (12 tris)
+  // 6-sided irregular shoulder ring + low blunt table crown (12 tris)
   const ring = [];
   const baseRing = [];
   for (let k = 0; k < 6; k++) {
-    const ang = (k / 6) * Math.PI * 2 + (rand() - 0.5) * 0.24;
-    const rad = 0.88 + rand() * 0.22;
+    const ang = (k / 6) * Math.PI * 2 + (rand() - 0.5) * 0.22;
+    const rad = 0.9 + rand() * 0.18;
     const wx = Math.cos(ang) * rx * rad;
     const wz = Math.sin(ang) * rz * rad;
-    ring.push(xform(wx, ry * (0.18 + (rand() - 0.5) * 0.22), wz));
-    baseRing.push(xform(wx * 1.04, -ry * (0.85 + rand() * 0.2), wz * 1.04));
+    ring.push(xform(wx, ry * (shoulder + (rand() - 0.5) * 0.14), wz));
+    baseRing.push(xform(wx * 1.05, -ry * (0.85 + rand() * 0.18), wz * 1.05));
   }
   const apex = xform(
-    (rand() - 0.5) * rx * 0.28,
+    (rand() - 0.5) * rx * 0.18,
     ry * peak,
-    (rand() - 0.5) * rz * 0.28
+    (rand() - 0.5) * rz * 0.18
   );
   const shade = [rgb[0] * 0.84, rgb[1] * 0.85, rgb[2] * 0.88];
+  const snowBright = [0.85, 0.89, 0.93];
+  const snowShade = [0.77, 0.82, 0.88];
   for (let k = 0; k < 6; k++) {
     const next = (k + 1) % 6;
     const sideCol = k >= 2 && k <= 4 ? shade : rgb;
+    const hasSnow = ((snowMask >> k) & 1) !== 0;
+    const crownCol = hasSnow
+      ? k % 2 === 0
+        ? snowBright
+        : snowShade
+      : k % 2 === 0
+        ? topRgb
+        : rgb;
     // Counter-clockwise from outside so vertex normals point outward & upward
-    pushTri(pos, col, ring[next], ring[k], apex, k % 2 === 0 ? topRgb : rgb);
+    pushTri(pos, col, ring[next], ring[k], apex, crownCol);
     pushQuad(
       pos,
       col,
@@ -298,17 +310,25 @@ const STONE_PALETTE = [
   [0.46, 0.51, 0.44], // mossy slate
   [0.62, 0.64, 0.63], // silver granite
 ];
+const SNOW_SLATE_PALETTE = [
+  [0.33, 0.36, 0.4], // cold wet northern slate
+  [0.4, 0.43, 0.47], // frosted greywacke
+  [0.28, 0.31, 0.35], // dark winter basalt-slate
+  [0.45, 0.48, 0.52], // pale frost granite
+  [0.36, 0.39, 0.43], // weathered tors slate
+];
 const MOSS_TINT = [0.35, 0.45, 0.3];
 
-export function buildStoneWallGeos() {
-  const rand = wallMulberry32(184509);
+function buildStoneWallSet(seed, snowy) {
+  const rand = wallMulberry32(seed);
   const pos = [];
   const col = [];
   const halfBay = WALL_BAY_REF * 0.5;
+  const palette = snowy ? SNOW_SLATE_PALETTE : STONE_PALETTE;
 
-  // 1. Dark recessed dry-stone core in 3 organic spans so crevices between
-  // stones read as deep mortar-free shadow (30 tris).
-  const coreHeights = [2.88, 2.76, 2.92, 2.84];
+  // 1. Dark recessed dry-stone core tucked strictly inside the stone courses so
+  // crevices read as mortar-free shadow and no core shelf pokes out sideways.
+  const coreHeights = [2.58, 2.5, 2.62, 2.54];
   for (let s = 0; s < 3; s++) {
     const z0 = -halfBay + (s / 3) * WALL_BAY_REF;
     const z1 = -halfBay + ((s + 1) / 3) * WALL_BAY_REF;
@@ -318,16 +338,25 @@ export function buildStoneWallGeos() {
       yBase: -1.3,
       yTop0: coreHeights[s],
       yTop1: coreHeights[s + 1],
-      wBase: 1.02,
-      wTop: 0.56,
-      sideRgb: [0.27, 0.3, 0.32],
-      topRgb: [0.35, 0.39, 0.36],
+      wBase: 0.9,
+      wTop: 0.34,
+      sideRgb: snowy ? [0.22, 0.25, 0.29] : [0.27, 0.3, 0.32],
+      topRgb: snowy ? [0.25, 0.28, 0.32] : [0.35, 0.39, 0.36],
     });
   }
 
   const pickStoneColor = (mossWeight) => {
-    const base = STONE_PALETTE[Math.floor(rand() * STONE_PALETTE.length)];
-    const jitter = (rand() - 0.5) * 0.07;
+    const base = palette[Math.floor(rand() * palette.length)];
+    const jitter = (rand() - 0.5) * 0.06;
+    if (snowy) {
+      const rgb = [base[0] + jitter, base[1] + jitter, base[2] + jitter];
+      const topRgb = [
+        Math.min(1, rgb[0] * 1.15),
+        Math.min(1, rgb[1] * 1.15),
+        Math.min(1, rgb[2] * 1.18),
+      ];
+      return {rgb, topRgb};
+    }
     const m = rand() < mossWeight ? 0.25 + rand() * 0.32 : 0;
     const rgb = [
       (base[0] + jitter) * (1 - m) + MOSS_TINT[0] * m,
@@ -344,10 +373,29 @@ export function buildStoneWallGeos() {
   };
 
   // 2. Two staggered courses of faceted fieldstone boulders on each face
-  // (22 stones x 18 tris = 396 tris)
   const courses = [
-    {y: 0.95, ry: 0.68, xOut: 0.78, rx: 0.44, count: 5, moss: 0.45},
-    {y: 2.12, ry: 0.58, xOut: 0.62, rx: 0.38, count: 6, moss: 0.22},
+    {
+      y: 0.95,
+      ry: 0.68,
+      xOut: 0.78,
+      rx: 0.44,
+      count: 5,
+      moss: 0.45,
+      snowChance: 0.3,
+      outMaskPos: 0b100001,
+      outMaskNeg: 0b001100,
+    },
+    {
+      y: 2.12,
+      ry: 0.58,
+      xOut: 0.62,
+      rx: 0.38,
+      count: 6,
+      moss: 0.22,
+      snowChance: 0.66,
+      outMaskPos: 0b100011,
+      outMaskNeg: 0b011100,
+    },
   ];
   for (const side of [-1, 1]) {
     for (const c of courses) {
@@ -360,73 +408,82 @@ export function buildStoneWallGeos() {
           Math.min(halfBay - rz * 0.85, rawZ)
         );
         const {rgb, topRgb} = pickStoneColor(c.moss + (side < 0 ? 0.14 : 0));
+        // Dust outward-facing upper shoulder ledges on both faces while keeping
+        // vertical stone flanks cold dark slate
+        const snowHit = snowy && rand() < c.snowChance;
+        const outMask = side > 0 ? c.outMaskPos : c.outMaskNeg;
         pushBoulderStone(pos, col, rand, {
           cx: side * (c.xOut + (rand() - 0.5) * 0.09),
-          cy: c.y + (rand() - 0.5) * 0.18,
+          cy: c.y + (rand() - 0.5) * 0.16,
           cz,
-          rx: c.rx * (0.88 + rand() * 0.26),
-          ry: c.ry * (0.86 + rand() * 0.26),
+          rx: c.rx * (0.9 + rand() * 0.24),
+          ry: c.ry * (0.86 + rand() * 0.22),
           rz,
-          yaw: (rand() - 0.5) * 0.34,
-          pitch: (rand() - 0.5) * 0.18,
-          roll: -side * (0.1 + rand() * 0.12),
-          peak: 0.92 + rand() * 0.22,
+          yaw: (rand() - 0.5) * 0.3,
+          pitch: (rand() - 0.5) * 0.14,
+          roll: -side * (0.08 + rand() * 0.1),
+          shoulder: 0.62,
+          peak: 0.84 + rand() * 0.1,
           rgb,
           topRgb,
+          snowMask: snowHit ? outMask : 0,
         });
       }
     }
   }
 
-  // 3. Rounded boulder quoins at z = +/-halfBay so adjacent bays knit together
-  // and gateway ends look like solid stacked stone piers (2 x 18 = 36 tris)
+  // 3. Rounded boulder quoins at z = +/-halfBay
   for (const endSign of [-1, 1]) {
     const {rgb, topRgb} = pickStoneColor(0.32);
     pushBoulderStone(pos, col, rand, {
       cx: (rand() - 0.5) * 0.06,
       cy: 1.55,
       cz: endSign * (halfBay - 0.55),
-      rx: 0.98,
-      ry: 1.35,
+      rx: 0.96,
+      ry: 1.32,
       rz: 0.65,
       yaw: (rand() - 0.5) * 0.16,
       pitch: 0,
       roll: 0,
-      peak: 0.95,
+      shoulder: 0.65,
+      peak: 0.85,
       rgb,
       topRgb,
+      snowMask: snowy ? 0b111111 : 0,
     });
   }
 
-  // 4. Irregular upright "cock-and-hen" cope stones set on edge along the top
-  // ridge with peaked boulder crowns and tilted silhouettes (10 x 18 = 180 tris
-  // -> 642 tris nearGeo, 10 tris farGeo)
-  const copeCount = 10;
+  // 4. Blunt, flat-topped fieldstone / slate cope slabs along the top ridge,
+  // with patchy winter snow resting on ~60% of the flat slab tables in snow country.
+  const copeCount = 9;
   const copeSpan = WALL_BAY_REF / copeCount;
+  const slabSnowPattern = [1, 1, 0, 1, 1, 1, 0, 0, 1];
   for (let i = 0; i < copeCount; i++) {
-    const rz = copeSpan * (0.42 + rand() * 0.14);
+    const rz = copeSpan * (0.48 + rand() * 0.1);
     const cz = Math.max(
-      -halfBay + rz * 0.8,
+      -halfBay + rz * 0.82,
       Math.min(
-        halfBay - rz * 0.8,
-        -halfBay + (i + 0.5) * copeSpan + (rand() - 0.5) * 0.18
+        halfBay - rz * 0.82,
+        -halfBay + (i + 0.5) * copeSpan + (rand() - 0.5) * 0.14
       )
     );
-    const tallHen = i % 2 === 0 ? 1.15 : 0.86;
     const {rgb, topRgb} = pickStoneColor(0.26);
+    const copeSnowMask = snowy && slabSnowPattern[i] ? 0b111111 : 0;
     pushBoulderStone(pos, col, rand, {
       cx: (rand() - 0.5) * 0.1,
-      cy: 2.98 + (rand() - 0.5) * 0.16,
+      cy: 2.76 + (rand() - 0.5) * 0.1,
       cz,
-      rx: 0.66 + rand() * 0.14,
-      ry: (0.42 + rand() * 0.18) * tallHen,
+      rx: 0.72 + rand() * 0.12,
+      ry: 0.36 + rand() * 0.1,
       rz,
-      yaw: (rand() - 0.5) * 0.28,
-      pitch: 0.12 + (rand() - 0.5) * 0.22,
-      roll: (rand() - 0.5) * 0.16,
-      peak: 1.18 + rand() * 0.25,
+      yaw: (rand() - 0.5) * 0.22,
+      pitch: (rand() - 0.5) * 0.1,
+      roll: (rand() - 0.5) * 0.1,
+      shoulder: 0.72,
+      peak: snowy ? 0.86 + rand() * 0.06 : 0.92 + rand() * 0.12,
       rgb,
       topRgb,
+      snowMask: copeSnowMask,
     });
   }
 
@@ -437,9 +494,8 @@ export function buildStoneWallGeos() {
   nearGeo.computeBoundingBox();
   nearGeo.computeBoundingSphere();
 
-  // Far LOD: a single 10-triangle battered limestone prism, slightly broadened
-  // so multi-kilometre famine-wall ribbons stay crisp and unbroken across
-  // distant hills in aerial views.
+  // Far LOD: dark winter slate flanks in snow country so walls read crisply
+  // across white hills from altitude, with a frosted silver-slate ridge.
   const farPos = [];
   const farCol = [];
   pushBatteredCore(farPos, farCol, {
@@ -450,8 +506,8 @@ export function buildStoneWallGeos() {
     yTop1: 3.5,
     wBase: 1.55,
     wTop: 0.98,
-    sideRgb: [0.5, 0.53, 0.53],
-    topRgb: [0.62, 0.65, 0.64],
+    sideRgb: snowy ? [0.31, 0.34, 0.39] : [0.5, 0.53, 0.53],
+    topRgb: snowy ? [0.74, 0.79, 0.85] : [0.62, 0.65, 0.64],
   });
   const farGeo = new THREE.BufferGeometry();
   farGeo.setAttribute('position', new THREE.Float32BufferAttribute(farPos, 3));
@@ -460,12 +516,10 @@ export function buildStoneWallGeos() {
   farGeo.computeBoundingBox();
   farGeo.computeBoundingSphere();
 
-  // Crumbled / decrepit famine-wall bay: slumped mossy rubble saddle dipping in
-  // the middle, with tumbled grey limestone & lichen boulders spilled outward
-  // into the grass on both sides (318 tris near, 10 tris far).
+  // Crumbled / decrepit bay
   const rPos = [];
   const rCol = [];
-  const slumpedHeights = [1.45, 0.85, 0.95, 1.4];
+  const slumpedHeights = [1.35, 0.78, 0.86, 1.3];
   for (let s = 0; s < 3; s++) {
     const z0 = -halfBay + (s / 3) * WALL_BAY_REF;
     const z1 = -halfBay + ((s + 1) / 3) * WALL_BAY_REF;
@@ -475,32 +529,33 @@ export function buildStoneWallGeos() {
       yBase: -1.25,
       yTop0: slumpedHeights[s],
       yTop1: slumpedHeights[s + 1],
-      wBase: 1.35,
-      wTop: 0.72,
-      sideRgb: [0.29, 0.34, 0.28],
-      topRgb: [0.34, 0.4, 0.32],
+      wBase: 1.02,
+      wTop: 0.4,
+      sideRgb: snowy ? [0.24, 0.27, 0.31] : [0.29, 0.34, 0.28],
+      topRgb: snowy ? [0.28, 0.31, 0.36] : [0.34, 0.4, 0.32],
     });
   }
-  // 12 overlapping collapsed stones covering the broken spine + 8 fallen
-  // boulders spilled 1.35..3.0 units out in the grass on both flanks
   for (let i = 0; i < 12; i++) {
     const span = WALL_BAY_REF / 12;
     const cz = -halfBay + (i + 0.5) * span + (rand() - 0.5) * 0.28;
     const dip = 1 - 0.35 * Math.sin(((i + 0.5) / 12) * Math.PI);
     const {rgb, topRgb} = pickStoneColor(0.58);
+    const rMask = snowy && i % 3 !== 1 ? 0b111111 : 0;
     pushBoulderStone(rPos, rCol, rand, {
       cx: (rand() - 0.5) * 0.85,
-      cy: (1.35 + rand() * 0.62) * dip,
+      cy: (1.35 + rand() * 0.55) * dip,
       cz,
-      rx: 0.82 + rand() * 0.36,
-      ry: 0.58 + rand() * 0.32,
-      rz: 0.68 + rand() * 0.32,
+      rx: 0.82 + rand() * 0.34,
+      ry: 0.52 + rand() * 0.24,
+      rz: 0.68 + rand() * 0.3,
       yaw: rand() * Math.PI,
-      pitch: (rand() - 0.5) * 0.42,
-      roll: (rand() - 0.5) * 0.48,
-      peak: 0.95 + rand() * 0.28,
+      pitch: (rand() - 0.5) * 0.22,
+      roll: (rand() - 0.5) * 0.26,
+      shoulder: 0.68,
+      peak: 0.86 + rand() * 0.08,
       rgb,
       topRgb,
+      snowMask: rMask,
     });
   }
   for (let i = 0; i < 8; i++) {
@@ -508,19 +563,22 @@ export function buildStoneWallGeos() {
     const cz = -halfBay + 1.1 + rand() * (WALL_BAY_REF - 2.2);
     const outX = side * (1.4 + rand() * 1.75);
     const {rgb, topRgb} = pickStoneColor(0.65);
+    const spillMask = snowy && i % 3 !== 2 ? 0b111111 : 0;
     pushBoulderStone(rPos, rCol, rand, {
       cx: outX,
-      cy: 0.52 + rand() * 0.42,
+      cy: 0.48 + rand() * 0.38,
       cz,
-      rx: 0.62 + rand() * 0.4,
-      ry: 0.5 + rand() * 0.32,
-      rz: 0.66 + rand() * 0.42,
+      rx: 0.64 + rand() * 0.38,
+      ry: 0.44 + rand() * 0.24,
+      rz: 0.66 + rand() * 0.38,
       yaw: rand() * Math.PI,
-      pitch: (rand() - 0.5) * 0.35,
-      roll: side * (0.15 + rand() * 0.35),
-      peak: 0.88 + rand() * 0.25,
+      pitch: (rand() - 0.5) * 0.2,
+      roll: side * (0.1 + rand() * 0.22),
+      shoulder: 0.7,
+      peak: 0.86 + rand() * 0.08,
       rgb,
       topRgb,
+      snowMask: spillMask,
     });
   }
   const ruinedGeo = new THREE.BufferGeometry();
@@ -540,8 +598,8 @@ export function buildStoneWallGeos() {
     yTop1: 2.05,
     wBase: 2.15,
     wTop: 1.4,
-    sideRgb: [0.44, 0.49, 0.43],
-    topRgb: [0.53, 0.57, 0.5],
+    sideRgb: snowy ? [0.34, 0.37, 0.42] : [0.44, 0.49, 0.43],
+    topRgb: snowy ? [0.7, 0.75, 0.81] : [0.53, 0.57, 0.5],
   });
   const ruinedFarGeo = new THREE.BufferGeometry();
   ruinedFarGeo.setAttribute(
@@ -556,10 +614,20 @@ export function buildStoneWallGeos() {
   ruinedFarGeo.computeBoundingBox();
   ruinedFarGeo.computeBoundingSphere();
 
+  return {nearGeo, farGeo, ruinedGeo, ruinedFarGeo};
+}
+
+export function buildStoneWallGeos() {
+  const temperate = buildStoneWallSet(184509, false);
+  const snowy = buildStoneWallSet(184717, true);
   return {
-    stoneWall: nearGeo,
-    stoneWallFar: farGeo,
-    stoneWallRuined: ruinedGeo,
-    stoneWallRuinedFar: ruinedFarGeo,
+    stoneWall: temperate.nearGeo,
+    stoneWallFar: temperate.farGeo,
+    stoneWallRuined: temperate.ruinedGeo,
+    stoneWallRuinedFar: temperate.ruinedFarGeo,
+    stoneWallSnow: snowy.nearGeo,
+    stoneWallSnowFar: snowy.farGeo,
+    stoneWallSnowRuined: snowy.ruinedGeo,
+    stoneWallSnowRuinedFar: snowy.ruinedFarGeo,
   };
 }

@@ -822,7 +822,7 @@ const STONE_WALL_STEP = 12.0;
 // so famine walls march straight up and over steep green hills and ridges,
 // stopping only at sheer rock cliff faces.
 const STONE_WALL_MAX_SLOPE = 0.88;
-const _wallZone = {active: false, farmWall: false, upland: false};
+const _wallZone = {active: false, farmWall: false, upland: false, snowy: false};
 const _routePt = {x: 0, z: 0};
 let _cachedWallRoutesSeed = null;
 let _cachedWallRoutes = null;
@@ -831,9 +831,12 @@ export function stoneWallZoneAt(wx, wz, simplex, elevParams, out = _wallZone) {
   out.active = false;
   out.farmWall = false;
   out.upland = false;
+  out.snowy = false;
   const waterLevel = (elevParams && elevParams.WATER_LEVEL) || 25;
   const mountainLevel = (elevParams && elevParams.MOUNTAIN_LEVEL) || 400;
   if (ChillFlightLogic.alienAt(wx, wz, simplex) > ALIEN_PROPS_AT) return out;
+  // Stop south of the polar pack-ice coast and arctic frozen lakes (4.0 North)
+  if (wz < -20000) return out;
   // Clear of the Twin Falls sightline and spawn valley
   if (Math.abs(wx) < 480 && wz > -1750 && wz < -120) return out;
 
@@ -843,7 +846,6 @@ export function stoneWallZoneAt(wx, wz, simplex, elevParams, out = _wallZone) {
     wz,
     noisePath * 0.05 + biomeNoise + ChillFlightLogic.snowWobble(wx, wz, simplex)
   );
-  if (snowFactor >= 0.25) return out;
 
   const southInfluence =
     Math.max(0, wz / 5000) + ChillFlightLogic.desertShift(wx, wz, simplex);
@@ -862,15 +864,27 @@ export function stoneWallZoneAt(wx, wz, simplex, elevParams, out = _wallZone) {
     Math.max(0, Math.min(1, (wx + 2000) / 2000)) * (1 - swampFactor);
   const sandMax =
     waterLevel + (2 + eastCoastFactor * 10) * (1 - 0.85 * swampFactor);
-  // Climb right up over open treeless green-brown hills and mountain ridges
+  // Climb right up over open treeless hills, snowy valleys, and mountain ridges
   if (h <= sandMax + 3.5 || h >= mountainLevel + 240) return out;
 
+  const alpine = Math.max(0, Math.min(1, (-wz / 5000 - 0.3) / 0.7));
+  const snowline =
+    1150 -
+    400 * alpine +
+    (waterLevel + 10 - 750) * snowFactor +
+    simplex.noise2D(wx * 0.002 + 17, wz * 0.002 - 23) * 90;
+  const frostJitter = simplex.noise2D(wx * 0.008 + 19, wz * 0.008 - 41) * 0.06;
+
   const villageNoise = simplex.noise2D(wx * 0.0011 + 71.3, wz * 0.0011 - 29.7);
-  const farmEst = Math.max(0, Math.min(1, (villageNoise + 0.05) / 0.2));
+  const farmEst =
+    snowFactor < 0.3
+      ? Math.max(0, Math.min(1, (villageNoise + 0.05) / 0.2))
+      : 0;
 
   out.active = true;
   out.farmWall = farmEst > 0.3;
   out.upland = !out.farmWall;
+  out.snowy = snowFactor + frostJitter >= 0.48 || h > snowline + 35;
   return out;
 }
 
@@ -968,7 +982,73 @@ export function getFamineWallRoutes(simplex) {
             cz: join.z,
             cos: Math.cos(spurAngle),
             sin: Math.sin(spurAngle),
-            uMin: 1.5,
+            uMin: 0,
+            uMax: spurLen,
+            p1: p1 + 113.7,
+            p2: p2 - 79.3,
+            isSpur: true,
+          })
+        );
+      }
+    }
+  }
+
+  // Two sparser northern snow-country rows (-19.8..-11.5 km Z / 3.96..2.30 North)
+  // so ancient lightly snow-covered slate walls wind across snowy spruce hills
+  // and wind-scoured tundra without crowding the open snowfields.
+  const northCellH = 4150;
+  for (let nrz = 0; nrz < 2; nrz++) {
+    for (let rx = 0; rx < cols; rx++) {
+      if (fieldHash(rx, nrz + 10, 2903 + seedSalt) >= 0.56) continue;
+      const cx =
+        xStart +
+        (rx + 0.2 + fieldHash(rx, nrz + 10, 2909 + seedSalt) * 0.6) * cellW;
+      const cz =
+        -19800 +
+        (nrz + 0.2 + fieldHash(rx, nrz + 10, 2917 + seedSalt) * 0.6) *
+          northCellH;
+      const angle = fieldHash(rx, nrz + 10, 2927 + seedSalt) * Math.PI;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const uMin = -(4200 + fieldHash(rx, nrz + 10, 2939 + seedSalt) * 3800);
+      const uMax = 4200 + fieldHash(rx, nrz + 10, 2953 + seedSalt) * 3800;
+      const p1 = (id + 1) * 37.17 + (seedSalt % 97) * 0.31;
+      const p2 = (id + 1) * 53.91 - (seedSalt % 89) * 0.27;
+      const primary = buildRouteBounds({
+        id: id++,
+        cx,
+        cz,
+        cos,
+        sin,
+        uMin,
+        uMax,
+        p1,
+        p2,
+        isSpur: false,
+      });
+      routes.push(primary);
+
+      if (fieldHash(rx, nrz + 10, 2963 + seedSalt) < 0.45) {
+        const uJoin =
+          uMin * 0.4 +
+          fieldHash(rx, nrz + 10, 2969 + seedSalt) * (uMax - uMin) * 0.4;
+        const join = sampleFamineRoutePoint(primary, uJoin, simplex, {
+          x: 0,
+          z: 0,
+        });
+        const side = fieldHash(rx, nrz + 10, 2971 + seedSalt) < 0.5 ? -1 : 1;
+        const spurAngle =
+          angle +
+          side * (1.2 + fieldHash(rx, nrz + 10, 2999 + seedSalt) * 0.65);
+        const spurLen = 2600 + fieldHash(rx, nrz + 10, 3001 + seedSalt) * 2600;
+        routes.push(
+          buildRouteBounds({
+            id: id++,
+            cx: join.x,
+            cz: join.z,
+            cos: Math.cos(spurAngle),
+            sin: Math.sin(spurAngle),
+            uMin: 0,
             uMax: spurLen,
             p1: p1 + 113.7,
             p2: p2 - 79.3,
@@ -1131,6 +1211,7 @@ function collectChunkStoneWalls({
                 y1: y1 + crestLift,
                 z1: p1.z,
                 decay,
+                snowy: zone.snowy,
                 isGatePier: k === gateK - 1 || k === gateK + 1,
               };
             }
@@ -1166,7 +1247,7 @@ function collectChunkStoneWalls({
               !(r.isSpur && j === runStart && b.k <= 2) &&
               distFromEnd <= 1;
 
-            let type = 'stoneWall';
+            let type = b.snowy ? 'stoneWallSnow' : 'stoneWall';
             let sx = 1.0;
             let sy =
               0.9 + fieldHash(r.id * 31 + b.k, 17, 577 + seedSalt) * 0.18;
@@ -1175,8 +1256,8 @@ function collectChunkStoneWalls({
               sx = 1.1;
               sy = 1.15;
             } else if (b.decay >= 0.52 || (naturalTip && distFromEnd === 0)) {
-              // Crumbled, decrepit stretch with fallen boulders in the grass
-              type = 'stoneWallRuined';
+              // Crumbled, decrepit stretch with fallen boulders
+              type = b.snowy ? 'stoneWallSnowRuined' : 'stoneWallRuined';
               sx = 1.0 + fieldHash(r.id * 19 + b.k, 29, 601 + seedSalt) * 0.15;
               sy = 0.82 + fieldHash(r.id * 23 + b.k, 41, 607 + seedSalt) * 0.34;
             } else if (b.decay >= 0.36 || (naturalTip && distFromEnd === 1)) {
@@ -7085,9 +7166,12 @@ export function generateChunkData({
         birchTreePositions,
         broadleafOakTreePositions,
         oakTreePositions,
+        snowTreePositions,
         ...fruitTreeLists,
         bushPositions,
         rockPositions,
+        snowRockPositions,
+        snowmanPositions,
       ].forEach(clearWallLine);
     }
     // A house's chimney smoke sits on the same spot, so goes with it

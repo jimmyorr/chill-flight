@@ -101,7 +101,7 @@ for (let cx = -2; cx <= 2; cx++) {
       if (b.kinds[i] === BREAKABLE.HOUSE) {
         if (types[0] === 'houseBody' || types[0] === 'twoStoryBody') houses++;
         else if (
-          /^(rock|snowRock|desertRock|granite|stoneWall|stoneWallRuined)$/.test(
+          /^(rock|snowRock|desertRock|granite|stoneWall|stoneWallRuined|stoneWallSnow|stoneWallSnowRuined)$/.test(
             types[0]
           )
         )
@@ -110,7 +110,7 @@ for (let cx = -2; cx <= 2; cx++) {
         // Walls that fold down first, and a roof (or sails) to throw off; a
         // castle ruin has none, and a boulder or dry-stone wall bay is one stone part
         const boulder =
-          /^(rock|snowRock|desertRock|granite|stoneWall|stoneWallRuined)$/.test(
+          /^(rock|snowRock|desertRock|granite|stoneWall|stoneWallRuined|stoneWallSnow|stoneWallSnowRuined)$/.test(
             types[0]
           );
         if (
