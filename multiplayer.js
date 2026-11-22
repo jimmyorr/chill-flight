@@ -918,6 +918,17 @@ function setTag(next) {
     } else toast(t('{name} is it', {name: nameOf(tag.it)}));
   }
   refreshTag();
+  // A pursuit starting, or this player just going on the run: full
+  // throttle, or the cops (at their top speed) bust a cruising runner the
+  // moment the head start's over
+  if (
+    room &&
+    tag.it &&
+    tag.mode === 'pursuit' &&
+    (starting || (tag.it === room.id && was !== room.id))
+  ) {
+    state.targetFlightSpeed = getMaxFlightSpeedMult();
+  }
   if (gatherToId && !state.isIntroTransitionActive) gatherForTag();
 }
 
