@@ -340,6 +340,19 @@ terrainMaterial.onBeforeCompile = (shader) => {
     FOG_SKY_FRAGMENT_GLSL +
     shader.fragmentShader;
 
+  // The sea floor under shallow see-through water shows the sun's shadows
+  // through the water, which takes the same shadows on its surface: a plane
+  // over the shallows cast two copies, one on the water and one on the floor,
+  // offset by the depth. The floor's fade out by 2.5 units under the surface
+  // (the water's own copy stays)
+  shader.fragmentShader = shader.fragmentShader.replace(
+    '#include <lights_fragment_begin>',
+    THREE.ShaderChunk.lights_fragment_begin.replace(
+      'directLight.color *= ( directLight.visible && receiveShadow ) ? getShadow( directionalShadowMap[ i ], directionalLightShadow.shadowMapSize, directionalLightShadow.shadowIntensity, directionalLightShadow.shadowBias, directionalLightShadow.shadowRadius, vDirectionalShadowCoord[ i ] ) : 1.0;',
+      `directLight.color *= ( directLight.visible && receiveShadow ) ? mix( 1.0, getShadow( directionalShadowMap[ i ], directionalLightShadow.shadowMapSize, directionalLightShadow.shadowIntensity, directionalLightShadow.shadowBias, directionalLightShadow.shadowRadius, vDirectionalShadowCoord[ i ] ), 1.0 - smoothstep( 0.3, 2.5, ${WATER_LEVEL.toFixed(1)} - vWorldPosition.y ) ) : 1.0;`
+    )
+  );
+
   // Near-white terrain (snow, ice) is dimmed in bright light so its shading
   // stays visible instead of clipping to flat white (#74).
   shader.fragmentShader = shader.fragmentShader.replace(
