@@ -88,6 +88,11 @@ export const CHASE_SPEED = 0.93;
 export const PURSUIT_CHASE_SPEED = 0.985;
 export const RUN_SPEED = 0.88;
 export const PURSUIT_RUN_SPEED = 0.96;
+// The same in a buggy pursuit: a player's buggy rarely holds top speed over
+// rough ground and turns far wider at speed, so bot cops stay a bit under
+// it (with the cop boost) and a bot runner can be run down
+export const PURSUIT_DRIVE_CHASE_SPEED = 0.88;
+export const PURSUIT_DRIVE_RUN_SPEED = 0.86;
 // Other bots count as this many times further off when picking who to
 // chase, so bots go after people
 const BOT_TARGET_WEIGHT = 3;
@@ -255,6 +260,8 @@ function steer(bot, ctx, dt, heading, maxTurn) {
   if (ctx.driving) {
     heading = driveHeading(bot, ctx, heading);
     maxTurn = Math.min(maxTurn, DRIVE.TURN);
+    // In pursuit, no tighter than a player's buggy turns at this speed
+    if (ctx.tag?.pursuit) maxTurn = Math.min(maxTurn, driveYawLimit(bot.speed));
   }
   const err = wrapAngle(heading - bot.heading);
   const rate = clamp(err * 1.5, -maxTurn, maxTurn);
@@ -263,6 +270,14 @@ function steer(bot, ctx, dt, heading, maxTurn) {
     ? clamp(rate * 0.08, -0.1, 0.1)
     : clamp(rate * 0.9, -MAX_BANK, MAX_BANK);
   bot.bank += (bank - bot.bank) * Math.min(1, dt * 3);
+}
+
+// The fastest a player's buggy turns at `speed` (rad/s): its yaw-rate and
+// cornering-grip caps, never wider than its widest turn
+// (ChillFlightLogic.BUGGY_DRIVE MAX_YAW_RATE, MAX_CORNERING, MAX_TURN_RADIUS)
+export function driveYawLimit(speed) {
+  const v = Math.max(1, Math.abs(speed));
+  return Math.max(Math.min(1.15, 115 / v), v / 500);
 }
 
 // Moves the bot along at speed `speed`: flying, climbing toward height `y`
@@ -546,7 +561,11 @@ function stepChaser(bot, dt, ctx) {
     headingToward(bot.x, bot.z, bot.aim.x, bot.aim.z),
     CHASE_TURN
   );
-  const chaseMult = ctx.tag.pursuit ? PURSUIT_CHASE_SPEED : CHASE_SPEED;
+  const chaseMult = ctx.tag.pursuit
+    ? ctx.driving
+      ? PURSUIT_DRIVE_CHASE_SPEED
+      : PURSUIT_CHASE_SPEED
+    : CHASE_SPEED;
   move(bot, dt, ctx, bot.aim.y, ctx.topSpeed * chaseMult, CHASE_CLEARANCE);
 }
 
@@ -592,7 +611,13 @@ function stepRunner(bot, dt, ctx) {
     const ground = Math.max(ctx.elevationAt(bot.x, bot.z), ctx.waterLevel);
     const speed =
       ctx.topSpeed *
-      (dawdling ? 0.62 : pursuit ? PURSUIT_RUN_SPEED : RUN_SPEED);
+      (dawdling
+        ? 0.62
+        : pursuit
+          ? ctx.driving
+            ? PURSUIT_DRIVE_RUN_SPEED
+            : PURSUIT_RUN_SPEED
+          : RUN_SPEED);
     move(bot, dt, ctx, ground + DUCK_CLEARANCE, speed, DUCK_CLEARANCE);
     return;
   }

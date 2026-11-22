@@ -28,6 +28,7 @@ import {
   ORBIT_RADIUS,
   REJOIN_DISTANCE,
   newBot,
+  driveYawLimit,
   pursuitSpot,
   rejoin,
   stepBot,
@@ -569,6 +570,13 @@ const driving = (surface, leader, tag = null, topSpeed = 240) => ({
     'a human cop can catch a weaving bot fugitive in pursuit',
     bustedAt !== null && bustedAt < 45,
     bustedAt === null ? 'not caught in 60 s' : `(${bustedAt.toFixed(1)} s)`
+  );
+
+  check(
+    "a bot buggy in pursuit turns no tighter than a player's buggy",
+    Math.abs(driveYawLimit(300) - 0.6) < 1e-9 &&
+      Math.abs(driveYawLimit(240) - 0.48) < 1e-9 &&
+      driveYawLimit(40) === 1.15
   );
 }
 
