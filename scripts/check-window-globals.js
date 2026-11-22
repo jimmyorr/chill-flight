@@ -27,6 +27,7 @@ const ALLOWED = new Set([
   '__APP_VERSION__', // injected by vite.config.js
   '__COMMIT_HASH__',
   '__IS_DIRTY__',
+  '__IS_DEV__',
   '__TAURI__', // desktop (Tauri) runtime
   'Capacitor', // native (Capacitor) runtime
   'DEBUG', // set by hand in devtools to enable log.info

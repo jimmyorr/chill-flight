@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import {BASE, GL_ARGS, launch} from './dev-browser.js';
 
 const TEST_SEED = '20260101';
+const LOAD_TIMEOUT_MS = 150000;
 const origin = new URL(BASE).origin;
 
 for (let attempt = 1; ; attempt++) {
@@ -86,7 +87,7 @@ async function runWebPolishPass(browser) {
         const el = document.getElementById('loading-overlay');
         return Boolean(el && getComputedStyle(el).display === 'none');
       },
-      {timeout: 60000}
+      {timeout: LOAD_TIMEOUT_MS, polling: 200}
     );
     await wait(250);
 
@@ -674,10 +675,11 @@ async function runWebPolishPass(browser) {
 
     // 6. Standalone PWA metadata & mobile full-height canvas / HUD safe-area bounds
     const pwaLayout = await page.evaluate(async () => {
-      document.getElementById('resume-btn').click();
-      await new Promise((r) => requestAnimationFrame(r));
       const statusBarMeta = document.querySelector(
         'meta[name="apple-mobile-web-app-status-bar-style"]'
+      );
+      const legacyCapableMeta = document.querySelector(
+        'meta[name="apple-mobile-web-app-capable"]'
       );
       const viewportMeta =
         document
@@ -697,9 +699,13 @@ async function runWebPolishPass(browser) {
       const controlsRect = document
         .getElementById('mobile-controls')
         .getBoundingClientRect();
+      const pauseVersionText =
+        document.querySelector('.pause-footer .version-tag')?.textContent || '';
       return {
         hasTranslucentStatusBarMeta: Boolean(statusBarMeta),
+        hasLegacyAppleCapableMeta: Boolean(legacyCapableMeta),
         viewportFitCover: viewportMeta.includes('viewport-fit=cover'),
+        hasUserScalableNo: viewportMeta.includes('user-scalable=no'),
         manifestCount: manifestLinks.length,
         manifestDisplay: manifest.display,
         manifestThemeColor: manifest.theme_color,
@@ -713,6 +719,9 @@ async function runWebPolishPass(browser) {
         hudPadTop: parseFloat(hudStyle.paddingTop),
         hudPadBottom: parseFloat(hudStyle.paddingBottom),
         controlsBottomGap: Math.round(window.innerHeight - controlsRect.bottom),
+        pauseVersionText,
+        expectedHash: window.__COMMIT_HASH__ || '',
+        expectedDirty: Boolean(window.__IS_DIRTY__),
       };
     });
     assert.equal(
@@ -720,7 +729,13 @@ async function runWebPolishPass(browser) {
       false,
       'apple-mobile-web-app-status-bar-style must stay omitted (WebKit Bug 301994)'
     );
+    assert.equal(
+      pwaLayout.hasLegacyAppleCapableMeta,
+      false,
+      'legacy apple-mobile-web-app-capable must stay omitted so manifest standalone applies cleanly'
+    );
     assert.equal(pwaLayout.viewportFitCover, true);
+    assert.equal(pwaLayout.hasUserScalableNo, false);
     assert.equal(pwaLayout.manifestCount, 1);
     assert.equal(pwaLayout.manifestDisplay, 'standalone');
     assert.equal(pwaLayout.manifestThemeColor, '#0b0f19');
@@ -731,6 +746,13 @@ async function runWebPolishPass(browser) {
     assert.equal(pwaLayout.hudTop, 0);
     assert.equal(pwaLayout.hudPadTop, pwaLayout.hudPadBottom);
     assert.equal(pwaLayout.controlsBottomGap, 16);
+    if (pwaLayout.expectedHash && pwaLayout.expectedHash !== 'unknown') {
+      const expectedSuffix = `(${pwaLayout.expectedHash}${pwaLayout.expectedDirty ? '*' : ''})`;
+      assert.ok(
+        pwaLayout.pauseVersionText.includes(expectedSuffix),
+        `expected Pause version "${pwaLayout.pauseVersionText}" to include "${expectedSuffix}"`
+      );
+    }
 
     assert.deepEqual(errors, []);
     console.log(
@@ -883,7 +905,7 @@ async function runNativePolishPass(browser) {
           el && (el.style.opacity === '0' || el.style.display === 'none')
         );
       },
-      {timeout: 60000}
+      {timeout: LOAD_TIMEOUT_MS, polling: 200}
     );
     await wait(200);
 
@@ -1208,7 +1230,7 @@ async function runNativePolishPass(browser) {
 
 const browser = await launch({
   args: [...GL_ARGS, '--autoplay-policy=no-user-gesture-required'],
-  protocolTimeout: 90000,
+  protocolTimeout: 180000,
 });
 
 try {

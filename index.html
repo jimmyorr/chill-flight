@@ -4,9 +4,9 @@
     <meta charset="UTF-8" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Chill Flight" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#0b0f19" />
     <title>Chill Flight</title>
@@ -1333,7 +1333,16 @@
             if (!el) return;
             const v = el.querySelector('.version-tag');
             if (v && window.__APP_VERSION__) {
-              v.textContent = 'v' + window.__APP_VERSION__;
+              const hash = window.__COMMIT_HASH__ || '';
+              const dirty = window.__IS_DIRTY__ ? '*' : '';
+              const showCommit =
+                window.__APP_VERSION__.includes('-preview') ||
+                Boolean(window.__IS_DEV__) ||
+                Boolean(window.__IS_DIRTY__);
+              v.textContent =
+                showCommit && hash && hash !== 'unknown'
+                  ? `v${window.__APP_VERSION__} (${hash}${dirty})`
+                  : `v${window.__APP_VERSION__}${dirty}`;
             }
             const p = new URLSearchParams(location.search);
             const d = new Date();
@@ -2793,10 +2802,18 @@
         typeof window.__IS_DIRTY__ !== 'undefined'
           ? !!window.__IS_DIRTY__
           : typeof __IS_DIRTY__ !== 'undefined' && __IS_DIRTY__;
+      const isDev =
+        (typeof window !== 'undefined' && Boolean(window.__IS_DEV__)) ||
+        Boolean(import.meta.env?.DEV);
       const dirty = isDirty ? '*' : '';
+      const showCommit = appVersion.includes('-preview') || isDev || isDirty;
+      const versionText =
+        showCommit && commitHash && commitHash !== 'unknown'
+          ? `v${appVersion} (${commitHash}${dirty})`
+          : `v${appVersion}${dirty}`;
 
       document.querySelectorAll('.version-tag').forEach((el) => {
-        el.textContent = 'v' + appVersion;
+        el.textContent = versionText;
       });
 
       // Set version info in debug telemetry

@@ -6,7 +6,7 @@ import {execSync} from 'child_process';
 function getGitInfo(isBuild = false, isPreview = false) {
   let commitHash = 'unknown';
   try {
-    commitHash = execSync('git rev-parse --short HEAD').toString().trim();
+    commitHash = execSync('git rev-parse --short=7 HEAD').toString().trim();
   } catch {
     // fallback if git is unavailable
   }
@@ -145,7 +145,7 @@ export default defineConfig({
           return [
             {
               tag: 'script',
-              children: `window.__APP_VERSION__ = ${JSON.stringify(version)};\nwindow.__COMMIT_HASH__ = ${JSON.stringify(commitHash)};\nwindow.__IS_DIRTY__ = ${JSON.stringify(isDirty)};`,
+              children: `window.__APP_VERSION__ = ${JSON.stringify(version)};\nwindow.__COMMIT_HASH__ = ${JSON.stringify(commitHash)};\nwindow.__IS_DIRTY__ = ${JSON.stringify(isDirty)};\nwindow.__IS_DEV__ = ${JSON.stringify(!isBuild)};`,
               injectTo: 'head-prepend',
             },
           ];
