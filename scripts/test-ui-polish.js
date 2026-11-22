@@ -672,9 +672,69 @@ async function runWebPolishPass(browser) {
     );
     assert.equal(reducedMotion.pressedScale, '1');
 
+    // 6. Standalone PWA metadata & mobile full-height canvas / HUD safe-area bounds
+    const pwaLayout = await page.evaluate(async () => {
+      document.getElementById('resume-btn').click();
+      await new Promise((r) => requestAnimationFrame(r));
+      const statusBarMeta = document.querySelector(
+        'meta[name="apple-mobile-web-app-status-bar-style"]'
+      );
+      const viewportMeta =
+        document
+          .querySelector('meta[name="viewport"]')
+          ?.getAttribute('content') || '';
+      const manifestLinks = document.querySelectorAll('link[rel="manifest"]');
+      const manifestRes = await fetch(
+        manifestLinks[0]?.href || 'manifest.json'
+      );
+      const manifest = await manifestRes.json();
+      const canvasRect = document
+        .querySelector('body > canvas')
+        .getBoundingClientRect();
+      const hudEl = document.getElementById('cockpit-ui');
+      const hudRect = hudEl.getBoundingClientRect();
+      const hudStyle = getComputedStyle(hudEl);
+      const controlsRect = document
+        .getElementById('mobile-controls')
+        .getBoundingClientRect();
+      return {
+        hasTranslucentStatusBarMeta: Boolean(statusBarMeta),
+        viewportFitCover: viewportMeta.includes('viewport-fit=cover'),
+        manifestCount: manifestLinks.length,
+        manifestDisplay: manifest.display,
+        manifestThemeColor: manifest.theme_color,
+        manifestBgColor: manifest.background_color,
+        vw: window.innerWidth,
+        vh: window.innerHeight,
+        canvasTop: canvasRect.top,
+        canvasBottom: canvasRect.bottom,
+        canvasWidth: canvasRect.width,
+        hudTop: hudRect.top,
+        hudPadTop: parseFloat(hudStyle.paddingTop),
+        hudPadBottom: parseFloat(hudStyle.paddingBottom),
+        controlsBottomGap: Math.round(window.innerHeight - controlsRect.bottom),
+      };
+    });
+    assert.equal(
+      pwaLayout.hasTranslucentStatusBarMeta,
+      false,
+      'apple-mobile-web-app-status-bar-style must stay omitted (WebKit Bug 301994)'
+    );
+    assert.equal(pwaLayout.viewportFitCover, true);
+    assert.equal(pwaLayout.manifestCount, 1);
+    assert.equal(pwaLayout.manifestDisplay, 'standalone');
+    assert.equal(pwaLayout.manifestThemeColor, '#0b0f19');
+    assert.equal(pwaLayout.manifestBgColor, '#0b0f19');
+    assert.equal(pwaLayout.canvasTop, 0);
+    assert.equal(pwaLayout.canvasBottom, pwaLayout.vh);
+    assert.equal(pwaLayout.canvasWidth, pwaLayout.vw);
+    assert.equal(pwaLayout.hudTop, 0);
+    assert.equal(pwaLayout.hudPadTop, pwaLayout.hudPadBottom);
+    assert.equal(pwaLayout.controlsBottomGap, 16);
+
     assert.deepEqual(errors, []);
     console.log(
-      '  ui-polish (web): contrast, viewports, fixed-height tabs, sheets, ARIA, reduced motion ok'
+      '  ui-polish (web): contrast, viewports, fixed-height tabs, sheets, ARIA, PWA layout ok'
     );
   } finally {
     await context.close();

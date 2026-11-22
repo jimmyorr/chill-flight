@@ -17,7 +17,7 @@ import {mapColor} from './map-palette.js';
 import {MapTiles, MAX_LEVEL, TILE_PX} from './map-tiles.js';
 import {updateChunks} from './terrain-chunks.js';
 import {cameraDolly} from './game-input-bindings.js';
-import {camera, getViewportSize} from './sky.js';
+import {camera} from './sky.js';
 import {syncCameraAfterTeleport} from './flight-camera.js';
 import {
   _currentLookTarget,
@@ -296,8 +296,8 @@ import {uiImpactHaptic} from './haptics.js';
       }
       if (active === fsCanvas && (e.key === 'Enter' || e.key === ' ')) {
         e.preventDefault();
-        const {width: vpW, height: vpH} = getViewportSize();
-        const unitsPerPixel = (fsViewRadius * 2) / Math.min(vpW, vpH);
+        const minDim = Math.min(window.innerWidth, window.innerHeight);
+        const unitsPerPixel = (fsViewRadius * 2) / minDim;
         const place = nearestLandmark(
           fsViewCenterX,
           fsViewCenterZ,
@@ -637,7 +637,8 @@ import {uiImpactHaptic} from './haptics.js';
   function resizeFsCanvas() {
     if (!fsCanvas) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const {width: w, height: h} = getViewportSize();
+    const w = window.innerWidth;
+    const h = window.innerHeight;
     if (
       fsCanvas.width !== Math.round(w * dpr) ||
       fsCanvas.height !== Math.round(h * dpr)
@@ -751,7 +752,8 @@ import {uiImpactHaptic} from './haptics.js';
       resizeFsCanvas();
     }
     if (fsVisible || !planeGroup) return;
-    const {width: screenW, height: screenH} = getViewportSize();
+    const screenW = window.innerWidth;
+    const screenH = window.innerHeight;
     const upp = (fsViewRadius * 2) / Math.min(screenW, screenH);
     const cx = planeGroup.position.x;
     const cz = planeGroup.position.z;
@@ -1135,7 +1137,8 @@ import {uiImpactHaptic} from './haptics.js';
 
     resizeFsCanvas();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const {width: screenW, height: screenH} = getViewportSize();
+    const screenW = window.innerWidth;
+    const screenH = window.innerHeight;
 
     fsCtx.save();
     fsCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1582,7 +1585,8 @@ import {uiImpactHaptic} from './haptics.js';
       if (!activePointers.has(e.pointerId)) return;
       activePointers.set(e.pointerId, {x: e.clientX, y: e.clientY});
 
-      const {width: screenW, height: screenH} = getViewportSize();
+      const screenW = window.innerWidth;
+      const screenH = window.innerHeight;
       const minDim = Math.min(screenW, screenH);
       const worldUnitsPerPixel = (fsViewRadius * 2) / minDim;
 
@@ -1656,7 +1660,8 @@ import {uiImpactHaptic} from './haptics.js';
             tapStart.slop &&
           performance.now() - tapStart.t < TAP_TIME
         ) {
-          const {width: vpW, height: vpH} = getViewportSize();
+          const vpW = window.innerWidth;
+          const vpH = window.innerHeight;
           const minDim = Math.min(vpW, vpH);
           const unitsPerPixel = (fsViewRadius * 2) / minDim;
           const x = fsViewCenterX + (e.clientX - vpW / 2) * unitsPerPixel;
@@ -1696,7 +1701,8 @@ import {uiImpactHaptic} from './haptics.js';
     // Double-click/tap zoom in
     fsCanvas.addEventListener('dblclick', (e) => {
       e.preventDefault();
-      const {width: screenW, height: screenH} = getViewportSize();
+      const screenW = window.innerWidth;
+      const screenH = window.innerHeight;
       const minDim = Math.min(screenW, screenH);
       const worldUnitsPerPixel = (fsViewRadius * 2) / minDim;
 

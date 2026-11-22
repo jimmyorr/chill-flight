@@ -283,29 +283,14 @@ const skyMat = new THREE.ShaderMaterial({
 
 scene.fog.color.set(selectedPalette.bottom);
 
-let _vpWidth = typeof window !== 'undefined' ? window.innerWidth || 1 : 1;
-let _vpHeight = typeof window !== 'undefined' ? window.innerHeight || 1 : 1;
+const _initialWidth =
+  typeof window !== 'undefined' ? window.innerWidth || 1 : 1;
+const _initialHeight =
+  typeof window !== 'undefined' ? window.innerHeight || 1 : 1;
 
-export function measureViewportSize() {
-  if (typeof window === 'undefined')
-    return {width: _vpWidth, height: _vpHeight};
-  const probe =
-    typeof document !== 'undefined'
-      ? document.getElementById('ui-layer')
-      : null;
-  _vpWidth = Math.max(window.innerWidth || 0, probe?.clientWidth || 0) || 1;
-  _vpHeight = Math.max(window.innerHeight || 0, probe?.clientHeight || 0) || 1;
-  return {width: _vpWidth, height: _vpHeight};
-}
-
-export function getViewportSize() {
-  return {width: _vpWidth, height: _vpHeight};
-}
-
-const _initialViewport = measureViewportSize();
 export const camera = new THREE.PerspectiveCamera(
   60,
-  _initialViewport.width / _initialViewport.height,
+  _initialWidth / _initialHeight,
   1,
   30000
 );
@@ -413,7 +398,7 @@ if (renderer) {
   // behavior so the established art direction is preserved.
   THREE.ColorManagement.enabled = false;
   renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
-  renderer.setSize(_initialViewport.width, _initialViewport.height);
+  renderer.setSize(_initialWidth, _initialHeight);
   renderer.setPixelRatio(
     _isLowQuality ? 1 : Math.min(window.devicePixelRatio, 2)
   );

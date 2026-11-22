@@ -198,6 +198,7 @@ body {
   padding: 0;
   width: 100%;
   height: 100%;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -258,12 +259,11 @@ html:lang(ko) body {
 body > canvas {
   display: block;
   position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
   background-color: #0b0f19;
-  /* Pin to all four edges to force full-bleed on iOS PWA */
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
   z-index: 1;
 }
 
@@ -348,11 +348,11 @@ textarea {
   justify-content: center;
   align-items: center;
   padding: calc(
-      var(--vv-offset-top, 0px) + max(12px, env(safe-area-inset-top, 12px))
+      var(--vv-offset-top, 0px) + max(12px, env(safe-area-inset-top, 0px))
     )
-    max(12px, env(safe-area-inset-right, 12px))
-    calc(var(--kb-inset, 0px) + max(12px, env(safe-area-inset-bottom, 12px)))
-    max(12px, env(safe-area-inset-left, 12px));
+    max(12px, env(safe-area-inset-right, 0px))
+    calc(var(--kb-inset, 0px) + max(12px, env(safe-area-inset-bottom, 0px)))
+    max(12px, env(safe-area-inset-left, 0px));
   box-sizing: border-box;
   color: var(--text-primary);
   z-index: 500;
@@ -1099,7 +1099,7 @@ input[type='number'].customization-input {
 }
 
 .hud-vr-btn {
-  position: absolute;
+  position: fixed;
   top: max(20px, env(safe-area-inset-top, 0px));
   right: max(24px, env(safe-area-inset-right, 0px));
   z-index: 150;
@@ -1149,9 +1149,9 @@ input[type='number'].customization-input {
 }
 
 #cockpit-ui {
-  position: absolute;
+  position: fixed;
   top: 20px;
-  top: max(20px, env(safe-area-inset-top));
+  top: max(20px, env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
   background: linear-gradient(135deg, var(--hud-bg-a), var(--hud-bg-b));
@@ -2273,9 +2273,8 @@ input[type='number'].customization-input {
   }
 
   #cockpit-ui {
-    position: fixed;
     top: 0;
-    padding-top: max(6px, calc(env(safe-area-inset-top, 0px) + 6px));
+    padding-top: calc(env(safe-area-inset-top, 0px) + 5px);
     bottom: auto;
     left: 0;
     transform: none;
@@ -2289,14 +2288,13 @@ input[type='number'].customization-input {
   }
 
   .hud-vr-btn {
-    position: fixed;
     top: calc(env(safe-area-inset-top, 0px) + 94px);
     right: max(12px, env(safe-area-inset-right, 0px));
   }
 
   @media (max-width: 500px) {
     #cockpit-ui {
-      padding-top: max(5px, calc(env(safe-area-inset-top, 0px) + 6px));
+      padding-top: calc(env(safe-area-inset-top, 0px) + 4px);
       padding-right: max(8px, env(safe-area-inset-right, 0px));
       padding-bottom: 4px;
       padding-left: max(8px, env(safe-area-inset-left, 0px));
@@ -2626,7 +2624,7 @@ input[type='number'].customization-input {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding-top: max(env(safe-area-inset-top, 12px), 12px);
+  padding-top: max(12px, env(safe-area-inset-top, 0px));
   pointer-events: none;
 }
 
@@ -2734,10 +2732,10 @@ input[type='number'].customization-input {
   display: none;
   flex-direction: column;
   align-items: center;
-  padding: max(12px, env(safe-area-inset-top, 12px))
-    max(12px, env(safe-area-inset-right, 12px))
-    max(12px, env(safe-area-inset-bottom, 12px))
-    max(12px, env(safe-area-inset-left, 12px));
+  padding: max(12px, env(safe-area-inset-top, 0px))
+    max(12px, env(safe-area-inset-right, 0px))
+    max(12px, env(safe-area-inset-bottom, 0px))
+    max(12px, env(safe-area-inset-left, 0px));
   box-sizing: border-box;
   color: var(--text-primary);
   z-index: 510;
@@ -5039,7 +5037,7 @@ body.ui-hidden > canvas {
   #cockpit-ui {
     padding: 4px max(12px, env(safe-area-inset-right, 0px)) 4px
       max(12px, env(safe-area-inset-left, 0px));
-    padding-top: max(4px, env(safe-area-inset-top, 0px));
+    padding-top: calc(env(safe-area-inset-top, 0px) + 4px);
   }
 
   .cockpit-grid {

@@ -7,7 +7,6 @@ import {
   camera,
   currentPaletteSeed,
   isCustomPalette,
-  measureViewportSize,
   nextSkyPalette,
   renderer,
   selectedPalette,
@@ -141,13 +140,13 @@ export const _cinematicLookTargetCurrent = new THREE.Vector3().copy(
 export const _cinematicStableMatrix = new THREE.Matrix4();
 export const _cinematicStableQuat = new THREE.Quaternion();
 
-const _initialSize = measureViewportSize();
-let _lastResizeW = _initialSize.width;
-let _lastResizeH = _initialSize.height;
+let _lastResizeW = typeof window !== 'undefined' ? window.innerWidth || 1 : 1;
+let _lastResizeH = typeof window !== 'undefined' ? window.innerHeight || 1 : 1;
 
 function onWindowResize() {
   if (!camera || !renderer) return;
-  const {width, height} = measureViewportSize();
+  const width = window.innerWidth || 1;
+  const height = window.innerHeight || 1;
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
   if (!renderer.xr || !renderer.xr.isPresenting) {
@@ -160,16 +159,6 @@ function onWindowResize() {
 }
 
 window.addEventListener('resize', onWindowResize);
-if (typeof ResizeObserver !== 'undefined') {
-  const _vpProbe = document.getElementById('ui-layer');
-  if (_vpProbe) new ResizeObserver(onWindowResize).observe(_vpProbe);
-}
-
-// Robustness: Force resize check after page load and at intervals to catch late-settling layout
-window.addEventListener('load', onWindowResize);
-setTimeout(onWindowResize, 100);
-setTimeout(onWindowResize, 500);
-setTimeout(onWindowResize, 2000); // Final check for very slow loading environments
 
 // --- EXPLOSIONS ---
 
