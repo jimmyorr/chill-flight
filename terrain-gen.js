@@ -1071,6 +1071,7 @@ function collectChunkStoneWalls({
   elevParams,
   housePositions,
   twoStoryHousePositions,
+  meshHeightAtLocal,
   out,
 }) {
   const minX = worldOffsetX - halfSize;
@@ -1269,17 +1270,33 @@ function collectChunkStoneWalls({
 
             const flip =
               fieldHash(r.id * 13 + b.k, 29, 613 + seedSalt) < 0.5 ? 1 : -1;
+            // Sit the bay on the drawn ground (the chunk's flat-shaded grid),
+            // not the smooth height underneath: on a crest the grid is lower
+            // than getElevation and the wall's dark core showed below the
+            // stones; in a hollow it sank
+            const lx0 = b.x0 - worldOffsetX;
+            const lz0 = b.z0 - worldOffsetZ;
+            const lx1 = b.x1 - worldOffsetX;
+            const lz1 = b.z1 - worldOffsetZ;
+            let gy0 = meshHeightAtLocal(lx0, lz0);
+            let gy1 = meshHeightAtLocal(lx1, lz1);
+            const gLift = Math.min(
+              0.85,
+              Math.max(0, meshHeightAtLocal(lx, lz) - (gy0 + gy1) * 0.5)
+            );
+            gy0 += gLift;
+            gy1 += gLift;
             out.push({
               type,
               x: lx,
-              y: (b.y0 + b.y1) * 0.5,
+              y: (gy0 + gy1) * 0.5,
               z: lz,
-              x0: b.x0 - worldOffsetX,
-              y0: b.y0,
-              z0: b.z0 - worldOffsetZ,
-              x1: b.x1 - worldOffsetX,
-              y1: b.y1,
-              z1: b.z1 - worldOffsetZ,
+              x0: lx0,
+              y0: gy0,
+              z0: lz0,
+              x1: lx1,
+              y1: gy1,
+              z1: lz1,
               sx,
               sy,
               flip,
@@ -6173,6 +6190,7 @@ export function generateChunkData({
       elevParams,
       housePositions,
       twoStoryHousePositions,
+      meshHeightAtLocal,
       out: stoneWallPositions,
     });
   }
