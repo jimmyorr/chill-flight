@@ -680,10 +680,13 @@ function stepBuggy(dt) {
       return 'barrier';
     }
     const s = sampleSurface(x, z, pos.y);
+    // Only a railing it can see holds it on the road: where the railings
+    // stop (a deck low enough over the ground under its middle) it can drive
+    // off the side, down an embankment's drop if there is one
     if (
       wasOnRoad &&
       s.kind !== 'road' &&
-      (railed || oldHeight - s.height > ROAD_STEP_UP) &&
+      railed &&
       // Off the end of a highway that stops short (one ending on a bridge
       // over the sea) it drives off and falls; only the sides hold it on
       Math.abs(across + (x - oldX) * normalX + (z - oldZ) * normalZ) > halfWidth
