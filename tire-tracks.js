@@ -63,6 +63,18 @@ const WHEELS = {
   biplane: {width: 0.6, half: 3.8, back: -4.6},
 };
 const DEFAULT_WHEELS = {width: 0.8, half: 2, back: 0};
+
+// The wheels for a vehicle, following a buggy model's own drawn axles (the
+// police cruiser's are wider apart than the buggy's)
+const _drawnWheels = {width: WHEELS.buggy.width, half: 0, back: 0, front: 0};
+function wheelsOf(type, model) {
+  const axles = model?.axles;
+  if (type !== 'buggy' || !axles) return WHEELS[type] ?? DEFAULT_WHEELS;
+  _drawnWheels.half = axles.halfTrack;
+  _drawnWheels.back = axles.rear;
+  _drawnWheels.front = axles.front;
+  return _drawnWheels;
+}
 // How long a tyre's patch on the ground is (units): sliding sideways, it
 // scuffs a swath that wide rather than its own width
 const PATCH_LENGTH = 1.6;
@@ -442,7 +454,7 @@ export function updateTireTracks(delta) {
   ) {
     for (const r of ribbons) r.valid = false;
   } else {
-    const spec = WHEELS[activePlaneType] ?? DEFAULT_WHEELS;
+    const spec = wheelsOf(activePlaneType, state.airplaneModel);
     const {x, z} = planeGroup.position;
     markNow(x, z, sinceTouchdown);
     const w = spec.width / 2;

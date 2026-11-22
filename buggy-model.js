@@ -820,6 +820,10 @@ export function createBuggyModel(opts = {}) {
   root.hoverArms = hoverArms;
   root.hoverPods = hoverPods;
   root.isBuggy = true;
+  // Where its wheels are drawn, for the tyre tracks (tire-tracks.js); the
+  // police cruiser's sit further out than the buggy's, though it drives on
+  // the buggy's (BUGGY_AXLES) so both handle the same
+  root.axles = {front: frontAxle, rear: rearAxle, halfTrack};
   root.isPolice = isPolice;
   if (isPolice) root.policeStrobeMats = collectPoliceStrobeMaterials(root);
   // Follow camera framing and bonnet/windshield first-person camera
