@@ -39,30 +39,33 @@ let lastChromeSignature = '';
 const listeners = new Set();
 const chromeListeners = new Set();
 
+// Ordered from topmost z-index down so stacked overlays (such as the dark
+// fullscreen map opened over the pause menu) resolve to whichever surface is
+// actually covering the top status-bar region.
 const CHROME_OVERLAY_IDS = [
   'loading-overlay',
+  'fullscreen-map-overlay',
+  'achievements-overlay',
+  'people-overlay',
+  'help-overlay',
+  'language-overlay',
+  'pause-overlay',
+];
+
+// In-flight (#cockpit-ui), splash (#loading-overlay), and the world map
+// (#fullscreen-map-overlay) stay dark in both themes; only the light menu and
+// sub-sheet overlays switch status-bar chrome to light.
+const LIGHT_CHROME_OVERLAYS = new Set([
   'pause-overlay',
   'achievements-overlay',
   'people-overlay',
   'help-overlay',
   'language-overlay',
-  'fullscreen-map-overlay',
-];
+]);
 
 function computeResolvedTheme(pref) {
   if (pref === 'light' || pref === 'dark') return pref;
   return mediaQuery?.matches ? 'light' : 'dark';
-}
-
-function isSplashCovering() {
-  if (typeof document === 'undefined') return false;
-  const overlay = document.getElementById('loading-overlay');
-  if (!overlay) return false;
-  return overlay.style.display !== 'none' && overlay.style.opacity !== '0';
-}
-
-export function getEffectiveChromeTheme() {
-  return resolvedTheme === 'light' && !isSplashCovering() ? 'light' : 'dark';
 }
 
 function getActiveOverlayKey() {
@@ -75,6 +78,13 @@ function getActiveOverlayKey() {
     if (cs.display !== 'none' && cs.visibility !== 'hidden') return id;
   }
   return 'none';
+}
+
+export function getEffectiveChromeTheme() {
+  return resolvedTheme === 'light' &&
+    LIGHT_CHROME_OVERLAYS.has(getActiveOverlayKey())
+    ? 'light'
+    : 'dark';
 }
 
 function syncThemeMeta(notifyChrome = false) {

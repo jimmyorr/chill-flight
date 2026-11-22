@@ -157,9 +157,40 @@ async function runWebPolishPass(browser) {
         const elevBg = blend(token('--surface-elevated'), cardBg);
         const accentSoftBg = blend(token('--accent-soft-bg'), elevBg);
         const dangerBg = blend(token('--danger-bg'), cardBg);
+        const hudIdleA = token('--hud-bg-idle-a');
+        const hudIdleB = token('--hud-bg-idle-b');
+        const hudIdleAlpha = (hudIdleA[3] + hudIdleB[3]) / 2;
+        const hudIdleGlass = [
+          (hudIdleA[0] + hudIdleB[0]) / 2,
+          (hudIdleA[1] + hudIdleB[1]) / 2,
+          (hudIdleA[2] + hudIdleB[2]) / 2,
+          hudIdleAlpha,
+        ];
+        const brightDaySky = [175, 218, 244, 1];
+        const hudDayPanel = blend(hudIdleGlass, brightDaySky);
+        const hudLabel = token('--hud-label-fg');
+        const hudIdleTextOpacity =
+          parseFloat(cs.getPropertyValue('--hud-idle-text-opacity')) || 1;
+        const hudIdleLabel = [
+          hudLabel[0],
+          hudLabel[1],
+          hudLabel[2],
+          hudLabel[3] * hudIdleTextOpacity,
+        ];
+        const cockpitGridShadow = getComputedStyle(
+          document.querySelector('.cockpit-grid')
+        ).textShadow;
 
         return {
           resolved: document.documentElement.dataset.theme,
+          hudIdleAlpha,
+          hudIdleLabelOnDaySky: contrast(
+            blend(hudIdleLabel, hudDayPanel),
+            hudDayPanel
+          ),
+          hasCockpitTextShadow: Boolean(
+            cockpitGridShadow && cockpitGridShadow !== 'none'
+          ),
           primaryOnCard: contrast(
             blend(token('--text-primary'), cardBg),
             cardBg
@@ -214,6 +245,15 @@ async function runWebPolishPass(browser) {
         ratios.borderOnCard >= 3.0,
         `[${theme}] --border-control contrast ${ratios.borderOnCard.toFixed(2)} < 3.0`
       );
+      assert.ok(
+        ratios.hudIdleAlpha >= 0.4 && ratios.hudIdleAlpha <= 0.65,
+        `[${theme}] idle HUD glass alpha ${ratios.hudIdleAlpha.toFixed(2)} outside translucent [0.40, 0.65] range`
+      );
+      assert.ok(
+        ratios.hudIdleLabelOnDaySky >= 2.4,
+        `[${theme}] idle HUD label daylight contrast ${ratios.hudIdleLabelOnDaySky.toFixed(2)} < 2.4`
+      );
+      assert.equal(ratios.hasCockpitTextShadow, true);
     }
 
     await page.evaluate(() =>
@@ -917,8 +957,8 @@ async function runNativePolishPass(browser) {
         .filter((c) => c.method === 'setStyle')
         .at(-1)?.options?.style,
     }));
-    assert.equal(postSplash.metaColor, '#f4f7fb');
-    assert.equal(postSplash.style, 'LIGHT');
+    assert.equal(postSplash.metaColor, '#0b0f19');
+    assert.equal(postSplash.style, 'DARK');
 
     // 2. Full LIFO Back stack + StatusBar theme toggle + UI notification/impact/selection haptics
     await page.evaluate(async () => {
@@ -944,6 +984,18 @@ async function runNativePolishPass(browser) {
         exitsBefore
       ) {
         throw new Error('Back in flight called exitApp');
+      }
+      await flush();
+      const pauseLightMeta = document
+        .querySelector('meta[name="theme-color"]')
+        ?.getAttribute('content');
+      const pauseLightStyle = window.__capCalls.statusBar
+        .filter((c) => c.method === 'setStyle')
+        .at(-1)?.options?.style;
+      if (pauseLightMeta !== '#f4f7fb' || pauseLightStyle !== 'LIGHT') {
+        throw new Error(
+          `Expected light chrome on Pause in Light Mode, got meta=${pauseLightMeta} style=${pauseLightStyle}`
+        );
       }
 
       document.querySelector('.pause-tab[data-tab="settings"]').click();

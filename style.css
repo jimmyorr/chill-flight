@@ -1,13 +1,13 @@
 @property --hud-bg-a {
   syntax: '<color>';
   inherits: true;
-  initial-value: rgba(18, 22, 32, 0.6);
+  initial-value: rgba(14, 18, 28, 0.66);
 }
 
 @property --hud-bg-b {
   syntax: '<color>';
   inherits: true;
-  initial-value: rgba(10, 14, 22, 0.68);
+  initial-value: rgba(10, 14, 22, 0.74);
 }
 
 @property --knob-bg {
@@ -32,18 +32,18 @@
   --surface-input: rgba(8, 11, 18, 0.65);
   --surface-floating: rgba(14, 18, 28, 0.86);
   --surface-floating-hover: rgba(24, 30, 44, 0.92);
-  --hud-bg-a: rgba(18, 22, 32, 0.6);
-  --hud-bg-b: rgba(10, 14, 22, 0.68);
-  --hud-bg-idle-a: rgba(18, 22, 32, 0.3);
-  --hud-bg-idle-b: rgba(10, 14, 22, 0.34);
+  --hud-bg-a: rgba(14, 18, 28, 0.66);
+  --hud-bg-b: rgba(10, 14, 22, 0.74);
+  --hud-bg-idle-a: rgba(14, 18, 28, 0.44);
+  --hud-bg-idle-b: rgba(10, 14, 22, 0.52);
   --hud-bg-hover-a: rgba(24, 30, 44, 0.8);
   --hud-bg-hover-b: rgba(14, 18, 28, 0.88);
-  --hud-border-idle: rgba(255, 255, 255, 0.08);
+  --hud-border-idle: rgba(255, 255, 255, 0.11);
   --hud-shadow-idle: 0 6px 22px rgba(0, 0, 0, 0.19);
   --hud-value-fg: #ffd700;
-  --hud-label-fg: #9fb0c4;
-  --hud-idle-text-opacity: 0.5;
-  --hud-control-idle-opacity: 0.5;
+  --hud-label-fg: #cbd5e1;
+  --hud-idle-text-opacity: 0.8;
+  --hud-control-idle-opacity: 0.62;
   --text-primary: #f8fafc;
   --text-secondary: #cbd5e1;
   --text-muted: #9fb0c4;
@@ -1249,6 +1249,7 @@ input[type='number'].customization-input {
   grid-template-rows: auto auto;
   column-gap: 25px;
   row-gap: 8px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
 }
 
 .cockpit-module {
