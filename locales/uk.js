@@ -978,4 +978,19 @@ export default {
   'Scatter a flock of ground birds': 'Сполохай зграю птахів на землі',
   'Grand finale': 'Грандіозний фінал',
   'Fly through a night fireworks show': 'Пролети крізь нічний феєрверк',
+  Pursuit: 'Погоня',
+  'Cops chase one runner': 'Поліція переслідує одного втікача',
+  'Stop pursuit': 'Зупинити погоню',
+  'On the run': 'У бігах',
+  'Chasing {name}': 'Погоня за {name}',
+  'Pursuit over · {who} share the win':
+    'Погоню завершено · {who} ділять перемогу',
+  'Pursuit over · {who} won with {points}':
+    'Погоню завершено · {who} перемагає з {points}',
+  'Pursuit over': 'Погоню завершено',
+  "Busted {name}! You're on the run": '{name} спіймано! Тепер тікаєш ти',
+  '{name} busted you!': '{name} спіймав тебе!',
+  "You're on the run!": 'Ти в бігах!',
+  '{name} is on the run': '{name} у бігах',
+  wanted: 'розшук',
 };

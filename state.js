@@ -124,6 +124,7 @@ export const state = {
   mpLockedPlane: null,
   mpSpeedBoost: 1,
   mpForceSmoke: false,
+  mpPolice: false,
   isOnWater: false,
   isOnGround: false,
   // While the plane is wrecked and the camera orbits the crash site (crash.js)

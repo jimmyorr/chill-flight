@@ -965,4 +965,18 @@ export default {
   'Scatter a flock of ground birds': '水辺や地面の鳥の群れを飛び立たせる',
   'Grand finale': 'グランドフィナーレ',
   'Fly through a night fireworks show': '夜空の花火の中を飛び抜ける',
+  Pursuit: 'チェイス',
+  'Cops chase one runner': '警察が1人の逃走者を追う',
+  'Stop pursuit': 'チェイスをやめる',
+  'On the run': '逃走中',
+  'Chasing {name}': '{name}を追跡中',
+  'Pursuit over · {who} share the win': 'チェイス終了 · {who}が同点優勝',
+  'Pursuit over · {who} won with {points}':
+    'チェイス終了 · {who}が{points}で優勝',
+  'Pursuit over': 'チェイス終了',
+  "Busted {name}! You're on the run": '{name}を確保！今度はあなたが逃走者',
+  '{name} busted you!': '{name}に確保された！',
+  "You're on the run!": 'あなたが逃走者！',
+  '{name} is on the run': '{name}が逃走中',
+  wanted: '逃走中',
 };

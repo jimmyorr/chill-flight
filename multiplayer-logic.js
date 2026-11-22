@@ -551,11 +551,24 @@ export const TAG_FAR_POINTS = 1;
 export const TAG_END_MS = 1000;
 export const TAG_END_LATE_MS = 4000;
 
+// Reverse tag / police pursuit (#186): `it` is the lone fugitive (own livery,
+// forced smoke) and everyone else is police in pursuit.
+export const PURSUIT_GRACE_MS = 5000;
+export const PURSUIT_BUST_POINTS = 25;
+export const PURSUIT_EVADE_POINTS = 2;
+export const PURSUIT_HEAT_POINTS = 4;
+export const PURSUIT_PRESSURE_DIST = 650;
+export const PURSUIT_PRESSURE_POINTS = 1;
+export const PURSUIT_GETAWAY_BOOST = 1.12;
+export const PURSUIT_CATCHUP_DIST = 1800;
+
 export const NO_TAG = Object.freeze({
+  mode: 'tag',
   it: null,
   plane: null,
   n: 0,
   by: '',
+  bustedBy: '',
   left: 0,
   points: Object.freeze({}),
 });
@@ -577,6 +590,7 @@ function readPoints(map) {
 export function readTag(msg) {
   if (!msg || !Number.isInteger(msg.n) || msg.n < 0) return null;
   if (msg.it !== null && typeof msg.it !== 'string') return null;
+  const mode = msg.mode === 'pursuit' ? 'pursuit' : 'tag';
   const plane =
     msg.it && typeof msg.plane === 'string' && msg.plane
       ? tagPlane(msg.plane)
@@ -588,10 +602,12 @@ export function readTag(msg) {
         ? TAG_ROUND_MS
         : 0;
   return {
+    mode,
     it: msg.it,
     plane,
     n: msg.n,
     by: typeof msg.by === 'string' ? msg.by : '',
+    bustedBy: typeof msg.bustedBy === 'string' ? msg.bustedBy : '',
     left,
     points: readPoints(msg.points),
   };
@@ -611,6 +627,71 @@ export function tagPointsRate(dist) {
   if (dist <= TAG_NEAR) return TAG_NEAR_POINTS;
   if (dist <= TAG_FAR) return TAG_FAR_POINTS;
   return 0;
+}
+
+/**
+ * Interceptor top-speed multiplier for police pursuers by active cop count:
+ * brisk in 1v1 (+9%), gentler in 2v1 (+7%) and 3v1 (+6%) so packs cannot
+ * swarm the fugitive on speed alone.
+ */
+export function pursuitCopBoost(copCount = 1) {
+  if (copCount <= 1) return 1.09;
+  if (copCount === 2) return 1.07;
+  return 1.06;
+}
+
+/**
+ * Top-speed multiplier in a pursuit round:
+ * - Fugitive (`isRunner`): decaying getaway surge (1.12 -> 1.00) during the
+ *   5 s grace window so a newly busted runner breaks clear of a scrum, then 1.0.
+ * - Police (`!isRunner`): +15% catch-up tow only when stranded >1.8 km behind,
+ *   else the pack-scaled interceptor boost (+6%..+9%).
+ */
+export function pursuitSpeedBoost({
+  isRunner,
+  sinceMs = Infinity,
+  runnerDist = 0,
+  copCount = 1,
+}) {
+  if (isRunner) {
+    if (sinceMs >= 0 && sinceMs < PURSUIT_GRACE_MS) {
+      const t = 1 - sinceMs / PURSUIT_GRACE_MS;
+      return 1 + (PURSUIT_GETAWAY_BOOST - 1) * t;
+    }
+    return 1;
+  }
+  if (runnerDist > PURSUIT_CATCHUP_DIST) return TAG_SPEED_BOOST;
+  return pursuitCopBoost(copCount);
+}
+
+/**
+ * Points per second in a pursuit round:
+ * - Fugitive (`isRunner`): +4 pts/s "under heat" when any cop is within
+ *   TAG_FAR (1,555 m), else +2 pts/s base.
+ * - Police (`!isRunner`): +1 pt/s hot-pursuit pressure within 650 m.
+ */
+export function pursuitPointsRate({
+  isRunner,
+  nearestCopDist = Infinity,
+  runnerDist = Infinity,
+}) {
+  if (isRunner) {
+    return nearestCopDist <= TAG_FAR
+      ? PURSUIT_HEAT_POINTS
+      : PURSUIT_EVADE_POINTS;
+  }
+  return runnerDist <= PURSUIT_PRESSURE_DIST ? PURSUIT_PRESSURE_POINTS : 0;
+}
+
+/** Picks the starting fugitive deterministically from active seat `ids`. */
+export function pickPursuitRunner(ids, random = Math.random) {
+  const list = [...ids].sort();
+  if (list.length === 0) return null;
+  const idx = Math.min(
+    list.length - 1,
+    Math.max(0, Math.floor(random() * list.length))
+  );
+  return list[idx];
 }
 
 /** Formats milliseconds as m:ss (e.g. 0:14, 1:05), rounding up. */

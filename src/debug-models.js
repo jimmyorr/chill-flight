@@ -31,7 +31,11 @@ import {
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {destructibleTypes, startDestruction} from '../debug/destruction.js';
 import {createMaterial} from '../constants.js';
-import {createBiplaneModel} from '../biplane.js';
+import {
+  collectPoliceStrobeMaterials,
+  createBiplaneModel,
+  stepPoliceStrobes,
+} from '../biplane.js';
 import {createJetModel} from '../jet.js';
 import {
   createAirportSign,
@@ -426,6 +430,7 @@ function viewModel(type, e, colorSeed = 0) {
     'mushroom',
     'crystal',
     'road_vehicles',
+    'police_vehicles',
     'dragon_skeleton',
     'portal',
     'dinosaur_skull',
@@ -471,12 +476,28 @@ function viewModel(type, e, colorSeed = 0) {
     'twin-engine',
     'twin_engine',
     'buggy',
+    'police_vehicles',
   ].includes(type);
   gearToggle.style.display = supportsGear ? 'block' : 'none';
   if (type === 'airplane') {
     gearToggle.textContent = window.gearUp ? 'Floats down' : 'Floats up';
   } else if (type === 'buggy') {
     gearToggle.textContent = window.gearUp ? 'Wheels down' : 'Hover mode';
+  } else if (type === 'police_vehicles') {
+    const idx = colorSeed % 5;
+    gearToggle.style.display = idx === 2 ? 'none' : 'block';
+    gearToggle.textContent =
+      idx === 0
+        ? window.gearUp
+          ? 'Wheels down'
+          : 'Hover mode'
+        : idx === 1
+          ? window.gearUp
+            ? 'Floats down'
+            : 'Floats up'
+          : window.gearUp
+            ? 'Gear down'
+            : 'Gear up';
   } else {
     gearToggle.textContent = window.gearUp ? 'Gear down' : 'Gear up';
   }
@@ -675,6 +696,29 @@ function viewModel(type, e, colorSeed = 0) {
         const buggy = createBuggyModel({planeColor: newColor});
         setBuggyHoverFold(buggy, window.gearUp ? 1 : 0);
         previewGroup.add(buggy);
+        break;
+      }
+
+      case 'police_vehicles': {
+        const idx = colorSeed % 5;
+        let pv;
+        if (idx === 0) {
+          pv = createBuggyModel({police: true});
+          setBuggyHoverFold(pv, window.gearUp ? 1 : 0);
+        } else if (idx === 1) {
+          pv = createSeaplaneModel({police: true});
+          poseGear(window.gearUp ? 0 : 1);
+        } else if (idx === 2) {
+          pv = createBiplaneModel({police: true});
+        } else if (idx === 3) {
+          pv = createTwinModel({police: true});
+          setGearExtension(pv, window.gearUp ? 0 : 1);
+        } else {
+          pv = createJetModel({police: true});
+          setGearExtension(pv, window.gearUp ? 0 : 1);
+        }
+        pv.visible = true;
+        previewGroup.add(pv);
         break;
       }
 
@@ -1682,6 +1726,7 @@ function viewModel(type, e, colorSeed = 0) {
     'twin-engine',
     'twin_engine',
     'buggy',
+    'police_vehicles',
     'sailboat',
     'pirateship',
     'hawk',
@@ -1725,6 +1770,7 @@ function animate() {
   const time = now * 0.001;
   animationUniforms.uTime.value = time;
   waterUniforms.uTime.value = time;
+  stepPoliceStrobes(collectPoliceStrobeMaterials(viewScene), time);
 
   if (activeDestruction) {
     activeDestruction.update(delta);

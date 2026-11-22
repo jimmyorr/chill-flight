@@ -9,7 +9,14 @@
 // - Retractable tricycle landing gear (setGearExtension)
 import * as THREE from 'three';
 import {createMaterial} from './constants.js';
-import {mergeStaticMeshes} from './biplane.js';
+import {
+  POLICE_DARK_COLOR,
+  POLICE_WHITE_COLOR,
+  addAircraftPoliceBeacons,
+  collectPoliceStrobeMaterials,
+  createPoliceStrobeMaterials,
+  mergeStaticMeshes,
+} from './biplane.js';
 import {state} from './state.js';
 
 export function createTwinModel(opts = {}) {
@@ -17,30 +24,46 @@ export function createTwinModel(opts = {}) {
 
   const makeMat = (props) => createMaterial(props);
 
-  const planeColor =
-    opts.planeColor !== undefined
+  const isPolice = !!opts.police;
+  const planeColor = isPolice
+    ? POLICE_WHITE_COLOR
+    : opts.planeColor !== undefined
       ? opts.planeColor
       : typeof state.planeColor !== 'undefined'
         ? state.planeColor
         : 0xe0564c;
 
-  const whiteColor = planeColor === 0xe8c382 ? 0x1c3144 : 0xf8fafc;
+  const whiteColor = isPolice
+    ? POLICE_DARK_COLOR
+    : planeColor === 0xe8c382
+      ? 0x1c3144
+      : 0xf8fafc;
 
-  const accentMat =
-    opts.planeMat ||
-    makeMat({
-      color: planeColor,
-      flatShading: true,
-      roughness: 0.36,
-    });
+  const accentMat = isPolice
+    ? makeMat({
+        color: POLICE_WHITE_COLOR,
+        flatShading: true,
+        roughness: 0.36,
+      })
+    : opts.planeMat ||
+      makeMat({
+        color: planeColor,
+        flatShading: true,
+        roughness: 0.36,
+      });
 
-  const bodyMat =
-    opts.planeWhiteMat ||
-    makeMat({
-      color: whiteColor,
-      flatShading: true,
-      roughness: 0.38,
-    });
+  const bodyMat = isPolice
+    ? makeMat({
+        color: POLICE_DARK_COLOR,
+        flatShading: true,
+        roughness: 0.4,
+      })
+    : opts.planeWhiteMat ||
+      makeMat({
+        color: whiteColor,
+        flatShading: true,
+        roughness: 0.38,
+      });
 
   const darkMat = makeMat({
     color: 0x1e2530,
@@ -825,7 +848,22 @@ export function createTwinModel(opts = {}) {
     tailGroup.add(new THREE.Mesh(hTipGeo, accentMat));
   }
 
+  if (isPolice) {
+    const {redMat, blueMat} = createPoliceStrobeMaterials();
+    addAircraftPoliceBeacons(root, {
+      barPos: [0, 1.94, -4.1],
+      barScale: 1.12,
+      leftTip: [-15.9, 0.72, 0.55],
+      rightTip: [15.9, 0.72, 0.55],
+      baseMat: darkMat,
+      redMat,
+      blueMat,
+    });
+  }
+
   mergeStaticMeshes(root, new Set([...propGroups, ...gearGroups]));
+  if (isPolice) root.policeStrobeMats = collectPoliceStrobeMaterials(root);
+  root.isPolice = isPolice;
 
   root.traverse((child) => {
     if (child.isMesh) {

@@ -11,11 +11,23 @@
  */
 import * as THREE from 'three';
 import * as rules from '../relay/src/rules.js';
+import {createBiplaneModel, stepPoliceStrobes} from '../biplane.js';
+import {createTwinModel} from '../twin.js';
+import {createJetModel} from '../jet.js';
+import {createBuggyModel} from '../buggy-model.js';
 import {
   CALLSIGNS,
   CLOSE,
   PING,
   PONG,
+  PURSUIT_BUST_POINTS,
+  PURSUIT_CATCHUP_DIST,
+  PURSUIT_EVADE_POINTS,
+  PURSUIT_GETAWAY_BOOST,
+  PURSUIT_GRACE_MS,
+  PURSUIT_HEAT_POINTS,
+  PURSUIT_PRESSURE_DIST,
+  PURSUIT_PRESSURE_POINTS,
   FLAGS,
   MAX_PLAYERS,
   NO_TAG,
@@ -40,6 +52,10 @@ import {
   nextIt,
   packState,
   parseRoomCode,
+  pickPursuitRunner,
+  pursuitCopBoost,
+  pursuitPointsRate,
+  pursuitSpeedBoost,
   randomCallsign,
   readTag,
   roomFromLink,
@@ -713,6 +729,110 @@ check(
     wantedBotSeats(0, 1) === 0 &&
     wantedBotSeats(2, 1, 0, false) === 0
 );
+
+// Reverse tag / police pursuit (#186): protocol parsing, fair scoring, speed
+// boosts, deterministic opening runner, and police interceptor vehicle models
+{
+  const parsed = readTag({
+    mode: 'pursuit',
+    it: 'runner1',
+    plane: 'jet',
+    n: 4,
+    bustedBy: 'cop2',
+    left: 95000,
+    points: {runner1: 48, cop2: 37},
+  });
+  const def = readTag({it: 'a', plane: 'biplane', n: 1});
+  check(
+    'readTag preserves pursuit mode and bustedBy and defaults to classic tag',
+    parsed?.mode === 'pursuit' &&
+      parsed?.bustedBy === 'cop2' &&
+      parsed?.plane === 'jet' &&
+      def?.mode === 'tag' &&
+      def?.bustedBy === '' &&
+      NO_TAG.mode === 'tag' &&
+      PURSUIT_BUST_POINTS === 25
+  );
+
+  check(
+    'Pursuit scoring rewards heat evasion and close-pursuit pressure fairly',
+    pursuitPointsRate({isRunner: true, nearestCopDist: 400}) ===
+      PURSUIT_HEAT_POINTS &&
+      pursuitPointsRate({isRunner: true, nearestCopDist: TAG_FAR}) ===
+        PURSUIT_HEAT_POINTS &&
+      pursuitPointsRate({isRunner: true, nearestCopDist: TAG_FAR + 50}) ===
+        PURSUIT_EVADE_POINTS &&
+      pursuitPointsRate({
+        isRunner: false,
+        runnerDist: PURSUIT_PRESSURE_DIST,
+      }) === PURSUIT_PRESSURE_POINTS &&
+      pursuitPointsRate({
+        isRunner: false,
+        runnerDist: PURSUIT_PRESSURE_DIST + 10,
+      }) === 0
+  );
+
+  check(
+    'Pursuit speed boost gives runner getaway decay, pack-scaled cop boost, and catch-up tow',
+    Math.abs(
+      pursuitSpeedBoost({isRunner: true, sinceMs: 0}) - PURSUIT_GETAWAY_BOOST
+    ) < 1e-6 &&
+      Math.abs(
+        pursuitSpeedBoost({isRunner: true, sinceMs: PURSUIT_GRACE_MS * 0.5}) -
+          (1 + (PURSUIT_GETAWAY_BOOST - 1) * 0.5)
+      ) < 1e-6 &&
+      pursuitSpeedBoost({isRunner: true, sinceMs: PURSUIT_GRACE_MS}) === 1 &&
+      pursuitSpeedBoost({isRunner: false, runnerDist: 300, copCount: 1}) ===
+        pursuitCopBoost(1) &&
+      pursuitCopBoost(1) > pursuitCopBoost(2) &&
+      pursuitCopBoost(2) > pursuitCopBoost(3) &&
+      pursuitCopBoost(3) > 1 &&
+      pursuitSpeedBoost({
+        isRunner: false,
+        runnerDist: PURSUIT_CATCHUP_DIST + 100,
+        copCount: 3,
+      }) === TAG_SPEED_BOOST
+  );
+
+  check(
+    'pickPursuitRunner selects deterministically from sorted active seat IDs',
+    pickPursuitRunner(['c', 'a', 'b'], () => 0) === 'a' &&
+      pickPursuitRunner(['c', 'a', 'b'], () => 0.5) === 'b' &&
+      pickPursuitRunner(['c', 'a', 'b'], () => 0.99) === 'c' &&
+      pickPursuitRunner([]) === null
+  );
+
+  const policeModels = [
+    createBiplaneModel({police: true}),
+    createTwinModel({police: true}),
+    createJetModel({police: true}),
+    createBuggyModel({police: true}),
+  ];
+  let modelsOk = true;
+  for (const m of policeModels) {
+    const mats = m.policeStrobeMats || [];
+    const hasRed = mats.some((x) => x.userData?.policeStrobe === 'red');
+    const hasBlue = mats.some((x) => x.userData?.policeStrobe === 'blue');
+    if (!m.isPolice || !hasRed || !hasBlue) {
+      modelsOk = false;
+      break;
+    }
+    stepPoliceStrobes(mats, 0.04);
+    const redLit = mats.find((x) => x.userData.policeStrobe === 'red');
+    const blueDim = mats.find((x) => x.userData.policeStrobe === 'blue');
+    stepPoliceStrobes(mats, 0.32);
+    const redDim = redLit.emissiveIntensity;
+    const blueLit = blueDim.emissiveIntensity;
+    if (!(blueLit > 1 && redDim < 0.3)) {
+      modelsOk = false;
+      break;
+    }
+  }
+  check(
+    'Police cruiser and police aircraft models build with alternating red/blue strobes',
+    modelsOk
+  );
+}
 
 if (failed) {
   console.error('Flying together tests failed.');

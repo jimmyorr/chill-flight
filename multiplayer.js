@@ -45,6 +45,7 @@ import {
 import {simplex} from './noise.js';
 import {scene} from './scene.js';
 import {camera} from './sky.js';
+import {stepPoliceStrobes} from './biplane.js';
 import {setGearExtension} from './twin.js';
 import {setBuggyHoverFold} from './buggy-model.js';
 import {PROP_SPIN, newPropSpin, stepPropSpin} from './prop-spin-logic.js';
@@ -56,6 +57,7 @@ import {
   planeGroup,
   planeHandling,
   setLockedPlane,
+  setPoliceMode,
 } from './airplane.js';
 import {getElevation, sampleGround} from './terrain-geometry.js';
 import {sampleRoad} from './terrain-chunks.js';
@@ -63,7 +65,7 @@ import {PLANE_BUILDERS, buildPlaneModel} from './plane-models.js';
 import {Achievements} from './achievements.js';
 import {isSmokeOn, setSmokeTint, smokeColor, trailSmoke} from './particles.js';
 import {isPlaneWrecked, triggerPeerCrash} from './crash.js';
-import {playChime, playRaceBeep} from './sfx-events.js';
+import {playChime, playPoliceYelp, playRaceBeep} from './sfx-events.js';
 import {notificationHaptic} from './haptics.js';
 import {forEachTrafficPlane} from './traffic.js';
 import {forwardOf} from './traffic-logic.js';
@@ -102,6 +104,7 @@ import {
   REJOIN_DISTANCE,
   fanSpot,
   newBot,
+  pursuitSpot,
   rejoin as rejoinBot,
   stepBot,
 } from './bot-logic.js';
@@ -113,6 +116,9 @@ import {
   PAUSED_SEND_INTERVAL_MS,
   PING,
   PONG,
+  PURSUIT_BUST_POINTS,
+  PURSUIT_GRACE_MS,
+  PURSUIT_HEAT_POINTS,
   PeerTrack,
   QUIET_MS,
   RENDER_DELAY_MS,
@@ -120,6 +126,7 @@ import {
   TAG_END_LATE_MS,
   TAG_END_MS,
   TAG_GRACE_MS,
+  TAG_RADIUS,
   TAG_ROUND_MS,
   TAG_SPEED_BOOST,
   WAGGLE_MS,
@@ -133,6 +140,9 @@ import {
   packState,
   parseRoomCode,
   CALLSIGNS,
+  pickPursuitRunner,
+  pursuitPointsRate,
+  pursuitSpeedBoost,
   randomCallsign,
   readTag,
   roomFromLink,
@@ -204,6 +214,7 @@ const statusText = document.getElementById('fly-status');
 const tagBtn = document.getElementById('fly-tag-btn');
 const gamesPicker = document.getElementById('fly-games');
 const gameTagBtn = document.getElementById('fly-game-tag');
+const gamePursuitBtn = document.getElementById('fly-game-pursuit');
 const gameRaceBtn = document.getElementById('fly-game-race');
 const raceCount = document.getElementById('race-count');
 const tagChip = document.getElementById('tag-chip');
@@ -391,7 +402,7 @@ function buildPeer(peer) {
   if (peer.group) disposeGroup(peer.group);
   const type = PLANE_BUILDERS[peer.plane] ? peer.plane : 'biplane';
   const group = new THREE.Group();
-  const model = buildPlaneModel(type, peer.livery);
+  const model = buildPlaneModel(type, peer.livery, {police: !!peer.police});
   peer.materials = [];
   model.traverse((child) => {
     if (child.isMesh && child.material) {
@@ -399,6 +410,9 @@ function buildPeer(peer) {
       peer.materials.push(child.material);
     }
   });
+  peer.policeStrobeMats = peer.materials.filter(
+    (m) => m.userData?.policeStrobe
+  );
   group.add(model);
   group.visible = false;
   scene.add(group);
@@ -463,7 +477,10 @@ function removePeer(id) {
 
 function onHello(peer, msg) {
   const name = cleanName(msg.name) || defaultCallsign;
-  const plane = typeof msg.plane === 'string' ? msg.plane : 'biplane';
+  const homePlane = typeof msg.plane === 'string' ? msg.plane : 'biplane';
+  const plane = tag.it && tag.plane ? tag.plane : homePlane;
+  const wantPolice =
+    !!room && !!tag.it && tag.mode === 'pursuit' && tag.it !== peer.id;
   const livery =
     Number.isInteger(msg.livery) &&
     msg.livery >= 0 &&
@@ -471,8 +488,14 @@ function onHello(peer, msg) {
       ? msg.livery
       : 0;
   const isNew = !peer.name;
-  if (peer.name !== name || peer.plane !== plane || peer.livery !== livery) {
-    Object.assign(peer, {name, plane, livery});
+  peer.homePlane = homePlane;
+  if (
+    peer.name !== name ||
+    peer.plane !== plane ||
+    peer.livery !== livery ||
+    Boolean(peer.police) !== wantPolice
+  ) {
+    Object.assign(peer, {name, plane, livery, police: wantPolice});
     buildPeer(peer);
   }
   if (isNew && peer.announce) toast(t('{name} joined', {name}));
@@ -585,6 +608,37 @@ let appliedPlane = null;
 // The last game's vehicle: after it, everyone stays in it (bots too)
 // until this player picks another
 let lastGamePlane = null;
+let lastBustAward = null;
+const _scorePos = new THREE.Vector3();
+
+function isPursuitMode() {
+  return !!tag.it && tag.mode === 'pursuit';
+}
+
+function copCountNow() {
+  if (!room || !tag.it) return 1;
+  let count = tag.it !== room.id ? 1 : 0;
+  for (const peer of peers.values()) {
+    if (peer.name && peer.id !== tag.it) count++;
+  }
+  return Math.max(1, count);
+}
+
+function findItPosition(rawNow) {
+  if (!room || !tag.it) return null;
+  const mineIt = [...myBots.values()].find((m) => m.peer.id === tag.it);
+  if (mineIt) {
+    return _scorePos.set(mineIt.bot.x, mineIt.bot.y, mineIt.bot.z);
+  }
+  if (tag.it === room.id) {
+    return !state.isPaused && !state.isCrashed ? planeGroup.position : null;
+  }
+  const peer = peers.get(tag.it);
+  if (peer?.group?.visible && !peer.crashed && !isAway(peer, rawNow)) {
+    return peer.group.position;
+  }
+  return null;
+}
 
 // The vehicle everyone's in for the game on (null: none)
 function gamePlane() {
@@ -592,12 +646,26 @@ function gamePlane() {
   return tag.it ? tag.plane : race.course ? race.plane : null;
 }
 
-// The top-speed boost now: whoever's it in tag, a racer in a slipstream;
-// and on the grid before a race, held to a slow formation (planes) or
-// standing still (buggies)
+// The top-speed boost now: whoever's it in tag, police/runner in pursuit, a
+// racer in a slipstream; and on the grid before a race, held to a slow
+// formation (planes) or standing still (buggies)
 function speedBoost() {
   if (!room) return 1;
-  if (tag.it) return tag.it === room.id ? TAG_SPEED_BOOST : 1;
+  if (tag.it) {
+    if (tag.mode === 'pursuit') {
+      const now = performance.now();
+      const isRunner = tag.it === room.id;
+      const itPos = !isRunner ? findItPosition(now) : null;
+      const runnerDist = itPos ? planeGroup.position.distanceTo(itPos) : 0;
+      return pursuitSpeedBoost({
+        isRunner,
+        sinceMs: now - tagSince,
+        runnerDist,
+        copCount: copCountNow(),
+      });
+    }
+    return tag.it === room.id ? TAG_SPEED_BOOST : 1;
+  }
   if (!race.course || !race.grid.includes(room.id)) return 1;
   if (myRace.finish !== null) return 1;
   const now = performance.now();
@@ -612,7 +680,12 @@ function speedBoost() {
 function applyBoost() {
   const boost = speedBoost();
   const plane = gamePlane();
-  if (boost === state.mpSpeedBoost && plane === appliedPlane) return;
+  if (
+    Math.abs(boost - (state.mpSpeedBoost ?? 1)) < 0.002 &&
+    plane === appliedPlane
+  ) {
+    return;
+  }
   appliedPlane = plane;
   if (plane) lastGamePlane = plane;
   const prevMax = getMaxFlightSpeedMult();
@@ -629,14 +702,28 @@ function applyBoost() {
 
 function refreshTag() {
   const inTag = !!room && !!tag.it;
+  const pursuit = inTag && tag.mode === 'pursuit';
   const amIt = inTag && tag.it === room.id;
   appliedPlane = undefined;
   applyBoost();
-  state.mpForceSmoke = inTag && !amIt;
+  setPoliceMode(pursuit && !amIt);
+  state.mpForceSmoke = inTag && (pursuit ? amIt : !amIt);
   hooks.syncSmokeUI?.();
 
   for (const peer of peers.values()) {
     peer.markerKey = '';
+    const wantPolice = pursuit && tag.it !== peer.id;
+    const wantPlane =
+      inTag && tag.plane ? tag.plane : peer.homePlane || peer.plane;
+    if (
+      peer.name &&
+      (Boolean(peer.police) !== wantPolice ||
+        (wantPlane && peer.plane !== wantPlane))
+    ) {
+      peer.police = wantPolice;
+      if (wantPlane) peer.plane = wantPlane;
+      buildPeer(peer);
+    }
   }
   if (!inTag) {
     scoringRate = 0;
@@ -646,8 +733,8 @@ function refreshTag() {
   renderPanel();
 }
 
-// The chip under the HUD in a game of tag: who's it, your points and the
-// time left
+// The chip under the HUD in a game of tag or pursuit: who's it / on the run,
+// your points and the time left
 function renderTagChip() {
   if (!tagChip) return;
   if (room && race.course) {
@@ -655,6 +742,7 @@ function renderTagChip() {
     return;
   }
   const inTag = !!room && !!tag.it;
+  const pursuit = inTag && tag.mode === 'pursuit';
   const amIt = inTag && tag.it === room.id;
   tagChip.hidden = !inTag;
   tagChip.classList.toggle('mine', amIt);
@@ -663,7 +751,13 @@ function renderTagChip() {
     return;
   }
   const left = timeLeft();
-  const who = amIt ? t("You're it") : t('{name} is it', {name: nameOf(tag.it)});
+  const who = pursuit
+    ? amIt
+      ? t('On the run')
+      : t('Chasing {name}', {name: nameOf(tag.it)})
+    : amIt
+      ? t("You're it")
+      : t('{name} is it', {name: nameOf(tag.it)});
   const text =
     left > 0
       ? `${who} · ${pointsText(Math.floor(myPoints))} · ${formatTagTime(left)}`
@@ -707,8 +801,19 @@ function isAway(peer, now) {
   return now - (peer.heardAt ?? now) > QUIET_MS;
 }
 
+function adjustOwnedPoints(id, delta) {
+  if (!room || !id || !delta) return;
+  if (id === room.id) {
+    myPoints = Math.max(0, myPoints + delta);
+    return;
+  }
+  const mine = [...myBots.values()].find((m) => m.peer.id === id);
+  if (mine) mine.peer.points = Math.max(0, (mine.peer.points || 0) + delta);
+}
+
 function setTag(next) {
   const was = tag.it;
+  const wasPursuit = tag.mode === 'pursuit';
   if (next.it !== was) tagBefore = was;
   const starting = !was && !!next.it;
   tag = next;
@@ -716,9 +821,30 @@ function setTag(next) {
   if (tag.it) tagEndsAt = tagSince + tag.left;
   if (starting) {
     myPoints = 0;
+    lastBustAward = null;
     for (const peer of peers.values()) peer.points = 0;
     // Any race gives way (and its results go)
     if (race.n > 0) clearRace();
+  }
+  // Award +25 bust bounty to whoever landed the catch in pursuit (rolling back
+  // if a simultaneous optimistic local bust lost a tie-breaker on the same `n`).
+  if (tag.mode === 'pursuit' && tag.bustedBy && tag.n > 0) {
+    if (
+      lastBustAward &&
+      lastBustAward.n === tag.n &&
+      lastBustAward.id !== tag.bustedBy
+    ) {
+      adjustOwnedPoints(lastBustAward.id, -PURSUIT_BUST_POINTS);
+      lastBustAward = null;
+    }
+    if (
+      !lastBustAward ||
+      lastBustAward.n !== tag.n ||
+      lastBustAward.id !== tag.bustedBy
+    ) {
+      adjustOwnedPoints(tag.bustedBy, PURSUIT_BUST_POINTS);
+      lastBustAward = {n: tag.n, id: tag.bustedBy};
+    }
   }
   // Whoever we hadn't heard from yet (arriving mid-game) starts from the
   // message's count
@@ -728,13 +854,22 @@ function setTag(next) {
     }
     if (room) myPoints = Math.max(myPoints, tag.points[room.id] || 0);
   }
-  if (!was && tag.it && tag.it !== room?.id && tag.by === tag.it) {
+  if (starting && tag.mode === 'pursuit') {
+    const mineIt = [...myBots.values()].find((m) => m.peer.id === tag.it);
+    gatherToId = tag.it !== room?.id && !mineIt ? tag.it : null;
+    gatherBotsPending = myBots.size > 0;
+  } else if (!was && tag.it && tag.it !== room?.id && tag.by === tag.it) {
     gatherToId = tag.it;
+    gatherBotsPending = false;
   } else if (!tag.it) {
     gatherToId = null;
+    gatherBotsPending = false;
+  } else {
+    gatherBotsPending = starting && tag.by === tag.it;
   }
-  gatherBotsPending = starting && tag.by === tag.it;
   if (tag.it !== was) {
+    const pursuitMsg = tag.it ? tag.mode === 'pursuit' : wasPursuit;
+    if (tag.it && pursuitMsg) playPoliceYelp();
     if (!tag.it) {
       const win = room
         ? tagWinner(tag.points, [room.id, ...peers.keys()])
@@ -744,17 +879,37 @@ function setTag(next) {
           id === room.id ? t('You') : nameOf(id)
         );
         const who = joinList(names);
-        toast(t('Tag is over · {who} share the win', {who}));
+        toast(
+          pursuitMsg
+            ? t('Pursuit over · {who} share the win', {who})
+            : t('Tag is over · {who} share the win', {who})
+        );
       } else if (win) {
         const who = win.id === room.id ? t('You') : nameOf(win.id);
         toast(
-          t('Tag is over · {who} won with {points}', {
-            who,
-            points: pointsText(win.points),
-          })
+          pursuitMsg
+            ? t('Pursuit over · {who} won with {points}', {
+                who,
+                points: pointsText(win.points),
+              })
+            : t('Tag is over · {who} won with {points}', {
+                who,
+                points: pointsText(win.points),
+              })
         );
       } else {
-        toast(t('Tag is over'));
+        toast(pursuitMsg ? t('Pursuit over') : t('Tag is over'));
+      }
+    } else if (pursuitMsg) {
+      if (tag.bustedBy === room?.id && was) {
+        toast(t("Busted {name}! You're on the run", {name: nameOf(was)}));
+        Achievements.unlock('tag_youre_it');
+      } else if (was === room?.id && tag.bustedBy) {
+        toast(t('{name} busted you!', {name: nameOf(tag.bustedBy)}));
+      } else if (tag.it === room?.id) {
+        toast(t("You're on the run!"));
+      } else {
+        toast(t('{name} is on the run', {name: nameOf(tag.it)}));
       }
     } else if (tag.it === room?.id) toast(t("You're it"));
     else if (was === room?.id) {
@@ -774,6 +929,7 @@ function applyTag(next) {
     setTag({
       ...next,
       it: nextIt([room.id, ...peers.keys()]),
+      bustedBy: '',
       n: next.n + 1,
       by: '~',
     });
@@ -783,24 +939,35 @@ function applyTag(next) {
 }
 
 // Says who's it now (null ends the game)
-function sendTag(it) {
+function sendTag(it, {mode = null, bustedBy = ''} = {}) {
   if (!room) return;
   const starting = !tag.it && !!it;
+  const gameMode = mode || (tag.mode === 'pursuit' ? 'pursuit' : 'tag');
   const plane = it
     ? starting
       ? tagPlane(activePlaneType)
       : tag.plane || tagPlane(activePlaneType)
     : null;
   const next = {
+    mode: gameMode,
     it,
     plane,
     n: tag.n + 1,
     by: room.id,
+    bustedBy: it ? bustedBy : '',
     left: starting ? TAG_ROUND_MS : it ? Math.round(timeLeft()) : 0,
     points: starting ? {} : currentPoints(),
   };
   setTag(next);
   send({t: 'tag', ...next});
+}
+
+function startPursuit() {
+  if (!room) return;
+  const ids = [room.id];
+  for (const peer of peers.values()) if (peer.name) ids.push(peer.id);
+  const runner = pickPursuitRunner(ids) || room.id;
+  sendTag(runner, {mode: 'pursuit'});
 }
 
 // Someone left: if they were it, the lowest id still here is (worked out
@@ -809,23 +976,33 @@ function tagAfterLeaving(id) {
   if (!tag.it) return;
   const points = currentPoints();
   if (peers.size === 0) {
-    setTag({it: null, plane: null, n: tag.n + 1, by: '~', left: 0, points});
+    setTag({
+      mode: tag.mode,
+      it: null,
+      plane: null,
+      n: tag.n + 1,
+      by: '~',
+      bustedBy: '',
+      left: 0,
+      points,
+    });
   } else if (tag.it === id) {
     setTag({
+      mode: tag.mode,
       it: nextIt([room.id, ...peers.keys()]),
       plane: tag.plane,
       n: tag.n + 1,
       by: '~',
+      bustedBy: '',
       left: Math.round(timeLeft()),
       points,
     });
   }
 }
 
-// Scores a frame of the round: this player's points and their bots', for
-// being near whoever's it (and not it, or away); and the glow round the
-// screen while scoring. Once time's up, whoever's it ends the round, or
-// anyone, should they not.
+// Scores a frame of the round: this player's points and their bots', and
+// the glow round the screen while scoring. Once time's up, whoever's it
+// ends the round, or anyone, should they not.
 function scoreTag(rawNow) {
   scoringRate = 0;
   if (!room || !tag.it) {
@@ -837,19 +1014,52 @@ function scoreTag(rawNow) {
   const dt = Math.min(1, Math.max(0, to - Math.max(scoredAt, tagSince)) / 1000);
   scoredAt = rawNow;
   if (rawNow < tagEndsAt) {
-    let itPos = null;
-    const mineIt = [...myBots.values()].find((m) => m.peer.id === tag.it);
-    if (mineIt) {
-      itPos = _scorePos.set(mineIt.bot.x, mineIt.bot.y, mineIt.bot.z);
-    } else if (tag.it === room.id) {
-      if (!state.isPaused && !state.isCrashed) itPos = planeGroup.position;
-    } else {
-      const peer = peers.get(tag.it);
-      if (peer?.group?.visible && !peer.crashed && !isAway(peer, rawNow)) {
-        itPos = peer.group.position;
+    const itPos = findItPosition(rawNow);
+    if (tag.mode === 'pursuit') {
+      const spots = playerSpots(rawNow);
+      const nearestCopTo = (rx, ry, rz) => {
+        let best = Infinity;
+        for (const p of spots) {
+          if (p.id === tag.it || p.paused) continue;
+          const d = Math.hypot(p.x - rx, p.y - ry, p.z - rz);
+          if (d < best) best = d;
+        }
+        return best;
+      };
+      if (!state.isPaused && !state.isCrashed) {
+        if (tag.it === room.id) {
+          const {x, y, z} = planeGroup.position;
+          scoringRate = pursuitPointsRate({
+            isRunner: true,
+            nearestCopDist: nearestCopTo(x, y, z),
+          });
+          myPoints += scoringRate * dt;
+        } else if (itPos) {
+          scoringRate = pursuitPointsRate({
+            isRunner: false,
+            runnerDist: planeGroup.position.distanceTo(itPos),
+          });
+          myPoints += scoringRate * dt;
+        }
       }
-    }
-    if (itPos) {
+      for (const {bot, peer} of myBots.values()) {
+        if (peer.id === tag.it) {
+          const rate = pursuitPointsRate({
+            isRunner: true,
+            nearestCopDist: nearestCopTo(bot.x, bot.y, bot.z),
+          });
+          peer.points = (peer.points || 0) + rate * dt;
+        } else if (itPos) {
+          const d = Math.hypot(
+            bot.x - itPos.x,
+            bot.y - itPos.y,
+            bot.z - itPos.z
+          );
+          const rate = pursuitPointsRate({isRunner: false, runnerDist: d});
+          peer.points = (peer.points || 0) + rate * dt;
+        }
+      }
+    } else if (itPos) {
       if (tag.it !== room.id && !state.isPaused && !state.isCrashed) {
         scoringRate = tagPointsRate(planeGroup.position.distanceTo(itPos));
         myPoints += scoringRate * dt;
@@ -869,11 +1079,27 @@ function scoreTag(rawNow) {
   renderTagChip();
 }
 
-// The soft glow round the screen's edge while scoring: brighter when close
+// The soft glow round the screen's edge while scoring: gold in tag, red/blue
+// strobe heat on the runner or blue pursuit glow on close cops in pursuit
 function showGlow() {
   if (!tagGlow) return;
-  const level = scoringRate > 1 ? 'near' : scoringRate > 0 ? 'far' : '';
+  let level = '';
+  let mode = '';
+  if (isPursuitMode()) {
+    if (tag.it === room?.id) {
+      if (scoringRate >= PURSUIT_HEAT_POINTS) {
+        level = 'near';
+        mode = 'pursuit-heat';
+      }
+    } else if (scoringRate > 0) {
+      level = 'far';
+      mode = 'pursuit-cop';
+    }
+  } else {
+    level = scoringRate > 1 ? 'near' : scoringRate > 0 ? 'far' : '';
+  }
   if (tagGlow.dataset.level !== level) tagGlow.dataset.level = level;
+  if (tagGlow.dataset.mode !== mode) tagGlow.dataset.mode = mode;
 }
 
 // --- RACE ---
@@ -1259,12 +1485,11 @@ function renderRaceChip() {
   tagChip.textContent = text;
 }
 
-const _scorePos = new THREE.Vector3();
-
 // --- WAVING ---
 
 function wave() {
   if (!room || state.isPaused) return;
+  if (isPursuitMode() && tag.it !== room.id) playPoliceYelp();
   if (state.isOnGround || state.isOnWater) return;
   const now = performance.now();
   if (now - waggleAt < WAGGLE_MS) return;
@@ -1577,8 +1802,26 @@ function stepMyBots(delta, rawNow) {
       if (driving) bot.y = surfaceAt(bot.x, bot.z, bot.y + ROAD_STEP_UP);
     }
     const isIt = tag.it === peer.id;
-    let topSpeed =
-      (PLANE_HANDLING[plane]?.topKts ?? 280) * (isIt ? TAG_SPEED_BOOST : 1);
+    const baseTop = PLANE_HANDLING[plane]?.topKts ?? 280;
+    let topSpeed = baseTop;
+    if (tag.it) {
+      if (tag.mode === 'pursuit') {
+        const runnerDist =
+          !isIt && itSpot
+            ? Math.hypot(bot.x - itSpot.x, bot.y - itSpot.y, bot.z - itSpot.z)
+            : 0;
+        topSpeed =
+          baseTop *
+          pursuitSpeedBoost({
+            isRunner: isIt,
+            sinceMs: rawNow - tagSince,
+            runnerDist,
+            copCount: copCountNow(),
+          });
+      } else if (isIt) {
+        topSpeed = baseTop * TAG_SPEED_BOOST;
+      }
+    }
     let raceCtx = null;
     if (racing) {
       const progress = {
@@ -1604,18 +1847,40 @@ function stepMyBots(delta, rawNow) {
     }
     let tagCtx = null;
     if (tag.it) {
-      tagCtx = isIt
-        ? {
-            it: true,
-            targets: spots
-              .filter((p) => p.id !== peer.id && !p.paused)
-              .map((p) => ({
-                ...p,
-                bot: !!ownerOf(p.id),
-                tagger: p.id === tagBefore,
-              })),
+      if (tag.mode === 'pursuit') {
+        if (isIt) {
+          let nearestCop = null;
+          let bestD = Infinity;
+          for (const p of spots) {
+            if (p.id === peer.id || p.paused) continue;
+            const d = Math.hypot(p.x - bot.x, p.z - bot.z);
+            if (d < bestD) {
+              bestD = d;
+              nearestCop = p;
+            }
           }
-        : {it: false, chaser: itSpot, centre};
+          tagCtx = {it: false, pursuit: true, chaser: nearestCop, centre};
+        } else {
+          const targets =
+            itSpot && !itSpot.paused
+              ? [{...itSpot, bot: !!ownerOf(itSpot.id), tagger: false}]
+              : [];
+          tagCtx = {it: true, pursuit: true, targets};
+        }
+      } else {
+        tagCtx = isIt
+          ? {
+              it: true,
+              targets: spots
+                .filter((p) => p.id !== peer.id && !p.paused)
+                .map((p) => ({
+                  ...p,
+                  bot: !!ownerOf(p.id),
+                  tagger: p.id === tagBefore,
+                })),
+            }
+          : {it: false, chaser: itSpot, centre};
+      }
     }
     const prev = racing ? {x: bot.x, y: bot.y, z: bot.z} : null;
     stepBot(bot, Math.min(delta, 0.1), {
@@ -1735,14 +2000,35 @@ function backOnCourse(bot, peer) {
   });
 }
 
-// When a game of tag starts, this player's bots fan out ahead of whoever's
-// it with everyone else (gatherForTag); true once done
+// When a game of tag starts, bots fan out ahead of whoever's it; in pursuit,
+// police bots fan out behind the fugitive (and if one of this player's own
+// bots rolled fugitive, it starts out ahead of the player!).
 function gatherBots() {
   if (!room || !tag.it) return true;
   if (!myBots.size) return true;
+  const pursuit = tag.mode === 'pursuit';
   let it;
+  const mineIt = [...myBots.values()].find((m) => m.peer.id === tag.it);
   if (tag.it === room.id) {
     it = leaderNow();
+  } else if (mineIt) {
+    const lead = leaderNow();
+    const f = forwardOf(lead.heading);
+    const rx = lead.x + f.x * 290;
+    const rz = lead.z + f.z * 290;
+    const ry =
+      tag.plane === 'buggy'
+        ? surfaceAt(rx, rz, Infinity)
+        : Math.max(lead.y + 15, getElevation(rx, rz) + 80);
+    Object.assign(mineIt.bot, {
+      x: rx,
+      y: ry,
+      z: rz,
+      heading: lead.heading,
+      vs: 0,
+      aim: null,
+    });
+    it = {x: rx, y: ry, z: rz, heading: lead.heading};
   } else {
     const peer = peers.get(tag.it);
     if (!peer?.group?.visible) return false;
@@ -1750,12 +2036,13 @@ function gatherBots() {
     const {x, y, z} = peer.group.position;
     it = {x, y, z, heading: _botEuler.y};
   }
-  const runners = [room.id, ...peers.keys()]
-    .filter((id) => id !== tag.it)
-    .sort();
+  const nonIt = [room.id, ...peers.keys()].filter((id) => id !== tag.it).sort();
   for (const {bot, peer} of myBots.values()) {
-    const spot = fanSpot(it, Math.max(0, runners.indexOf(peer.id)));
+    if (peer.id === tag.it) continue;
+    const slot = Math.max(0, nonIt.indexOf(peer.id));
+    const spot = pursuit ? pursuitSpot(it, slot) : fanSpot(it, slot);
     if (tag.plane === 'buggy') spot.y = surfaceAt(spot.x, spot.z, Infinity);
+    else spot.y = Math.max(spot.y, getElevation(spot.x, spot.z) + 75);
     Object.assign(bot, spot, {heading: it.heading, vs: 0, aim: null});
   }
   return true;
@@ -1778,7 +2065,10 @@ function packMyBots(now) {
   const units = BASE_FLIGHT_SPEED * 60;
   for (const [k, {bot, peer}] of myBots) {
     let flags = 0;
-    if (tag.it && tag.it !== peer.id) flags |= FLAGS.smoke;
+    const forceSmoke =
+      tag.it &&
+      (tag.mode === 'pursuit' ? tag.it === peer.id : tag.it !== peer.id);
+    if (forceSmoke) flags |= FLAGS.smoke;
     if (bot.plane === 'buggy') {
       flags |= FLAGS.ground;
       surfaceAt(bot.x, bot.z, bot.y + 1);
@@ -1805,10 +2095,31 @@ function packMyBots(now) {
   return out;
 }
 
-// One of this player's bots that's it tags anyone in its reach
+// One of this player's bots tags or busts anyone in reach
 function botTags(rawNow) {
-  if (!tag.it || ownerOf(tag.it) !== room.id || state.isPaused) return;
-  if (rawNow - tagSince <= TAG_GRACE_MS || rawNow >= tagEndsAt) return;
+  if (!tag.it || state.isPaused) return;
+  const pursuit = tag.mode === 'pursuit';
+  const graceMs = pursuit ? PURSUIT_GRACE_MS : TAG_GRACE_MS;
+  if (rawNow - tagSince <= graceMs || rawNow >= tagEndsAt) return;
+  if (pursuit) {
+    const itSpot = playerSpots(rawNow).find((p) => p.id === tag.it);
+    if (!itSpot || itSpot.paused) return;
+    _botPos.set(itSpot.x, itSpot.y, itSpot.z);
+    for (const {bot, peer} of myBots.values()) {
+      if (peer.id === tag.it) continue;
+      const d = Math.hypot(
+        bot.x - _botPos.x,
+        bot.y - _botPos.y,
+        bot.z - _botPos.z
+      );
+      if (d < TAG_RADIUS) {
+        sendTag(peer.id, {mode: 'pursuit', bustedBy: peer.id});
+        return;
+      }
+    }
+    return;
+  }
+  if (ownerOf(tag.it) !== room.id) return;
   const mine = [...myBots.values()].find((m) => m.peer.id === tag.it);
   if (!mine) return;
   let spots = playerSpots(rawNow).filter((p) => p.id !== tag.it);
@@ -2297,8 +2608,9 @@ const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
 const _side = new THREE.Vector3();
 
 // Puts the plane just off a friend's wing, heading their way; or, when
-// `gatherSlot >= 0`, fans runners out ahead of whoever started tag
-function flyTo(peer, gatherSlot = -1) {
+// `gatherSlot >= 0`, fans runners out ahead of `it` in tag (`behind = false`)
+// or fans police pursuers behind the fugitive in pursuit (`behind = true`)
+function flyTo(peer, gatherSlot = -1, behind = false) {
   if (!peer.track.ready || !hooks.movePlane) return false;
   const now = state.isPaused
     ? performance.now()
@@ -2308,8 +2620,20 @@ function flyTo(peer, gatherSlot = -1) {
   const yaw = _euler.y;
   _side.set(Math.cos(yaw), 0, -Math.sin(yaw));
   const back = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
-  const sideDist = gatherSlot >= 0 ? [-80, 80, 0][gatherSlot % 3] : 60;
-  const backDist = gatherSlot >= 0 ? (gatherSlot % 3 === 2 ? -320 : -260) : 40;
+  const sideDist =
+    gatherSlot >= 0
+      ? (behind ? [-75, 75, 0] : [-80, 80, 0])[gatherSlot % 3]
+      : 60;
+  const backDist =
+    gatherSlot >= 0
+      ? behind
+        ? gatherSlot % 3 === 2
+          ? 340
+          : 280
+        : gatherSlot % 3 === 2
+          ? -320
+          : -260
+      : 40;
   const x = _pos.x + _side.x * sideDist + back.x * backDist;
   const z = _pos.z + _side.z * sideDist + back.z * backDist;
   const latest = peer.track.latest;
@@ -2337,11 +2661,11 @@ function gatherForTag() {
   }
   const peer = peers.get(gatherToId);
   if (!peer?.track.ready) return;
-  const runners = [room.id, ...peers.keys()]
+  const nonIt = [room.id, ...peers.keys()]
     .filter((id) => id !== gatherToId)
     .sort();
-  const slot = Math.max(0, runners.indexOf(room.id));
-  if (flyTo(peer, slot)) gatherToId = null;
+  const slot = Math.max(0, nonIt.indexOf(room.id));
+  if (flyTo(peer, slot, tag.mode === 'pursuit')) gatherToId = null;
 }
 
 // --- MARKERS ---
@@ -2368,14 +2692,14 @@ function placeMarker(peer, dist) {
   marker.style.setProperty('--friend-shift', `${(-100 * along).toFixed(0)}%`);
   const isPaused = !!(peer.track?.latest?.flags & FLAGS.paused);
   const distText = formatDistance(dist);
-  const key = `${peer.name}|${distText}|${tag.it === peer.id}|${isPaused}`;
+  const key = `${peer.name}|${distText}|${tag.it === peer.id}|${tag.mode}|${isPaused}`;
   if (key === peer.markerKey) return;
   peer.markerKey = key;
   peer.markerText.textContent = `${peer.name} · ${distText}`;
   if (tag.it === peer.id) {
     const it = document.createElement('span');
     it.className = 'friend-it';
-    it.textContent = t('it');
+    it.textContent = tag.mode === 'pursuit' ? t('wanted') : t('it');
     peer.markerText.append(it);
   }
   if (isPaused) {
@@ -2456,8 +2780,13 @@ export function forEachPeerVehicle(fn) {
 }
 
 export function updateMultiplayer(delta) {
-  if (!room) return;
   const rawNow = performance.now();
+  const strobeSec = rawNow * 0.001;
+  if (state.airplaneModel?.policeStrobeMats) {
+    stepPoliceStrobes(state.airplaneModel.policeStrobeMats, strobeSec);
+  }
+  if (!room) return;
+  if (isPursuitMode()) applyBoost();
   const dtMs = delta * 1000;
   if (smoothNow === null || Math.abs(rawNow - smoothNow) > 500) {
     smoothNow = rawNow;
@@ -2553,28 +2882,44 @@ export function updateMultiplayer(delta) {
     } else {
       peer.smokeLast.valid = false;
     }
+    if (peer.policeStrobeMats?.length) {
+      stepPoliceStrobes(
+        peer.policeStrobeMats,
+        strobeSec + (peer.livery || 0) * 0.13
+      );
+    }
     const dist = camera.position.distanceTo(_pos);
     placeMarker(peer, dist);
   }
-  // Whoever's it tags anyone in reach (after a moment's grace), if neither is paused
+  // In tag, whoever's it tags anyone in reach; in pursuit, any cop busts the
+  // fugitive in reach (after the round's or handoff's grace window).
+  const graceMs = isPursuitMode() ? PURSUIT_GRACE_MS : TAG_GRACE_MS;
   if (
-    tag.it === room.id &&
     !state.isPaused &&
     !state.isCrashed &&
-    rawNow - tagSince > TAG_GRACE_MS &&
+    rawNow - tagSince > graceMs &&
     rawNow < tagEndsAt
   ) {
-    const others = [];
-    for (const peer of peers.values()) {
-      if (peer.group?.visible)
-        others.push({
-          id: peer.id,
-          pos: peer.group.position,
-          paused: isAway(peer, rawNow) || !!peer.crashed,
-        });
+    if (isPursuitMode()) {
+      if (tag.it !== room.id) {
+        const itPos = findItPosition(rawNow);
+        if (itPos && planeGroup.position.distanceTo(itPos) < TAG_RADIUS) {
+          sendTag(room.id, {mode: 'pursuit', bustedBy: room.id});
+        }
+      }
+    } else if (tag.it === room.id) {
+      const others = [];
+      for (const peer of peers.values()) {
+        if (peer.group?.visible)
+          others.push({
+            id: peer.id,
+            pos: peer.group.position,
+            paused: isAway(peer, rawNow) || !!peer.crashed,
+          });
+      }
+      const target = tagTarget(planeGroup.position, others);
+      if (target) sendTag(target);
     }
-    const target = tagTarget(planeGroup.position, others);
-    if (target) sendTag(target);
   }
   botTags(rawNow);
   scoreTag(rawNow);
@@ -2676,7 +3021,9 @@ function renderPanel() {
     // Nobody to play with while the connection is down
     tagBtn.disabled = !socket && !room.local;
     tagBtn.textContent = tag.it
-      ? t('Stop tag')
+      ? tag.mode === 'pursuit'
+        ? t('Stop pursuit')
+        : t('Stop tag')
       : race.course
         ? t('Stop race')
         : t('Play a game');
@@ -2749,7 +3096,7 @@ function renderPanel() {
   const noteOf = (id, p) =>
     [
       !p && t('you'),
-      tag.it === id && t('it'),
+      tag.it === id && (tag.mode === 'pursuit' ? t('wanted') : t('it')),
       p?.track?.latest?.flags & FLAGS.paused && t('paused'),
     ]
       .filter(Boolean)
@@ -2986,7 +3333,13 @@ if (RELAY && tabBtn && panel) {
     if (!room) return;
     pickerOpen = false;
     // Whoever starts the game is it
-    sendTag(room.id);
+    sendTag(room.id, {mode: 'tag'});
+    closePanel();
+  });
+  gamePursuitBtn?.addEventListener('click', () => {
+    if (!room) return;
+    pickerOpen = false;
+    startPursuit();
     closePanel();
   });
   gameRaceBtn?.addEventListener('click', () => {

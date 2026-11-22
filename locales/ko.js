@@ -952,4 +952,18 @@ export default {
   'Scatter a flock of ground birds': '땅이나 물가의 새 떼를 날아오르게 하기',
   'Grand finale': '그랜드 피날레',
   'Fly through a night fireworks show': '밤하늘의 불꽃놀이 속을 날아 통과하기',
+  Pursuit: '추격전',
+  'Cops chase one runner': '경찰이 도주자 한 명을 추격합니다',
+  'Stop pursuit': '추격전 중지',
+  'On the run': '도주 중',
+  'Chasing {name}': '{name} 추격 중',
+  'Pursuit over · {who} share the win': '추격전 종료 · {who} 공동 우승',
+  'Pursuit over · {who} won with {points}':
+    '추격전 종료 · {who} {points}로 우승',
+  'Pursuit over': '추격전 종료',
+  "Busted {name}! You're on the run": '{name} 검거! 이제 당신이 도주자입니다',
+  '{name} busted you!': '{name}에게 잡혔습니다!',
+  "You're on the run!": '도주 시작!',
+  '{name} is on the run': '{name} 도주 중',
+  wanted: '수배',
 };

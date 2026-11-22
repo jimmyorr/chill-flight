@@ -7,6 +7,114 @@ import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {createMaterial} from './constants.js';
 import {state} from './state.js';
 
+export const POLICE_DARK_COLOR = 0x151c26;
+export const POLICE_WHITE_COLOR = 0xf4f7fb;
+export const POLICE_BLUE_COLOR = 0x2563eb;
+
+export function createPoliceStrobeMaterials() {
+  const redMat = createMaterial({
+    color: 0xff2a22,
+    emissive: 0xff1e14,
+    emissiveIntensity: 1.5,
+    flatShading: true,
+    roughness: 0.25,
+  });
+  redMat.userData = {policeStrobe: 'red'};
+  const blueMat = createMaterial({
+    color: 0x2979ff,
+    emissive: 0x1e64ff,
+    emissiveIntensity: 0.12,
+    flatShading: true,
+    roughness: 0.25,
+  });
+  blueMat.userData = {policeStrobe: 'blue'};
+  return {redMat, blueMat};
+}
+
+// Adds a streamlined twin red/blue police lightbar + wingtip strobe pods onto
+// an aircraft group before mergeStaticMeshes runs.
+export function addAircraftPoliceBeacons(
+  group,
+  {barPos, barScale = 1, leftTip, rightTip, baseMat, redMat, blueMat}
+) {
+  const beacons = new THREE.Group();
+  if (barPos) {
+    const [bx, by, bz] = barPos;
+    const plinth = new THREE.BoxGeometry(
+      1.65 * barScale,
+      0.1 * barScale,
+      0.52 * barScale
+    );
+    plinth.translate(bx, by + 0.05 * barScale, bz);
+    beacons.add(new THREE.Mesh(plinth, baseMat));
+
+    const centerBridge = new THREE.BoxGeometry(
+      0.26 * barScale,
+      0.2 * barScale,
+      0.48 * barScale
+    );
+    centerBridge.translate(bx, by + 0.16 * barScale, bz);
+    beacons.add(new THREE.Mesh(centerBridge, baseMat));
+
+    const redLens = new THREE.BoxGeometry(
+      0.66 * barScale,
+      0.2 * barScale,
+      0.46 * barScale
+    );
+    redLens.translate(bx - 0.46 * barScale, by + 0.17 * barScale, bz);
+    beacons.add(new THREE.Mesh(redLens, redMat));
+
+    const blueLens = new THREE.BoxGeometry(
+      0.66 * barScale,
+      0.2 * barScale,
+      0.46 * barScale
+    );
+    blueLens.translate(bx + 0.46 * barScale, by + 0.17 * barScale, bz);
+    beacons.add(new THREE.Mesh(blueLens, blueMat));
+  }
+  if (leftTip) {
+    const podL = new THREE.SphereGeometry(0.24 * barScale, 8, 6);
+    podL.scale(0.85, 0.72, 1.75);
+    podL.translate(leftTip[0], leftTip[1], leftTip[2]);
+    beacons.add(new THREE.Mesh(podL, redMat));
+  }
+  if (rightTip) {
+    const podR = new THREE.SphereGeometry(0.24 * barScale, 8, 6);
+    podR.scale(0.85, 0.72, 1.75);
+    podR.translate(rightTip[0], rightTip[1], rightTip[2]);
+    beacons.add(new THREE.Mesh(podR, blueMat));
+  }
+  group.add(beacons);
+}
+
+export function collectPoliceStrobeMaterials(root) {
+  const mats = [];
+  const seen = new Set();
+  root.traverse((child) => {
+    const mat = child.isMesh && child.material;
+    if (mat?.userData?.policeStrobe && !seen.has(mat)) {
+      seen.add(mat);
+      mats.push(mat);
+    }
+  });
+  return mats;
+}
+
+// Double-pulse alternating red-red / blue-blue police strobe flash (~1.8 Hz cycle)
+export function stepPoliceStrobes(mats, timeSec) {
+  if (!mats || mats.length === 0) return;
+  const phase = ((timeSec % 0.56) + 0.56) % 0.56;
+  const redOn =
+    (phase >= 0 && phase < 0.095) || (phase >= 0.135 && phase < 0.23);
+  const blueOn =
+    (phase >= 0.28 && phase < 0.375) || (phase >= 0.415 && phase < 0.51);
+  for (let i = 0; i < mats.length; i++) {
+    const m = mats[i];
+    const on = m.userData.policeStrobe === 'red' ? redOn : blueOn;
+    m.emissiveIntensity = on ? 1.7 : 0.12;
+  }
+}
+
 const _groupInv = new THREE.Matrix4();
 const _relMat = new THREE.Matrix4();
 
@@ -126,31 +234,46 @@ export function createBiplaneModel(opts = {}) {
 
   const makeMat = (props) => createMaterial(props);
 
-  const planeColor =
-    opts.planeColor !== undefined
+  const isPolice = !!opts.police;
+  const planeColor = isPolice
+    ? POLICE_WHITE_COLOR
+    : opts.planeColor !== undefined
       ? opts.planeColor
       : typeof state.planeColor !== 'undefined'
         ? state.planeColor
         : 0x4794db;
 
-  const whiteColor =
-    planeColor === 0xe8c332 || planeColor === 0xe8c382 ? 0x1c3144 : 0xf7f5ef;
+  const whiteColor = isPolice
+    ? POLICE_DARK_COLOR
+    : planeColor === 0xe8c332 || planeColor === 0xe8c382
+      ? 0x1c3144
+      : 0xf7f5ef;
 
-  const accentMat =
-    opts.planeMat ||
-    makeMat({
-      color: planeColor,
-      flatShading: true,
-      roughness: 0.45,
-    });
+  const accentMat = isPolice
+    ? makeMat({
+        color: POLICE_WHITE_COLOR,
+        flatShading: true,
+        roughness: 0.4,
+      })
+    : opts.planeMat ||
+      makeMat({
+        color: planeColor,
+        flatShading: true,
+        roughness: 0.45,
+      });
 
-  const bodyMat =
-    opts.planeWhiteMat ||
-    makeMat({
-      color: whiteColor,
-      flatShading: true,
-      roughness: 0.48,
-    });
+  const bodyMat = isPolice
+    ? makeMat({
+        color: POLICE_DARK_COLOR,
+        flatShading: true,
+        roughness: 0.44,
+      })
+    : opts.planeWhiteMat ||
+      makeMat({
+        color: whiteColor,
+        flatShading: true,
+        roughness: 0.48,
+      });
 
   const strutMat = makeMat({
     color: 0x2c3038,
@@ -820,7 +943,22 @@ export function createBiplaneModel(opts = {}) {
   tailGroup.add(new THREE.Mesh(rudderBandGeo, bodyMat));
   root.add(tailGroup);
 
+  if (isPolice) {
+    const {redMat, blueMat} = createPoliceStrobeMaterials();
+    addAircraftPoliceBeacons(root, {
+      barPos: [0, 3.12, -3.95],
+      barScale: 1.05,
+      leftTip: [-14.1, 3.02, -3.95],
+      rightTip: [14.1, 3.02, -3.95],
+      baseMat: darkMat,
+      redMat,
+      blueMat,
+    });
+  }
+
   mergeStaticMeshes(root, new Set([propGroup]));
+  if (isPolice) root.policeStrobeMats = collectPoliceStrobeMaterials(root);
+  root.isPolice = isPolice;
 
   root.traverse((child) => {
     if (child.isMesh) {

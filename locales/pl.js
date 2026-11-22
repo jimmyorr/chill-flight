@@ -982,4 +982,18 @@ export default {
   'Scatter a flock of ground birds': 'Poderwij do lotu stado ptaków z ziemi',
   'Grand finale': 'Wielki finał',
   'Fly through a night fireworks show': 'Przeleć przez nocny pokaz fajerwerków',
+  Pursuit: 'Pościg',
+  'Cops chase one runner': 'Policja ściga jednego uciekiniera',
+  'Stop pursuit': 'Zakończ pościg',
+  'On the run': 'W ucieczce',
+  'Chasing {name}': 'W pościgu za {name}',
+  'Pursuit over · {who} share the win': 'Koniec pościgu · {who} dzielą wygraną',
+  'Pursuit over · {who} won with {points}':
+    'Koniec pościgu · {who} wygrywa z wynikiem {points}',
+  'Pursuit over': 'Koniec pościgu',
+  "Busted {name}! You're on the run": 'Złapano {name}! Teraz ty uciekasz',
+  '{name} busted you!': '{name} cię złapał!',
+  "You're on the run!": 'Uciekasz!',
+  '{name} is on the run': '{name} ucieka',
+  wanted: 'ścigany',
 };

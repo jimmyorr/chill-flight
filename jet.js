@@ -1,48 +1,65 @@
 import * as THREE from 'three';
 import {createMaterial} from './constants.js';
-import {mergeStaticMeshes} from './biplane.js';
+import {
+  POLICE_BLUE_COLOR,
+  POLICE_DARK_COLOR,
+  POLICE_WHITE_COLOR,
+  addAircraftPoliceBeacons,
+  collectPoliceStrobeMaterials,
+  createPoliceStrobeMaterials,
+  mergeStaticMeshes,
+} from './biplane.js';
 import {state} from './state.js';
 
 export function createJetModel(opts = {}) {
   const root = new THREE.Group();
 
-  const planeColor =
-    opts.planeColor !== undefined
+  const isPolice = !!opts.police;
+  const planeColor = isPolice
+    ? POLICE_BLUE_COLOR
+    : opts.planeColor !== undefined
       ? opts.planeColor
       : typeof state.planeColor !== 'undefined'
         ? state.planeColor
         : 0x4794db;
 
-  // Materials: USAF F-16 two-tone tactical grey scheme + player squadron livery accent
+  // Materials: USAF F-16 two-tone tactical grey scheme (or black-and-white
+  // police interceptor in pursuit mode) + squadron livery accent
   const upperGreyMat = createMaterial({
-    color: 0x76808e, // Gunship / tactical blue-slate upper fuselage & inner wings
+    color: isPolice ? POLICE_DARK_COLOR : 0x76808e,
     flatShading: true,
-    roughness: 0.45,
+    roughness: isPolice ? 0.38 : 0.45,
     metalness: 0.14,
   });
 
   const lowerGreyMat = createMaterial({
-    color: 0xb2bcc8, // Crisp light ghost grey underside, fin fillet & missile/tank noses
+    color: isPolice ? POLICE_WHITE_COLOR : 0xb2bcc8,
     flatShading: true,
-    roughness: 0.46,
+    roughness: isPolice ? 0.4 : 0.46,
     metalness: 0.12,
   });
 
   const radomeMat = createMaterial({
-    color: 0x959fa9, // Medium neutral grey radome cone
+    color: isPolice ? POLICE_WHITE_COLOR : 0x959fa9,
     flatShading: true,
-    roughness: 0.48,
+    roughness: 0.44,
     metalness: 0.08,
   });
 
-  const accentMat =
-    opts.planeMat ||
-    createMaterial({
-      color: planeColor,
-      flatShading: true,
-      roughness: 0.38,
-      metalness: 0.1,
-    });
+  const accentMat = isPolice
+    ? createMaterial({
+        color: POLICE_WHITE_COLOR,
+        flatShading: true,
+        roughness: 0.36,
+        metalness: 0.1,
+      })
+    : opts.planeMat ||
+      createMaterial({
+        color: planeColor,
+        flatShading: true,
+        roughness: 0.38,
+        metalness: 0.1,
+      });
 
   const darkMetalMat = createMaterial({
     color: 0x22262d,
@@ -748,7 +765,21 @@ export function createJetModel(opts = {}) {
   gearGroups.push(mainGearL);
 
   root.gearGroups = gearGroups;
+  if (isPolice) {
+    const {redMat, blueMat} = createPoliceStrobeMaterials();
+    addAircraftPoliceBeacons(root, {
+      barPos: [0, 1.18, -1.15],
+      barScale: 0.88,
+      leftTip: [-10.05, 0.16, 2.85],
+      rightTip: [10.05, 0.16, 2.85],
+      baseMat: darkMetalMat,
+      redMat,
+      blueMat,
+    });
+  }
   mergeStaticMeshes(root, new Set(gearGroups));
+  if (isPolice) root.policeStrobeMats = collectPoliceStrobeMaterials(root);
+  root.isPolice = isPolice;
 
   return root;
 }

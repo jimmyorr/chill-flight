@@ -16,6 +16,7 @@ import {
   TAG_RADIUS,
   TAG_ROUND_MS,
   TAG_SPEED_BOOST,
+  pursuitCopBoost,
   tagPointsRate,
 } from '../multiplayer-logic.js';
 import {forwardOf, headingToward} from '../traffic-logic.js';
@@ -27,6 +28,7 @@ import {
   ORBIT_RADIUS,
   REJOIN_DISTANCE,
   newBot,
+  pursuitSpot,
   rejoin,
   stepBot,
   wingSpot,
@@ -504,6 +506,69 @@ const driving = (surface, leader, tag = null, topSpeed = 240) => ({
     'a buggy bot that is it catches a player driving straight',
     at !== null,
     'not caught in 2 min'
+  );
+}
+{
+  // Pursuit (#186): police bots line up behind the fugitive, catch a straight-flying
+  // runner with their gentle interceptor boost, and a player cop can bust a bot fugitive
+  const lead = player(0, 260, 0, 0, 280);
+  const p0 = pursuitSpot(lead, 0);
+  const p2 = pursuitSpot(lead, 2);
+  check(
+    'pursuitSpot fans police pursuers behind the fugitive',
+    p0.z > lead.z + 250 && p2.z > p0.z && p0.x < lead.x
+  );
+
+  const copBot = newBot(0, lead, 'biplane');
+  Object.assign(copBot, {...p0, heading: 0, speed: 280});
+  const fug = {id: 'runner', ...player(0, 260, 0, 0, 280)};
+  let caughtAt = null;
+  for (let i = 0; i < 60 * 60 && caughtAt === null; i++) {
+    stepPlayer(fug, DT, flat);
+    stepBot(copBot, DT, {
+      elevationAt: flat,
+      waterLevel: WATER,
+      leader: lead,
+      topSpeed: 280 * pursuitCopBoost(1),
+      tag: {it: true, pursuit: true, targets: [fug]},
+    });
+    if (dist(copBot, fug) < TAG_RADIUS) caughtAt = i / 60;
+  }
+  check(
+    'a police bot in pursuit catches a runner flying straight',
+    caughtAt !== null && caughtAt < 45,
+    caughtAt === null ? 'not caught in 60 s' : `(${caughtAt.toFixed(1)} s)`
+  );
+
+  const runnerBot = newBot(1, lead, 'biplane');
+  Object.assign(runnerBot, {x: 0, y: 260, z: -280, heading: 0, speed: 260});
+  const humanCop = {
+    id: 'cop',
+    ...player(0, 260, 0, 0, 280 * pursuitCopBoost(1)),
+  };
+  let bustedAt = null;
+  for (let i = 0; i < 60 * 60 && bustedAt === null; i++) {
+    humanCop.heading = headingToward(
+      humanCop.x,
+      humanCop.z,
+      runnerBot.x,
+      runnerBot.z
+    );
+    stepPlayer(humanCop, DT, flat);
+    humanCop.y = runnerBot.y;
+    stepBot(runnerBot, DT, {
+      elevationAt: flat,
+      waterLevel: WATER,
+      leader: humanCop,
+      topSpeed: 280,
+      tag: {it: false, pursuit: true, chaser: humanCop, centre: humanCop},
+    });
+    if (dist(humanCop, runnerBot) < TAG_RADIUS) bustedAt = i / 60;
+  }
+  check(
+    'a human cop can catch a weaving bot fugitive in pursuit',
+    bustedAt !== null && bustedAt < 45,
+    bustedAt === null ? 'not caught in 60 s' : `(${bustedAt.toFixed(1)} s)`
   );
 }
 

@@ -514,14 +514,17 @@ function stepBuggy(dt) {
   const model = state.airplaneModel;
   if (state.isFreeCamera || !model) return;
   const pos = planeGroup.position;
-  if (
-    model !== lastModel ||
-    pos.distanceToSquared(_lastPos) > TELEPORT_DISTANCE ** 2
-  ) {
-    // Switched to from another plane (not the game loading, nor a teleport)
-    const fall = model !== lastModel && !!model.switchedTo;
+  if (pos.distanceToSquared(_lastPos) > TELEPORT_DISTANCE ** 2) {
     lastModel = model;
-    enter(fall);
+    enter(false);
+  } else if (model !== lastModel) {
+    // Switched to from another plane (not the game loading, nor a mid-drive
+    // police/civilian livery swap in pursuit mode)
+    const fall = !!model.switchedTo;
+    const keepDrive = !!model.sameChassis && !!lastModel?.isBuggy;
+    lastModel = model;
+    if (keepDrive) setBuggyHoverFold(model, hoverFold);
+    else enter(fall);
   }
 
   // --- INPUT ---

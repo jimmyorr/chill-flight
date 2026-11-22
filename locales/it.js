@@ -985,4 +985,19 @@ export default {
   'Grand finale': 'Gran finale',
   'Fly through a night fireworks show':
     'Vola attraverso uno spettacolo di fuochi d’artificio notturno',
+  Pursuit: 'Inseguimento',
+  'Cops chase one runner': 'La polizia insegue un fuggitivo',
+  'Stop pursuit': 'Ferma inseguimento',
+  'On the run': 'In fuga',
+  'Chasing {name}': 'Inseguendo {name}',
+  'Pursuit over · {who} share the win':
+    'Inseguimento finito · {who} dividono la vittoria',
+  'Pursuit over · {who} won with {points}':
+    'Inseguimento finito · {who} ha vinto con {points}',
+  'Pursuit over': 'Inseguimento finito',
+  "Busted {name}! You're on the run": 'Preso {name}! Ora sei in fuga',
+  '{name} busted you!': '{name} ti ha preso!',
+  "You're on the run!": 'Sei in fuga!',
+  '{name} is on the run': '{name} è in fuga',
+  wanted: 'ricercato',
 };

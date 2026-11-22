@@ -986,4 +986,19 @@ export default {
   'Scatter a flock of ground birds': "Fais s'envoler un groupe d'oiseaux posés",
   'Grand finale': 'Bouquet final',
   'Fly through a night fireworks show': 'Traverse un feu d’artifice nocturne',
+  Pursuit: 'Poursuite',
+  'Cops chase one runner': 'La police chasse un fugitif',
+  'Stop pursuit': 'Arrêter la poursuite',
+  'On the run': 'En cavale',
+  'Chasing {name}': 'À la poursuite de {name}',
+  'Pursuit over · {who} share the win':
+    'Poursuite terminée · {who} partagent la victoire',
+  'Pursuit over · {who} won with {points}':
+    'Poursuite terminée · {who} gagne avec {points}',
+  'Pursuit over': 'Poursuite terminée',
+  "Busted {name}! You're on the run": '{name} arrêté ! Tu es en cavale',
+  '{name} busted you!': "{name} t'a arrêté !",
+  "You're on the run!": 'Tu es en cavale !',
+  '{name} is on the run': '{name} est en cavale',
+  wanted: 'recherché',
 };

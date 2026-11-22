@@ -990,4 +990,19 @@ export default {
   'Grand finale': 'Puncak pertunjukan',
   'Fly through a night fireworks show':
     'Terbang menembus pertunjukan kembang api malam',
+  Pursuit: 'Pengejaran',
+  'Cops chase one runner': 'Polisi mengejar satu pelarian',
+  'Stop pursuit': 'Hentikan pengejaran',
+  'On the run': 'Dalam pelarian',
+  'Chasing {name}': 'Mengejar {name}',
+  'Pursuit over · {who} share the win':
+    'Pengejaran selesai · {who} berbagi kemenangan',
+  'Pursuit over · {who} won with {points}':
+    'Pengejaran selesai · {who} menang dengan {points}',
+  'Pursuit over': 'Pengejaran selesai',
+  "Busted {name}! You're on the run": '{name} tertangkap! Giliranmu kabur',
+  '{name} busted you!': '{name} menangkapmu!',
+  "You're on the run!": 'Kamu dalam pelarian!',
+  '{name} is on the run': '{name} sedang kabur',
+  wanted: 'buron',
 };

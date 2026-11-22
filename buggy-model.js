@@ -11,6 +11,12 @@
 import * as THREE from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import * as compactHatchback from './third-party/polyfork/compact-hatchback-386417.mjs';
+import * as policeCruiser from './third-party/polyfork/police-cruiser-a2d25e.mjs';
+import {
+  POLICE_BLUE_COLOR,
+  collectPoliceStrobeMaterials,
+  createPoliceStrobeMaterials,
+} from './biplane.js';
 import {createMaterial} from './constants.js';
 import {state} from './state.js';
 
@@ -43,6 +49,11 @@ export const BUGGY_AXLES = {
 const BODY_SENTINEL = 0xff00ff;
 const HEAD_SENTINEL = 0x00ffff;
 const TAIL_SENTINEL = 0xffff00;
+const RED_STROBE_SENTINEL = 0xff00aa;
+const BLUE_STROBE_SENTINEL = 0x00ff66;
+const POLICE_FRONT_AXLE = -1.44 * CAR_SCALE;
+const POLICE_REAR_AXLE = 1.44 * CAR_SCALE;
+const POLICE_HALF_TRACK = 2.92;
 
 const _up = new THREE.Vector3(0, 1, 0);
 const _dir = new THREE.Vector3();
@@ -301,6 +312,7 @@ function buildWheelGeometries(side) {
 }
 
 let cachedParts = null;
+let cachedPoliceParts = null;
 
 function makeSubGeometry(posArr, normArr, colArr = null) {
   const geo = new THREE.BufferGeometry();
@@ -486,6 +498,139 @@ function getCarParts() {
   return cachedParts;
 }
 
+function getPoliceCarParts() {
+  if (cachedPoliceParts) return cachedPoliceParts;
+  const base = getCarParts();
+  const asset = policeCruiser.createAsset({
+    colorway: 'black-white',
+    lens: HEAD_SENTINEL,
+    tail: TAIL_SENTINEL,
+    lampRed: RED_STROBE_SENTINEL,
+    lampBlue: BLUE_STROBE_SENTINEL,
+    lightbar: 'lit',
+    pushBumper: true,
+  });
+
+  const headCol = new THREE.Color(HEAD_SENTINEL);
+  const tailCol = new THREE.Color(TAIL_SENTINEL);
+  const redCol = new THREE.Color(RED_STROBE_SENTINEL);
+  const blueCol = new THREE.Color(BLUE_STROBE_SENTINEL);
+  const matchCol = (r, g, b, c) =>
+    Math.abs(r - c.r) < 1e-3 &&
+    Math.abs(g - c.g) < 1e-3 &&
+    Math.abs(b - c.b) < 1e-3;
+
+  const srcBody = asset.children.find((c) => c.isMesh).geometry;
+  const pos = srcBody.attributes.position.array;
+  const norm = srcBody.attributes.normal.array;
+  const col = srcBody.attributes.color.array;
+
+  const bodyPos = [];
+  const bodyNorm = [];
+  const bodyCol = [];
+  const headPos = [];
+  const headNorm = [];
+  const tailPos = [];
+  const tailNorm = [];
+  const redPos = [];
+  const redNorm = [];
+  const bluePos = [];
+  const blueNorm = [];
+
+  for (let i = 0; i < pos.length; i += 9) {
+    const r = col[i];
+    const g = col[i + 1];
+    const b = col[i + 2];
+    if (matchCol(r, g, b, headCol)) {
+      for (let k = 0; k < 9; k++) {
+        headPos.push(pos[i + k]);
+        headNorm.push(norm[i + k]);
+      }
+    } else if (matchCol(r, g, b, tailCol)) {
+      for (let k = 0; k < 9; k++) {
+        tailPos.push(pos[i + k]);
+        tailNorm.push(norm[i + k]);
+      }
+    } else if (matchCol(r, g, b, redCol)) {
+      for (let k = 0; k < 9; k++) {
+        redPos.push(pos[i + k]);
+        redNorm.push(norm[i + k]);
+      }
+    } else if (matchCol(r, g, b, blueCol)) {
+      for (let k = 0; k < 9; k++) {
+        bluePos.push(pos[i + k]);
+        blueNorm.push(norm[i + k]);
+      }
+    } else {
+      for (let k = 0; k < 9; k++) {
+        bodyPos.push(pos[i + k]);
+        bodyNorm.push(norm[i + k]);
+        bodyCol.push(col[i + k]);
+      }
+    }
+  }
+
+  asset.traverse((o) => {
+    if (o.isMesh) {
+      o.geometry?.dispose();
+      o.material?.dispose();
+    }
+  });
+
+  // Cruiser-length hovercraft skirt & swing-arms matching +/-5.04 axles
+  const topLoop = octagonLoop(3.06, 8.2, 0.72, 1.2);
+  const midLoop = octagonLoop(3.48, 8.68, 0.86, 1.38);
+  const botLoop = octagonLoop(3.24, 8.42, 0.8, 1.28);
+  const skirtParts = [
+    loftPerimeter(midLoop, 0.58, topLoop, 1.1, false),
+    loftPerimeter(botLoop, 0.14, midLoop, 0.58, true),
+  ];
+  for (const side of [-1, 1]) {
+    for (const az of [POLICE_FRONT_AXLE, POLICE_REAR_AXLE]) {
+      skirtParts.push(box(0.55, 1.32, 2.4, side * 2.58, 1.56, az));
+    }
+  }
+  const hoverSkirtGeo = prepMerge(skirtParts);
+  const collarTop = octagonLoop(3.14, 8.3, 0.74, 1.22);
+  const collarBot = octagonLoop(3.24, 8.42, 0.78, 1.28);
+  const hoverCollarGeo = loftPerimeter(collarBot, 0.96, collarTop, 1.14, false);
+
+  const chassisArmParts = [];
+  const chassisRamParts = [];
+  for (const side of [-1, 1]) {
+    for (const az of [POLICE_FRONT_AXLE, POLICE_REAR_AXLE]) {
+      const xIn = side * 2.15;
+      const xPin = side * POLICE_HALF_TRACK;
+      const yPin = BUGGY_WHEEL_RADIUS + 0.22;
+      chassisArmParts.push(
+        tube([xIn, 1.72, az - 0.38], [xPin, yPin, az - 0.18], 0.1, 6),
+        tube([xIn, 1.72, az + 0.38], [xPin, yPin, az + 0.18], 0.1, 6),
+        cylY(0.2, 0.2, 0.28, 8, xPin, yPin, az)
+      );
+      chassisRamParts.push(
+        tube([xIn, 1.98, az], [xPin - side * 0.15, yPin + 0.18, az], 0.065, 6)
+      );
+    }
+  }
+
+  cachedPoliceParts = {
+    bodyGeo: makeSubGeometry(bodyPos, bodyNorm, bodyCol),
+    headLensGeo: makeSubGeometry(headPos, headNorm),
+    tailLensGeo: makeSubGeometry(tailPos, tailNorm),
+    lampRedGeo: makeSubGeometry(redPos, redNorm),
+    lampBlueGeo: makeSubGeometry(bluePos, blueNorm),
+    wheelLeft: base.wheelLeft,
+    wheelRight: base.wheelRight,
+    hoverSkirtGeo,
+    hoverCollarGeo,
+    chassisArmsGeo: prepMerge(chassisArmParts),
+    chassisRamsGeo: prepMerge(chassisRamParts),
+    podLeft: base.podLeft,
+    podRight: base.podRight,
+  };
+  return cachedPoliceParts;
+}
+
 // Deploys or stows the amphibious hovercraft conversion (fold 0 on land -> 1
 // on water): inflates the underbody air-cushion skirt, extends the wheel-arch
 // outrigger swing-arms, tips all four 5-spoke wheels flat as lift/thrust fans,
@@ -534,23 +679,33 @@ export function setBuggyHoverFold(model, fold) {
 }
 
 export function createBuggyModel(opts = {}) {
+  const isPolice = !!opts.police;
   const root = new THREE.Group();
-  const parts = getCarParts();
+  const parts = isPolice ? getPoliceCarParts() : getCarParts();
+  const frontAxle = isPolice ? POLICE_FRONT_AXLE : FRONT_AXLE;
+  const rearAxle = isPolice ? POLICE_REAR_AXLE : REAR_AXLE;
+  const halfTrack = isPolice ? POLICE_HALF_TRACK : HALF_TRACK;
 
-  const planeColor =
-    opts.planeColor !== undefined
+  const planeColor = isPolice
+    ? POLICE_BLUE_COLOR
+    : opts.planeColor !== undefined
       ? opts.planeColor
       : typeof state.planeColor !== 'undefined'
         ? state.planeColor
         : 0xb58941;
 
-  const accentMat =
-    opts.planeMat ||
-    createMaterial({color: planeColor, flatShading: true, roughness: 0.55});
+  const accentMat = isPolice
+    ? createMaterial({
+        color: POLICE_BLUE_COLOR,
+        flatShading: true,
+        roughness: 0.5,
+      })
+    : opts.planeMat ||
+      createMaterial({color: planeColor, flatShading: true, roughness: 0.55});
   const trimMat = createMaterial({
     vertexColors: true,
     flatShading: true,
-    roughness: 0.8,
+    roughness: isPolice ? 0.58 : 0.8,
   });
   const tyreMat = createMaterial({
     color: 0x262322,
@@ -558,10 +713,13 @@ export function createBuggyModel(opts = {}) {
     roughness: 0.88,
   });
   const alloyMat = createMaterial({
-    color: 0xb8b2a8,
+    color: isPolice ? 0x303640 : 0xb8b2a8,
     flatShading: true,
     roughness: 0.45,
   });
+  const hubCapMat = isPolice
+    ? createMaterial({color: 0xd8dee6, flatShading: true, roughness: 0.32})
+    : accentMat;
   const skirtMat = createMaterial({
     color: 0x252830,
     flatShading: true,
@@ -582,8 +740,15 @@ export function createBuggyModel(opts = {}) {
 
   // Sprung body group (bounced, squatted, and leaned by buggy.js)
   const body = new THREE.Group();
-  body.add(new THREE.Mesh(parts.paintGeo.clone(), accentMat));
-  body.add(new THREE.Mesh(parts.trimGeo.clone(), trimMat));
+  if (isPolice) {
+    const {redMat, blueMat} = createPoliceStrobeMaterials();
+    body.add(new THREE.Mesh(parts.bodyGeo.clone(), trimMat));
+    body.add(new THREE.Mesh(parts.lampRedGeo.clone(), redMat));
+    body.add(new THREE.Mesh(parts.lampBlueGeo.clone(), blueMat));
+  } else {
+    body.add(new THREE.Mesh(parts.paintGeo.clone(), accentMat));
+    body.add(new THREE.Mesh(parts.trimGeo.clone(), trimMat));
+  }
   body.add(new THREE.Mesh(parts.headLensGeo.clone(), lensMat));
   body.add(new THREE.Mesh(parts.tailLensGeo.clone(), tailMat));
 
@@ -600,7 +765,7 @@ export function createBuggyModel(opts = {}) {
   const hoverArms = new THREE.Group();
   hoverArms.visible = false;
   hoverArms.add(new THREE.Mesh(parts.chassisArmsGeo.clone(), skirtMat));
-  hoverArms.add(new THREE.Mesh(parts.chassisRamsGeo.clone(), alloyMat));
+  hoverArms.add(new THREE.Mesh(parts.chassisRamsGeo.clone(), hubCapMat));
   root.add(hoverArms);
 
   // Wheels + shrouded hover pods: front pair turn on steering pivots
@@ -615,7 +780,7 @@ export function createBuggyModel(opts = {}) {
       const wg = new THREE.Group();
       wg.add(new THREE.Mesh(wGeos.tyreGeo.clone(), tyreMat));
       wg.add(new THREE.Mesh(wGeos.alloyGeo.clone(), alloyMat));
-      wg.add(new THREE.Mesh(wGeos.capGeo.clone(), accentMat));
+      wg.add(new THREE.Mesh(wGeos.capGeo.clone(), hubCapMat));
       return wg;
     };
 
@@ -631,7 +796,7 @@ export function createBuggyModel(opts = {}) {
     };
 
     const pivot = new THREE.Group();
-    pivot.position.set(side * HALF_TRACK, BUGGY_WHEEL_RADIUS, FRONT_AXLE);
+    pivot.position.set(side * halfTrack, BUGGY_WHEEL_RADIUS, frontAxle);
     const front = makeWheelGroup();
     front.userData = {side, baseX: 0, baseY: 0};
     pivot.add(front);
@@ -641,10 +806,10 @@ export function createBuggyModel(opts = {}) {
     wheels.push(front);
 
     const rear = makeWheelGroup();
-    rear.position.set(side * HALF_TRACK, BUGGY_WHEEL_RADIUS, REAR_AXLE);
+    rear.position.set(side * halfTrack, BUGGY_WHEEL_RADIUS, rearAxle);
     rear.userData = {side, baseX: rear.position.x, baseY: rear.position.y};
     root.add(rear);
-    root.add(makePodGroup(side * HALF_TRACK, BUGGY_WHEEL_RADIUS, REAR_AXLE));
+    root.add(makePodGroup(side * halfTrack, BUGGY_WHEEL_RADIUS, rearAxle));
     wheels.push(rear);
   }
 
@@ -655,6 +820,8 @@ export function createBuggyModel(opts = {}) {
   root.hoverArms = hoverArms;
   root.hoverPods = hoverPods;
   root.isBuggy = true;
+  root.isPolice = isPolice;
+  if (isPolice) root.policeStrobeMats = collectPoliceStrobeMaterials(root);
   // Follow camera framing and bonnet/windshield first-person camera
   root.cameraScale = 0.5;
   root.chaseLift = 1.55;

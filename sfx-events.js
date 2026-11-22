@@ -38,6 +38,7 @@ export const SFX_EVENTS = [
   {key: 'portal', label: 'Portal wormhole'},
   {key: 'fireworks', label: 'Fireworks'},
   {key: 'geese', label: 'Startled geese'},
+  {key: 'siren', label: 'Police pursuit yelp'},
 ];
 
 const STORAGE_KEY = 'chill_flight_sfx_events';
@@ -360,6 +361,47 @@ export function playRaceBeep(go = false, force = false) {
     attack: 0.006,
     decay: 0.2,
   });
+}
+
+// Short two-tone police interceptor "whoop-whoop" yelp (#186) on pursuit start,
+// bust handoffs, or pressing wave (H) as a cop
+let lastPoliceYelpAt = -Infinity;
+export function playPoliceYelp(force = false) {
+  if ((!force && !isSfxEventEnabled('siren')) || !ready(force)) return;
+  const now = ctx.currentTime;
+  if (!force && now - lastPoliceYelpAt < 0.9) return;
+  lastPoliceYelpAt = now;
+  for (let i = 0; i < 2; i++) {
+    const t0 = now + i * 0.155;
+    const dur = 0.135;
+    const osc = ctx.createOscillator();
+    const sub = ctx.createOscillator();
+    const filter = ctx.createBiquadFilter();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    sub.type = 'triangle';
+    osc.frequency.setValueAtTime(610, t0);
+    osc.frequency.exponentialRampToValueAtTime(1320, t0 + dur);
+    sub.frequency.setValueAtTime(305, t0);
+    sub.frequency.exponentialRampToValueAtTime(660, t0 + dur);
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(2400, t0);
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.linearRampToValueAtTime(0.11, t0 + 0.014);
+    gain.gain.setValueAtTime(0.1, t0 + dur - 0.025);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    const subGain = ctx.createGain();
+    subGain.gain.value = 0.45;
+    osc.connect(filter);
+    sub.connect(subGain);
+    subGain.connect(filter);
+    filter.connect(gain);
+    gain.connect(bus);
+    osc.start(t0);
+    sub.start(t0);
+    osc.stop(t0 + dur + 0.01);
+    sub.stop(t0 + dur + 0.01);
+  }
 }
 
 // Bumping into another plane or buggy (bumps.js): a dull knock of panels
@@ -911,6 +953,7 @@ export const SFX_EVENT_PLAYERS = {
       setTimeout(() => playRaceBeep(i === 3, true), i * 1000);
     }
   },
+  siren: () => playPoliceYelp(true),
 };
 
 // Loops forced on for auditioning in the sound lab, whatever the plane is

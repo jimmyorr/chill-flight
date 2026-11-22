@@ -85,7 +85,9 @@ const MIN_SPEED = 90;
 // on top, multiplayer-logic.js): a bot runner can be caught, and a bot
 // chaser a little slower than a player who's it
 export const CHASE_SPEED = 0.93;
+export const PURSUIT_CHASE_SPEED = 0.985;
 export const RUN_SPEED = 0.88;
+export const PURSUIT_RUN_SPEED = 0.96;
 // Other bots count as this many times further off when picking who to
 // chase, so bots go after people
 const BOT_TARGET_WEIGHT = 3;
@@ -152,6 +154,21 @@ export function fanSpot(it, slot) {
     x: it.x - f.z * side + f.x * ahead,
     y: it.y + 15,
     z: it.z + f.x * side + f.z * ahead,
+  };
+}
+
+/**
+ * Where a police pursuer lines up when a pursuit round starts: fanned out
+ * behind the fugitive (`runner`) in hot pursuit, facing their heading.
+ */
+export function pursuitSpot(runner, slot) {
+  const f = forwardOf(runner.heading);
+  const side = [-75, 75, 0][slot % 3];
+  const behind = slot % 3 === 2 ? 340 : 280;
+  return {
+    x: runner.x - f.z * side - f.x * behind,
+    y: runner.y + 15,
+    z: runner.z + f.x * side - f.z * behind,
   };
 }
 
@@ -505,12 +522,17 @@ function stepChaser(bot, dt, ctx) {
     bot.chaseFor = 0;
   }
   // Where the target will be when the bot gets there, roughly, eased so the
-  // bot reacts late to a turn
+  // bot reacts late to a turn. In pursuit, multiple bot cops flank slightly
+  // left/right until closing inside the final 160 units.
   const t = clamp(gap / Math.max(1, bot.speed), 0, 4);
+  const flankScale = ctx.tag.pursuit ? clamp((gap - 140) / 220, 0, 1) : 0;
+  const flankSide = [-32, 32, 0][bot.slot % 3] * flankScale;
+  const toTarget = headingToward(bot.x, bot.z, target.x, target.z);
+  const tf = forwardOf(toTarget);
   const ahead = {
-    x: target.x + (target.vx || 0) * t,
+    x: target.x + (target.vx || 0) * t - tf.z * flankSide,
     y: target.y + (target.vy || 0) * t,
-    z: target.z + (target.vz || 0) * t,
+    z: target.z + (target.vz || 0) * t + tf.x * flankSide,
   };
   if (!bot.aim) bot.aim = {...ahead};
   const k = 1 - Math.exp(-dt / CHASE_REACTION);
@@ -524,7 +546,8 @@ function stepChaser(bot, dt, ctx) {
     headingToward(bot.x, bot.z, bot.aim.x, bot.aim.z),
     CHASE_TURN
   );
-  move(bot, dt, ctx, bot.aim.y, ctx.topSpeed * CHASE_SPEED, CHASE_CLEARANCE);
+  const chaseMult = ctx.tag.pursuit ? PURSUIT_CHASE_SPEED : CHASE_SPEED;
+  move(bot, dt, ctx, bot.aim.y, ctx.topSpeed * chaseMult, CHASE_CLEARANCE);
 }
 
 // In tag, running: hanging about near whoever's it to score, circling at a
@@ -532,7 +555,7 @@ function stepChaser(bot, dt, ctx) {
 // they get close, with the odd dawdle; with nobody to run from, drifting
 // back toward the others
 function stepRunner(bot, dt, ctx) {
-  const {chaser, centre} = ctx.tag;
+  const {chaser, centre, pursuit} = ctx.tag;
   bot.mistakeAt -= dt;
   if (bot.mistakeAt < -MISTAKE_FOR) {
     bot.mistakeAt = MISTAKE_EVERY * (0.7 + 0.6 * ((bot.age * 7.3) % 1));
@@ -561,12 +584,15 @@ function stepRunner(bot, dt, ctx) {
     return;
   }
   const gap = distance2d(bot, chaser);
-  if (gap < FLEE_DISTANCE) {
+  const fleeUnder = pursuit ? 820 : FLEE_DISTANCE;
+  if (gap < fleeUnder) {
     let away = headingToward(chaser.x, chaser.z, bot.x, bot.z);
-    away += Math.sin(bot.age * 0.45 + bot.slot * 2) * 0.6;
+    away += Math.sin(bot.age * (pursuit ? 0.6 : 0.45) + bot.slot * 2) * 0.65;
     if (!dawdling) steer(bot, ctx, dt, away, RUN_TURN);
     const ground = Math.max(ctx.elevationAt(bot.x, bot.z), ctx.waterLevel);
-    const speed = ctx.topSpeed * (dawdling ? 0.6 : RUN_SPEED);
+    const speed =
+      ctx.topSpeed *
+      (dawdling ? 0.62 : pursuit ? PURSUIT_RUN_SPEED : RUN_SPEED);
     move(bot, dt, ctx, ground + DUCK_CLEARANCE, speed, DUCK_CLEARANCE);
     return;
   }

@@ -15,7 +15,15 @@ import {
   updateUrlParams,
 } from './constants.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
-import {createBiplaneModel, mergeStaticMeshes} from './biplane.js';
+import {
+  POLICE_DARK_COLOR,
+  POLICE_WHITE_COLOR,
+  addAircraftPoliceBeacons,
+  collectPoliceStrobeMaterials,
+  createBiplaneModel,
+  createPoliceStrobeMaterials,
+  mergeStaticMeshes,
+} from './biplane.js';
 import {createTwinModel, setGearExtension} from './twin.js';
 import {createJetModel} from './jet.js';
 import {createBuggyModel} from './buggy-model.js';
@@ -265,8 +273,21 @@ pontoonGroup.add(hingeRB);
 // The player's plane carries the shared pontoons; pass pontoons: false for another plane (traffic.js)
 export function createSeaplaneModel(opts = {}) {
   const model = new THREE.Group();
-  const activeWhiteMat = opts.planeWhiteMat || planeWhiteMat;
-  const activePlaneMat = opts.planeMat || planeMat;
+  const isPolice = !!opts.police;
+  const activeWhiteMat = isPolice
+    ? createMaterial({
+        color: POLICE_DARK_COLOR,
+        flatShading: true,
+        roughness: 0.42,
+      })
+    : opts.planeWhiteMat || planeWhiteMat;
+  const activePlaneMat = isPolice
+    ? createMaterial({
+        color: POLICE_WHITE_COLOR,
+        flatShading: true,
+        roughness: 0.38,
+      })
+    : opts.planeMat || planeMat;
   const darkTrimMat = createMaterial({
     color: 0x1e232b,
     flatShading: true,
@@ -783,7 +804,22 @@ export function createSeaplaneModel(opts = {}) {
     model.pontoonGroup = pontoonGroup;
   }
 
+  if (isPolice) {
+    const {redMat, blueMat} = createPoliceStrobeMaterials();
+    addAircraftPoliceBeacons(model, {
+      barPos: [0, 2.88, -3.55],
+      barScale: 1.08,
+      leftTip: [-15.9, 2.8, -3.05],
+      rightTip: [15.9, 2.8, -3.05],
+      baseMat: darkTrimMat,
+      redMat,
+      blueMat,
+    });
+  }
+
   mergeStaticMeshes(model, new Set([propGroup, pontoonGroup]));
+  if (isPolice) model.policeStrobeMats = collectPoliceStrobeMaterials(model);
+  model.isPolice = isPolice;
   return model;
 }
 
@@ -846,7 +882,11 @@ function updatePlaneStats() {
   }
 }
 
-export function setActivePlane(planeType, skipStorage = false) {
+export function setActivePlane(
+  planeType,
+  skipStorage = false,
+  {sameChassis = false} = {}
+) {
   if (!ChillFlightLogic.PLANE_TYPES.includes(planeType)) return;
   if (state.mpLockedPlane && planeType !== state.mpLockedPlane) return;
   activePlaneType = planeType;
@@ -868,49 +908,32 @@ export function setActivePlane(planeType, skipStorage = false) {
   }
 
   // Switching from another plane, rather than the game loading
-  const switching = !!state.airplaneModel;
+  const switching = !!state.airplaneModel && !sameChassis;
   // Remove existing model from planeGroup
   if (state.airplaneModel && planeGroup) {
     planeGroup.remove(state.airplaneModel);
   }
 
+  const buildOpts = {
+    planeColor:
+      typeof state.planeColor !== 'undefined' ? state.planeColor : 0xffffff,
+    planeMat: planeMat,
+    planeWhiteMat: planeWhiteMat,
+    police: !!state.mpPolice,
+  };
+
   // Build new model
   let newModel;
   if (planeType === 'biplane') {
-    newModel = createBiplaneModel({
-      planeColor:
-        typeof state.planeColor !== 'undefined' ? state.planeColor : 0xffffff,
-      planeMat: planeMat,
-      planeWhiteMat: planeWhiteMat,
-    });
+    newModel = createBiplaneModel(buildOpts);
   } else if (planeType === 'jet') {
-    newModel = createJetModel({
-      planeColor:
-        typeof state.planeColor !== 'undefined' ? state.planeColor : 0xffffff,
-      planeMat: planeMat,
-      planeWhiteMat: planeWhiteMat,
-    });
+    newModel = createJetModel(buildOpts);
   } else if (planeType === 'buggy') {
-    newModel = createBuggyModel({
-      planeColor:
-        typeof state.planeColor !== 'undefined' ? state.planeColor : 0xffffff,
-      planeMat: planeMat,
-      planeWhiteMat: planeWhiteMat,
-    });
+    newModel = createBuggyModel(buildOpts);
   } else if (planeType === 'twin') {
-    newModel = createTwinModel({
-      planeColor:
-        typeof state.planeColor !== 'undefined' ? state.planeColor : 0xffffff,
-      planeMat: planeMat,
-      planeWhiteMat: planeWhiteMat,
-    });
+    newModel = createTwinModel(buildOpts);
   } else {
-    newModel = createSeaplaneModel({
-      planeColor:
-        typeof state.planeColor !== 'undefined' ? state.planeColor : 0xffffff,
-      planeMat: planeMat,
-      planeWhiteMat: planeWhiteMat,
-    });
+    newModel = createSeaplaneModel(buildOpts);
   }
 
   // How far the wheels reach below the plane's center, for landing on land
@@ -928,6 +951,7 @@ export function setActivePlane(planeType, skipStorage = false) {
 
   // The buggy drops from where the plane was (buggy.js)
   newModel.switchedTo = switching;
+  newModel.sameChassis = sameChassis;
   state.airplaneModel = newModel;
   // Active vehicle class for styling
   document.body.classList.toggle('vehicle-buggy', planeType === 'buggy');
@@ -979,6 +1003,17 @@ export function setLockedPlane(planeType) {
     planeSelectGroup.querySelectorAll('.scheme-btn').forEach((btn) => {
       btn.disabled = !!state.mpLockedPlane;
     });
+  }
+}
+
+// Swaps the local player's vehicle into or out of its police pursuit variant
+// (#186) without resetting flight/driving momentum or overwriting saved livery.
+export function setPoliceMode(on) {
+  const want = !!on;
+  if (Boolean(state.mpPolice) === want) return;
+  state.mpPolice = want;
+  if (state.airplaneModel) {
+    setActivePlane(activePlaneType, true, {sameChassis: true});
   }
 }
 

@@ -40,11 +40,13 @@ function materialsFor(livery) {
 }
 
 // A plane of the given type (a PLANE_BUILDERS key) in livery number `livery`
-// (ChillFlightLogic.PLANE_COLORS), casting shadows
-export function buildPlaneModel(type, livery) {
+// (ChillFlightLogic.PLANE_COLORS), or its police pursuit variant when `police`
+// is true, casting shadows
+export function buildPlaneModel(type, livery, {police = false} = {}) {
   const model = PLANE_BUILDERS[type]({
     planeColor: ChillFlightLogic.PLANE_COLORS[livery],
-    ...materialsFor(livery),
+    ...(police ? {} : materialsFor(livery)),
+    police,
   });
   model.traverse((child) => {
     if (child.isMesh) {

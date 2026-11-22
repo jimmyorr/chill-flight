@@ -987,4 +987,20 @@ export default {
   'Grand finale': 'Büyük final',
   'Fly through a night fireworks show':
     'Gece havai fişek gösterisinin içinden uç',
+  Pursuit: 'Kovalamaca',
+  'Cops chase one runner': 'Polisler tek bir kaçağı kovalar',
+  'Stop pursuit': 'Kovalamacayı bitir',
+  'On the run': 'Firarda',
+  'Chasing {name}': '{name} takip ediliyor',
+  'Pursuit over · {who} share the win':
+    'Kovalamaca bitti · {who} birinciliği paylaştı',
+  'Pursuit over · {who} won with {points}':
+    'Kovalamaca bitti · {who} {points} ile kazandı',
+  'Pursuit over': 'Kovalamaca bitti',
+  "Busted {name}! You're on the run":
+    '{name} yakalandı! Şimdi kaçma sırası sende',
+  '{name} busted you!': '{name} seni yakaladı!',
+  "You're on the run!": 'Firardasın!',
+  '{name} is on the run': '{name} firarda',
+  wanted: 'aranıyor',
 };
