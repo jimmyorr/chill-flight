@@ -29,6 +29,7 @@ import {
   REJOIN_DISTANCE,
   newBot,
   driveYawLimit,
+  pursuitDriveChase,
   pursuitSpot,
   rejoin,
   stepBot,
@@ -570,6 +571,13 @@ const driving = (surface, leader, tag = null, topSpeed = 240) => ({
     'a human cop can catch a weaving bot fugitive in pursuit',
     bustedAt !== null && bustedAt < 45,
     bustedAt === null ? 'not caught in 60 s' : `(${bustedAt.toFixed(1)} s)`
+  );
+
+  check(
+    'bot cop buggies close in from far back and settle under top speed near',
+    pursuitDriveChase(100) < 0.9 &&
+      pursuitDriveChase(2000) * pursuitCopBoost(3) > 1.02 &&
+      pursuitDriveChase(550) > pursuitDriveChase(300)
   );
 
   check(

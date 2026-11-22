@@ -92,6 +92,26 @@ export const PURSUIT_RUN_SPEED = 0.96;
 // rough ground and turns far wider at speed, so bot cops stay a bit under
 // it (with the cop boost) and a bot runner can be run down
 export const PURSUIT_DRIVE_CHASE_SPEED = 0.88;
+// ...rising to this from PURSUIT_BAND_NEAR to PURSUIT_BAND_FAR behind the
+// runner (about 1.05 of a player's top with the cop boost), so the cops
+// always reel a runner back in and stay on their tail, but only bust one
+// who slips up (rubber-banding, as in Hot Pursuit)
+export const PURSUIT_DRIVE_CATCHUP_SPEED = 0.98;
+const PURSUIT_BAND_NEAR = 300;
+const PURSUIT_BAND_FAR = 800;
+
+/** A bot cop's share of top speed in a buggy pursuit, `gap` behind. */
+export function pursuitDriveChase(gap) {
+  const t = clamp(
+    (gap - PURSUIT_BAND_NEAR) / (PURSUIT_BAND_FAR - PURSUIT_BAND_NEAR),
+    0,
+    1
+  );
+  return (
+    PURSUIT_DRIVE_CHASE_SPEED +
+    (PURSUIT_DRIVE_CATCHUP_SPEED - PURSUIT_DRIVE_CHASE_SPEED) * t
+  );
+}
 export const PURSUIT_DRIVE_RUN_SPEED = 0.86;
 // Bot cops' speed while a new runner has their head start after a bust
 export const PURSUIT_GRACE_EASE = 0.8;
@@ -565,7 +585,7 @@ function stepChaser(bot, dt, ctx) {
   );
   const chaseMult = ctx.tag.pursuit
     ? ctx.driving
-      ? PURSUIT_DRIVE_CHASE_SPEED
+      ? pursuitDriveChase(gap)
       : PURSUIT_CHASE_SPEED
     : CHASE_SPEED;
   const ease = ctx.tag.pursuit && ctx.tag.grace ? PURSUIT_GRACE_EASE : 1;
