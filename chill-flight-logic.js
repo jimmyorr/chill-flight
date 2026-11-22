@@ -2027,8 +2027,12 @@ export const ChillFlightLogic = {};
   const CANYON_TIERS = 5; // Cliff-and-bench steps from river to rim
   // How far the table dips away from the rim: this share of the rim's
   // height above the water, over this many units out from the gorge
-  const CANYON_DIP = 0.38;
-  const CANYON_DIP_RUN = 2600;
+  const CANYON_DIP = 0.27;
+  const CANYON_DIP_RUN = 1000;
+  // How far the table reaches past the gorge's rim (on average), and how
+  // wide its edge's cliff is
+  const CANYON_SHELF = 650;
+  const CANYON_CLIFF = 70;
   const _canyonPts = _canyonShape.map(([lon, lat]) => [
     lon * 5000,
     -lat * 5000,
@@ -2098,12 +2102,30 @@ export const ChillFlightLogic = {};
     // The plateau: solid around the canyon, then easing back into the
     // desert over what land is already there (landWeight), so it doesn't
     // fill in the coast's inlets and islands
+    // (core: the old, wider reach, which the east coast highway keeps clear of)
     const plateauReach = halfWidth + 1200;
-    const pw = Math.max(0, Math.min(1, 1 - (d - plateauReach) / 2000));
+    // The table ends at a ragged cliff (CANYON_SHELF out past the gorge's
+    // rim, wandering in and out in promontories and bays), with lone mesas
+    // and buttes left standing off it, then the desert below
+    const edge =
+      halfWidth +
+      CANYON_SHELF +
+      simplex.noise2D(x * 0.0011 - 71, z * 0.0011 + 23) * 380 +
+      simplex.noise2D(x * 0.004 + 5, z * 0.004 - 13) * 90;
+    const table = 1 - smoothRamp(d, edge, edge + CANYON_CLIFF);
+    const outlier =
+      d < edge + 2200
+        ? smoothRamp(
+            simplex.noise2D(x * 0.0017 + 211, z * 0.0017 - 97) +
+              simplex.noise2D(x * 0.006 - 7, z * 0.006 + 59) * 0.08,
+            0.58,
+            0.62
+          ) * (1 - smoothRamp(d, edge + 1400, edge + 2200))
+        : 0;
     // ... and lowering toward the mouth, where it meets the sea
     const mouth = Math.max(0, Math.min(1, (CANYON_LENGTH - along) / 5000));
     const core = d < plateauReach ? 1 : 0;
-    const weight = pw * pw * (3 - 2 * pw) * mouth;
+    const weight = Math.max(table, outlier) * mouth;
     // Past the plateau's end only the river's channel remains
     const channel = Math.max(0, 1 - d / 320);
     if (weight <= 0 && channel <= 0) return null;
