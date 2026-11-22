@@ -318,7 +318,6 @@ let lineUpPending = false;
 let raceOverSince = null;
 // In someone's slipstream until then (performance.now())
 let slipUntil = 0;
-// The game picker is open (Play a game)
 let countShown = '';
 
 function myName() {
