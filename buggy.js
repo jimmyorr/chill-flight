@@ -514,17 +514,21 @@ function stepBuggy(dt) {
   const model = state.airplaneModel;
   if (state.isFreeCamera || !model) return;
   const pos = planeGroup.position;
-  if (pos.distanceToSquared(_lastPos) > TELEPORT_DISTANCE ** 2) {
-    lastModel = model;
-    enter(false);
-  } else if (model !== lastModel) {
+  const teleported = pos.distanceToSquared(_lastPos) > TELEPORT_DISTANCE ** 2;
+  // A new model first: switching from a plane is almost always far from where
+  // the car last drove, so it must not read as a teleport, or it'd skip the
+  // air-drop
+  if (model !== lastModel) {
     // Switched to from another plane (not the game loading, nor a mid-drive
     // police/civilian livery swap in pursuit mode)
     const fall = !!model.switchedTo;
-    const keepDrive = !!model.sameChassis && !!lastModel?.isBuggy;
+    const keepDrive =
+      !!model.sameChassis && !!lastModel?.isBuggy && !teleported;
     lastModel = model;
     if (keepDrive) setBuggyHoverFold(model, hoverFold);
     else enter(fall);
+  } else if (teleported) {
+    enter(false);
   }
 
   // --- INPUT ---
