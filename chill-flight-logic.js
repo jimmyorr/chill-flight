@@ -2025,6 +2025,10 @@ export const ChillFlightLogic = {};
   const CANYON_PLATEAU_END = 4;
   const CANYON_PLATEAU = 300; // Rim height
   const CANYON_TIERS = 5; // Cliff-and-bench steps from river to rim
+  // How far the table dips away from the rim: this share of the rim's
+  // height above the water, over this many units out from the gorge
+  const CANYON_DIP = 0.38;
+  const CANYON_DIP_RUN = 2600;
   const _canyonPts = _canyonShape.map(([lon, lat]) => [
     lon * 5000,
     -lat * 5000,
@@ -2107,9 +2111,23 @@ export const ChillFlightLogic = {};
       waterLevel +
       (CANYON_PLATEAU - waterLevel) * (0.35 + 0.65 * mouth) +
       simplex.noise2D(x * 0.0004 + 9, z * 0.0004 - 9) * 25;
+    // Out on the table: highest at the rim, dipping gently away from the
+    // gorge (CANYON_DIP of the rim's height above the water, over
+    // CANYON_DIP_RUN), rolling, and drifted over with the desert's dunes in
+    // patches. The rim itself stays a crisp level edge (lip).
+    let top = rim;
+    if (d > halfWidth) {
+      const out = d - halfWidth;
+      top -= (rim - waterLevel) * CANYON_DIP * Math.min(1, out / CANYON_DIP_RUN);
+      const lip = smoothRamp(out, 80, 500);
+      const rolling =
+        simplex.noise2D(x * 0.0022 + 17, z * 0.0022 - 29) * 14 +
+        simplex.noise2D(x * 0.006 - 41, z * 0.006 + 3) * 5;
+      top += lip * (rolling + duneAt(x - CANYON_SHIFT, z, simplex) * 0.7);
+    }
     // The gorge, shallow at its head and full depth further down
     const head = Math.max(0, Math.min(1, along / 4000));
-    let h = rim;
+    let h = top;
     // How much (x, z) is inside the gorge (for its rock colours), easing out
     // just past the rim
     const gorgeIn =
