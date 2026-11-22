@@ -118,7 +118,6 @@ import {
   PONG,
   PURSUIT_BUST_POINTS,
   PURSUIT_GRACE_MS,
-  PURSUIT_HEAT_POINTS,
   PeerTrack,
   QUIET_MS,
   RENDER_DELAY_MS,
@@ -278,6 +277,8 @@ let myPoints = 0;
 // Points a second being scored right now (for the glow), and the chip's text
 let chipText = '';
 let scoringRate = 0;
+// On the run in pursuit: how far off the nearest cop is (for the glow)
+let runnerCopDist = Infinity;
 // When points were last added (performance.now()): they go by the clock,
 // not the frame, so a slow device scores the same
 let scoredAt = 0;
@@ -1040,9 +1041,10 @@ function scoreTag(rawNow) {
       if (!state.isPaused && !state.isCrashed) {
         if (tag.it === room.id) {
           const {x, y, z} = planeGroup.position;
+          runnerCopDist = nearestCopTo(x, y, z);
           scoringRate = pursuitPointsRate({
             isRunner: true,
-            nearestCopDist: nearestCopTo(x, y, z),
+            nearestCopDist: runnerCopDist,
           });
           myPoints += scoringRate * dt;
         } else if (itPos) {
@@ -1092,15 +1094,23 @@ function scoreTag(rawNow) {
 
 // The soft glow round the screen's edge while scoring: gold in tag, red/blue
 // strobe heat on the runner or blue pursuit glow on close cops in pursuit
+const PURSUIT_FLASH_DIST = TAG_RADIUS * 3;
+const PURSUIT_WARN_DIST = 800;
+
 function showGlow() {
   if (!tagGlow) return;
   let level = '';
   let mode = '';
   if (isPursuitMode()) {
-    if (tag.it === room?.id) {
-      if (scoringRate >= PURSUIT_HEAT_POINTS) {
+    if (tag.it === room?.id && scoringRate > 0) {
+      // Red/blue flashing only once a cop is about to bust you, a steady
+      // red glow as one closes in; nothing while they're far behind
+      if (runnerCopDist < PURSUIT_FLASH_DIST) {
         level = 'near';
         mode = 'pursuit-heat';
+      } else if (runnerCopDist < PURSUIT_WARN_DIST) {
+        level = 'far';
+        mode = 'pursuit-warn';
       }
     } else if (scoringRate > 0) {
       level = 'far';
