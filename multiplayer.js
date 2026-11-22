@@ -90,6 +90,7 @@ import {
   raceOver,
   raceStandings,
   readRace,
+  pursuitRoadSpot,
   roadCourse,
 } from './race-logic.js';
 import {
@@ -279,6 +280,8 @@ let chipText = '';
 let scoringRate = 0;
 // On the run in pursuit: how far off the nearest cop is (for the glow)
 let runnerCopDist = Infinity;
+// On the run in a buggy pursuit, off the highway (scoring nothing)
+let myOffRoad = false;
 // When points were last added (performance.now()): they go by the clock,
 // not the frame, so a slow device scores the same
 let scoredAt = 0;
@@ -295,6 +298,8 @@ try {
 }
 // A game of tag just started: this player's bots are to gather for it
 let gatherBotsPending = false;
+// A buggy pursuit just started on a highway: lining up on it
+let roadLineUpPending = false;
 // Who was it before whoever's it now (a bot doesn't tag them straight back)
 let tagBefore = null;
 // The race ({n, by, plane, course, grid, go, results}, race-logic.js),
@@ -754,7 +759,9 @@ function renderTagChip() {
   const left = timeLeft();
   const who = pursuit
     ? amIt
-      ? t('On the run')
+      ? myOffRoad
+        ? t('Off the highway')
+        : t('On the run')
       : t('Chasing {name}', {name: nameOf(tag.it)})
     : amIt
       ? t("You're it")
@@ -818,6 +825,7 @@ function setTag(next) {
   if (next.it !== was) tagBefore = was;
   const starting = !was && !!next.it;
   tag = next;
+  myOffRoad = false;
   tagSince = performance.now();
   if (tag.it) tagEndsAt = tagSince + tag.left;
   if (starting) {
@@ -855,7 +863,12 @@ function setTag(next) {
     }
     if (room) myPoints = Math.max(myPoints, tag.points[room.id] || 0);
   }
-  if (starting && tag.mode === 'pursuit') {
+  if (starting && tag.mode === 'pursuit' && tag.road) {
+    // Everyone to their places on the highway (pursuitLineUp)
+    gatherToId = null;
+    gatherBotsPending = false;
+    roadLineUpPending = true;
+  } else if (starting && tag.mode === 'pursuit') {
     const mineIt = [...myBots.values()].find((m) => m.peer.id === tag.it);
     gatherToId = tag.it !== room?.id && !mineIt ? tag.it : null;
     gatherBotsPending = myBots.size > 0;
@@ -951,7 +964,7 @@ function applyTag(next) {
 }
 
 // Says who's it now (null ends the game)
-function sendTag(it, {mode = null, bustedBy = ''} = {}) {
+function sendTag(it, {mode = null, bustedBy = '', road = null} = {}) {
   if (!room) return;
   const starting = !tag.it && !!it;
   const gameMode = mode || (tag.mode === 'pursuit' ? 'pursuit' : 'tag');
@@ -967,6 +980,7 @@ function sendTag(it, {mode = null, bustedBy = ''} = {}) {
     n: tag.n + 1,
     by: room.id,
     bustedBy: it ? bustedBy : '',
+    road: it && gameMode === 'pursuit' ? (starting ? road : tag.road) : null,
     left: starting ? TAG_ROUND_MS : it ? Math.round(timeLeft()) : 0,
     points: starting ? {} : currentPoints(),
   };
@@ -979,7 +993,60 @@ function startPursuit() {
   const ids = [room.id];
   for (const peer of peers.values()) if (peer.name) ids.push(peer.id);
   const runner = pickPursuitRunner(ids) || room.id;
-  sendTag(runner, {mode: 'pursuit'});
+  // In buggies, the chase is on the nearest highway (none near: anywhere)
+  let road = null;
+  if (tagPlane(activePlaneType) === 'buggy') {
+    const course = roadCourse(
+      leaderNow(),
+      PLANE_HANDLING.buggy.topKts,
+      highwayRuns,
+      undefined,
+      highwayOnGround
+    );
+    if (course) road = {...course.road};
+  }
+  sendTag(runner, {mode: 'pursuit', road});
+}
+
+// A buggy pursuit on a highway: whether (x, z) is on it (any highway counts)
+function onHighway(x, z) {
+  return ChillFlightLogic.getRoadFactor(x, z) >= 0.5;
+}
+
+// A buggy pursuit starting on its highway: this player and their bots to
+// their places on it, the runner at the front and the cops behind
+function pursuitLineUp() {
+  roadLineUpPending = false;
+  if (!room || !tag.it || !tag.road) return;
+  const cops = [room.id, ...peers.keys()].filter((id) => id !== tag.it).sort();
+  const place = (id) => {
+    const spot = pursuitRoadSpot(
+      tag.road,
+      id === tag.it ? -1 : Math.max(0, cops.indexOf(id))
+    );
+    spot.y = Math.max(
+      surfaceAt(spot.x, spot.z, Infinity),
+      highwayDeckY(spot.x, spot.z)
+    );
+    return spot;
+  };
+  const me = place(room.id);
+  if (hooks.movePlane) {
+    hooks.movePlane(me.x, me.y, me.z, me.heading, getMaxFlightSpeedMult());
+  }
+  for (const {bot, peer} of myBots.values()) {
+    Object.assign(bot, place(peer.id), {
+      vs: 0,
+      aim: null,
+      pitch: 0,
+      bank: 0,
+      stuckFor: 0,
+      escapeFor: 0,
+      needsRescue: false,
+      window: null,
+      roadD: 0,
+    });
+  }
 }
 
 // Someone left: if they were it, the lowest id still here is (worked out
@@ -995,6 +1062,7 @@ function tagAfterLeaving(id) {
       n: tag.n + 1,
       by: '~',
       bustedBy: '',
+      road: null,
       left: 0,
       points,
     });
@@ -1006,6 +1074,7 @@ function tagAfterLeaving(id) {
       n: tag.n + 1,
       by: '~',
       bustedBy: '',
+      road: tag.road,
       left: Math.round(timeLeft()),
       points,
     });
@@ -1042,9 +1111,11 @@ function scoreTag(rawNow) {
         if (tag.it === room.id) {
           const {x, y, z} = planeGroup.position;
           runnerCopDist = nearestCopTo(x, y, z);
+          myOffRoad = !!tag.road && (state.isOnWater || !onHighway(x, z));
           scoringRate = pursuitPointsRate({
             isRunner: true,
             nearestCopDist: runnerCopDist,
+            onRoad: !myOffRoad,
           });
           myPoints += scoringRate * dt;
         } else if (itPos) {
@@ -1060,6 +1131,8 @@ function scoreTag(rawNow) {
           const rate = pursuitPointsRate({
             isRunner: true,
             nearestCopDist: nearestCopTo(bot.x, bot.y, bot.z),
+            onRoad:
+              !tag.road || (bot.y > WATER_LEVEL + 1 && onHighway(bot.x, bot.z)),
           });
           peer.points = (peer.points || 0) + rate * dt;
         } else if (itPos) {
@@ -1102,7 +1175,7 @@ function showGlow() {
   let level = '';
   let mode = '';
   if (isPursuitMode()) {
-    if (tag.it === room?.id && scoringRate > 0) {
+    if (tag.it === room?.id && !state.isPaused && !state.isCrashed) {
       // Red/blue flashing only once a cop is about to bust you, a steady
       // red glow as one closes in; nothing while they're far behind
       if (runnerCopDist < PURSUIT_FLASH_DIST) {
@@ -1880,7 +1953,15 @@ function stepMyBots(delta, rawNow) {
               nearestCop = p;
             }
           }
-          tagCtx = {it: false, pursuit: true, chaser: nearestCop, centre};
+          tagCtx = {
+            it: false,
+            pursuit: true,
+            chaser: nearestCop,
+            centre,
+            // A buggy pursuit's runner keeps to the highways
+            road: !!tag.road && driving,
+            roadRuns: highwayRuns,
+          };
         } else {
           const targets =
             itSpot && !itSpot.paused
@@ -2948,6 +3029,7 @@ export function updateMultiplayer(delta) {
   botTags(rawNow);
   scoreTag(rawNow);
   if (lineUpPending && !state.isIntroTransitionActive) lineUp();
+  if (roadLineUpPending && !state.isIntroTransitionActive) pursuitLineUp();
   stepRace(rawNow);
   if (gatherBotsPending && !state.isIntroTransitionActive) {
     gatherBotsPending = !gatherBots();

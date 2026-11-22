@@ -9,7 +9,7 @@
 // reads as a knot). Drawn with rotation (pitch, heading, bank) in 'YXZ'
 // order, like the traffic planes.
 import {forwardOf, headingToward} from './traffic-logic.js';
-import {roadAim} from './race-logic.js';
+import {nearestRoad, roadAim, roadAlong, roadSpot} from './race-logic.js';
 import {AVOID, avoidStep, fadePush} from './bumps-logic.js';
 
 export const BOT_PLANES = ['biplane', 'seaplane', 'twin', 'jet'];
@@ -590,6 +590,9 @@ function stepRunner(bot, dt, ctx) {
     bot.mistakeAt = MISTAKE_EVERY * (0.7 + 0.6 * ((bot.age * 7.3) % 1));
   }
   const dawdling = bot.mistakeAt < 0;
+  if (pursuit && ctx.tag.road && runRoad(bot, dt, ctx, chaser, dawdling)) {
+    return;
+  }
   if (!chaser) {
     const home = centre || ctx.leader;
     if (distance2d(bot, home) > REGROUP_DISTANCE) {
@@ -658,6 +661,59 @@ function stepRunner(bot, dt, ctx) {
   );
   const speed = clamp(Math.hypot(vx, vz), MIN_SPEED, run);
   move(bot, dt, ctx, chaser.y ?? bot.y, speed, WING_CLEARANCE);
+}
+
+// How far a buggy pursuit's runner bot looks along its highway, and how
+// near a cop in front has to be for it to turn back
+const ROAD_AHEAD = 120;
+const ROAD_TURN_BACK = 350;
+// How far off a highway a runner bot still heads back to it
+const ROAD_REACH = 5000;
+
+// A buggy pursuit's runner bot: along the nearest highway (rejoining it if
+// it's off), away from the cops, turning back where the road ends or a cop
+// is coming up it the other way. False with no highway near.
+function runRoad(bot, dt, ctx, chaser, dawdling) {
+  bot.roadAt = (bot.roadAt ?? 0) - dt;
+  bot.roadFlipAt = Math.max(0, (bot.roadFlipAt ?? 0) - dt);
+  if (bot.roadAt <= 0) {
+    bot.roadAt = 0.5;
+    const r = nearestRoad(bot.x, bot.z);
+    const n = r && r.off < ROAD_REACH ? r.n : null;
+    if (n !== bot.roadN) bot.roadD = 0;
+    bot.roadN = n;
+  }
+  const n = bot.roadN;
+  if (n === null || n === undefined) return false;
+  const along = roadAlong(n, bot.x, bot.z);
+  const spot = (d, ahead) => roadSpot(n, along + d * ahead);
+  if (!bot.roadD) {
+    // Away from the cop, or the way it's going with none about
+    const a = spot(1, 200);
+    const b = spot(-1, 200);
+    if (chaser) {
+      bot.roadD = distance2d(a, chaser) >= distance2d(b, chaser) ? 1 : -1;
+    } else {
+      const f = forwardOf(bot.heading);
+      bot.roadD = (a.x - b.x) * f.x + (a.z - b.z) * f.z >= 0 ? 1 : -1;
+    }
+  }
+  if (bot.roadFlipAt === 0) {
+    const ends =
+      ctx.tag.roadRuns && !ctx.tag.roadRuns(n, along + bot.roadD * 300);
+    const gap = chaser ? distance2d(bot, chaser) : Infinity;
+    const copAhead =
+      gap < ROAD_TURN_BACK && distance2d(spot(bot.roadD, 200), chaser) < gap;
+    if (ends || copAhead) {
+      bot.roadD = -bot.roadD;
+      bot.roadFlipAt = 3;
+    }
+  }
+  const aim = spot(bot.roadD, ROAD_AHEAD);
+  steer(bot, ctx, dt, headingToward(bot.x, bot.z, aim.x, aim.z), RUN_TURN * 2);
+  const speed = ctx.topSpeed * (dawdling ? 0.62 : PURSUIT_DRIVE_RUN_SPEED);
+  move(bot, dt, ctx, bot.y, speed, DUCK_CLEARANCE);
+  return true;
 }
 
 // In a race: through each gate in turn, a buggy keeping to the road

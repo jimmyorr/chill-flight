@@ -987,6 +987,7 @@ export default {
   'Cops chase one runner': 'La polizia insegue un fuggitivo',
   'Stop pursuit': 'Ferma inseguimento',
   'On the run': 'In fuga',
+  'Off the highway': 'Fuori strada',
   'Chasing {name}': 'Inseguendo {name}',
   'Pursuit over · {who} share the win':
     'Inseguimento finito · {who} dividono la vittoria',

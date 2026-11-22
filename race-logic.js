@@ -317,6 +317,31 @@ function buildRoadCourse(n, a0, d, points, length) {
   return {kind: 'road', road: {n, a: a0, d}, start: gate(a0), gates};
 }
 
+/** How far along highway n (x, z) is: its x or z, whichever it runs by. */
+export function roadAlong(n, x, z) {
+  return L.roadAlongX(n) ? x : z;
+}
+
+/** The highway nearest (x, z): {n, along, off}, or null. */
+export function nearestRoad(x, z) {
+  return roadsNear(x, z)[0] ?? null;
+}
+
+/**
+ * Where a buggy pursuit on `road` ({n, a, d}) starts: the runner (slot -1)
+ * at its start heading along it, the cops (slots 0, 1, ...) two by two in
+ * the lanes 280 behind, in hot pursuit ({x, z, heading}; the ground's
+ * height is the game's to find).
+ */
+export function pursuitRoadSpot(road, slot) {
+  const {n, a, d} = road;
+  const back = slot < 0 ? 0 : 280 + Math.floor(slot / 2) * 60;
+  const lane = slot < 0 ? 0 : slot % 2 ? 12 : -12;
+  const along = a - d * back;
+  const p = roadSpot(n, along, lane);
+  return {x: p.x, z: p.z, heading: roadHeading(n, along, d)};
+}
+
 /**
  * Where a bot on a road course steers for: `ahead` further along the road
  * than (x, z), `lane` across it.

@@ -992,6 +992,7 @@ export default {
   'Cops chase one runner': 'Polisi mengejar satu pelarian',
   'Stop pursuit': 'Hentikan pengejaran',
   'On the run': 'Dalam pelarian',
+  'Off the highway': 'Keluar dari jalan raya',
   'Chasing {name}': 'Mengejar {name}',
   'Pursuit over · {who} share the win':
     'Pengejaran selesai · {who} berbagi kemenangan',

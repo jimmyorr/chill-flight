@@ -967,6 +967,7 @@ export default {
   'Cops chase one runner': '警察が1人の逃走者を追う',
   'Stop pursuit': 'チェイスをやめる',
   'On the run': '逃走中',
+  'Off the highway': '道路の外',
   'Chasing {name}': '{name}を追跡中',
   'Pursuit over · {who} share the win': 'チェイス終了 · {who}が同点優勝',
   'Pursuit over · {who} won with {points}':

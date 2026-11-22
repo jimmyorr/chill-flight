@@ -980,6 +980,7 @@ export default {
   'Cops chase one runner': 'Поліція переслідує одного втікача',
   'Stop pursuit': 'Зупинити погоню',
   'On the run': 'У бігах',
+  'Off the highway': 'Поза дорогою',
   'Chasing {name}': 'Погоня за {name}',
   'Pursuit over · {who} share the win':
     'Погоню завершено · {who} ділять перемогу',

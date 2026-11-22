@@ -569,9 +569,20 @@ export const NO_TAG = Object.freeze({
   n: 0,
   by: '',
   bustedBy: '',
+  road: null,
   left: 0,
   points: Object.freeze({}),
 });
+
+// A buggy pursuit's highway (race-logic.js roadCourse's road: {n, a, d}), or
+// null
+function readRoad(road) {
+  if (!road || typeof road !== 'object') return null;
+  const {n, a, d} = road;
+  if (!Number.isInteger(n) || n < 0 || !Number.isFinite(a)) return null;
+  if (d !== 1 && d !== -1) return null;
+  return {n, a, d};
+}
 
 // {id: points} from a message, keeping only sensible entries
 function readPoints(map) {
@@ -608,6 +619,7 @@ export function readTag(msg) {
     n: msg.n,
     by: typeof msg.by === 'string' ? msg.by : '',
     bustedBy: typeof msg.bustedBy === 'string' ? msg.bustedBy : '',
+    road: mode === 'pursuit' ? readRoad(msg.road) : null,
     left,
     points: readPoints(msg.points),
   };
@@ -667,15 +679,18 @@ export function pursuitSpeedBoost({
 /**
  * Points per second in a pursuit round:
  * - Fugitive (`isRunner`): +4 pts/s "under heat" when any cop is within
- *   TAG_FAR (1,555 m), else +2 pts/s base.
+ *   TAG_FAR (1,555 m), else +2 pts/s base; nothing off the highway in a
+ *   buggy pursuit (`onRoad` false), so the chase stays on the road.
  * - Police (`!isRunner`): +1 pt/s hot-pursuit pressure within 650 m.
  */
 export function pursuitPointsRate({
   isRunner,
   nearestCopDist = Infinity,
   runnerDist = Infinity,
+  onRoad = true,
 }) {
   if (isRunner) {
+    if (!onRoad) return 0;
     return nearestCopDist <= TAG_FAR
       ? PURSUIT_HEAT_POINTS
       : PURSUIT_EVADE_POINTS;

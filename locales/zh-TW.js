@@ -933,6 +933,7 @@ export default {
   'Cops chase one runner': '警車與警機追捕一名逃亡者',
   'Stop pursuit': '結束追緝',
   'On the run': '逃亡中',
+  'Off the highway': '離開公路',
   'Chasing {name}': '追捕 {name}',
   'Pursuit over · {who} share the win': '追緝結束 · {who}並列獲勝',
   'Pursuit over · {who} won with {points}': '追緝結束 · {who}以 {points}獲勝',

@@ -794,6 +794,29 @@ check(
       }) === TAG_SPEED_BOOST
   );
 
+  const roaded = readTag({
+    mode: 'pursuit',
+    it: 'a',
+    plane: 'buggy',
+    n: 2,
+    road: {n: 3, a: 1200.5, d: -1},
+  });
+  check(
+    'a buggy pursuit keeps its highway, and its runner scores only on it',
+    roaded?.road?.n === 3 &&
+      roaded.road.d === -1 &&
+      readTag({mode: 'pursuit', it: 'a', n: 2, road: {n: 3, a: 1, d: 2}})
+        ?.road === null &&
+      readTag({it: 'a', n: 2, road: {n: 3, a: 1, d: 1}})?.road === null &&
+      pursuitPointsRate({
+        isRunner: true,
+        nearestCopDist: 400,
+        onRoad: false,
+      }) === 0 &&
+      pursuitPointsRate({isRunner: false, runnerDist: 100, onRoad: false}) ===
+        PURSUIT_PRESSURE_POINTS
+  );
+
   check(
     'pickPursuitRunner selects deterministically from sorted active seat IDs',
     pickPursuitRunner(['c', 'a', 'b'], () => 0) === 'a' &&

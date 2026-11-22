@@ -989,6 +989,7 @@ export default {
   'Cops chase one runner': 'Polisler tek bir kaçağı kovalar',
   'Stop pursuit': 'Kovalamacayı bitir',
   'On the run': 'Firarda',
+  'Off the highway': 'Yol dışında',
   'Chasing {name}': '{name} takip ediliyor',
   'Pursuit over · {who} share the win':
     'Kovalamaca bitti · {who} birinciliği paylaştı',

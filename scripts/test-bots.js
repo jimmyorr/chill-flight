@@ -712,6 +712,49 @@ function runRace(course, plane, ctxFor, limit) {
     took === null ? 'missed an arch' : `(${took.toFixed(0)} s)`
   );
 }
+{
+  // A buggy pursuit's runner bot heads for the highway and keeps to it,
+  // with a cop on its tail
+  ChillFlightLogic.WORLD_SEED = 20260101;
+  simplex.seed(20260101);
+  const consts = {WATER_LEVEL: 40, MOUNTAIN_LEVEL: 180};
+  const ground = (x, z) => ChillFlightLogic.getElevation(x, z, simplex, consts);
+  const runs = (n, a) => ChillFlightLogic.highwayRunsAt(n, a, simplex, consts);
+  const z0 = 10000;
+  const x0 = ChillFlightLogic.getRoadCenterX(z0, 0) + 400;
+  const lead = player(x0, ground(x0, z0), z0, 0, 0);
+  const bot = newBot(0, lead, 'buggy');
+  Object.assign(bot, {x: x0, y: Math.max(40, ground(x0, z0)), z: z0});
+  Object.assign(bot, {heading: 1, speed: 100});
+  const cop = {x: x0, y: 0, z: z0 + 300, vx: 0, vy: 0, vz: 0};
+  let on = 0;
+  let count = 0;
+  for (let i = 0; i < 60 * 60; i++) {
+    const h = headingToward(cop.x, cop.z, bot.x, bot.z);
+    cop.x -= Math.sin(h) * 230 * DT;
+    cop.z -= Math.cos(h) * 230 * DT;
+    cop.y = bot.y;
+    stepBot(bot, DT, {
+      ...driving(ground, lead, null, 300),
+      tag: {
+        it: false,
+        pursuit: true,
+        chaser: cop,
+        centre: cop,
+        road: true,
+        roadRuns: runs,
+      },
+    });
+    if (i < 10 * 60) continue;
+    count++;
+    if (ChillFlightLogic.getRoadFactor(bot.x, bot.z) >= 0.5) on++;
+  }
+  check(
+    'a runner bot in a buggy pursuit keeps to the highway',
+    on / count > 0.75,
+    `(on it ${Math.round((100 * on) / count)}% of the time)`
+  );
+}
 
 if (failed) {
   console.error('Bot tests failed.');

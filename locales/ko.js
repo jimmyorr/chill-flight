@@ -954,6 +954,7 @@ export default {
   'Cops chase one runner': '경찰이 도주자 한 명을 추격합니다',
   'Stop pursuit': '추격전 중지',
   'On the run': '도주 중',
+  'Off the highway': '도로 밖',
   'Chasing {name}': '{name} 추격 중',
   'Pursuit over · {who} share the win': '추격전 종료 · {who} 공동 우승',
   'Pursuit over · {who} won with {points}':
