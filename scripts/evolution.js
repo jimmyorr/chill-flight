@@ -198,7 +198,9 @@ function installEraEnvironment({epochMs, seedRandom}) {
   // desktop now (Mouse steering setting)
   try {
     localStorage.setItem('chill_flight_disable_mouse', 'false');
-  } catch (e) {}
+  } catch {
+    // no storage: mouseNorm shots just fly straight
+  }
   const startPerf = performance.now();
   const baseDate = epochMs || 1790000000000;
   const clock = {t: startPerf, calls: 0, pending: []};
