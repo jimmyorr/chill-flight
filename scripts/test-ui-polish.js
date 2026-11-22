@@ -415,9 +415,9 @@ async function runWebPolishPass(browser) {
     const sheetPhysics = await page.evaluate(async () => {
       document.querySelector('.pause-tab[data-tab="flight"]').click();
       const resumeBtn = document.getElementById('resume-btn');
-      const actionsRow = document.querySelector('.pause-actions-row');
+      const tabsEl = document.querySelector('#pause-overlay .pause-tabs');
       const resumeRect = resumeBtn.getBoundingClientRect();
-      const actionsRect = actionsRow.getBoundingClientRect();
+      const tabsRect = tabsEl.getBoundingClientRect();
 
       resumeBtn.dispatchEvent(
         new PointerEvent('pointerdown', {
@@ -440,8 +440,8 @@ async function runWebPolishPass(browser) {
       );
       const pressedAfterUp = resumeBtn.dataset.pressed ?? null;
 
-      // Upward bottom-to-top swipe on Pause body must NOT lift customization-box
-      // and must clear [data-pressed] once past 10px slop
+      // Upward or downward swipe on Pause body (.pause-panels) must NOT move
+      // customization-box, and must clear [data-pressed] once past 10px slop
       const pauseBox = document.querySelector(
         '#pause-overlay .customization-box'
       );
@@ -484,28 +484,70 @@ async function runWebPolishPass(browser) {
         })
       );
 
+      // Downward touch drag on .pause-panels body must also leave Pause sheet untouched
+      const touchObj = (y) =>
+        new Touch({
+          identifier: 11,
+          target: zenRow,
+          clientX: zx,
+          clientY: y,
+        });
+      zenRow.dispatchEvent(
+        new TouchEvent('touchstart', {
+          touches: [touchObj(zy)],
+          changedTouches: [touchObj(zy)],
+          bubbles: true,
+        })
+      );
+      zenRow.dispatchEvent(
+        new TouchEvent('touchmove', {
+          touches: [touchObj(zy + 90)],
+          changedTouches: [touchObj(zy + 90)],
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+      const pauseTransformOnBodyDownSwipe = pauseBox.style.transform;
+      zenRow.dispatchEvent(
+        new TouchEvent('touchend', {
+          touches: [],
+          changedTouches: [touchObj(zy + 90)],
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+
       document.querySelector('.pause-tab[data-tab="settings"]').click();
       document.getElementById('language-picker-btn').click();
       return {
         pressedDuringDown,
         pressedAfterUp,
-        resumeBelowActions: resumeRect.top >= actionsRect.bottom - 1,
-        resumeHeight: resumeRect.height,
+        closeInlineWithTabs:
+          resumeRect.left >= tabsRect.right - 1 &&
+          Math.abs(resumeRect.top - tabsRect.top) <= 2,
+        closeSizeMatch: Math.abs(resumeRect.height - tabsRect.height) <= 2,
+        closeHeight: resumeRect.height,
         rowPressedInitially,
         rowPressedAfterUpSwipe,
         pauseTransformOnUpSwipe,
+        pauseTransformOnBodyDownSwipe,
       };
     });
     assert.equal(sheetPhysics.pressedDuringDown, 'true');
     assert.equal(sheetPhysics.pressedAfterUp, null);
     assert.equal(
-      sheetPhysics.resumeBelowActions,
+      sheetPhysics.closeInlineWithTabs,
       true,
-      'expected RESUME row below the 4 utility buttons'
+      'expected top-right #resume-btn (X) inline beside .pause-tabs'
+    );
+    assert.equal(
+      sheetPhysics.closeSizeMatch,
+      true,
+      'expected #resume-btn height to match .pause-tabs'
     );
     assert.ok(
-      sheetPhysics.resumeHeight >= 45.5,
-      `expected mobile RESUME height >= 46px, got ${sheetPhysics.resumeHeight}`
+      sheetPhysics.closeHeight >= 38,
+      `expected #resume-btn height >= 38px, got ${sheetPhysics.closeHeight}`
     );
     assert.equal(sheetPhysics.rowPressedInitially, 'true');
     assert.equal(
@@ -517,6 +559,11 @@ async function runWebPolishPass(browser) {
       sheetPhysics.pauseTransformOnUpSwipe,
       '',
       'upward swipe on Pause menu body must not lift customization-box'
+    );
+    assert.equal(
+      sheetPhysics.pauseTransformOnBodyDownSwipe,
+      '',
+      'downward swipe on Pause menu controls body must not drag customization-box'
     );
 
     await settleAnimations(page);
@@ -624,12 +671,74 @@ async function runWebPolishPass(browser) {
         getComputedStyle(document.getElementById('language-overlay'))
           .display === 'none';
 
-      return {upwardGrabberTransform, stillOpenAfterUpward, closedAfterFlick};
+      // Downward flick on Pause sheet grabber dismisses Pause and resumes flight
+      const pauseGrabber = document.querySelector(
+        '#pause-overlay .sheet-grabber'
+      );
+      const pr = pauseGrabber.getBoundingClientRect();
+      const px = pr.left + pr.width / 2;
+      const py = pr.top + pr.height / 2;
+      pauseGrabber.dispatchEvent(
+        new PointerEvent('pointerdown', {
+          pointerId: 5,
+          button: 0,
+          pointerType: 'mouse',
+          clientX: px,
+          clientY: py,
+          bubbles: true,
+        })
+      );
+      pauseGrabber.dispatchEvent(
+        new PointerEvent('pointermove', {
+          pointerId: 5,
+          pointerType: 'mouse',
+          clientX: px,
+          clientY: py + 8,
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+      await new Promise((res) => setTimeout(res, 24));
+      pauseGrabber.dispatchEvent(
+        new PointerEvent('pointermove', {
+          pointerId: 5,
+          pointerType: 'mouse',
+          clientX: px,
+          clientY: py + 80,
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+      pauseGrabber.dispatchEvent(
+        new PointerEvent('pointerup', {
+          pointerId: 5,
+          pointerType: 'mouse',
+          clientX: px,
+          clientY: py + 80,
+          bubbles: true,
+        })
+      );
+      await new Promise((res) => setTimeout(res, 280));
+      const pauseClosedAfterFlick =
+        getComputedStyle(document.getElementById('pause-overlay')).display ===
+        'none';
+
+      return {
+        upwardGrabberTransform,
+        stillOpenAfterUpward,
+        closedAfterFlick,
+        pauseClosedAfterFlick,
+      };
     });
 
     assert.equal(dragResult.upwardGrabberTransform, '');
     assert.equal(dragResult.stillOpenAfterUpward, true);
     assert.equal(dragResult.closedAfterFlick, true);
+    assert.equal(dragResult.pauseClosedAfterFlick, true);
+
+    // Reopen Pause for subsequent ARIA checks
+    await page.keyboard.press('Escape');
+    await settleAnimations(page);
 
     // 4. WAI-ARIA roving tabindex, modal inert stack, Tab trap, & focus return
     await page.evaluate(() => {
@@ -694,6 +803,24 @@ async function runWebPolishPass(browser) {
       'achievements-btn',
       'Closing Achievements via Escape should return focus to #achievements-btn'
     );
+
+    // Desktop Escape on Settings tab closes Pause directly in a single press
+    await page.evaluate(() =>
+      document.getElementById('pause-tab-settings').click()
+    );
+    await page.keyboard.press('Escape');
+    await wait(60);
+    assert.equal(
+      await page.evaluate(
+        () =>
+          getComputedStyle(document.getElementById('pause-overlay')).display ===
+          'none'
+      ),
+      true,
+      'Desktop Escape on Settings tab should close Pause directly'
+    );
+    await page.keyboard.press('Escape');
+    await settleAnimations(page);
 
     // 5. Strict prefers-reduced-motion: reduce
     await page.emulateMediaFeatures([

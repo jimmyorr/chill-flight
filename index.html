@@ -108,48 +108,60 @@
       aria-label="Pause menu"
     >
       <div class="customization-box">
-        <div class="pause-tabs" role="tablist" aria-label="Pause menu">
+        <div class="sheet-grabber" aria-hidden="true"></div>
+        <div class="pause-header">
+          <div class="pause-tabs" role="tablist" aria-label="Pause menu">
+            <button
+              type="button"
+              id="pause-tab-flight"
+              class="pause-tab active"
+              data-tab="flight"
+              role="tab"
+              aria-selected="true"
+              aria-controls="pause-panel-flight"
+            >
+              Flight
+            </button>
+            <button
+              type="button"
+              id="pause-tab-settings"
+              class="pause-tab"
+              data-tab="settings"
+              role="tab"
+              aria-selected="false"
+              aria-controls="pause-panel-settings"
+              tabindex="-1"
+            >
+              Settings
+            </button>
+            <button
+              type="button"
+              id="fly-tab"
+              class="pause-tab"
+              data-tab="together"
+              role="tab"
+              aria-selected="false"
+              aria-controls="pause-panel-together"
+              tabindex="-1"
+              hidden
+            >
+              Together<span id="fly-tab-dot" class="fly-tab-dot" hidden></span>
+            </button>
+          </div>
           <button
             type="button"
-            id="pause-tab-flight"
-            class="pause-tab active"
-            data-tab="flight"
-            role="tab"
-            aria-selected="true"
-            aria-controls="pause-panel-flight"
+            id="resume-btn"
+            class="achievements-close-btn pause-close-btn"
+            title="Close"
+            aria-label="Close"
           >
-            Flight
-          </button>
-          <button
-            type="button"
-            id="pause-tab-settings"
-            class="pause-tab"
-            data-tab="settings"
-            role="tab"
-            aria-selected="false"
-            aria-controls="pause-panel-settings"
-            tabindex="-1"
-          >
-            Settings
-          </button>
-          <button
-            type="button"
-            id="fly-tab"
-            class="pause-tab"
-            data-tab="together"
-            role="tab"
-            aria-selected="false"
-            aria-controls="pause-panel-together"
-            tabindex="-1"
-            hidden
-          >
-            Together<span id="fly-tab-dot" class="fly-tab-dot" hidden></span>
+            ✕
           </button>
         </div>
 
         <!-- The panels share one grid cell, so the box is as tall as the
              tallest one and switching tabs doesn't change its height. -->
-        <div class="pause-panels">
+        <div class="pause-panels" data-no-sheet-drag="true">
           <div
             id="pause-panel-flight"
             class="pause-panel active"
@@ -801,7 +813,7 @@
           </div>
         </div>
 
-        <div class="customization-footer">
+        <div class="customization-footer" data-no-sheet-drag="true">
           <div class="pause-actions-row">
             <!-- The tap moves, and a Try for each (tap-help.js) -->
             <button
@@ -851,9 +863,6 @@
             >
               🗺️
             </button>
-          </div>
-          <div class="pause-primary-row">
-            <button id="resume-btn" class="btn">R E S U M E</button>
             <button
               id="vr-btn"
               class="pause-vr-btn"
@@ -864,6 +873,14 @@
               🥽 <span id="vr-btn-label">VR</span>
             </button>
           </div>
+          <button
+            type="button"
+            id="pause-vr-cta"
+            class="btn vr-enter-cta"
+            hidden
+          >
+            Enter VR
+          </button>
         </div>
 
         <div

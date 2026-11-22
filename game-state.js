@@ -127,6 +127,13 @@ if (resumeBtn) {
   });
 }
 
+var pauseVrCta = document.getElementById('pause-vr-cta');
+if (pauseVrCta) {
+  pauseVrCta.addEventListener('click', () => {
+    togglePause();
+  });
+}
+
 var suppressPauseClickUntil = 0;
 export function suppressPauseClick(durationMs = 500) {
   suppressPauseClickUntil = Date.now() + durationMs;

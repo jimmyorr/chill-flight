@@ -579,15 +579,36 @@ select.customization-input {
   opacity: 0;
 }
 
-/* --- Pause menu: Flight / Settings / Together tabs --- */
+/* --- Pause menu: Flight / Settings / Together tabs + close button --- */
+.pause-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  flex: none;
+}
+
 .pause-tabs {
   display: flex;
-  flex: none;
+  flex: 1 1 0%;
+  min-width: 0;
   gap: 4px;
   padding: 3px;
   background: var(--surface-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: 9px;
+}
+
+.achievements-close-btn.pause-close-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 9px;
+  box-sizing: border-box;
+}
+
+.achievements-close-btn.pause-close-btn[hidden],
+#pause-vr-cta[hidden] {
+  display: none;
 }
 
 .pause-tab {
@@ -1026,18 +1047,10 @@ input[type='number'].customization-input {
   width: 100%;
 }
 
-.pause-primary-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-}
-
 .customization-footer .btn {
   margin-top: 0;
-  flex: 1;
-  min-width: 0;
-  width: auto;
+  width: 100%;
+  box-sizing: border-box;
   height: 48px;
   border-radius: 11px;
   padding: 0 14px;
@@ -1055,34 +1068,24 @@ input[type='number'].customization-input {
   }
 }
 
-/* Spaced translations like "R E P R E N D R E" / "C O N T I N U A R" need
-   tighter tracking when sharing the row with the VR button */
-:is(:lang(es), :lang(fr), :lang(it), :lang(pt-BR), :lang(uk))
-  .pause-primary-row:has(#vr-btn:not([style*='none']))
-  .btn {
-  padding: 0 8px;
-  font-size: 12px;
-  letter-spacing: 0.5px;
-}
-
 .pause-vr-btn {
   background: var(--accent-soft-bg);
   border: 1px solid var(--accent-soft-border);
   color: var(--accent-fg);
-  height: 48px;
-  padding: 0 13px;
-  font-size: 13px;
+  height: 36px;
+  padding: 0 11px;
+  font-size: 12px;
   font-weight: 600;
   font-family:
     'Inter',
     -apple-system,
     sans-serif;
-  letter-spacing: 1px;
-  border-radius: 11px;
+  letter-spacing: 0.8px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   flex-shrink: 0;
   white-space: nowrap;
   cursor: pointer;
@@ -5178,9 +5181,9 @@ body.ui-hidden > canvas {
 @media (orientation: landscape) and (min-width: 501px) and (max-height: 500px) {
   #pause-overlay .customization-box {
     display: grid;
-    grid-template-columns: minmax(0, 290px) minmax(0, 205px);
+    grid-template-columns: minmax(0, 308px) minmax(0, 182px);
     grid-template-rows: auto minmax(0, 1fr) auto auto;
-    column-gap: 20px;
+    column-gap: 18px;
     row-gap: 10px;
     width: auto;
     max-width: calc(
@@ -5202,8 +5205,8 @@ body.ui-hidden > canvas {
     z-index: 2;
   }
 
-  #pause-overlay .pause-tabs {
-    grid-column: 1;
+  #pause-overlay .pause-header {
+    grid-column: 1 / -1;
     grid-row: 1;
   }
 
@@ -5220,11 +5223,25 @@ body.ui-hidden > canvas {
 
   #pause-overlay .customization-footer {
     grid-column: 2;
-    grid-row: 1 / span 2;
+    grid-row: 2;
     align-self: center;
     margin-top: 0;
     padding-top: 0;
     border-top: none;
+  }
+
+  #pause-overlay .pause-actions-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  #pause-overlay .pause-map-btn {
+    flex: initial;
+  }
+
+  #pause-overlay .pause-vr-btn {
+    grid-column: 1 / -1;
   }
 
   #pause-overlay .pause-credit {
@@ -5427,8 +5444,7 @@ body.ui-hidden > canvas {
     gap: 8px;
   }
 
-  #pause-overlay .customization-footer .btn,
-  #pause-overlay .pause-vr-btn {
+  #pause-overlay .customization-footer .btn {
     height: clamp(46px, 6.2dvh, 52px);
   }
 
@@ -5502,6 +5518,7 @@ html[data-kb-open='true'] #pause-overlay .pause-group-card {
 }
 
 html[data-kb-open='true'] #pause-overlay .pause-panel:not(.active),
+html[data-kb-open='true'] #pause-overlay .customization-footer,
 html[data-kb-open='true'] #pause-overlay .pause-actions-row,
 html[data-kb-open='true'] #pause-overlay .pause-credit,
 html[data-kb-open='true'] #pause-overlay .pause-footer,
@@ -5509,16 +5526,21 @@ html[data-kb-open='true'] #pause-overlay .pause-metadata {
   display: none;
 }
 
-html[data-kb-open='true'] #pause-overlay #resume-btn {
-  height: 36px;
-  margin-top: 0;
-  font-size: 14px;
-}
-
 @media (max-width: 360px) {
   #pause-overlay .customization-box {
     padding-left: 14px;
     padding-right: 14px;
+  }
+
+  #pause-overlay .pause-tab {
+    padding: 0 4px;
+    font-size: 11px;
+    letter-spacing: 0.4px;
+  }
+
+  #pause-overlay .achievements-close-btn.pause-close-btn {
+    width: 38px;
+    height: 38px;
   }
 }
 

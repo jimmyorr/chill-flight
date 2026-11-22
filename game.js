@@ -199,10 +199,9 @@ if (
         const splashSettingsEl = document.getElementById('splash-settings-btn');
         if (splashSettingsEl) splashSettingsEl.hidden = false;
         const resumeBtnEl = document.getElementById('resume-btn');
-        if (resumeBtnEl) {
-          resumeBtnEl.textContent = t('Enter VR');
-          resumeBtnEl.classList.add('vr-enter-cta');
-        }
+        if (resumeBtnEl) resumeBtnEl.hidden = true;
+        const pauseVrCtaEl = document.getElementById('pause-vr-cta');
+        if (pauseVrCtaEl) pauseVrCtaEl.hidden = false;
         const mapResumeBtnEl = document.getElementById(
           'fullscreen-map-resume-btn'
         );

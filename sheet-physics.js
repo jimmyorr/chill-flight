@@ -162,8 +162,19 @@ if (typeof document !== 'undefined') {
       dismiss: () => hooks.fullscreenMap?.clearPin?.(),
       timer: null,
     },
-    // Pause itself doesn't swipe closed: that would resume flight, so it
-    // takes the Resume button or Back
+    {
+      id: 'pause-overlay',
+      getContainer: () => document.getElementById('pause-overlay'),
+      getSheet: () =>
+        document.querySelector('#pause-overlay .customization-box'),
+      isOpen: (c) =>
+        isVisibleOverlay(c) &&
+        !c.classList.contains('under-map') &&
+        !document.getElementById('resume-btn')?.hidden,
+      dismiss: () => document.getElementById('resume-btn')?.click(),
+      mouseGrabberOnly: true,
+      timer: null,
+    },
   ];
 
   function resetSheetStyles(entry) {
@@ -213,6 +224,9 @@ if (typeof document !== 'undefined') {
     const fromGrabber = Boolean(
       target instanceof Element && target.closest('.sheet-grabber')
     );
+    if (kind === 'pointer' && entry.mouseGrabberOnly && !fromGrabber) {
+      return;
+    }
     const scrollEl = fromGrabber ? null : findScrollableAncestor(target, sheet);
 
     gesture = {

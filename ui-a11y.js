@@ -291,7 +291,7 @@ export function handleBackNavigation({source = 'escape'} = {}) {
       return 'handled';
     }
 
-    if (tabName !== 'flight') {
+    if (source === 'native' && tabName !== 'flight') {
       const flightTab = pauseOverlay.querySelector(
         '.pause-tab[data-tab="flight"]'
       );
