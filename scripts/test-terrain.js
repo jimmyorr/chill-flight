@@ -1609,5 +1609,38 @@ console.log(
   '  Passed: Meandering multi-km Irish dry-stone famine walls, snow-country slate walls, and crumbled stretches hug hills clear of roads and airfields'
 );
 
+// --- 27. Slip roads at the coast roads' crossings survive landmark placement ---
+// The first ground lookup on a world places the pyramids (and the other
+// landmarks) with the coast roads off, and that lookup reaches slipRoads.
+// They used to be kept from then on without the coast roads' slip roads,
+// while the terrain workers had them and filled the ground up to them,
+// burying the coast road where it crosses a north-south highway (seed
+// 20261121, south coast road over highway 1 near x -15850, z -13450).
+{
+  useSeed(20261121);
+  const constants = {WATER_LEVEL: 40, MOUNTAIN_LEVEL: 180};
+  ChillFlightLogic.getElevation(
+    -15850,
+    -13450,
+    simplex,
+    constants,
+    (a, b, t) => a + (b - a) * t
+  );
+  const near = ChillFlightLogic.slipRoads(simplex, constants).filter(
+    (s) =>
+      s.minX < -15500 && s.maxX > -16300 && s.minZ < -13000 && s.maxZ > -13900
+  );
+  if (near.length !== 4) {
+    console.error(
+      `FAIL: expected 4 slip roads at the south coast road's crossing with highway 1 on seed 20261121, got ${near.length}`
+    );
+    process.exit(1);
+  }
+  useSeed(20260101);
+}
+console.log(
+  '  Passed: Coast road crossings keep their slip roads after the landmarks are placed'
+);
+
 console.log('All terrain invariant tests passed successfully!');
 process.exit(0);

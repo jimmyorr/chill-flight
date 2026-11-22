@@ -6922,9 +6922,13 @@ export const ChillFlightLogic = {};
       }
     }
     // Not kept while a coast road is still being traced (its trace
-    // reaches here through the airfields' heights), or they'd be left
-    // without its own
-    if (tracingCoast.size) _slipRoadsSig = null;
+    // reaches here through the airfields' heights), nor while they're off
+    // as the landmarks are placed (pyramidSite and the rest look at the
+    // ground, which reaches here), or they'd be left without its own: the
+    // terrain workers, which place no landmarks first, would then fill the
+    // ground up to slip roads the main thread never drew, burying the coast
+    // road at the crossing
+    if (tracingCoast.size || coastRoadsOff > 0) _slipRoadsSig = null;
     for (const {n, c, ew} of crossings) {
       for (const sa of [-1, 1]) {
         for (const sb of [-1, 1]) {
