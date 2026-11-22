@@ -21,9 +21,12 @@ import {
   LIGHTHOUSE_PALETTES,
   fieldAt,
   generateChunkData,
+  getFamineWallRoutes,
   lighthouseChunkWins,
   sampleFarmlandCrop,
+  stoneWallZoneAt,
 } from '../terrain-gen.js';
+import {buildStoneWallGeos} from '../farm-models.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1365,6 +1368,144 @@ console.log(
 }
 console.log(
   '  Passed: Farmland generates corn, wildflower, and 4-color ground tulip strips within temperate bounds'
+);
+
+// --- 26. Irish meandering dry-stone famine walls & crumbled stretches (#184) ---
+{
+  const {stoneWall, stoneWallFar, stoneWallRuined, stoneWallRuinedFar} =
+    buildStoneWallGeos();
+  const nearPos = stoneWall.attributes.position;
+  const nearNorm = stoneWall.attributes.normal;
+  const ruinedPos = stoneWallRuined.attributes.position;
+  const farTris = stoneWallFar.attributes.position.count / 3;
+  const ruinedFarTris = stoneWallRuinedFar.attributes.position.count / 3;
+  let finiteVerts =
+    nearPos.count > 0 &&
+    ruinedPos.count > 0 &&
+    farTris === 10 &&
+    ruinedFarTris === 10;
+  let topNy = 0;
+  let topCount = 0;
+  for (let i = 0; i < nearPos.count; i++) {
+    if (
+      !Number.isFinite(nearPos.getX(i)) ||
+      !Number.isFinite(nearPos.getY(i)) ||
+      !Number.isFinite(nearPos.getZ(i))
+    ) {
+      finiteVerts = false;
+      break;
+    }
+    if (nearPos.getY(i) > 2.95) {
+      topNy += nearNorm.getY(i);
+      topCount++;
+    }
+  }
+  if (!finiteVerts || topCount === 0 || topNy / topCount <= 0) {
+    console.error(
+      `FAIL: stoneWall geometry invalid (finite=${finiteVerts}, farTris=${farTris}, topNy=${topNy / Math.max(1, topCount)})`
+    );
+    process.exit(1);
+  }
+
+  useSeed(20260928);
+  const routes = getFamineWallRoutes(simplex);
+  const multiKmPrimary = routes.filter(
+    (r) => !r.isSpur && r.uMax - r.uMin >= 8000
+  );
+  if (routes.length < 20 || multiKmPrimary.length < 15) {
+    console.error(
+      `FAIL: expected multi-km famine wall routes (total=${routes.length}, >=8km=${multiKmPrimary.length})`
+    );
+    process.exit(1);
+  }
+
+  const elevParams = {
+    WATER_LEVEL: 25,
+    MOUNTAIN_LEVEL: 400,
+    MAP_WORLD_SIZE: 60000,
+    MAP_HEIGHT_SCALE: 1,
+  };
+  // Excluded biomes must never report active stone-wall zones
+  const alienWall = stoneWallZoneAt(64000, 0, simplex, elevParams).active;
+  const polarWall = stoneWallZoneAt(0, -28000, simplex, elevParams).active;
+  const desertWall = stoneWallZoneAt(-8000, 14500, simplex, elevParams).active;
+  const swampWall = stoneWallZoneAt(-10000, 8500, simplex, elevParams).active;
+  const fallsWall = stoneWallZoneAt(0, -900, simplex, elevParams).active;
+  if (alienWall || polarWall || desertWall || swampWall || fallsWall) {
+    console.error(
+      `FAIL: stoneWallZoneAt leaked into excluded region (alien=${alienWall}, polar=${polarWall}, desert=${desertWall}, swamp=${swampWall}, falls=${fallsWall})`
+    );
+    process.exit(1);
+  }
+
+  // Multi-chunk meandering famine-wall corridor (-11,-1), (-10,-1), and (-7,0)
+  let totalIntact = 0;
+  let totalRuined = 0;
+  for (const [cx, cz] of [
+    [-11, -1],
+    [-10, -1],
+    [-7, 0],
+  ]) {
+    const a = generateChunkData({
+      chunkX: cx,
+      chunkZ: cz,
+      chunkSize: 1000,
+      segments: 20,
+      elevParams,
+      _enableObjects: true,
+    }).result;
+    const b = generateChunkData({
+      chunkX: cx,
+      chunkZ: cz,
+      chunkSize: 1000,
+      segments: 20,
+      elevParams,
+      _enableObjects: true,
+    }).result;
+    const wallA = a.instanceData.stoneWall;
+    const wallB = b.instanceData.stoneWall;
+    const ruinedA = a.instanceData.stoneWallRuined;
+    if (!wallA || wallA.count < 30 || wallA.count !== wallB?.count) {
+      console.error(
+        `FAIL: chunk (${cx}, ${cz}) stoneWall count mismatch (${wallA?.count} vs ${wallB?.count})`
+      );
+      process.exit(1);
+    }
+    totalIntact += wallA.count;
+    totalRuined += ruinedA?.count || 0;
+    for (const data of [wallA, ruinedA]) {
+      if (!data) continue;
+      const m = data.matrices;
+      for (let i = 0; i < data.count; i++) {
+        const o = i * 16;
+        // 3x3 determinant must stay strictly positive (no inverted winding)
+        const det = m[o + 5] * (m[o + 0] * m[o + 10] - m[o + 2] * m[o + 8]);
+        const wx = m[o + 12];
+        const wz = m[o + 14];
+        const roadDist = ChillFlightLogic.highwayDistance(wx, wz);
+        if (
+          !(det > 0) ||
+          roadDist < ChillFlightLogic.ROAD_WIDTH + 12 ||
+          ChillFlightLogic.isOnAirport(wx, wz, 80)
+        ) {
+          console.error(
+            `FAIL: invalid stoneWall bay in chunk (${cx}, ${cz}) (det=${det}, roadDist=${roadDist})`
+          );
+          process.exit(1);
+        }
+      }
+    }
+  }
+  if (totalIntact < 200 || totalRuined < 20) {
+    console.error(
+      `FAIL: expected both intact and crumbled famine-wall bays (intact=${totalIntact}, ruined=${totalRuined})`
+    );
+    process.exit(1);
+  }
+  useSeed(20260101);
+}
+console.log(
+  '  Passed: Meandering multi-km Irish dry-stone famine walls and crumbled stretches hug hills clear of roads and airfields'
 );
 
 console.log('All terrain invariant tests passed successfully!');

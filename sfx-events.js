@@ -546,6 +546,38 @@ export function playSmash(
   }
 }
 
+// Driving or skimming through a dry-stone pasture wall (#184): a crisp rock
+// crunch and tumbling cascade of grey fieldstone cobbles.
+export function playStoneWallSmash(loud = 1, force = false) {
+  if ((!force && !isSfxEventEnabled('smash')) || !ready(force)) return;
+  const g = THREE.MathUtils.clamp(loud, 0, 1);
+  if (g < 0.02) return;
+  const t = ctx.currentTime;
+  noiseBurst(t, {
+    type: 'bandpass',
+    freq: 1500,
+    freqEnd: 380,
+    q: 0.85,
+    gain: 0.72 * g,
+    attack: 0.004,
+    decay: 0.28,
+  });
+  tone(t, {freq: 98, freqEnd: 46, gain: 0.45 * g, attack: 0.006, decay: 0.3});
+  let at = t + 0.045;
+  for (let i = 0; i < 6; i++) {
+    noiseBurst(at, {
+      type: 'bandpass',
+      freq: 1200 + Math.random() * 1500,
+      freqEnd: 480,
+      q: 1.5,
+      gain: (0.34 - i * 0.045) * g,
+      attack: 0.003,
+      decay: 0.09 + Math.random() * 0.08,
+    });
+    at += 0.055 + Math.random() * 0.09;
+  }
+}
+
 // A crystal cluster shattering (breakables.js): a glassy crack, then the
 // spires bursting into a soft cascade of high, bell-like tinkles (a
 // pentatonic scale, so any run of them sounds pleasant). loud is 0..1.

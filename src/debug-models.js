@@ -49,7 +49,7 @@ import {basaltGate, canyonBridge, seaArch} from '../arches-logic.js';
 import {archGeometry} from '../arches.js';
 import {boatMat, buildSmallBoatGeos} from '../boat-models.js';
 import {buildXmasGeos, xmasGlowMat} from '../xmas-models.js';
-import {buildTractorGeos} from '../farm-models.js';
+import {buildStoneWallGeos, buildTractorGeos} from '../farm-models.js';
 import {buildSwampGeos} from '../swamp-models.js';
 import {
   buildLandmarkGeos,
@@ -297,6 +297,7 @@ const TWO_BAND_LOD_TYPES = new Set([
   'bush',
   'cactus',
   'granite',
+  'stone_wall',
   'house',
   'two_story_house',
   'straw_hut',
@@ -1025,6 +1026,71 @@ function viewModel(type, e, colorSeed = 0) {
           const m = new THREE.Mesh(geo, boatMat);
           m.position.x = (i - (geos.length - 1) / 2) * 6;
           previewGroup.add(m);
+        });
+        break;
+      }
+      case 'stone_wall': {
+        // Three connected bays of an Irish dry-stone famine wall (intact ->
+        // crumbled rubble breach with spilled stones -> intact)
+        const {stoneWall, stoneWallFar, stoneWallRuined, stoneWallRuinedFar} =
+          buildStoneWallGeos();
+        const rows =
+          lod === 'all'
+            ? [
+                ['near', 6],
+                ['far', -6],
+              ]
+            : [[lod, 0]];
+        const pts = [
+          [-19, 0, -1.5],
+          [-6.5, 0.8, 0.6],
+          [6.5, 1.5, 0.9],
+          [19, 2.3, -1.2],
+        ];
+        rows.forEach(([band, zOff]) => {
+          for (let i = 0; i < pts.length - 1; i++) {
+            const [x0, y0, z0] = pts[i];
+            const [x1, y1, z1] = pts[i + 1];
+            const dx = x1 - x0;
+            const dy = y1 - y0;
+            const dz = z1 - z0;
+            const len = Math.hypot(dx, dz) || 1;
+            const flip = i % 2 === 1 ? -1 : 1;
+            const nx = (dz / len) * flip;
+            const nz = (-dx / len) * flip;
+            const ruined = i === 1;
+            const mat4 = new THREE.Matrix4().set(
+              nx,
+              0,
+              dx * flip,
+              (x0 + x1) * 0.5,
+              0,
+              1.0,
+              dy * flip,
+              (y0 + y1) * 0.5,
+              nz,
+              0,
+              dz * flip,
+              (z0 + z1) * 0.5 + zOff,
+              0,
+              0,
+              0,
+              1
+            );
+            const geo =
+              band === 'far'
+                ? ruined
+                  ? stoneWallRuinedFar
+                  : stoneWallFar
+                : ruined
+                  ? stoneWallRuined
+                  : stoneWall;
+            const m = new THREE.Mesh(geo, buildingMat);
+            m.matrixAutoUpdate = false;
+            m.matrix.copy(mat4);
+            m.userData.lodBand = band;
+            previewGroup.add(m);
+          }
         });
         break;
       }

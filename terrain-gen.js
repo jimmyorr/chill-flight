@@ -538,6 +538,34 @@ function composeMatrix(out, offset, px, py, pz, sx, sy, sz, rx, ry, rz) {
   out[offset + 15] = 1;
 }
 
+// Instance matrix for a unit-length dry-stone wall bay (z in [-0.5, +0.5])
+// running from (x0, y0, z0) to (x1, y1, z1) with plumb vertical faces and
+// positive 3x3 determinant for both flip = +1 and flip = -1 (#184).
+function composeWallMatrix(out, offset, x0, y0, z0, x1, y1, z1, sx, sy, flip) {
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const dz = z1 - z0;
+  const len = Math.hypot(dx, dz) || 1;
+  const nx = (dz / len) * sx * flip;
+  const nz = (-dx / len) * sx * flip;
+  out[offset + 0] = nx;
+  out[offset + 1] = 0;
+  out[offset + 2] = nz;
+  out[offset + 3] = 0;
+  out[offset + 4] = 0;
+  out[offset + 5] = sy;
+  out[offset + 6] = 0;
+  out[offset + 7] = 0;
+  out[offset + 8] = dx * flip;
+  out[offset + 9] = dy * flip;
+  out[offset + 10] = dz * flip;
+  out[offset + 11] = 0;
+  out[offset + 12] = (x0 + x1) * 0.5;
+  out[offset + 13] = (y0 + y1) * 0.5;
+  out[offset + 14] = (z0 + z1) * 0.5;
+  out[offset + 15] = 1;
+}
+
 function rotateY(x, z, angle) {
   const cos = Math.cos(angle);
   const sin = Math.sin(angle);
@@ -782,6 +810,405 @@ function hedgeNear(x, z, simplex, reach) {
   const cos = Math.cos(f.angle);
   const sin = Math.sin(f.angle);
   return {x: f.cx + cos * u + sin * v, z: f.cz - sin * u + cos * v};
+}
+
+// --- IRISH DRY-STONE FAMINE WALLS (#184) ---
+// Long, meandering multi-kilometre dry-stone ("famine") walls snaking across
+// temperate hillsides, sheep pastures, coastal headlands, and upland valleys,
+// with connected cross-ridge spurs and weathered stretches that sag and crumble
+// into mossy rubble and spilled fieldstones.
+const STONE_WALL_STEP = 12.0;
+// Raw dy/dx grade limit (~41 deg; matches TREE_MAX_SLOPE in slopeFactor units)
+// so famine walls march straight up and over steep green hills and ridges,
+// stopping only at sheer rock cliff faces.
+const STONE_WALL_MAX_SLOPE = 0.88;
+const _wallZone = {active: false, farmWall: false, upland: false};
+const _routePt = {x: 0, z: 0};
+let _cachedWallRoutesSeed = null;
+let _cachedWallRoutes = null;
+
+export function stoneWallZoneAt(wx, wz, simplex, elevParams, out = _wallZone) {
+  out.active = false;
+  out.farmWall = false;
+  out.upland = false;
+  const waterLevel = (elevParams && elevParams.WATER_LEVEL) || 25;
+  const mountainLevel = (elevParams && elevParams.MOUNTAIN_LEVEL) || 400;
+  if (ChillFlightLogic.alienAt(wx, wz, simplex) > ALIEN_PROPS_AT) return out;
+  // Clear of the Twin Falls sightline and spawn valley
+  if (Math.abs(wx) < 480 && wz > -1750 && wz < -120) return out;
+
+  const noisePath = simplex.noise2D(wx * 0.0001, wz * 0.0001);
+  const biomeNoise = simplex.noise2D(wx * 0.0005, wz * 0.0005) * 0.1;
+  const snowFactor = ChillFlightLogic.snowFactorAt(
+    wz,
+    noisePath * 0.05 + biomeNoise + ChillFlightLogic.snowWobble(wx, wz, simplex)
+  );
+  if (snowFactor >= 0.25) return out;
+
+  const southInfluence =
+    Math.max(0, wz / 5000) + ChillFlightLogic.desertShift(wx, wz, simplex);
+  const desertRaw = Math.max(
+    0,
+    Math.min(1, southInfluence + noisePath * 0.05 - biomeNoise - 2.0)
+  );
+  const desertFactor = desertRaw * desertRaw * (3 - 2 * desertRaw);
+  if (desertFactor >= 0.15) return out;
+
+  const swampFactor = ChillFlightLogic.swampFactorAt(wx, wz, simplex);
+  if (swampFactor >= 0.15) return out;
+
+  const h = ChillFlightLogic.getElevation(wx, wz, simplex, elevParams);
+  const eastCoastFactor =
+    Math.max(0, Math.min(1, (wx + 2000) / 2000)) * (1 - swampFactor);
+  const sandMax =
+    waterLevel + (2 + eastCoastFactor * 10) * (1 - 0.85 * swampFactor);
+  // Climb right up over open treeless green-brown hills and mountain ridges
+  if (h <= sandMax + 3.5 || h >= mountainLevel + 240) return out;
+
+  const villageNoise = simplex.noise2D(wx * 0.0011 + 71.3, wz * 0.0011 - 29.7);
+  const farmEst = Math.max(0, Math.min(1, (villageNoise + 0.05) / 0.2));
+
+  out.active = true;
+  out.farmWall = farmEst > 0.3;
+  out.upland = !out.farmWall;
+  return out;
+}
+
+function sampleFamineRoutePoint(route, u, simplex, out = _routePt) {
+  const ramp = route.isSpur ? Math.min(1, Math.max(0, u) / 220) : 1;
+  const lat =
+    (560 * simplex.noise2D(u * 0.00024 + route.p1, route.p2) +
+      165 * simplex.noise2D(u * 0.00105 + route.p2, route.p1) +
+      28 * simplex.noise2D(u * 0.0042 - route.p1, route.p2 + 37)) *
+    ramp;
+  out.x = route.cx + route.cos * u - route.sin * lat;
+  out.z = route.cz + route.sin * u + route.cos * lat;
+  return out;
+}
+
+function buildRouteBounds(route) {
+  const pad = 790;
+  const ax = route.cx + route.cos * route.uMin;
+  const az = route.cz + route.sin * route.uMin;
+  const bx = route.cx + route.cos * route.uMax;
+  const bz = route.cz + route.sin * route.uMax;
+  route.minX = Math.min(ax, bx) - pad;
+  route.maxX = Math.max(ax, bx) + pad;
+  route.minZ = Math.min(az, bz) - pad;
+  route.maxZ = Math.max(az, bz) + pad;
+  return route;
+}
+
+export function getFamineWallRoutes(simplex) {
+  const seed = ChillFlightLogic.WORLD_SEED | 0;
+  if (_cachedWallRoutesSeed === seed && _cachedWallRoutes) {
+    return _cachedWallRoutes;
+  }
+  const seedSalt = seed & 0xffff;
+  const routes = [];
+  // Stratified 7 x 4 macro-regions across the temperate mainland (-24.5..+2.5 km X,
+  // -11.5..+7.5 km Z) so multi-kilometre walls spread naturally across hills,
+  // coastal headlands, and lake valleys without clumping into grids.
+  const cols = 7;
+  const rows = 4;
+  const xStart = -24500;
+  const xSpan = 27000;
+  const zStart = -11500;
+  const zSpan = 19000;
+  const cellW = xSpan / cols;
+  const cellH = zSpan / rows;
+
+  let id = 0;
+  for (let rz = 0; rz < rows; rz++) {
+    for (let rx = 0; rx < cols; rx++) {
+      if (fieldHash(rx, rz, 1901 + seedSalt) >= 0.82) continue;
+      const cx =
+        xStart + (rx + 0.2 + fieldHash(rx, rz, 1907 + seedSalt) * 0.6) * cellW;
+      const cz =
+        zStart + (rz + 0.2 + fieldHash(rx, rz, 1913 + seedSalt) * 0.6) * cellH;
+      const angle = fieldHash(rx, rz, 1931 + seedSalt) * Math.PI;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const uMin = -(4400 + fieldHash(rx, rz, 1949 + seedSalt) * 4400);
+      const uMax = 4400 + fieldHash(rx, rz, 1951 + seedSalt) * 4400;
+      const p1 = (id + 1) * 37.17 + (seedSalt % 97) * 0.31;
+      const p2 = (id + 1) * 53.91 - (seedSalt % 89) * 0.27;
+      const primary = buildRouteBounds({
+        id: id++,
+        cx,
+        cz,
+        cos,
+        sin,
+        uMin,
+        uMax,
+        p1,
+        p2,
+        isSpur: false,
+      });
+      routes.push(primary);
+
+      // Half of primary famine walls sprout a 2.8..5.8 km cross-ridge spur wall
+      // meeting the main wall at a stone T-junction
+      if (fieldHash(rx, rz, 1973 + seedSalt) < 0.52) {
+        const uJoin =
+          uMin * 0.45 +
+          fieldHash(rx, rz, 1979 + seedSalt) * (uMax - uMin) * 0.45;
+        const join = sampleFamineRoutePoint(primary, uJoin, simplex, {
+          x: 0,
+          z: 0,
+        });
+        const side = fieldHash(rx, rz, 1987 + seedSalt) < 0.5 ? -1 : 1;
+        const spurAngle =
+          angle + side * (1.2 + fieldHash(rx, rz, 1993 + seedSalt) * 0.65);
+        const spurLen = 2800 + fieldHash(rx, rz, 1997 + seedSalt) * 3000;
+        routes.push(
+          buildRouteBounds({
+            id: id++,
+            cx: join.x,
+            cz: join.z,
+            cos: Math.cos(spurAngle),
+            sin: Math.sin(spurAngle),
+            uMin: 1.5,
+            uMax: spurLen,
+            p1: p1 + 113.7,
+            p2: p2 - 79.3,
+            isSpur: true,
+          })
+        );
+      }
+    }
+  }
+  _cachedWallRoutesSeed = seed;
+  _cachedWallRoutes = routes;
+  return routes;
+}
+
+function collectChunkStoneWalls({
+  worldOffsetX,
+  worldOffsetZ,
+  halfSize,
+  simplex,
+  elevParams,
+  housePositions,
+  twoStoryHousePositions,
+  out,
+}) {
+  const minX = worldOffsetX - halfSize;
+  const maxX = worldOffsetX + halfSize;
+  const minZ = worldOffsetZ - halfSize;
+  const maxZ = worldOffsetZ + halfSize;
+  const seedSalt = (ChillFlightLogic.WORLD_SEED | 0) & 0xffff;
+  const waterLevel = (elevParams && elevParams.WATER_LEVEL) || 25;
+  const routes = getFamineWallRoutes(simplex);
+
+  const houses = [...housePositions, ...twoStoryHousePositions];
+  const nearHouse = (lx, lz) => {
+    for (let i = 0; i < houses.length; i++) {
+      const dx = houses[i].x - lx;
+      const dz = houses[i].z - lz;
+      if (dx * dx + dz * dz < 22 * 22) return true;
+    }
+    return false;
+  };
+
+  for (let rIdx = 0; rIdx < routes.length; rIdx++) {
+    const r = routes[rIdx];
+    if (r.maxX < minX || r.minX > maxX || r.maxZ < minZ || r.minZ > maxZ) {
+      continue;
+    }
+    // Project chunk corners onto route axis (with +/-790 meander pad) to bound u
+    let uLo = Infinity;
+    let uHi = -Infinity;
+    for (const cx of [minX, maxX]) {
+      for (const cz of [minZ, maxZ]) {
+        const proj = (cx - r.cx) * r.cos + (cz - r.cz) * r.sin;
+        if (proj < uLo) uLo = proj;
+        if (proj > uHi) uHi = proj;
+      }
+    }
+    const marginU = 360;
+    const kStart = Math.max(
+      Math.ceil(r.uMin / STONE_WALL_STEP),
+      Math.floor((uLo - marginU) / STONE_WALL_STEP)
+    );
+    const kEnd = Math.min(
+      Math.floor(r.uMax / STONE_WALL_STEP),
+      Math.ceil((uHi + marginU) / STONE_WALL_STEP)
+    );
+    if (kEnd - kStart < 6) continue;
+
+    const count = kEnd - kStart;
+    const bays = new Array(count).fill(null);
+    let p0 = sampleFamineRoutePoint(r, kStart * STONE_WALL_STEP, simplex, {
+      x: 0,
+      z: 0,
+    });
+    for (let i = 0; i < count; i++) {
+      const k = kStart + i;
+      const uMid = (k + 0.5) * STONE_WALL_STEP;
+      const p1 = sampleFamineRoutePoint(r, (k + 1) * STONE_WALL_STEP, simplex, {
+        x: 0,
+        z: 0,
+      });
+      const mx = (p0.x + p1.x) * 0.5;
+      const mz = (p0.z + p1.z) * 0.5;
+
+      // Rare country sheep-gate opening (~every 900 units, 25% of slots)
+      const gateSlot = Math.floor((k + 50000) / 76);
+      const gateK =
+        gateSlot * 76 -
+        50000 +
+        12 +
+        Math.floor(fieldHash(r.id, gateSlot, 709 + seedSalt) * 52);
+      const isGate =
+        k === gateK && fieldHash(r.id, gateSlot, 719 + seedSalt) < 0.25;
+
+      if (!isGate && !ChillFlightLogic.isOnAirport(mx, mz, 95)) {
+        const zone = stoneWallZoneAt(mx, mz, simplex, elevParams);
+        if (zone.active) {
+          let y0 = ChillFlightLogic.getElevation(
+            p0.x,
+            p0.z,
+            simplex,
+            elevParams
+          );
+          let y1 = ChillFlightLogic.getElevation(
+            p1.x,
+            p1.z,
+            simplex,
+            elevParams
+          );
+          const ym = ChillFlightLogic.getElevation(mx, mz, simplex, elevParams);
+          const bayLen = Math.hypot(p1.x - p0.x, p1.z - p0.z) || 1;
+          const alongSlope = Math.abs(y1 - y0) / bayLen;
+          const nx = (p1.z - p0.z) / bayLen;
+          const nz = -(p1.x - p0.x) / bayLen;
+          const crossSlope =
+            Math.abs(
+              ChillFlightLogic.getElevation(
+                mx + nx * 3,
+                mz + nz * 3,
+                simplex,
+                elevParams
+              ) -
+                ChillFlightLogic.getElevation(
+                  mx - nx * 3,
+                  mz - nz * 3,
+                  simplex,
+                  elevParams
+                )
+            ) / 6;
+          if (
+            y0 > waterLevel + 5.0 &&
+            y1 > waterLevel + 5.0 &&
+            alongSlope < STONE_WALL_MAX_SLOPE &&
+            crossSlope < STONE_WALL_MAX_SLOPE + 0.04
+          ) {
+            // Smooth 1D weathering/decrepitude wave along the famine wall
+            const ridgeExposure = Math.max(
+              0,
+              Math.min(1, (ym - (waterLevel + 180)) / 180)
+            );
+            const decay =
+              simplex.noise2D(uMid * 0.0036 + r.p1 * 2.3, r.p2) +
+              0.28 * simplex.noise2D(uMid * 0.0125 - r.p2, r.p1) +
+              ridgeExposure * 0.14;
+            // Keep crumbled stretches continuous as visible mossy rubble and
+            // spilled boulders; only extreme >= 1.04 opens a narrow sheep creep
+            if (decay < 1.04) {
+              const crestLift = Math.min(
+                0.85,
+                Math.max(0, ym - (y0 + y1) * 0.5)
+              );
+              bays[i] = {
+                k,
+                mx,
+                mz,
+                x0: p0.x,
+                y0: y0 + crestLift,
+                z0: p0.z,
+                x1: p1.x,
+                y1: y1 + crestLift,
+                z1: p1.z,
+                decay,
+                isGatePier: k === gateK - 1 || k === gateK + 1,
+              };
+            }
+          }
+        }
+      }
+      p0 = p1;
+    }
+
+    // Keep contiguous runs of >= 6 bays (~72 units) and taper run ends through
+    // decrepit / crumbled masonry so walls never start or stop abruptly.
+    let runStart = -1;
+    for (let i = 0; i <= count; i++) {
+      if (i < count && bays[i]) {
+        if (runStart < 0) runStart = i;
+        continue;
+      }
+      if (runStart >= 0) {
+        const runLen = i - runStart;
+        if (runLen >= 6) {
+          for (let j = runStart; j < i; j++) {
+            const b = bays[j];
+            if (b.mx < minX || b.mx >= maxX || b.mz < minZ || b.mz >= maxZ) {
+              continue;
+            }
+            const lx = b.mx - worldOffsetX;
+            const lz = b.mz - worldOffsetZ;
+            if (nearHouse(lx, lz)) continue;
+
+            const distFromEnd = Math.min(j - runStart, i - 1 - j);
+            const naturalTip =
+              !b.isGatePier &&
+              !(r.isSpur && j === runStart && b.k <= 2) &&
+              distFromEnd <= 1;
+
+            let type = 'stoneWall';
+            let sx = 1.0;
+            let sy =
+              0.9 + fieldHash(r.id * 31 + b.k, 17, 577 + seedSalt) * 0.18;
+
+            if (b.isGatePier) {
+              sx = 1.1;
+              sy = 1.15;
+            } else if (b.decay >= 0.52 || (naturalTip && distFromEnd === 0)) {
+              // Crumbled, decrepit stretch with fallen boulders in the grass
+              type = 'stoneWallRuined';
+              sx = 1.0 + fieldHash(r.id * 19 + b.k, 29, 601 + seedSalt) * 0.15;
+              sy = 0.82 + fieldHash(r.id * 23 + b.k, 41, 607 + seedSalt) * 0.34;
+            } else if (b.decay >= 0.36 || (naturalTip && distFromEnd === 1)) {
+              // Sagging, weathered shoulder ramping down into the breach
+              const tSag = naturalTip ? 0.65 : (b.decay - 0.36) / (0.52 - 0.36);
+              sx = 1.08;
+              sy = 0.88 - tSag * 0.34;
+            }
+
+            const flip =
+              fieldHash(r.id * 13 + b.k, 29, 613 + seedSalt) < 0.5 ? 1 : -1;
+            out.push({
+              type,
+              x: lx,
+              y: (b.y0 + b.y1) * 0.5,
+              z: lz,
+              x0: b.x0 - worldOffsetX,
+              y0: b.y0,
+              z0: b.z0 - worldOffsetZ,
+              x1: b.x1 - worldOffsetX,
+              y1: b.y1,
+              z1: b.z1 - worldOffsetZ,
+              sx,
+              sy,
+              flip,
+            });
+          }
+        }
+        runStart = -1;
+      }
+    }
+  }
 }
 
 // How far beyond a road's paved edge trees (most spread about 15),
@@ -3142,6 +3569,7 @@ export function generateChunkData({
   const breakwaterPositions = [];
   const sheepPositions = [];
   const herdPositions = [];
+  const stoneWallPositions = [];
   const rockPositions = [];
   const snowRockPositions = [];
   const desertRockPositions = [];
@@ -5655,6 +6083,19 @@ export function generateChunkData({
     terrainColors[colorIdx++] = _tempColorObj.b;
   }
 
+  if (_enableObjects) {
+    collectChunkStoneWalls({
+      worldOffsetX,
+      worldOffsetZ,
+      halfSize,
+      simplex,
+      elevParams,
+      housePositions,
+      twoStoryHousePositions,
+      out: stoneWallPositions,
+    });
+  }
+
   // Farmsteads (farmsteadsAt): each farm parcel touching this chunk whose
   // barn spot is on this chunk, on a grid point fit for one, with the
   // trees, bushes and rocks cleared from around the barn and windmill
@@ -5751,6 +6192,7 @@ export function generateChunkData({
         fallenLogPositions,
         sheepPositions,
         herdPositions,
+        stoneWallPositions,
         swampTreePositions,
         swampReedPositions,
         swampLogPositions,
@@ -5912,6 +6354,7 @@ export function generateChunkData({
         fallenLogPositions,
         sheepPositions,
         herdPositions,
+        stoneWallPositions,
         housePositions,
         twoStoryHousePositions,
         chimneySmokePositions,
@@ -6177,6 +6620,7 @@ export function generateChunkData({
       fallenLogPositions,
       sheepPositions,
       herdPositions,
+      stoneWallPositions,
       housePositions,
       twoStoryHousePositions,
       chimneySmokePositions,
@@ -6237,6 +6681,7 @@ export function generateChunkData({
         fallenLogPositions,
         sheepPositions,
         herdPositions,
+        stoneWallPositions,
         campfirePositions,
       ].forEach(clearList);
     };
@@ -6552,24 +6997,21 @@ export function generateChunkData({
   // the grid, and hedgerows follow the fields. Done here, after the grid
   // pass, so the rest of the chunk comes out as before.
   if (_enableObjects) {
+    const pointOffRoads = (wx, wz, margin) =>
+      ChillFlightLogic.highwayDistance(wx, wz) >=
+        ChillFlightLogic.ROAD_WIDTH + margin &&
+      !ChillFlightLogic.isOnAccessRoad(wx, wz, margin, simplex, elevParams) &&
+      !ChillFlightLogic.isOnSlipRoad(wx, wz, margin, simplex, elevParams);
     const keepOffRoads = (arr, margin) => {
       let kept = 0;
       for (const p of arr) {
         const x = worldOffsetX + p.x;
         const z = worldOffsetZ + p.z;
-        if (
-          p.roadVillage ||
-          (ChillFlightLogic.highwayDistance(x, z) >=
-            ChillFlightLogic.ROAD_WIDTH + margin &&
-            !ChillFlightLogic.isOnAccessRoad(
-              x,
-              z,
-              margin,
-              simplex,
-              elevParams
-            ) &&
-            !ChillFlightLogic.isOnSlipRoad(x, z, margin, simplex, elevParams))
-        ) {
+        const endsOk =
+          p.x0 === undefined ||
+          (pointOffRoads(worldOffsetX + p.x0, worldOffsetZ + p.z0, margin) &&
+            pointOffRoads(worldOffsetX + p.x1, worldOffsetZ + p.z1, margin));
+        if (p.roadVillage || (pointOffRoads(x, z, margin) && endsOk)) {
           arr[kept++] = p;
         }
       }
@@ -6612,6 +7054,42 @@ export function generateChunkData({
       sheepPositions,
       herdPositions,
     ].forEach((arr) => keepOffRoads(arr, ROAD_PROP_CLEAR));
+    keepOffRoads(stoneWallPositions, ROAD_PROP_CLEAR + 4);
+    if (stoneWallPositions.length > 0) {
+      const clearWallLine = (arr) => {
+        let kept = 0;
+        for (const p of arr) {
+          let hit = false;
+          for (let i = 0; i < stoneWallPositions.length; i++) {
+            const w = stoneWallPositions[i];
+            const dx = p.x - w.x;
+            const dz = p.z - w.z;
+            if (dx * dx + dz * dz < 81) {
+              hit = true;
+              break;
+            }
+          }
+          if (!hit) arr[kept++] = p;
+        }
+        arr.length = kept;
+      };
+      [
+        treePositions,
+        deciduousTreePositions,
+        tallDeciduousTreePositions,
+        autumnTree1Positions,
+        autumnTree2Positions,
+        autumnTree3Positions,
+        cherryTreePositions,
+        sculptedPineTreePositions,
+        birchTreePositions,
+        broadleafOakTreePositions,
+        oakTreePositions,
+        ...fruitTreeLists,
+        bushPositions,
+        rockPositions,
+      ].forEach(clearWallLine);
+    }
     // A house's chimney smoke sits on the same spot, so goes with it
     [
       housePositions,
@@ -6743,6 +7221,7 @@ export function generateChunkData({
           monasteryPositions,
           castleRuinsPositions,
           pierPositions,
+          stoneWallPositions,
           xmasYardPositions,
         ].forEach(clearLighthouse);
       }
@@ -6811,6 +7290,7 @@ export function generateChunkData({
       rockArchPositions,
       rockArchGrassPositions,
       landmarkPositions,
+      stoneWallPositions,
       xmasYardPositions,
     ].forEach(keepOffPyramids);
   }
@@ -7906,6 +8386,26 @@ export function generateChunkData({
     collector.endProp();
   }
 
+  // Irish dry-stone pasture and hillside walls (no rng() rolls here either)
+  for (const pos of stoneWallPositions) {
+    composeWallMatrix(
+      _matBuffer,
+      0,
+      worldOffsetX + pos.x0,
+      pos.y0,
+      worldOffsetZ + pos.z0,
+      worldOffsetX + pos.x1,
+      pos.y1,
+      worldOffsetZ + pos.z1,
+      pos.sx,
+      pos.sy,
+      pos.flip
+    );
+    collector.beginProp(BREAKABLE.HOUSE);
+    collector.add(pos.type || 'stoneWall', _matBuffer);
+    collector.endProp();
+  }
+
   // Wall and roof colors (indices into houseBodyPalette and
   // houseRoofPalette) from the house's regional style
   const pickHouseColors = (pos) => {
@@ -8229,6 +8729,7 @@ export function generateChunkData({
       herd: herdPositions.length,
       breakwater: breakwaterPositions.length,
       tractors: tractorPositions.length,
+      stone_walls: stoneWallPositions.length,
       landmarks: landmarkPositions.length,
       icebergs: icebergPositions.length,
       ice_floes: iceFloePositions.length,

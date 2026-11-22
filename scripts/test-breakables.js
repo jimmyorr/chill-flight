@@ -22,6 +22,7 @@ import {
   stepSink,
   stepTopple,
   sweptHit,
+  sweptWallHit,
   toppleSpin,
 } from '../breakables-logic.js';
 
@@ -99,12 +100,19 @@ for (let cx = -2; cx <= 2; cx++) {
       }
       if (b.kinds[i] === BREAKABLE.HOUSE) {
         if (types[0] === 'houseBody' || types[0] === 'twoStoryBody') houses++;
-        else if (/^(rock|snowRock|desertRock|granite)$/.test(types[0]))
+        else if (
+          /^(rock|snowRock|desertRock|granite|stoneWall|stoneWallRuined)$/.test(
+            types[0]
+          )
+        )
           boulders++;
         else buildings.add(types[0]);
         // Walls that fold down first, and a roof (or sails) to throw off; a
-        // castle ruin has none, and a boulder is one rock
-        const boulder = /^(rock|snowRock|desertRock|granite)$/.test(types[0]);
+        // castle ruin has none, and a boulder or dry-stone wall bay is one stone part
+        const boulder =
+          /^(rock|snowRock|desertRock|granite|stoneWall|stoneWallRuined)$/.test(
+            types[0]
+          );
         if (
           boulder
             ? types.length !== 1
@@ -304,6 +312,50 @@ check(
     punted.x > 40 &&
     Math.abs(punted.y - (20 + punted.x * 0.05)) < 0.01 &&
     punted.angle === 0
+);
+
+// --- Dry-stone wall narrowphase segment hit (#184) ---
+// Wall bay running along Z from z = -6.75 (y = 100) to z = +6.75 (y = 104) at x = 0
+const wallMatrix = new Float32Array([
+  1, 0, 0, 0, 0, 1, 0, 0, 0, 4, 13.5, 0, 0, 102, 0, 1,
+]);
+check(
+  'sweptWallHit catches buggy crossing middle or end of a sloped dry-stone wall bay',
+  sweptWallHit(
+    {x: -5, y: 102, z: 0},
+    {x: 5, y: 102, z: 0},
+    BREAK.BUGGY_RADIUS,
+    wallMatrix,
+    1.18,
+    3.45
+  ) &&
+    sweptWallHit(
+      {x: -5, y: 105, z: 6.2},
+      {x: 5, y: 105, z: 6.2},
+      BREAK.BUGGY_RADIUS,
+      wallMatrix,
+      1.18,
+      3.45
+    )
+);
+check(
+  'sweptWallHit ignores buggy driving parallel beside wall or plane flying clear overhead',
+  !sweptWallHit(
+    {x: 4.6, y: 102, z: -6},
+    {x: 4.6, y: 102, z: 6},
+    BREAK.BUGGY_RADIUS,
+    wallMatrix,
+    1.18,
+    3.45
+  ) &&
+    !sweptWallHit(
+      {x: -6, y: 113, z: 0},
+      {x: 6, y: 113, z: 0},
+      BREAK.PLANE_RADIUS,
+      wallMatrix,
+      1.18,
+      3.45
+    )
 );
 
 // --- Speed lost ---

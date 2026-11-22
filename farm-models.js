@@ -151,3 +151,415 @@ export function buildWindmillGeos() {
     hub: hub.multiplyScalar(WINDMILL_SCALE),
   };
 }
+
+// --- IRISH DRY-STONE WALLS (#184) ---
+// Unit-length dry-stone wall segment spanning z in [-0.5, +0.5], authored at
+// its natural ~13.5-unit bay length in world proportions before normalizing z
+// to [-0.5, +0.5]. Battered profile (~2.35 units wide at ground level tapering
+// to ~1.35 at the ridge, ~3.45 units tall above ground and buried 1.3 units
+// below y = 0 so hillside facets never show daylight underneath).
+export const STONE_WALL_HEIGHT = 3.45;
+export const STONE_WALL_RUINED_HEIGHT = 1.95;
+export const STONE_WALL_HALF_WIDTH = 1.18;
+const WALL_BAY_REF = 13.5;
+
+function wallMulberry32(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function pushTri(pos, col, a, b, c, rgb) {
+  pos.push(
+    a[0],
+    a[1],
+    a[2] / WALL_BAY_REF,
+    b[0],
+    b[1],
+    b[2] / WALL_BAY_REF,
+    c[0],
+    c[1],
+    c[2] / WALL_BAY_REF
+  );
+  for (let i = 0; i < 3; i++) col.push(rgb[0], rgb[1], rgb[2]);
+}
+
+function pushQuad(pos, col, a, b, c, d, rgb) {
+  pushTri(pos, col, a, b, c, rgb);
+  pushTri(pos, col, a, c, d, rgb);
+}
+
+// Appends an organic faceted 10-vertex polyhedral boulder/fieldstone (12
+// triangles, open underside) authored in world-unit coordinates (x, y, z)
+// with 3D yaw/pitch/roll and boulder facet perturbation so stones read as
+// weathered hand-stacked limestone cobbles rather than rectangular bricks.
+function pushBoulderStone(
+  pos,
+  col,
+  rand,
+  {
+    cx,
+    cy,
+    cz,
+    rx,
+    ry,
+    rz,
+    yaw = 0,
+    pitch = 0,
+    roll = 0,
+    peak = 1.0,
+    rgb,
+    topRgb,
+  }
+) {
+  const cyaw = Math.cos(yaw);
+  const syaw = Math.sin(yaw);
+  const cp = Math.cos(pitch);
+  const sp = Math.sin(pitch);
+  const cr = Math.cos(roll);
+  const sr = Math.sin(roll);
+
+  const xform = (lx, ly, lz) => {
+    // Roll (Z), then Pitch (X), then Yaw (Y)
+    const x1 = lx * cr - ly * sr;
+    const y1 = lx * sr + ly * cr;
+    const y2 = y1 * cp - lz * sp;
+    const z2 = y1 * sp + lz * cp;
+    const x3 = x1 * cyaw + z2 * syaw;
+    const z3 = -x1 * syaw + z2 * cyaw;
+    return [cx + x3, cy + y2, cz + z3];
+  };
+
+  // 6-sided irregular waist ring + 2-point pitched boulder crest (12 tris)
+  const ring = [];
+  const baseRing = [];
+  for (let k = 0; k < 6; k++) {
+    const ang = (k / 6) * Math.PI * 2 + (rand() - 0.5) * 0.24;
+    const rad = 0.88 + rand() * 0.22;
+    const wx = Math.cos(ang) * rx * rad;
+    const wz = Math.sin(ang) * rz * rad;
+    ring.push(xform(wx, ry * (0.18 + (rand() - 0.5) * 0.22), wz));
+    baseRing.push(xform(wx * 1.04, -ry * (0.85 + rand() * 0.2), wz * 1.04));
+  }
+  const apex = xform(
+    (rand() - 0.5) * rx * 0.28,
+    ry * peak,
+    (rand() - 0.5) * rz * 0.28
+  );
+  const shade = [rgb[0] * 0.84, rgb[1] * 0.85, rgb[2] * 0.88];
+  for (let k = 0; k < 6; k++) {
+    const next = (k + 1) % 6;
+    const sideCol = k >= 2 && k <= 4 ? shade : rgb;
+    // Counter-clockwise from outside so vertex normals point outward & upward
+    pushTri(pos, col, ring[next], ring[k], apex, k % 2 === 0 ? topRgb : rgb);
+    pushQuad(
+      pos,
+      col,
+      baseRing[next],
+      baseRing[k],
+      ring[k],
+      ring[next],
+      sideCol
+    );
+  }
+}
+
+// Appends a battered open-bottom prism spanning z in [z0, z1] world units (10 tris).
+function pushBatteredCore(
+  pos,
+  col,
+  {z0, z1, yBase, yTop0, yTop1, wBase, wTop, sideRgb, topRgb}
+) {
+  const bL0 = [-wBase, yBase, z0];
+  const bR0 = [wBase, yBase, z0];
+  const bR1 = [wBase, yBase, z1];
+  const bL1 = [-wBase, yBase, z1];
+  const tL0 = [-wTop, yTop0, z0];
+  const tR0 = [wTop, yTop0, z0];
+  const tR1 = [wTop, yTop1, z1];
+  const tL1 = [-wTop, yTop1, z1];
+  const darkSide = [sideRgb[0] * 0.88, sideRgb[1] * 0.89, sideRgb[2] * 0.92];
+  pushQuad(pos, col, tL0, tL1, tR1, tR0, topRgb);
+  pushQuad(pos, col, bR0, bR1, tR1, tR0, sideRgb);
+  pushQuad(pos, col, bL1, bL0, tL0, tL1, darkSide);
+  pushQuad(pos, col, bR1, bL1, tL1, tR1, sideRgb);
+  pushQuad(pos, col, bL0, bR0, tR0, tL0, darkSide);
+}
+
+const STONE_PALETTE = [
+  [0.5, 0.53, 0.55], // weathered limestone
+  [0.58, 0.6, 0.62], // pale Connemara grey
+  [0.43, 0.46, 0.49], // dark greywacke
+  [0.55, 0.56, 0.5], // warm lichen grey
+  [0.46, 0.51, 0.44], // mossy slate
+  [0.62, 0.64, 0.63], // silver granite
+];
+const MOSS_TINT = [0.35, 0.45, 0.3];
+
+export function buildStoneWallGeos() {
+  const rand = wallMulberry32(184509);
+  const pos = [];
+  const col = [];
+  const halfBay = WALL_BAY_REF * 0.5;
+
+  // 1. Dark recessed dry-stone core in 3 organic spans so crevices between
+  // stones read as deep mortar-free shadow (30 tris).
+  const coreHeights = [2.88, 2.76, 2.92, 2.84];
+  for (let s = 0; s < 3; s++) {
+    const z0 = -halfBay + (s / 3) * WALL_BAY_REF;
+    const z1 = -halfBay + ((s + 1) / 3) * WALL_BAY_REF;
+    pushBatteredCore(pos, col, {
+      z0,
+      z1,
+      yBase: -1.3,
+      yTop0: coreHeights[s],
+      yTop1: coreHeights[s + 1],
+      wBase: 1.02,
+      wTop: 0.56,
+      sideRgb: [0.27, 0.3, 0.32],
+      topRgb: [0.35, 0.39, 0.36],
+    });
+  }
+
+  const pickStoneColor = (mossWeight) => {
+    const base = STONE_PALETTE[Math.floor(rand() * STONE_PALETTE.length)];
+    const jitter = (rand() - 0.5) * 0.07;
+    const m = rand() < mossWeight ? 0.25 + rand() * 0.32 : 0;
+    const rgb = [
+      (base[0] + jitter) * (1 - m) + MOSS_TINT[0] * m,
+      (base[1] + jitter) * (1 - m) + MOSS_TINT[1] * m,
+      (base[2] + jitter) * (1 - m) + MOSS_TINT[2] * m,
+    ];
+    const topM = m * 0.55 + (rand() < 0.24 ? 0.24 : 0);
+    const topRgb = [
+      Math.min(1, rgb[0] * 1.08 * (1 - topM) + MOSS_TINT[0] * 1.15 * topM),
+      Math.min(1, rgb[1] * 1.08 * (1 - topM) + MOSS_TINT[1] * 1.15 * topM),
+      Math.min(1, rgb[2] * 1.07 * (1 - topM) + MOSS_TINT[2] * 1.15 * topM),
+    ];
+    return {rgb, topRgb};
+  };
+
+  // 2. Two staggered courses of faceted fieldstone boulders on each face
+  // (22 stones x 18 tris = 396 tris)
+  const courses = [
+    {y: 0.95, ry: 0.68, xOut: 0.78, rx: 0.44, count: 5, moss: 0.45},
+    {y: 2.12, ry: 0.58, xOut: 0.62, rx: 0.38, count: 6, moss: 0.22},
+  ];
+  for (const side of [-1, 1]) {
+    for (const c of courses) {
+      const span = WALL_BAY_REF / c.count;
+      for (let i = 0; i < c.count; i++) {
+        const rz = span * (0.44 + rand() * 0.12);
+        const rawZ = -halfBay + (i + 0.5) * span + (rand() - 0.5) * span * 0.22;
+        const cz = Math.max(
+          -halfBay + rz * 0.85,
+          Math.min(halfBay - rz * 0.85, rawZ)
+        );
+        const {rgb, topRgb} = pickStoneColor(c.moss + (side < 0 ? 0.14 : 0));
+        pushBoulderStone(pos, col, rand, {
+          cx: side * (c.xOut + (rand() - 0.5) * 0.09),
+          cy: c.y + (rand() - 0.5) * 0.18,
+          cz,
+          rx: c.rx * (0.88 + rand() * 0.26),
+          ry: c.ry * (0.86 + rand() * 0.26),
+          rz,
+          yaw: (rand() - 0.5) * 0.34,
+          pitch: (rand() - 0.5) * 0.18,
+          roll: -side * (0.1 + rand() * 0.12),
+          peak: 0.92 + rand() * 0.22,
+          rgb,
+          topRgb,
+        });
+      }
+    }
+  }
+
+  // 3. Rounded boulder quoins at z = +/-halfBay so adjacent bays knit together
+  // and gateway ends look like solid stacked stone piers (2 x 18 = 36 tris)
+  for (const endSign of [-1, 1]) {
+    const {rgb, topRgb} = pickStoneColor(0.32);
+    pushBoulderStone(pos, col, rand, {
+      cx: (rand() - 0.5) * 0.06,
+      cy: 1.55,
+      cz: endSign * (halfBay - 0.55),
+      rx: 0.98,
+      ry: 1.35,
+      rz: 0.65,
+      yaw: (rand() - 0.5) * 0.16,
+      pitch: 0,
+      roll: 0,
+      peak: 0.95,
+      rgb,
+      topRgb,
+    });
+  }
+
+  // 4. Irregular upright "cock-and-hen" cope stones set on edge along the top
+  // ridge with peaked boulder crowns and tilted silhouettes (10 x 18 = 180 tris
+  // -> 642 tris nearGeo, 10 tris farGeo)
+  const copeCount = 10;
+  const copeSpan = WALL_BAY_REF / copeCount;
+  for (let i = 0; i < copeCount; i++) {
+    const rz = copeSpan * (0.42 + rand() * 0.14);
+    const cz = Math.max(
+      -halfBay + rz * 0.8,
+      Math.min(
+        halfBay - rz * 0.8,
+        -halfBay + (i + 0.5) * copeSpan + (rand() - 0.5) * 0.18
+      )
+    );
+    const tallHen = i % 2 === 0 ? 1.15 : 0.86;
+    const {rgb, topRgb} = pickStoneColor(0.26);
+    pushBoulderStone(pos, col, rand, {
+      cx: (rand() - 0.5) * 0.1,
+      cy: 2.98 + (rand() - 0.5) * 0.16,
+      cz,
+      rx: 0.66 + rand() * 0.14,
+      ry: (0.42 + rand() * 0.18) * tallHen,
+      rz,
+      yaw: (rand() - 0.5) * 0.28,
+      pitch: 0.12 + (rand() - 0.5) * 0.22,
+      roll: (rand() - 0.5) * 0.16,
+      peak: 1.18 + rand() * 0.25,
+      rgb,
+      topRgb,
+    });
+  }
+
+  const nearGeo = new THREE.BufferGeometry();
+  nearGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  nearGeo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  nearGeo.computeVertexNormals();
+  nearGeo.computeBoundingBox();
+  nearGeo.computeBoundingSphere();
+
+  // Far LOD: a single 10-triangle battered limestone prism, slightly broadened
+  // so multi-kilometre famine-wall ribbons stay crisp and unbroken across
+  // distant hills in aerial views.
+  const farPos = [];
+  const farCol = [];
+  pushBatteredCore(farPos, farCol, {
+    z0: -halfBay,
+    z1: halfBay,
+    yBase: -1.1,
+    yTop0: 3.5,
+    yTop1: 3.5,
+    wBase: 1.55,
+    wTop: 0.98,
+    sideRgb: [0.5, 0.53, 0.53],
+    topRgb: [0.62, 0.65, 0.64],
+  });
+  const farGeo = new THREE.BufferGeometry();
+  farGeo.setAttribute('position', new THREE.Float32BufferAttribute(farPos, 3));
+  farGeo.setAttribute('color', new THREE.Float32BufferAttribute(farCol, 3));
+  farGeo.computeVertexNormals();
+  farGeo.computeBoundingBox();
+  farGeo.computeBoundingSphere();
+
+  // Crumbled / decrepit famine-wall bay: slumped mossy rubble saddle dipping in
+  // the middle, with tumbled grey limestone & lichen boulders spilled outward
+  // into the grass on both sides (318 tris near, 10 tris far).
+  const rPos = [];
+  const rCol = [];
+  const slumpedHeights = [1.45, 0.85, 0.95, 1.4];
+  for (let s = 0; s < 3; s++) {
+    const z0 = -halfBay + (s / 3) * WALL_BAY_REF;
+    const z1 = -halfBay + ((s + 1) / 3) * WALL_BAY_REF;
+    pushBatteredCore(rPos, rCol, {
+      z0,
+      z1,
+      yBase: -1.25,
+      yTop0: slumpedHeights[s],
+      yTop1: slumpedHeights[s + 1],
+      wBase: 1.35,
+      wTop: 0.72,
+      sideRgb: [0.29, 0.34, 0.28],
+      topRgb: [0.34, 0.4, 0.32],
+    });
+  }
+  // 12 overlapping collapsed stones covering the broken spine + 8 fallen
+  // boulders spilled 1.35..3.0 units out in the grass on both flanks
+  for (let i = 0; i < 12; i++) {
+    const span = WALL_BAY_REF / 12;
+    const cz = -halfBay + (i + 0.5) * span + (rand() - 0.5) * 0.28;
+    const dip = 1 - 0.35 * Math.sin(((i + 0.5) / 12) * Math.PI);
+    const {rgb, topRgb} = pickStoneColor(0.58);
+    pushBoulderStone(rPos, rCol, rand, {
+      cx: (rand() - 0.5) * 0.85,
+      cy: (1.35 + rand() * 0.62) * dip,
+      cz,
+      rx: 0.82 + rand() * 0.36,
+      ry: 0.58 + rand() * 0.32,
+      rz: 0.68 + rand() * 0.32,
+      yaw: rand() * Math.PI,
+      pitch: (rand() - 0.5) * 0.42,
+      roll: (rand() - 0.5) * 0.48,
+      peak: 0.95 + rand() * 0.28,
+      rgb,
+      topRgb,
+    });
+  }
+  for (let i = 0; i < 8; i++) {
+    const side = i % 2 === 0 ? -1 : 1;
+    const cz = -halfBay + 1.1 + rand() * (WALL_BAY_REF - 2.2);
+    const outX = side * (1.4 + rand() * 1.75);
+    const {rgb, topRgb} = pickStoneColor(0.65);
+    pushBoulderStone(rPos, rCol, rand, {
+      cx: outX,
+      cy: 0.52 + rand() * 0.42,
+      cz,
+      rx: 0.62 + rand() * 0.4,
+      ry: 0.5 + rand() * 0.32,
+      rz: 0.66 + rand() * 0.42,
+      yaw: rand() * Math.PI,
+      pitch: (rand() - 0.5) * 0.35,
+      roll: side * (0.15 + rand() * 0.35),
+      peak: 0.88 + rand() * 0.25,
+      rgb,
+      topRgb,
+    });
+  }
+  const ruinedGeo = new THREE.BufferGeometry();
+  ruinedGeo.setAttribute('position', new THREE.Float32BufferAttribute(rPos, 3));
+  ruinedGeo.setAttribute('color', new THREE.Float32BufferAttribute(rCol, 3));
+  ruinedGeo.computeVertexNormals();
+  ruinedGeo.computeBoundingBox();
+  ruinedGeo.computeBoundingSphere();
+
+  const rFarPos = [];
+  const rFarCol = [];
+  pushBatteredCore(rFarPos, rFarCol, {
+    z0: -halfBay,
+    z1: halfBay,
+    yBase: -1.0,
+    yTop0: 2.05,
+    yTop1: 2.05,
+    wBase: 2.15,
+    wTop: 1.4,
+    sideRgb: [0.44, 0.49, 0.43],
+    topRgb: [0.53, 0.57, 0.5],
+  });
+  const ruinedFarGeo = new THREE.BufferGeometry();
+  ruinedFarGeo.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(rFarPos, 3)
+  );
+  ruinedFarGeo.setAttribute(
+    'color',
+    new THREE.Float32BufferAttribute(rFarCol, 3)
+  );
+  ruinedFarGeo.computeVertexNormals();
+  ruinedFarGeo.computeBoundingBox();
+  ruinedFarGeo.computeBoundingSphere();
+
+  return {
+    stoneWall: nearGeo,
+    stoneWallFar: farGeo,
+    stoneWallRuined: ruinedGeo,
+    stoneWallRuinedFar: ruinedFarGeo,
+  };
+}

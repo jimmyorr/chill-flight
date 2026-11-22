@@ -81,6 +81,7 @@ export const BREAK = {
     lighthouse: 9,
     pier: 14,
     rock: 7,
+    stone_wall: 10,
     iceberg: 10,
     iceFloe: 6,
   },
@@ -111,6 +112,80 @@ export function sweptHit(a, b, r, x, z, radius, base, top) {
   if (_closest.distSq > reach * reach) return false;
   const y = a.y + (b.y - a.y) * _closest.t;
   return y - r < top && y + r > base;
+}
+
+const _wallProj = {t: 0, distSq: 0};
+
+// Whether a vehicle of radius r moving from a to b ({x, y, z}) touches a thin
+// sloped dry-stone wall bay encoded in its 16-float instance matrix m (#184):
+// midpoint (m[12], m[13], m[14]), span (m[8], m[9], m[10]), vertical scale m[5].
+export function sweptWallHit(a, b, r, m, halfWidth = 1.0, height = 2.95) {
+  const mx = m[12];
+  const my = m[13];
+  const mz = m[14];
+  const dx = m[8];
+  const dy = m[9];
+  const dz = m[10];
+  const sy = Math.abs(m[5]) || 1;
+  const wx0 = mx - 0.5 * dx;
+  const wz0 = mz - 0.5 * dz;
+  const wx1 = mx + 0.5 * dx;
+  const wz1 = mz + 0.5 * dz;
+  const reachSq = (r + halfWidth) * (r + halfWidth);
+
+  const ux = b.x - a.x;
+  const uz = b.z - a.z;
+  const denom = ux * dz - uz * dx;
+  let bestU = 0;
+  let bestV = 0.5;
+  let bestDistSq = Infinity;
+
+  // Check exact 2D segment crossing first
+  if (Math.abs(denom) > 1e-8) {
+    const rx = wx0 - a.x;
+    const rz = wz0 - a.z;
+    const u = (rx * dz - rz * dx) / denom;
+    const v = (rx * uz - rz * ux) / denom;
+    if (u >= 0 && u <= 1 && v >= 0 && v <= 1) {
+      bestU = u;
+      bestV = v;
+      bestDistSq = 0;
+    }
+  }
+
+  if (bestDistSq > 0) {
+    // Compare all 4 endpoint-to-segment projections
+    closestOnSegment(wx0, wz0, wx1, wz1, a.x, a.z, _wallProj);
+    if (_wallProj.distSq < bestDistSq) {
+      bestDistSq = _wallProj.distSq;
+      bestU = 0;
+      bestV = _wallProj.t;
+    }
+    closestOnSegment(wx0, wz0, wx1, wz1, b.x, b.z, _wallProj);
+    if (_wallProj.distSq < bestDistSq) {
+      bestDistSq = _wallProj.distSq;
+      bestU = 1;
+      bestV = _wallProj.t;
+    }
+    closestOnSegment(a.x, a.z, b.x, b.z, wx0, wz0, _wallProj);
+    if (_wallProj.distSq < bestDistSq) {
+      bestDistSq = _wallProj.distSq;
+      bestU = _wallProj.t;
+      bestV = 0;
+    }
+    closestOnSegment(a.x, a.z, b.x, b.z, wx1, wz1, _wallProj);
+    if (_wallProj.distSq < bestDistSq) {
+      bestDistSq = _wallProj.distSq;
+      bestU = _wallProj.t;
+      bestV = 1;
+    }
+  }
+
+  if (bestDistSq > reachSq) return false;
+  const vy = a.y + (b.y - a.y) * bestU;
+  const wy = my + (bestV - 0.5) * dy;
+  const wTop = wy + height * sy;
+  return vy - r < wTop && vy + r > wy - 1.0;
 }
 
 // The speed kept after hitting a 'tree', 'house' or 'snowman' in the plane or

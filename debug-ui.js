@@ -1131,9 +1131,6 @@ export function applyViewParams(input) {
         camera.position.z
       );
       camera.position.set(cx, cy, cz);
-      // Park the hidden reference plane 30 units below the free camera so prop
-      // LOD, grass, and the sun's shadow box center on the framed view.
-      planeGroup.position.set(cx, cy - 30, cz);
       if (heading !== null) {
         camera.rotation.y = THREE.MathUtils.degToRad(heading);
       } else if (isQuery) {
@@ -1143,6 +1140,20 @@ export function applyViewParams(input) {
         camera.rotation.x = THREE.MathUtils.degToRad(pitch);
       } else if (isQuery) {
         camera.rotation.x = 0;
+      }
+      // Park the reference plane 65 units behind the free camera (frozen when
+      // declarative) so prop LOD and the sun shadow box stay centered on the
+      // framed view without the wing ever entering low-altitude ground shots.
+      const backX = cx + Math.sin(camera.rotation.y) * 65;
+      const backZ = cz + Math.cos(camera.rotation.y) * 65;
+      const backFloor = Math.max(
+        WATER_LEVEL + 6,
+        getElevation(backX, backZ) + 16
+      );
+      planeGroup.position.set(backX, Math.max(backFloor, cy - 20), backZ);
+      if (isQuery && speed === null) {
+        state.flightSpeedMultiplier = 0;
+        state.targetFlightSpeed = 0;
       }
     }
     const debugMenu = document.getElementById('debug-menu');

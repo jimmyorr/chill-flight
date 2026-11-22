@@ -235,7 +235,7 @@ import {
 } from './constants.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {boatMat, buildSmallBoatGeos} from './boat-models.js';
-import {buildTractorGeos} from './farm-models.js';
+import {buildStoneWallGeos, buildTractorGeos} from './farm-models.js';
 import {buildSwampGeos, createSwampFarCanopy} from './swamp-models.js';
 import {XMAS_FAR_TYPES, buildXmasGeos, xmasGlowMat} from './xmas-models.js';
 import {
@@ -1510,6 +1510,26 @@ for (const [type, geo] of Object.entries({
   globalInstancer.registerType(type, geo, boatMat, 2000);
   globalInstancer.setFarGeometry(type, null);
   globalInstancer.setShadowGeometry(type, shadowBox(geo));
+}
+// Irish dry-stone pasture & hillside walls (farm-models.js, #184): cobble
+// courses & cock-and-hen capstones close up, 10-triangle battered prism out to
+// 9 chunks so meandering famine walls wind continuously into the distance
+const stoneWallGeos = buildStoneWallGeos();
+for (const [type, near, far, cap] of [
+  ['stoneWall', stoneWallGeos.stoneWall, stoneWallGeos.stoneWallFar, 40000],
+  [
+    'stoneWallRuined',
+    stoneWallGeos.stoneWallRuined,
+    stoneWallGeos.stoneWallRuinedFar,
+    12000,
+  ],
+]) {
+  globalInstancer.registerType(type, near, buildingMat, cap);
+  globalInstancer.setFarGeometry(type, far, {
+    screenSized: true,
+    farRadius: 9,
+  });
+  globalInstancer.setShadowGeometry(type, far);
 }
 // Landmarks (building-models.js, LANDMARK_RULES in terrain-gen.js): a few
 // thousand triangles each but only a handful about, so the towers stay in

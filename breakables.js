@@ -49,7 +49,12 @@ import {
 import {standaloneProps} from './airports.js';
 import {getCameraWorldPosition} from './sky.js';
 import {activePlaneType, planeGroup} from './airplane.js';
-import {playShatter, playSmash} from './sfx-events.js';
+import {
+  STONE_WALL_HALF_WIDTH,
+  STONE_WALL_HEIGHT,
+  STONE_WALL_RUINED_HEIGHT,
+} from './farm-models.js';
+import {playShatter, playSmash, playStoneWallSmash} from './sfx-events.js';
 import {smashHaptic} from './haptics.js';
 import {recordPropCrashStrain} from './crash.js';
 import {slowBuggy} from './buggy.js';
@@ -75,6 +80,7 @@ import {
   stepSink,
   stepTopple,
   sweptHit,
+  sweptWallHit,
 } from './breakables-logic.js';
 
 // Spatial grid cell for looking up a chunk's props (units)
@@ -111,6 +117,8 @@ const RUBBLE = {
   snowRock: BREAK.RUBBLE.rock,
   desertRock: BREAK.RUBBLE.rock,
   granite: BREAK.RUBBLE.rock,
+  stoneWall: BREAK.RUBBLE.stone_wall,
+  stoneWallRuined: 7,
   iceberg: BREAK.RUBBLE.iceberg,
   iceFloe: BREAK.RUBBLE.iceFloe,
 };
@@ -133,7 +141,7 @@ const ROLLS = /^(hayBale|fallenLog|swampLog)$/;
 const LAND_CRITTER = /^(sheep|goat|deer)/;
 // Critters that don't waddle (only the penguins do, in their shader)
 const STILL_CRITTER = /^(sheep|goat|deer|seal)/;
-const ROCKS = /^(rock|snowRock|desertRock|granite)$/;
+const ROCKS = /^(rock|snowRock|desertRock|granite|stoneWall|stoneWallRuined)$/;
 const ICE = /^(iceberg|iceFloe)$/;
 // A real tree (not a streetlight, tent or silo), for Treehugger
 const TREE_PART =
@@ -525,8 +533,10 @@ function chunkIndex(group) {
       ? BREAK.SHEEP_PLANE_SCARE
       : critter
         ? SCARE_RADIUS
-        : reach *
-          (kind === BREAKABLE.HOUSE ? BREAK.HOUSE_REACH : BREAK.TREE_REACH);
+        : /^stoneWall/.test(parts[0].type)
+          ? reach + 0.5
+          : reach *
+            (kind === BREAKABLE.HOUSE ? BREAK.HOUSE_REACH : BREAK.TREE_REACH);
     index.x[i] = first[12];
     index.z[i] = first[14];
     index.cx[i] = cx;
@@ -763,7 +773,12 @@ function collapse(group, parts, x, base, z, top, radius, dx, dz, kts, spec) {
         base + (roof ? Math.max(2.5, (box.max.y - box.min.y) * 0.25) : 1)
       );
     } else if (role === 'rubble') {
-      bodyColor = rubbleColor(part);
+      if (/^stoneWall/.test(type)) {
+        bodyColor = [0.53, 0.56, 0.58];
+        roofColor = [0.41, 0.48, 0.38];
+      } else {
+        bodyColor = rubbleColor(part);
+      }
     }
     // Doors, windows and the like are hidden with the rest and not redrawn
   });
@@ -795,17 +810,28 @@ function collapse(group, parts, x, base, z, top, radius, dx, dz, kts, spec) {
   }
   const count = spec?.rubble ?? (RUBBLE[parts[0].type] || 0);
   const planks = parts[0].type.startsWith('pierDeck');
+  const isStoneWall = /^stoneWall/.test(parts[0].type);
+  const wallMat = isStoneWall ? copyMatrix(parts[0]) : null;
   const ice = ICE.test(parts[0].type);
   const floe = parts[0].type === 'iceFloe';
   const height = Math.max(2, top - base);
   const spread = Math.max(4, radius * 0.5);
-  const scale = Math.min(2.2, Math.max(1, radius / 8)) * (ice ? ICE_CHUNK : 1);
+  const scale = isStoneWall
+    ? 0.95
+    : Math.min(2.2, Math.max(1, radius / 8)) * (ice ? ICE_CHUNK : 1);
   for (let i = 0; i < count; i++) {
     const size = rand(0.8, 1.8) * scale;
     const color = (i % 3 === 2 ? roofColor : bodyColor) || bodyColor;
-    const px = x + rand(-spread, spread);
-    const py = base + rand(0.3, 0.8) * height;
-    const pz = z + rand(-spread, spread);
+    const uWall = isStoneWall ? rand(-0.48, 0.48) : 0;
+    const px = isStoneWall
+      ? wallMat[12] + uWall * wallMat[8] + rand(-0.7, 0.7)
+      : x + rand(-spread, spread);
+    const py = isStoneWall
+      ? wallMat[13] + uWall * wallMat[9] + rand(0.4, 2.5)
+      : base + rand(0.3, 0.8) * height;
+    const pz = isStoneWall
+      ? wallMat[14] + uWall * wallMat[10] + rand(-0.7, 0.7)
+      : z + rand(-spread, spread);
     _m.compose(
       _p.set(px, py, pz),
       _q.setFromEuler(
@@ -991,6 +1017,13 @@ function burstSpire(piece) {
   }
 }
 
+function playStoneWallSound(loud) {
+  const now = performance.now();
+  if (now - lastSoundAt < 70) return;
+  lastSoundAt = now;
+  playStoneWallSmash(loud);
+}
+
 function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
   index.broken.add(i);
   group.userData.breakBroken = index.broken;
@@ -1070,6 +1103,8 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
       5,
       4
     );
+  } else if (/^stoneWall/.test(parts[0].type)) {
+    propPuffs(x, base + 1.1, z, 4.5, 2.2, dust, 16, 5, 3);
   } else if (house) {
     // A bridge support standing in the water throws up spray too
     if (parts[0].type === 'bridgePierShaft' && base < WATER_LEVEL + 2) {
@@ -1181,10 +1216,12 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
     else state.flightSpeedMultiplier *= keep;
     recordPropCrashStrain(what, kts, buggy);
   }
+  const stoneWall = /^stoneWall/.test(parts[0].type);
   if (mine) {
     state.impactShake = Math.max(state.impactShake || 0, SHAKE[what]);
-    smashHaptic(house);
+    smashHaptic(house && !stoneWall);
     if (crystal) playShatter(1);
+    else if (stoneWall) playStoneWallSound(1);
     else playSmashSound(house, 1, fallTime);
     if (kind === BREAKABLE.TREE && parts.some((p) => TREE_PART.test(p.type))) {
       Achievements.unlock('timber');
@@ -1192,8 +1229,10 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
   } else {
     const d = getCameraWorldPosition().distanceTo(_v.set(x, base, z));
     if (d < HEAR_RANGE) {
-      if (crystal) playShatter(1 - d / HEAR_RANGE);
-      else playSmashSound(house, 1 - d / HEAR_RANGE, fallTime);
+      const gain = 1 - d / HEAR_RANGE;
+      if (crystal) playShatter(gain);
+      else if (stoneWall) playStoneWallSound(gain);
+      else playSmashSound(house, gain, fallTime);
     }
   }
 }
@@ -1763,9 +1802,27 @@ function sweep(a, b, r, mine, buggy) {
               }
               continue;
             }
-            // Some props have gaps you can pass through (a rock arch)
+            // Some props have gaps you can pass through (a rock arch) or thin
+            // sloped runs (an Irish dry-stone pasture wall)
             const spec = propSpec(group.userData, i);
             if (spec?.hit && !spec.hit(b, r)) continue;
+            const firstPart = propParts(group, i)[0];
+            if (
+              firstPart &&
+              /^stoneWall/.test(firstPart.type) &&
+              !sweptWallHit(
+                a,
+                b,
+                r,
+                copyMatrix(firstPart),
+                STONE_WALL_HALF_WIDTH,
+                firstPart.type === 'stoneWallRuined'
+                  ? STONE_WALL_RUINED_HEIGHT
+                  : STONE_WALL_HEIGHT
+              )
+            ) {
+              continue;
+            }
             // Falls the way it was pushed, give or take
             const jitter = rand(-0.3, 0.3);
             const c = Math.cos(jitter);
