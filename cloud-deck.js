@@ -73,13 +73,13 @@ const DOME_GLSL = /* glsl */ `
     vec2 uv = xz / uDeckHeight;
     return cumulusShape((uv + CLOUD_WIND * uTime * 0.034) * 2.0, detail, q);
   }
-  // How high the cloud's top stands over the deck there: a steep side at
-  // its edge, then lumpy tops following the noise, so the thick middles
-  // tower over the rest instead of levelling off into a plateau
+  // How high the cloud's top stands over the deck there: starts just inside
+  // the soft outer rim so small clouds stay 3D billows, then builds into
+  // lumpy tops so the thick middles tower over the rest
   float domeHeight(vec2 xz) {
-    float d = cumulusAt(xz, 0.0) - cloudEdge();
-    float side = smoothstep(0.0, 0.07, d);
-    float top = clamp(d / 0.6, 0.0, 1.0);
+    float d = cumulusAt(xz, 0.0) - cloudEdge() - 0.08;
+    float side = smoothstep(0.0, 0.14, d);
+    float top = clamp(d / 0.52, 0.0, 1.0);
     // Cauliflower lumps a few hundred metres across on top
     float lumps = fbmMacro(xz / 420.0 + 5.0) - 0.55;
     return ${DOME_HEIGHT.toFixed(1)} * uCloudTypes.x
@@ -163,10 +163,14 @@ function deckMaterial(domes) {
       vec3 nrm = normalize(vNormal2);
       if (!gl_FrontFacing) nrm = -nrm;
       float sunSide = clamp(dot(nrm, normalize(sunDirection)) * 0.8 + 0.5, 0.0, 1.0);
-      float slope = 1.0 - nrm.y;
-      lit = mix(lit, lit * sunSide, smoothstep(0.01, 0.15, slope));
+      float slopeSteep = smoothstep(0.01, 0.15, 1.0 - nrm.y);
+      lit = mix(lit, lit * sunSide, slopeSteep);
       // Dome bases sit in their own shadow
-      hollow = min(hollow, mix(0.35, 1.0, smoothstep(0.0, 0.5, vLift)));
+      float baseHollow = min(hollow, mix(0.35, 1.0, smoothstep(0.0, 0.5, vLift)));
+      hollow = mix(hollow, baseHollow, slopeSteep);
+      // Thick 3D cloud volume is optically solid even when its 2D footprint is
+      // small, so dome walls aren't hollow arches or front-to-back depth cutouts
+      here = max(here, smoothstep(0.01, 0.12, vLift) * 0.75);
 #endif
       lit = mix(lit, lit * lit, lowSun * 0.3);
       vec3 sunlit = mix(vec3(1.0, 0.99, 0.97), bottomColor * 1.6, lowSun * 0.35);
