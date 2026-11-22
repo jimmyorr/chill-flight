@@ -835,8 +835,8 @@ export default {
   'Double-tap the top and hold': 'Toque duas vezes no topo e segure',
   'Double-tap the top': 'Toque duas vezes no topo',
   'Double-tap the bottom and hold': 'Toque duas vezes embaixo e segure',
-  'Disable mouse': 'Desativar mouse',
-  'Keyboard controls only': 'Apenas controles do teclado',
+  'Mouse steering': 'Pilotar com o mouse',
+  'Plane follows the cursor': 'O avião segue o cursor',
   'Disable hints': 'Desativar dicas',
   Help: 'Ajuda',
   Plane: 'Avião',
@@ -844,8 +844,6 @@ export default {
     'Arraste o acelerador para a direita para andar',
   'Drag the throttle right to take off':
     'Arraste o acelerador para a direita para decolar',
-  'Press Shift + ↑ to drive': 'Aperte Shift + ↑ para andar',
-  'Press Shift + ↑ to take off': 'Aperte Shift + ↑ para decolar',
   'Press Shift + ↑ or scroll to drive': 'Aperte Shift + ↑ ou role para andar',
   'Press Shift + ↑ or scroll to take off':
     'Aperte Shift + ↑ ou role para decolar',

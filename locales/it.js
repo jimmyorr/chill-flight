@@ -840,8 +840,8 @@ export default {
   'Double-tap the top and hold': 'Tocca in alto due volte e tieni premuto',
   'Double-tap the top': 'Tocca in alto due volte',
   'Double-tap the bottom and hold': 'Tocca in basso due volte e tieni premuto',
-  'Disable mouse': 'Disattiva mouse',
-  'Keyboard controls only': 'Solo comandi da tastiera',
+  'Mouse steering': 'Guida con il mouse',
+  'Plane follows the cursor': 'L\'aereo segue il cursore',
   'Disable hints': 'Disattiva suggerimenti',
   Help: 'Aiuto',
   Plane: 'Aereo',
@@ -849,8 +849,6 @@ export default {
     "Trascina l'acceleratore a destra per partire",
   'Drag the throttle right to take off':
     "Trascina l'acceleratore a destra per decollare",
-  'Press Shift + ↑ to drive': 'Premi Maiusc + ↑ per partire',
-  'Press Shift + ↑ to take off': 'Premi Maiusc + ↑ per decollare',
   'Press Shift + ↑ or scroll to drive': 'Premi Maiusc + ↑ o scorri per partire',
   'Press Shift + ↑ or scroll to take off':
     'Premi Maiusc + ↑ o scorri per decollare',

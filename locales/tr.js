@@ -839,16 +839,14 @@ export default {
   'Double-tap the top and hold': 'Üste 2 kez dokun ve basılı tut',
   'Double-tap the top': 'Üste 2 kez dokun',
   'Double-tap the bottom and hold': 'Alta 2 kez dokun ve basılı tut',
-  'Disable mouse': 'Fareyi kapat',
-  'Keyboard controls only': 'Yalnızca klavye kontrolleri',
+  'Mouse steering': 'Fareyle yönlendirme',
+  'Plane follows the cursor': 'Uçak imleci takip eder',
   'Disable hints': 'İpuçlarını kapat',
   Help: 'Yardım',
   Plane: 'Uçak',
   'Drag the throttle right to drive': 'Sürmek için gaz kolunu sağa sürükle',
   'Drag the throttle right to take off':
     'Havalanmak için gaz kolunu sağa sürükle',
-  'Press Shift + ↑ to drive': 'Sürmek için Shift + ↑ tuşuna bas',
-  'Press Shift + ↑ to take off': 'Havalanmak için Shift + ↑ tuşuna bas',
   'Press Shift + ↑ or scroll to drive':
     'Sürmek için Shift + ↑ tuşuna bas veya kaydır',
   'Press Shift + ↑ or scroll to take off':

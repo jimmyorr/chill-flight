@@ -819,7 +819,7 @@ function makeSession(leftOpts, rightOpts) {
         isNative: true,
         keyboardDetected: true,
       }) &&
-      // VR headsets never show Disable mouse even though controller rays report fine hover
+      // VR headsets never show Mouse steering even though controller rays report fine hover
       !ChillFlightLogic.shouldShowDisableMouseSetting({
         ua: 'Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 OculusBrowser/35.0',
         hasFinePointer: true,

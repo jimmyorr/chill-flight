@@ -226,11 +226,7 @@ export class InputManager {
       (e) => {
         if (!e.ctrlKey) return;
         e.preventDefault();
-        if (
-          state.disableMouse ||
-          this.state.isPaused ||
-          this.state.isFreeCamera
-        ) {
+        if (this.state.isPaused || this.state.isFreeCamera) {
           return;
         }
         this.state.pinch *= Math.exp(
@@ -246,11 +242,7 @@ export class InputManager {
     });
     window.addEventListener('gesturechange', (e) => {
       e.preventDefault();
-      if (
-        state.disableMouse ||
-        this.state.isPaused ||
-        this.state.isFreeCamera
-      ) {
+      if (this.state.isPaused || this.state.isFreeCamera) {
         return;
       }
       if (e.scale > 0) this.state.pinch *= e.scale / gestureScale;
@@ -625,11 +617,7 @@ export class InputManager {
         this.state.freeCam.dragging = true;
         this._isTouchFreeCamDrag = false;
       }
-    } else if (
-      !state.disableMouse &&
-      this.state.isCinematic &&
-      !this.isOverUI(e.target)
-    ) {
+    } else if (this.state.isCinematic && !this.isOverUI(e.target)) {
       this.state.cinematicDrag.dragging = true;
     }
   }
@@ -668,17 +656,6 @@ export class InputManager {
       return;
     }
 
-    if (state.disableMouse) {
-      if (
-        this.state.mouse.controlActive &&
-        !this.state.joystick.active &&
-        this.state.touch.steeringId === null
-      ) {
-        this.resetMouseSteering();
-      }
-      return;
-    }
-
     // The cinematic camera: dragging swings the shot, and the cursor doesn't
     // steer
     if (this.state.isCinematic && !this.state.isFreeCamera) {
@@ -687,6 +664,18 @@ export class InputManager {
         this.state.cinematicDrag.deltaY += e.movementY || 0;
       }
       if (this.state.mouse.controlActive && !this.state.joystick.active) {
+        this.resetMouseSteering();
+      }
+      return;
+    }
+
+    // Mouse steering off: the cursor doesn't fly the plane
+    if (state.disableMouse) {
+      if (
+        this.state.mouse.controlActive &&
+        !this.state.joystick.active &&
+        this.state.touch.steeringId === null
+      ) {
         this.resetMouseSteering();
       }
       return;

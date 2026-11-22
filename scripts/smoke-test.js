@@ -168,6 +168,17 @@ async function checkPage(
   // Smallish viewport (software WebGL is slow on a busy machine), but wider
   // than 1024px so the game uses its desktop layout.
   await page.setViewport({width: 1100, height: 700});
+  // Headless Chrome reports no fine pointer or hover, so answer as a desktop
+  // with a mouse would (the Mouse steering switch and its default go by it)
+  await page.evaluateOnNewDocument(() => {
+    const realMatchMedia = window.matchMedia.bind(window);
+    window.matchMedia = (q) => {
+      if (/^\(\s*(pointer:\s*fine|hover:\s*hover)\s*\)$/.test(q)) {
+        return {...realMatchMedia(q), matches: true, media: q};
+      }
+      return realMatchMedia(q);
+    };
+  });
 
   // Keep test runs out of analytics and the music host; only first-party
   // requests matter here. The music host is blocked so the test doesn't
@@ -750,8 +761,9 @@ async function exerciseControls(page, tag, onDebugEnabled) {
     fail(`biplane stats mismatch: ${JSON.stringify(biplaneStats)}`);
   }
 
-  // Settings: Music mode is hidden, and Disable mouse sits between Invert y axis
-  // and Disable hints and suppresses mouse steering + scroll throttle when on.
+  // Settings: Music mode is hidden, and Mouse steering sits between Invert y
+  // axis and Disable hints. It starts off on desktop: the cursor doesn't
+  // steer, but the scroll wheel still works the throttle.
   await page.click('.pause-tab[data-tab="settings"]');
   await wait(200);
   const settingsLayout = await page.evaluate(() => {
@@ -790,8 +802,12 @@ async function exerciseControls(page, tag, onDebugEnabled) {
       `unexpected Settings switch order: ${settingsLayout.visibleSwitchIds.join(',')}`
     );
   }
-  await page.click('label[for="disable-mouse-input"]');
-  await wait(150);
+  const mouseSteeringOn = await page.evaluate(
+    () => document.getElementById('disable-mouse-input')?.checked
+  );
+  if (mouseSteeringOn !== false) {
+    fail('Mouse steering should start off on desktop');
+  }
   await page.click('#resume-btn');
   const waitFrames = (n) =>
     page.evaluate(
@@ -823,9 +839,9 @@ async function exerciseControls(page, tag, onDebugEnabled) {
   await page.mouse.wheel({deltaY: -300});
   await Promise.all([wait(500), waitFrames(2)]);
   const afterBlockedMouse = await readMouseCheck();
-  if (afterBlockedMouse.throttleKts !== beforeBlockedMouse.throttleKts) {
+  if (afterBlockedMouse.throttleKts === beforeBlockedMouse.throttleKts) {
     fail(
-      `scroll wheel changed throttle while Disable mouse was on (${beforeBlockedMouse.throttleKts} -> ${afterBlockedMouse.throttleKts})`
+      `scroll wheel didn't change throttle with Mouse steering off (${beforeBlockedMouse.throttleKts})`
     );
   }
   if (
@@ -834,14 +850,12 @@ async function exerciseControls(page, tag, onDebugEnabled) {
     Math.abs(afterBlockedMouse.heading - beforeBlockedMouse.heading) > 2
   ) {
     fail(
-      `mouse move steered plane while Disable mouse was on (${beforeBlockedMouse.heading} -> ${afterBlockedMouse.heading})`
+      `mouse move steered plane with Mouse steering off (${beforeBlockedMouse.heading} -> ${afterBlockedMouse.heading})`
     );
   }
   await page.keyboard.press('Escape');
   await wait(300);
   await page.click('.pause-tab[data-tab="settings"]');
-  await wait(150);
-  await page.click('label[for="disable-mouse-input"]');
   await wait(150);
   await page.click('.pause-tab[data-tab="flight"]');
   await wait(200);

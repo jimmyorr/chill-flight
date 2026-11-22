@@ -194,6 +194,11 @@ function getThreeR128Buf() {
 // performance.now, and Date.now, silences live audio/WebAudio, and optionally
 // seeds Math.random for pre-2026-03-05 commits.
 function installEraEnvironment({epochMs, seedRandom}) {
+  // mouseNorm shots steer with the cursor, which is off by default on
+  // desktop now (Mouse steering setting)
+  try {
+    localStorage.setItem('chill_flight_disable_mouse', 'false');
+  } catch (e) {}
   const startPerf = performance.now();
   const baseDate = epochMs || 1790000000000;
   const clock = {t: startPerf, calls: 0, pending: []};

@@ -327,6 +327,11 @@ if (invertYInput) {
   });
 }
 
+// Mouse steering (the cursor flies the plane). Stored as
+// chill_flight_disable_mouse = 'true' when off, so the old "Disable mouse"
+// choice carries over. Off by default where the switch shows from the start
+// (desktop), so clicking menus doesn't swing the plane; phones, tablets and
+// the apps keep their old default.
 const savedDisableMouse = localStorage.getItem('chill_flight_disable_mouse');
 if (savedDisableMouse !== null) {
   state.disableMouse = savedDisableMouse === 'true';
@@ -351,6 +356,7 @@ if (disableMouseRow && disableMouseInput) {
     keyboardDetected: state.disableMouse,
   });
   if (showInitially) {
+    if (savedDisableMouse === null) state.disableMouse = true;
     disableMouseRow.style.display = '';
   } else if (!ChillFlightLogic.isVRHeadsetUserAgent(ua)) {
     const revealDisableMouseOnKey = (e) => {
@@ -367,18 +373,16 @@ if (disableMouseRow && disableMouseInput) {
     };
     window.addEventListener('keydown', revealDisableMouseOnKey);
   }
-  disableMouseInput.checked = state.disableMouse;
+  // The switch reads "Mouse steering", so checked = steering on
+  disableMouseInput.checked = !state.disableMouse;
   disableMouseInput.addEventListener('change', (e) => {
-    state.disableMouse = e.target.checked;
+    state.disableMouse = !e.target.checked;
     localStorage.setItem('chill_flight_disable_mouse', state.disableMouse);
     if (state.disableMouse) {
       state.mouseX = 0;
       state.mouseY = 0;
       state.mouseControlActive = false;
       inputManager.resetMouseSteering();
-      inputManager.state.cinematicDrag.dragging = false;
-      inputManager.state.cinematicDrag.deltaX = 0;
-      inputManager.state.cinematicDrag.deltaY = 0;
     }
   });
 }

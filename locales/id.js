@@ -840,16 +840,14 @@ export default {
   'Double-tap the top and hold': 'Ketuk 2 kali di bagian atas lalu tahan',
   'Double-tap the top': 'Ketuk 2 kali di bagian atas',
   'Double-tap the bottom and hold': 'Ketuk 2 kali di bagian bawah lalu tahan',
-  'Disable mouse': 'Matikan mouse',
-  'Keyboard controls only': 'Hanya kontrol keyboard',
+  'Mouse steering': 'Kemudi mouse',
+  'Plane follows the cursor': 'Pesawat mengikuti kursor',
   'Disable hints': 'Matikan petunjuk',
   Help: 'Bantuan',
   Plane: 'Pesawat',
   'Drag the throttle right to drive': 'Seret tuas gas ke kanan untuk melaju',
   'Drag the throttle right to take off':
     'Seret tuas gas ke kanan untuk lepas landas',
-  'Press Shift + ↑ to drive': 'Tekan Shift + ↑ untuk melaju',
-  'Press Shift + ↑ to take off': 'Tekan Shift + ↑ untuk lepas landas',
   'Press Shift + ↑ or scroll to drive':
     'Tekan Shift + ↑ atau gulir untuk melaju',
   'Press Shift + ↑ or scroll to take off':

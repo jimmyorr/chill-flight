@@ -97,7 +97,6 @@ window.addEventListener(
   'wheel',
   (e) => {
     if (
-      state.disableMouse ||
       state.isPaused ||
       (typeof state.isFreeCamera !== 'undefined' && state.isFreeCamera)
     )

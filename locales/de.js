@@ -840,8 +840,8 @@ export default {
   'Double-tap the top and hold': 'Doppelt oben tippen und halten',
   'Double-tap the top': 'Doppelt oben tippen',
   'Double-tap the bottom and hold': 'Doppelt unten tippen und halten',
-  'Disable mouse': 'Maus ausschalten',
-  'Keyboard controls only': 'Nur Tastatursteuerung',
+  'Mouse steering': 'Mit Maus steuern',
+  'Plane follows the cursor': 'Flugzeug folgt dem Mauszeiger',
   'Disable hints': 'Tipps ausschalten',
   Help: 'Hilfe',
   Plane: 'Flugzeug',
@@ -849,8 +849,6 @@ export default {
     'Gashebel nach rechts ziehen zum Losfahren',
   'Drag the throttle right to take off':
     'Gashebel nach rechts ziehen zum Abheben',
-  'Press Shift + ↑ to drive': 'Umschalt + ↑ zum Losfahren',
-  'Press Shift + ↑ to take off': 'Umschalt + ↑ zum Abheben',
   'Press Shift + ↑ or scroll to drive':
     'Umschalt + ↑ oder scrollen zum Losfahren',
   'Press Shift + ↑ or scroll to take off':
