@@ -1512,8 +1512,10 @@ for (const [type, geo] of Object.entries({
   globalInstancer.setShadowGeometry(type, shadowBox(geo));
 }
 // Irish dry-stone pasture & hillside walls (farm-models.js, #184): cobble
-// courses & cock-and-hen capstones close up, 10-triangle battered prism out to
-// 9 chunks so meandering famine walls wind continuously into the distance
+// courses & cock-and-hen capstones close up, 10-triangle battered prism in
+// every loaded chunk beyond so meandering famine walls wind into the distance.
+// No farRadius: a finite one over 6 widens every type's LOD bands (see
+// maxLodRadius) and rebuilds more tiles each time the plane changes chunk
 const stoneWallGeos = buildStoneWallGeos();
 for (const [type, near, far, cap] of [
   ['stoneWall', stoneWallGeos.stoneWall, stoneWallGeos.stoneWallFar, 40000],
@@ -1537,10 +1539,7 @@ for (const [type, near, far, cap] of [
   ],
 ]) {
   globalInstancer.registerType(type, near, buildingMat, cap);
-  globalInstancer.setFarGeometry(type, far, {
-    screenSized: true,
-    farRadius: 9,
-  });
+  globalInstancer.setFarGeometry(type, far, {screenSized: true});
   globalInstancer.setShadowGeometry(type, far);
 }
 // Landmarks (building-models.js, LANDMARK_RULES in terrain-gen.js): a few
