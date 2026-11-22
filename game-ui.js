@@ -286,9 +286,11 @@ document
     );
   });
 
+// Synthetic events (e.g. Facebook's in-app browser) can target the document
+// itself, which has no closest()
 document.addEventListener('mouseover', (e) => {
   if (
-    e.target.closest(
+    e.target.closest?.(
       '.mobile-btn, #throttle, .sub-btn, #debug-menu, #cockpit-ui, #npc-dialog, #mobile-action-menu, #pause-overlay, #achievements-overlay, #people-overlay, #help-overlay, #language-overlay, #fullscreen-map-overlay, #minimap-container, button, input, select, a'
     )
   ) {
