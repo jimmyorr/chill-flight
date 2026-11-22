@@ -93,6 +93,8 @@ export const PURSUIT_RUN_SPEED = 0.96;
 // it (with the cop boost) and a bot runner can be run down
 export const PURSUIT_DRIVE_CHASE_SPEED = 0.88;
 export const PURSUIT_DRIVE_RUN_SPEED = 0.86;
+// Bot cops' speed while a new runner has their head start after a bust
+export const PURSUIT_GRACE_EASE = 0.8;
 // Other bots count as this many times further off when picking who to
 // chase, so bots go after people
 const BOT_TARGET_WEIGHT = 3;
@@ -566,7 +568,15 @@ function stepChaser(bot, dt, ctx) {
       ? PURSUIT_DRIVE_CHASE_SPEED
       : PURSUIT_CHASE_SPEED
     : CHASE_SPEED;
-  move(bot, dt, ctx, bot.aim.y, ctx.topSpeed * chaseMult, CHASE_CLEARANCE);
+  const ease = ctx.tag.pursuit && ctx.tag.grace ? PURSUIT_GRACE_EASE : 1;
+  move(
+    bot,
+    dt,
+    ctx,
+    bot.aim.y,
+    ctx.topSpeed * chaseMult * ease,
+    CHASE_CLEARANCE
+  );
 }
 
 // In tag, running: hanging about near whoever's it to score, circling at a

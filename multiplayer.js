@@ -1876,7 +1876,10 @@ function stepMyBots(delta, rawNow) {
             itSpot && !itSpot.paused
               ? [{...itSpot, bot: !!ownerOf(itSpot.id), tagger: false}]
               : [];
-          tagCtx = {it: true, pursuit: true, targets};
+          // Easing off in the new runner's head start, so the rest of the
+          // pack doesn't bust them again the moment it ends
+          const grace = rawNow - tagSince < PURSUIT_GRACE_MS;
+          tagCtx = {it: true, pursuit: true, grace, targets};
         }
       } else {
         tagCtx = isIt
