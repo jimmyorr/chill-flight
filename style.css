@@ -90,18 +90,6 @@
     --surface-input: rgba(255, 255, 255, 0.9);
     --surface-floating: rgba(246, 249, 253, 0.92);
     --surface-floating-hover: rgba(255, 255, 255, 0.97);
-    --hud-bg-a: rgba(248, 250, 253, 0.88);
-    --hud-bg-b: rgba(238, 243, 249, 0.92);
-    --hud-bg-idle-a: rgba(248, 250, 253, 0.7);
-    --hud-bg-idle-b: rgba(238, 243, 249, 0.76);
-    --hud-bg-hover-a: rgba(255, 255, 255, 0.95);
-    --hud-bg-hover-b: rgba(244, 247, 252, 0.98);
-    --hud-border-idle: rgba(15, 23, 42, 0.12);
-    --hud-shadow-idle: 0 6px 22px rgba(15, 23, 42, 0.11);
-    --hud-value-fg: #082f49;
-    --hud-label-fg: #334155;
-    --hud-idle-text-opacity: 0.88;
-    --hud-control-idle-opacity: 0.68;
     --text-primary: #0f172a;
     --text-secondary: #334155;
     --text-muted: #475569;
@@ -148,18 +136,6 @@
   --surface-input: rgba(255, 255, 255, 0.9);
   --surface-floating: rgba(246, 249, 253, 0.92);
   --surface-floating-hover: rgba(255, 255, 255, 0.97);
-  --hud-bg-a: rgba(248, 250, 253, 0.88);
-  --hud-bg-b: rgba(238, 243, 249, 0.92);
-  --hud-bg-idle-a: rgba(248, 250, 253, 0.7);
-  --hud-bg-idle-b: rgba(238, 243, 249, 0.76);
-  --hud-bg-hover-a: rgba(255, 255, 255, 0.95);
-  --hud-bg-hover-b: rgba(244, 247, 252, 0.98);
-  --hud-border-idle: rgba(15, 23, 42, 0.12);
-  --hud-shadow-idle: 0 6px 22px rgba(15, 23, 42, 0.11);
-  --hud-value-fg: #082f49;
-  --hud-label-fg: #334155;
-  --hud-idle-text-opacity: 0.88;
-  --hud-control-idle-opacity: 0.68;
   --text-primary: #0f172a;
   --text-secondary: #334155;
   --text-muted: #475569;
@@ -190,6 +166,35 @@
   --knob-bg: rgba(255, 255, 255, 0.96);
   --knob-fg: #082f49;
   --knob-unit: #334155;
+}
+
+/* The in-flight HUD (cockpit panel, throttle, menu button and its sub
+   buttons) stays dark glass in both themes, so it can fade back over the
+   world. Dark text needs a near-solid pale panel to stay readable over
+   mid-tone and night scenery, which made the light HUD opaque. The light
+   theme still covers splash, menus, dialogs and the map. These repeat the
+   dark :root values; the --hud-* tokens only exist there. */
+#cockpit-ui,
+#mobile-controls {
+  --surface-floating: rgba(14, 18, 28, 0.86);
+  --surface-floating-hover: rgba(24, 30, 44, 0.92);
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #9fb0c4;
+  --border-subtle: rgba(255, 255, 255, 0.16);
+  --border-control: rgba(255, 255, 255, 0.42);
+  --border-strong: rgba(255, 255, 255, 0.58);
+  --accent-fg: #ffd700;
+  --accent-soft-bg: rgba(255, 215, 0, 0.15);
+  --accent-soft-border: rgba(255, 215, 0, 0.68);
+  --accent-solid-bg: #ffd700;
+  --accent-solid-hover: #ffe34d;
+  --accent-solid-fg: #11151f;
+  --danger-fg: #ff8585;
+  --floating-shadow: 0 6px 22px rgba(0, 0, 0, 0.38);
+  --knob-bg: rgba(24, 28, 40, 0.94);
+  --knob-fg: #ffd700;
+  --knob-unit: #cbd5e1;
 }
 
 html,
