@@ -270,6 +270,13 @@ const TREE_TILE_SIZE = TREE_TILE_CHUNKS * CHUNK_SIZE;
 // corners from sea level to the highest peaks (~1,600), plus a margin.
 const TREE_TILE_CULL_RADIUS =
   Math.hypot(((TREE_TILE_SIZE + CHUNK_SIZE) / 2) * Math.SQRT2, 800) + 200;
+// Distant low-poly stand-ins (|far) are only a handful of triangles each, so
+// coarser 8x8-chunk super-tiles cut far-LOD draw calls and scene traversal by
+// ~65% without adding meaningful off-frustum vertex work.
+const FAR_TILE_CHUNKS = 8;
+const FAR_TILE_SIZE = FAR_TILE_CHUNKS * CHUNK_SIZE;
+const FAR_TILE_CULL_RADIUS =
+  Math.hypot(((FAR_TILE_SIZE + CHUNK_SIZE) / 2) * Math.SQRT2, 800) + 200;
 
 // The tiles don't cast shadows: that would draw every tree within draw
 // distance (~10 km) into the shadow map. Instead a shadow-only mesh per type
@@ -444,6 +451,7 @@ class GlobalInstanceManager {
     this._maxNearRadius = 0;
     this._maxFarRadius = 0;
     this._tileSigs = new Map();
+    this._farTileSigs = new Map();
     this._shadowSig = '';
     this._shadowLightPos = new THREE.Vector3(Infinity, Infinity, Infinity);
     this._shadowTargetPos = new THREE.Vector3(Infinity, Infinity, Infinity);
@@ -586,9 +594,11 @@ class GlobalInstanceManager {
   }
 
   // Tile mesh for `type` with room for `count` instances, reused if possible.
-  _tileMesh(typeInfo, tileKey, tileX, tileZ, count, geo) {
+  _tileMesh(typeInfo, tileKey, tileX, tileZ, count, geo, isFar = false) {
     const mat = this._tileMat(typeInfo, tileKey);
     let mesh = typeInfo.tiles.get(tileKey);
+    const tileSize = isFar ? FAR_TILE_SIZE : TREE_TILE_SIZE;
+    const cullRadius = isFar ? FAR_TILE_CULL_RADIUS : TREE_TILE_CULL_RADIUS;
     if (!mesh || mesh.instanceMatrix.count < count) {
       if (mesh) this.group.remove(mesh);
       // Round capacity up so tiles don't reallocate for every few trees.
@@ -599,11 +609,11 @@ class GlobalInstanceManager {
       mesh.renderOrder = typeInfo.renderOrder || 0;
       mesh.boundingSphere = new THREE.Sphere(
         new THREE.Vector3(
-          (tileX + 0.5) * TREE_TILE_SIZE,
+          (tileX + 0.5) * tileSize,
           800,
-          (tileZ + 0.5) * TREE_TILE_SIZE
+          (tileZ + 0.5) * tileSize
         ),
-        TREE_TILE_CULL_RADIUS
+        cullRadius
       );
       typeInfo.tiles.set(tileKey, mesh);
       this.group.add(mesh);
@@ -690,6 +700,7 @@ class GlobalInstanceManager {
     const lean = state.leanProps === true;
     const sigPrefix = `${this._configVersion}|${state._enableObjects ? 1 : 0}|${detailRadius}|${lean ? 'l' : ''}|`;
     const tileChunks = new Map();
+    const farTileChunks = new Map();
     const shadowChunks = [];
     let shadowSig = `${this._configVersion}|${state._enableObjects ? 1 : 0}|`;
 
@@ -702,6 +713,9 @@ class GlobalInstanceManager {
       const tileX = Math.floor((chunkX * CHUNK_SIZE) / TREE_TILE_SIZE);
       const tileZ = Math.floor((chunkZ * CHUNK_SIZE) / TREE_TILE_SIZE);
       const tileKey = tileX + ',' + tileZ;
+      const farTileX = tileX >> 1;
+      const farTileZ = tileZ >> 1;
+      const farTileKey = farTileX + ',' + farTileZ;
       const chunkDistance = Math.max(
         Math.abs(chunkX - planeChunkX),
         Math.abs(chunkZ - planeChunkZ)
@@ -718,6 +732,14 @@ class GlobalInstanceManager {
       }
       entry.list.push({chunk, chunkDistance, close});
       entry.sig += `${id}:${band}${close ? 'c' : ''},`;
+
+      let farEntry = farTileChunks.get(farTileKey);
+      if (!farEntry) {
+        farEntry = {tileX: farTileX, tileZ: farTileZ, list: [], sig: sigPrefix};
+        farTileChunks.set(farTileKey, farEntry);
+      }
+      farEntry.list.push({chunk, chunkDistance});
+      farEntry.sig += `${id}:${band},`;
 
       let castsShadows;
       if (hasShadowCam) {
@@ -749,12 +771,19 @@ class GlobalInstanceManager {
     for (const oldTileKey of this._tileSigs.keys()) {
       if (!tileChunks.has(oldTileKey)) {
         this._tileSigs.delete(oldTileKey);
-        const farKey = oldTileKey + '|far';
         const closeKey = oldTileKey + '|close';
         for (const typeInfo of this.types.values()) {
           this._removeTileMesh(typeInfo, oldTileKey);
-          this._removeTileMesh(typeInfo, farKey);
           this._removeTileMesh(typeInfo, closeKey);
+        }
+      }
+    }
+    for (const oldFarKey of this._farTileSigs.keys()) {
+      if (!farTileChunks.has(oldFarKey)) {
+        this._farTileSigs.delete(oldFarKey);
+        const farMeshKey = oldFarKey + '|far';
+        for (const typeInfo of this.types.values()) {
+          this._removeTileMesh(typeInfo, farMeshKey);
         }
       }
     }
@@ -766,14 +795,23 @@ class GlobalInstanceManager {
         dirtyTiles.add(tileKey);
       }
     }
+    const dirtyFarTiles = new Set();
+    for (const [farKey, farEntry] of farTileChunks) {
+      if (this._farTileSigs.get(farKey) !== farEntry.sig) {
+        this._farTileSigs.set(farKey, farEntry.sig);
+        dirtyFarTiles.add(farKey);
+      }
+    }
     const shadowDirty = shadowSig !== this._shadowSig;
     if (shadowDirty) {
       this._shadowSig = shadowSig;
     }
-    if (dirtyTiles.size === 0 && !shadowDirty) return;
+    if (dirtyTiles.size === 0 && dirtyFarTiles.size === 0 && !shadowDirty) {
+      return;
+    }
 
-    // 1. Group instance data only for dirty tiles (and shadow chunks if dirty).
-    const byType = new Map(); // type -> Map(meshKey -> {tileX, tileZ, geo, parts, count})
+    // 1. Group instance data only for dirty near/far tiles (and shadow chunks if dirty).
+    const byType = new Map(); // type -> Map(meshKey -> {tileX, tileZ, isFar, geo, parts, count})
     for (const tileKey of dirtyTiles) {
       const {tileX, tileZ, list} = tileChunks.get(tileKey);
       for (const {chunk, chunkDistance, close} of list) {
@@ -781,16 +819,6 @@ class GlobalInstanceManager {
         for (const type in instanceData) {
           const typeInfo = this.types.get(type);
           if (!typeInfo) continue;
-          const data = instanceData[type];
-          data._tileMesh = null;
-          data._tileSlot = 0;
-          syncDrawnAt(data);
-          if (
-            !data.count ||
-            chunkDistance > typeInfo.farRadius ||
-            (lean && chunkDistance > LEAN_PROP_RADIUS)
-          )
-            continue;
           const hasFarModel =
             typeInfo.farGeo !== null && typeInfo.farGeo !== typeInfo.geo;
           const nearRadius = lean
@@ -801,16 +829,79 @@ class GlobalInstanceManager {
               (typeInfo.screenSized ? detailRadius : TREE_LOD_CHUNK_RADIUS));
           const useFar =
             chunkDistance > nearRadius && typeInfo.farGeo !== typeInfo.geo;
-          if (useFar && typeInfo.farGeo === null) continue; // not drawn far away
+          if (useFar) continue;
+          const data = instanceData[type];
+          data._tileMesh = null;
+          data._tileSlot = 0;
+          syncDrawnAt(data);
+          if (
+            !data.count ||
+            chunkDistance > typeInfo.farRadius ||
+            (lean && chunkDistance > LEAN_PROP_RADIUS)
+          )
+            continue;
           const closeUp = !lean && close && typeInfo.nearGeo !== null;
-          const share = useFar ? typeInfo.farShare : null;
+          const meshKey = closeUp ? tileKey + '|close' : tileKey;
+          let tiles = byType.get(type);
+          if (!tiles) {
+            tiles = new Map();
+            byType.set(type, tiles);
+          }
+          let tile = tiles.get(meshKey);
+          if (!tile) {
+            tile = {
+              tileX,
+              tileZ,
+              isFar: false,
+              geo: closeUp ? typeInfo.nearGeo : typeInfo.geo,
+              parts: [],
+              count: 0,
+            };
+            tiles.set(meshKey, tile);
+          }
+          tile.parts.push({data, share: null, tinted: typeInfo.useColor});
+          tile.count += data.count;
+        }
+      }
+    }
+
+    for (const farKey of dirtyFarTiles) {
+      const {
+        tileX: farTileX,
+        tileZ: farTileZ,
+        list,
+      } = farTileChunks.get(farKey);
+      const meshKey = farKey + '|far';
+      for (const {chunk, chunkDistance} of list) {
+        const instanceData = chunk.userData.instanceData;
+        for (const type in instanceData) {
+          const typeInfo = this.types.get(type);
+          if (!typeInfo) continue;
+          const hasFarModel =
+            typeInfo.farGeo !== null && typeInfo.farGeo !== typeInfo.geo;
+          const nearRadius = lean
+            ? hasFarModel
+              ? LEAN_NEAR_RADIUS
+              : Math.min(1, typeInfo.nearRadius ?? TREE_LOD_CHUNK_RADIUS)
+            : (typeInfo.nearRadius ??
+              (typeInfo.screenSized ? detailRadius : TREE_LOD_CHUNK_RADIUS));
+          const useFar =
+            chunkDistance > nearRadius && typeInfo.farGeo !== typeInfo.geo;
+          if (!useFar) continue;
+          const data = instanceData[type];
+          data._tileMesh = null;
+          data._tileSlot = 0;
+          syncDrawnAt(data);
+          if (
+            typeInfo.farGeo === null ||
+            !data.count ||
+            chunkDistance > typeInfo.farRadius ||
+            (lean && chunkDistance > LEAN_PROP_RADIUS)
+          )
+            continue;
+          const share = typeInfo.farShare;
           const bucketType = share ? share.targetType : type;
           const bucketInfo = share ? this.types.get(bucketType) : typeInfo;
-          const meshKey = useFar
-            ? tileKey + '|far'
-            : closeUp
-              ? tileKey + '|close'
-              : tileKey;
           let tiles = byType.get(bucketType);
           if (!tiles) {
             tiles = new Map();
@@ -819,15 +910,10 @@ class GlobalInstanceManager {
           let tile = tiles.get(meshKey);
           if (!tile) {
             tile = {
-              tileX,
-              tileZ,
-              geo: share
-                ? bucketInfo.geo
-                : useFar
-                  ? typeInfo.farGeo
-                  : closeUp
-                    ? typeInfo.nearGeo
-                    : typeInfo.geo,
+              tileX: farTileX,
+              tileZ: farTileZ,
+              isFar: true,
+              geo: share ? bucketInfo.geo : typeInfo.farGeo,
               parts: [],
               count: 0,
             };
@@ -874,14 +960,19 @@ class GlobalInstanceManager {
 
     // 2. Fill dirty tile meshes and (when shadowDirty) shadow-only meshes.
     for (const [type, typeInfo] of this.types) {
-      if (dirtyTiles.size > 0) {
+      if (dirtyTiles.size > 0 || dirtyFarTiles.size > 0) {
         const tiles = byType.get(type);
         for (const baseKey of dirtyTiles) {
           if (!tiles?.has(baseKey)) {
             this._removeTileMesh(typeInfo, baseKey);
           }
-          for (const key of [baseKey + '|far', baseKey + '|close']) {
-            if (!tiles?.has(key)) this._removeTileMesh(typeInfo, key);
+          const closeKey = baseKey + '|close';
+          if (!tiles?.has(closeKey)) this._removeTileMesh(typeInfo, closeKey);
+        }
+        for (const farBase of dirtyFarTiles) {
+          const farMeshKey = farBase + '|far';
+          if (!tiles?.has(farMeshKey)) {
+            this._removeTileMesh(typeInfo, farMeshKey);
           }
         }
         if (tiles) {
@@ -892,7 +983,8 @@ class GlobalInstanceManager {
               tile.tileX,
               tile.tileZ,
               tile.count,
-              tile.geo
+              tile.geo,
+              tile.isFar
             );
             let n = 0;
             for (const {data, share, tinted} of tile.parts) {
@@ -3495,39 +3587,38 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         );
 
         // Box girders (trapezoidal underside, only for elevated bridge sections)
-        const girderInst = getInstancedMesh(
-          bridgeGirderGeo,
-          bridgeGirderMat,
-          numGirderSegments > 0 ? numGirderSegments : 1
-        );
+        const girderInst =
+          numGirderSegments > 0
+            ? getInstancedMesh(
+                bridgeGirderGeo,
+                bridgeGirderMat,
+                numGirderSegments
+              )
+            : null;
 
         // Railings (2 per segment, only for elevated bridge sections)
-        const railInst = getInstancedMesh(
-          bridgeRailGeo,
-          highwayRailMat,
-          numRailSegments > 0 ? numRailSegments * 2 : 1
-        );
+        const railInst =
+          numRailSegments > 0
+            ? getInstancedMesh(
+                bridgeRailGeo,
+                highwayRailMat,
+                numRailSegments * 2
+              )
+            : null;
 
-        // Pier caps (sculpted hammerhead brackets)
-        const pierCapInst = getInstancedMesh(
-          bridgePierCapGeo,
-          bridgePilingMat,
-          numPiers > 0 ? numPiers : 1
-        );
-
-        // Pier shafts (faceted octagonal pylons)
-        const pierShaftInst = getInstancedMesh(
-          bridgePierShaftGeo,
-          bridgePilingMat,
-          numPiers > 0 ? numPiers : 1
-        );
-
-        // Pier footings (foundation caissons)
-        const pierFootingInst = getInstancedMesh(
-          bridgePierFootingGeo,
-          bridgePilingMat,
-          numPiers > 0 ? numPiers : 1
-        );
+        // Pier caps, shafts, and foundation caissons
+        const pierCapInst =
+          numPiers > 0
+            ? getInstancedMesh(bridgePierCapGeo, bridgePilingMat, numPiers)
+            : null;
+        const pierShaftInst =
+          numPiers > 0
+            ? getInstancedMesh(bridgePierShaftGeo, bridgePilingMat, numPiers)
+            : null;
+        const pierFootingInst =
+          numPiers > 0
+            ? getInstancedMesh(bridgePierFootingGeo, bridgePilingMat, numPiers)
+            : null;
 
         const halfRoadW = ChillFlightLogic.ROAD_WIDTH + 1.4;
         // Whether a railing (placed by dummy, `length` long) runs onto
@@ -3613,26 +3704,38 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
             numStreetlights++;
           }
         });
-        const slBaseInst = getInstancedMesh(
-          streetlightPoleGeo,
-          streetlightPoleMat,
-          numStreetlights > 0 ? numStreetlights : 1
-        );
-        const slArmInst = getInstancedMesh(
-          streetlightArmGeo,
-          streetlightPoleMat,
-          numStreetlights > 0 ? numStreetlights : 1
-        );
-        const slBulbInst = getInstancedMesh(
-          streetlightBulbGeo,
-          streetlightBulbMat,
-          numStreetlights > 0 ? numStreetlights : 1
-        );
-        const slDecalInst = getInstancedMesh(
-          streetlightDecalGeo,
-          streetlightDecalMat,
-          numStreetlights > 0 ? numStreetlights : 1
-        );
+        const slBaseInst =
+          numStreetlights > 0
+            ? getInstancedMesh(
+                streetlightPoleGeo,
+                streetlightPoleMat,
+                numStreetlights
+              )
+            : null;
+        const slArmInst =
+          numStreetlights > 0
+            ? getInstancedMesh(
+                streetlightArmGeo,
+                streetlightPoleMat,
+                numStreetlights
+              )
+            : null;
+        const slBulbInst =
+          numStreetlights > 0
+            ? getInstancedMesh(
+                streetlightBulbGeo,
+                streetlightBulbMat,
+                numStreetlights
+              )
+            : null;
+        const slDecalInst =
+          numStreetlights > 0
+            ? getInstancedMesh(
+                streetlightDecalGeo,
+                streetlightDecalMat,
+                numStreetlights
+              )
+            : null;
         let slIndex = 0;
 
         bridgePositions.forEach((pos, index) => {
@@ -3883,11 +3986,10 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         });
 
         // The deck, girders, pier shafts and the lamps' glow show to the
-        // horizon; lane markings, rails, pier caps and footings and lamp
-        // posts are a pixel or less that far, so they go with the chunk's
-        // props (hidden past the prop draw distance). Each is a draw call.
+        // horizon; lane markings, rails, pier caps, footings and lamp posts
+        // are sub-pixel that far, so they go with the chunk's props.
         if (deckInst.instanceColor) deckInst.instanceColor.needsUpdate = true;
-        if (railInst.instanceColor) railInst.instanceColor.needsUpdate = true;
+        if (railInst?.instanceColor) railInst.instanceColor.needsUpdate = true;
         deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
         group.add(deckInst);
         for (const m of markingInsts) {
@@ -3897,35 +3999,31 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           objectsGroup.add(m);
         }
 
-        if (numGirderSegments > 0) {
+        if (girderInst) {
           girderInst.position.set(worldOffsetX, 0, worldOffsetZ);
           group.add(girderInst);
-        } else releaseInstancedMesh(girderInst);
+        }
 
-        if (numRailSegments > 0) {
+        if (railInst) {
           railInst.position.set(worldOffsetX, 0, worldOffsetZ);
           objectsGroup.add(railInst);
-        } else releaseInstancedMesh(railInst);
+        }
 
-        if (numPiers > 0) {
+        if (pierShaftInst) {
           pierCapInst.position.set(worldOffsetX, 0, worldOffsetZ);
           pierShaftInst.position.set(worldOffsetX, 0, worldOffsetZ);
           pierFootingInst.position.set(worldOffsetX, 0, worldOffsetZ);
           objectsGroup.add(pierCapInst);
           group.add(pierShaftInst);
           objectsGroup.add(pierFootingInst);
-        } else {
-          // Unused: back to the pool (not in the chunk, so never released)
-          releaseInstancedMesh(pierCapInst);
-          releaseInstancedMesh(pierShaftInst);
-          releaseInstancedMesh(pierFootingInst);
         }
 
-        if (numStreetlights > 0) {
+        if (slBaseInst) {
           slBaseInst.position.set(worldOffsetX, 0, worldOffsetZ);
           slArmInst.position.set(worldOffsetX, 0, worldOffsetZ);
           slBulbInst.position.set(worldOffsetX, 0, worldOffsetZ);
           slDecalInst.position.set(worldOffsetX, 0, worldOffsetZ);
+          slBulbInst.userData.noShadow = true;
           slBulbInst.visible = state._enableObjects;
           slDecalInst.visible = state._enableObjects;
           objectsGroup.add(slBaseInst);
@@ -3936,10 +4034,6 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
             slBulbInst,
             slDecalInst
           );
-        } else {
-          for (const m of [slBaseInst, slArmInst, slBulbInst, slDecalInst]) {
-            releaseInstancedMesh(m);
-          }
         }
       }
     }); // End activeRoads.forEach
@@ -4371,7 +4465,9 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   // can't show one (road paint flat on the deck, mirrored boats under the
   // water, waterline foam): each that casts is another draw in the shadow pass
   const castsNoShadow = (child) => {
-    if (child.userData.noShadow) return true;
+    if (child.userData.noShadow || child.material?.userData?.noShadow) {
+      return true;
+    }
     if (child.material === reflectionMat || child.material === boatRimMat)
       return true;
     return false;
@@ -4385,6 +4481,8 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         child.receiveShadow = true;
       } else if (
         child.material !== smokeMat &&
+        child.material !== whiteSmokeMat &&
+        child.material !== fireMat &&
         child.material !== lighthouseBeamMat &&
         child.material !== lighthouseHeadlandBeamMat &&
         child.geometry !== streetlightDecalGeo
@@ -4644,6 +4742,64 @@ function disposeChunkGroup(group, key, poolGeometries = true) {
   }
 }
 
+const MAX_FLIGHT_EVICTIONS_PER_FRAME = 4;
+let _lastUpdateChunkX = NaN;
+let _lastUpdateChunkZ = NaN;
+let _lastUpdateRenderDist = NaN;
+let _lastPriorityFwdX = 0;
+let _lastPriorityFwdZ = -1;
+let _hasPendingEvictions = false;
+const _fwdTemp = new THREE.Vector3();
+
+function getChunkAnchor() {
+  const anchorAtCamera =
+    typeof window !== 'undefined' &&
+    (state.isFreeCamera ||
+      (state.cameraMode === 'cinematic' && state.camFrame === 'world-track'));
+  return anchorAtCamera ? camera : planeGroup;
+}
+
+function evictOutOfRangeChunks(
+  currentChunkX,
+  currentChunkZ,
+  renderDistance,
+  maxEvict
+) {
+  let evicted = 0;
+  let moreRemain = false;
+  for (const [key, group] of chunks) {
+    const cx = group.userData.chunkX;
+    const cz = group.userData.chunkZ;
+    if (
+      Math.abs(cx - currentChunkX) > renderDistance + 1 ||
+      Math.abs(cz - currentChunkZ) > renderDistance + 1
+    ) {
+      if (evicted >= maxEvict) {
+        moreRemain = true;
+        break;
+      }
+      // Migratory V-geese fly on as strays rather than vanishing mid-sky
+      if (group.userData.birds) {
+        for (const bird of group.userData.birds) {
+          if (bird.type !== 'goose' || bird.homeRoost) continue;
+          bird.sourceKey = key;
+          strayBirds.userData.birds.push(bird);
+        }
+      }
+      disposeChunkGroup(group, key, true);
+      if (
+        typeof window !== 'undefined' &&
+        terrainWorkerManager &&
+        terrainWorkerManager.isSupported
+      ) {
+        terrainWorkerManager.cancelJob(cx, cz);
+      }
+      evicted++;
+    }
+  }
+  return {evicted, moreRemain};
+}
+
 export function clearAllChunks() {
   for (const [key, group] of [...chunks.entries()]) {
     disposeChunkGroup(group, key, false);
@@ -4654,17 +4810,17 @@ export function clearAllChunks() {
     strayBirds.remove(strayBirds.children[0]);
   }
   if (strayBirds.userData.birds) strayBirds.userData.birds.length = 0;
+  _lastUpdateChunkX = NaN;
+  _lastUpdateChunkZ = NaN;
+  _lastUpdateRenderDist = NaN;
+  _hasPendingEvictions = false;
   clearChunkQueue();
   clearElevationCache();
   globalInstancer.requestRebuild();
 }
 
 export function updateChunks() {
-  const anchorAtCamera =
-    typeof window !== 'undefined' &&
-    (state.isFreeCamera ||
-      (state.cameraMode === 'cinematic' && state.camFrame === 'world-track'));
-  const target = anchorAtCamera ? camera : planeGroup;
+  const target = getChunkAnchor();
   const currentChunkX = Math.round(target.position.x / CHUNK_SIZE);
   const currentChunkZ = Math.round(target.position.z / CHUNK_SIZE);
   const renderDistance = state.RENDER_DISTANCE;
@@ -4673,15 +4829,64 @@ export function updateChunks() {
   let fwdX = 0;
   let fwdZ = -1;
   if (target && target.quaternion) {
-    const fwdVec = new THREE.Vector3(0, 0, -1).applyQuaternion(
-      target.quaternion
-    );
-    const fwdLen = Math.hypot(fwdVec.x, fwdVec.z);
+    _fwdTemp.set(0, 0, -1).applyQuaternion(target.quaternion);
+    const fwdLen = Math.hypot(_fwdTemp.x, _fwdTemp.z);
     if (fwdLen > 0.001) {
-      fwdX = fwdVec.x / fwdLen;
-      fwdZ = fwdVec.z / fwdLen;
+      fwdX = _fwdTemp.x / fwdLen;
+      fwdZ = _fwdTemp.z / fwdLen;
     }
   }
+
+  const gridMoved =
+    currentChunkX !== _lastUpdateChunkX ||
+    currentChunkZ !== _lastUpdateChunkZ ||
+    renderDistance !== _lastUpdateRenderDist;
+
+  // Within the same chunk cell, no new chunks enter or leave range. Only
+  // refresh worker priorities if chunks are still queued and heading turned.
+  if (!gridMoved) {
+    if (
+      state.chunkQueue.length > 0 &&
+      fwdX * _lastPriorityFwdX + fwdZ * _lastPriorityFwdZ < 0.985
+    ) {
+      _lastPriorityFwdX = fwdX;
+      _lastPriorityFwdZ = fwdZ;
+      const computeChunkPriority = (cx, cz) => {
+        const dx = cx - currentChunkX;
+        const dz = cz - currentChunkZ;
+        const dist = Math.hypot(dx, dz);
+        if (dist < 0.001) return 1000;
+        const dot = (dx * fwdX + dz * fwdZ) / dist;
+        return -dist * 10 + dot * 25;
+      };
+      if (
+        typeof window !== 'undefined' &&
+        terrainWorkerManager &&
+        terrainWorkerManager.isSupported
+      ) {
+        terrainWorkerManager.updatePriorities(computeChunkPriority);
+      }
+      for (let i = 0; i < state.chunkQueue.length; i++) {
+        const item = state.chunkQueue[i];
+        item.priority = computeChunkPriority(item.cx, item.cz);
+      }
+      state.chunkQueue.sort((a, b) => a.priority - b.priority);
+    }
+    return;
+  }
+
+  const isTeleportOrPaused =
+    state.isPaused ||
+    Number.isNaN(_lastUpdateChunkX) ||
+    renderDistance !== _lastUpdateRenderDist ||
+    Math.abs(currentChunkX - _lastUpdateChunkX) > 2 ||
+    Math.abs(currentChunkZ - _lastUpdateChunkZ) > 2;
+
+  _lastUpdateChunkX = currentChunkX;
+  _lastUpdateChunkZ = currentChunkZ;
+  _lastUpdateRenderDist = renderDistance;
+  _lastPriorityFwdX = fwdX;
+  _lastPriorityFwdZ = fwdZ;
 
   const computeChunkPriority = (cx, cz) => {
     const dx = cx - currentChunkX;
@@ -4762,37 +4967,15 @@ export function updateChunks() {
   // Sort ascending by priority so popping from the end yields the highest priority chunk
   state.chunkQueue.sort((a, b) => a.priority - b.priority);
 
-  let chunksEvicted = false;
+  const {evicted, moreRemain} = evictOutOfRangeChunks(
+    currentChunkX,
+    currentChunkZ,
+    renderDistance,
+    isTeleportOrPaused ? Infinity : MAX_FLIGHT_EVICTIONS_PER_FRAME
+  );
+  _hasPendingEvictions = moreRemain;
 
-  chunks.forEach((group, key) => {
-    const cx = group.userData.chunkX;
-    const cz = group.userData.chunkZ;
-    if (
-      Math.abs(cx - currentChunkX) > renderDistance + 1 ||
-      Math.abs(cz - currentChunkZ) > renderDistance + 1
-    ) {
-      // Migratory V-geese fly on as strays rather than vanishing mid-sky
-      if (group.userData.birds) {
-        for (const bird of group.userData.birds) {
-          if (bird.type !== 'goose' || bird.homeRoost) continue;
-          bird.sourceKey = key;
-          strayBirds.userData.birds.push(bird);
-        }
-      }
-
-      disposeChunkGroup(group, key, true);
-      if (
-        typeof window !== 'undefined' &&
-        terrainWorkerManager &&
-        terrainWorkerManager.isSupported
-      ) {
-        terrainWorkerManager.cancelJob(cx, cz);
-      }
-      chunksEvicted = true;
-    }
-  });
-
-  if (chunksEvicted) {
+  if (evicted > 0) {
     globalInstancer.requestRebuild();
   }
 }
@@ -4811,9 +4994,24 @@ function isChunkReady(key) {
 // Builds ready chunks, highest priority first, until budgetMs is used up
 // (always at least one per frame, so loading never stalls).
 export function processChunkQueue(budgetMs = 4) {
+  const start = performance.now();
+  if (_hasPendingEvictions) {
+    const target = getChunkAnchor();
+    const cx = Math.round(target.position.x / CHUNK_SIZE);
+    const cz = Math.round(target.position.z / CHUNK_SIZE);
+    const {evicted, moreRemain} = evictOutOfRangeChunks(
+      cx,
+      cz,
+      state.RENDER_DISTANCE,
+      MAX_FLIGHT_EVICTIONS_PER_FRAME
+    );
+    _hasPendingEvictions = moreRemain;
+    if (evicted > 0) {
+      globalInstancer.requestRebuild();
+    }
+  }
   if (state.chunkQueue.length === 0) return 1.0;
 
-  const start = performance.now();
   let generatedThisFrame = 0;
 
   while (state.chunkQueue.length > 0) {

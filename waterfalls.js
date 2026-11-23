@@ -46,6 +46,7 @@ function fallMaterial(
     depthWrite: false,
     side: THREE.DoubleSide,
   });
+  mat.userData.noShadow = true;
   const uCrestColor = crestColor ? {value: new THREE.Color(crestColor)} : null;
   const base = mat.onBeforeCompile;
   mat.onBeforeCompile = (shader, renderer) => {
@@ -56,7 +57,7 @@ function fallMaterial(
       shader.vertexShader = shader.vertexShader
         .replace(
           'void main() {',
-          `varying vec2 vFallUv;\n${vertexHeader}\nvoid main() {`
+          `varying vec2 vFallUv;\nattribute vec3 aPuffCenter;\nattribute float aPuffScale;\n${vertexHeader}\nvoid main() {`
         )
         .replace(
           '#include <uv_vertex>',
@@ -64,11 +65,10 @@ function fallMaterial(
         )
         .replace(
           '#include <project_vertex>',
-          `vec3 worldCenter = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+          `vec3 worldCenter = (modelMatrix * vec4(aPuffCenter, 1.0)).xyz;
           vWorldPosition = worldCenter;
           vec4 mvPosition = viewMatrix * vec4(worldCenter, 1.0);
-          vec2 bbScale = vec2(length(modelMatrix[0].xyz), length(modelMatrix[1].xyz));
-          mvPosition.xy += position.xy * bbScale;
+          mvPosition.xy += position.xy * aPuffScale;
           gl_Position = projectionMatrix * mvPosition;`
         );
     } else {
@@ -259,9 +259,6 @@ const oasisPondMat = fallMaterial(
   POND_SHADER_OPTS
 );
 
-// The mist: soft procedural billowing spray that drifts and dissolves seamlessly
-const mistGeo = new THREE.PlaneGeometry(1, 1);
-
 const mistMat = fallMaterial(
   `
   vec2 c = vFallUv - 0.5;
@@ -286,6 +283,67 @@ const mistMat = fallMaterial(
   0x22303a,
   {billboard: true}
 );
+
+// Batches all 5 mist puffs of a waterfall into one 10-triangle billboard mesh
+function createMistPlume(bx, bz, mistSize, spread, pointsLen) {
+  const specs = [[bx, WATER_LEVEL + mistSize * 0.35, bz, mistSize * 0.85]];
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + pointsLen;
+    const r = mistSize * (0.6 + (0.25 * ((i * 37) % 10)) / 10);
+    specs.push([
+      bx + Math.cos(a) * spread,
+      WATER_LEVEL + r * 0.35,
+      bz + Math.sin(a) * spread,
+      r,
+    ]);
+  }
+  const n = specs.length;
+  const pos = new Float32Array(n * 4 * 3);
+  const normals = new Float32Array(n * 4 * 3);
+  const uvs = new Float32Array(n * 4 * 2);
+  const centers = new Float32Array(n * 4 * 3);
+  const scales = new Float32Array(n * 4);
+  const idx = new Uint16Array(n * 6);
+  const corners = [
+    [-0.5, 0.5, 0, 1],
+    [0.5, 0.5, 1, 1],
+    [-0.5, -0.5, 0, 0],
+    [0.5, -0.5, 1, 0],
+  ];
+  for (let p = 0; p < n; p++) {
+    const [cx, cy, cz, s] = specs[p];
+    for (let k = 0; k < 4; k++) {
+      const v = p * 4 + k;
+      pos[v * 3] = corners[k][0];
+      pos[v * 3 + 1] = corners[k][1];
+      pos[v * 3 + 2] = 0;
+      normals[v * 3 + 2] = 1;
+      uvs[v * 2] = corners[k][2];
+      uvs[v * 2 + 1] = corners[k][3];
+      centers[v * 3] = cx;
+      centers[v * 3 + 1] = cy;
+      centers[v * 3 + 2] = cz;
+      scales[v] = s;
+    }
+    const base = p * 4;
+    idx.set([base, base + 2, base + 1, base + 2, base + 3, base + 1], p * 6);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+  geo.setAttribute('aPuffCenter', new THREE.BufferAttribute(centers, 3));
+  geo.setAttribute('aPuffScale', new THREE.BufferAttribute(scales, 1));
+  geo.setIndex(new THREE.BufferAttribute(idx, 1));
+  geo.boundingSphere = new THREE.Sphere(
+    new THREE.Vector3(bx, WATER_LEVEL + mistSize * 0.35, bz),
+    spread + mistSize
+  );
+  geo.userData.unique = true;
+  const mesh = new THREE.Mesh(geo, mistMat);
+  mesh.renderOrder = 2;
+  return mesh;
+}
 
 // The terrain's height at local (x, z) as drawn: the triangles of the
 // chunk's terrain mesh (a PlaneGeometry, split along each cell's
@@ -919,28 +977,7 @@ export function createWaterfall({
   );
   // Mist rising where it lands: soft 3D billowy plumes that churn and billow upward
   const spread = Math.max(mistSize * 0.22, footHalf * 0.8);
-
-  // Central rising spray plume
-  const coreMist = new THREE.Mesh(mistGeo, mistMat);
-  coreMist.scale.set(mistSize * 0.85, mistSize * 0.85, 1);
-  coreMist.position.set(bx, WATER_LEVEL + mistSize * 0.35, bz);
-  coreMist.renderOrder = 2;
-  group.add(coreMist);
-
-  // Surrounding asymmetrical billow puffs
-  for (let i = 0; i < 4; i++) {
-    const puff = new THREE.Mesh(mistGeo, mistMat);
-    const a = (i / 4) * Math.PI * 2 + points.length;
-    const r = mistSize * (0.6 + (0.25 * ((i * 37) % 10)) / 10);
-    puff.scale.set(r, r, 1);
-    puff.position.set(
-      bx + Math.cos(a) * spread,
-      WATER_LEVEL + r * 0.35,
-      bz + Math.sin(a) * spread
-    );
-    puff.renderOrder = 2;
-    group.add(puff);
-  }
+  group.add(createMistPlume(bx, bz, mistSize, spread, points.length));
 
   const streamSegments = [];
   // The stream feeding it, with an enclosed tarn where a natural basin holds

@@ -52,7 +52,7 @@ for (const name of names) {
               obj.material?.name || obj.geometry?.type || '',
             ];
           if (obj.material === tg.terrainMaterial) return ['terrain-near', ''];
-          if (obj.material === tg.waterMaterial) return ['water-near', ''];
+          if (obj.material?.userData?.isWater) return ['water-near', ''];
           const _d = Math.hypot(
             o.userData.chunkX * 1500 - camera.position.x,
             o.userData.chunkZ * 1500 - camera.position.z

@@ -833,33 +833,38 @@ waterMaterial.onBeforeCompile = function (shader) {
           gl_FragColor.a = max(gl_FragColor.a, blot * 0.6);
         }
 
-        // Add macro-scale spatial variation to break up monotony across different water bodies
-        float macro = sin(vWorldPosition.x * 0.0002) * cos(vWorldPosition.z * 0.00025);
-        // Constant ripple frequency: varying it across space bunches the
-        // ripple phases into visible bands. Only their strength varies.
-        const float rippleScale = 0.1;
-        const float timeScale = 1.5;
-        float perturbStrength = 0.05 + macro * 0.03; // 0.02 to 0.08
-
-        // Distance fade for high-frequency normal perturbations to reduce aliasing
+        // Distance and pixel-footprint fades for high-frequency normal ripples
+        // (derivatives run outside branches so 2x2 pixel quads stay uniform)
         float nearFade = 1.0 - smoothstep(0.0, 1500.0, vDistanceXZ);
-
-        // Organic high-frequency ripples for shimmering specular
-        vec2 pos = vWorldPosition.xz * rippleScale;
-        float t = uTime * timeScale;
-
-        // 3 non-axis-aligned waves to break the grid interference pattern
-        float dx = sin(dot(pos, vec2(0.8, 0.6)) + t) * 0.8
-                 + sin(dot(pos, vec2(-0.6, 0.8)) + t * 1.3) * -0.6
-                 + sin(dot(pos, vec2(0.9, -0.4)) + t * 0.7) * 0.9;
-        float dz = sin(dot(pos, vec2(0.8, 0.6)) + t) * 0.6
-                 + sin(dot(pos, vec2(-0.6, 0.8)) + t * 1.3) * 0.8
-                 + sin(dot(pos, vec2(0.9, -0.4)) + t * 0.7) * -0.4;
-        // Fade ripples where a pixel covers too much of a ripple (~60 units
-        // long) to draw it cleanly; otherwise they alias into stripes.
-        float footprint = length(fwidth(vWorldPosition.xz));
+        vec2 dWpX = dFdx(vWorldPosition.xz);
+        vec2 dWpY = dFdy(vWorldPosition.xz);
+        float footprint = length(abs(dWpX) + abs(dWpY));
         float rippleAA = 1.0 - smoothstep(3.0, 12.0, footprint);
-        vec3 rippleNormal = vec3(dx, 0.0, dz) * perturbStrength * nearFade * rippleAA;
+        float rippleFade = nearFade * rippleAA;
+
+        vec3 rippleNormal = vec3(0.0);
+        if (rippleFade > 0.001) {
+          // Add macro-scale spatial variation to break up monotony across different water bodies
+          float macro = sin(vWorldPosition.x * 0.0002) * cos(vWorldPosition.z * 0.00025);
+          // Constant ripple frequency: varying it across space bunches the
+          // ripple phases into visible bands. Only their strength varies.
+          const float rippleScale = 0.1;
+          const float timeScale = 1.5;
+          float perturbStrength = 0.05 + macro * 0.03; // 0.02 to 0.08
+
+          // Organic high-frequency ripples for shimmering specular
+          vec2 pos = vWorldPosition.xz * rippleScale;
+          float t = uTime * timeScale;
+
+          // 3 non-axis-aligned waves to break the grid interference pattern
+          float dx = sin(dot(pos, vec2(0.8, 0.6)) + t) * 0.8
+                   + sin(dot(pos, vec2(-0.6, 0.8)) + t * 1.3) * -0.6
+                   + sin(dot(pos, vec2(0.9, -0.4)) + t * 0.7) * 0.9;
+          float dz = sin(dot(pos, vec2(0.8, 0.6)) + t) * 0.6
+                   + sin(dot(pos, vec2(-0.6, 0.8)) + t * 1.3) * 0.8
+                   + sin(dot(pos, vec2(0.9, -0.4)) + t * 0.7) * -0.4;
+          rippleNormal = vec3(dx, 0.0, dz) * (perturbStrength * rippleFade);
+        }
         vec3 n = normalize(vSmoothNormal + rippleNormal);
 
         // Sky reflection (Fresnel): looking down you see the water's color;
@@ -877,11 +882,13 @@ waterMaterial.onBeforeCompile = function (shader) {
         float cosTheta = max(dot(viewDir, n), 0.07);
         float skyFresnel = 0.04 + 0.96 * pow(1.0 - cosTheta, 5.0);
         vec3 reflected = skyColorAt(reflDir, uTopColor, uBottomColor, uSunDirection, 0.0);
-        // Only where the reflection is strong enough to show clouds
-        if (uShowClouds && skyFresnel > 0.08) {
+        // Only where the reflection is strong and near enough to resolve clouds
+        // before distant water blends into horizon haze and farSeaColor
+        float cloudReflFade = 1.0 - smoothstep(5000.0, 7500.0, vDistanceXZ);
+        if (uShowClouds && skyFresnel > 0.08 && cloudReflFade > 0.005) {
           vec4 reflClouds = cloudsAlong(vWorldPosition, reflDir, uCloudHeight, uCloudDensity, uSkyTime,
                                         uSunDirection, uTopColor, uBottomColor);
-          reflected = mix(reflected, reflClouds.rgb, reflClouds.a);
+          reflected = mix(reflected, reflClouds.rgb, reflClouds.a * cloudReflFade);
         }
         if (uFireworkPos.w > 0.001) {
           vec3 toFw = uFireworkPos.xyz - vWorldPosition;
@@ -908,20 +915,17 @@ waterMaterial.onBeforeCompile = function (shader) {
         // fine for the pixel) still roughen the surface, so their slope
         // moves into the path's spread and the path keeps its width out to
         // the horizon instead of thinning (NeuralSpecOcean does the same)
-        float slopeVar = 0.035 + 0.012 * (1.0 - nearFade * rippleAA);
+        float slopeVar = 0.035 + 0.012 * (1.0 - rippleFade);
         float beckmann = exp(-(1.0 - cosT2) / (cosT2 * slopeVar)) / (slopeVar * cosT2 * cosT2);
 
         // Glints: finer, faster ripples break the path into bright sparkles
         // near the camera (faded out before they'd alias).
         float glintFade = 1.0 - smoothstep(200.0, 2500.0, vDistanceXZ);
-        float gt = uTime * 2.3;
-        // On a river the glints drift downstream with the current (see
-        // flowLayers below)
+        // On a river the glints and foam drift downstream with the current
         float flowAmt = length(vFlow);
-        float glint;
         vec2 flowOff0 = vec2(0.0), flowOff1 = vec2(0.0);
         float flowW0 = 1.0;
-        if (flowAmt > 0.02) {
+        if (flowAmt > 0.02 && vDistanceXZ < 2500.0) {
           // A flow map: two copies of a pattern, each sliding downstream for
           // a while and then jumping back, cross-faded so neither jump shows
           // (sliding forever would smear the pattern where the river bends)
@@ -929,12 +933,19 @@ waterMaterial.onBeforeCompile = function (shader) {
           flowOff0 = vFlow * ph * 45.0;
           flowOff1 = vFlow * fract(ph + 0.5) * 45.0 + vec2(37.0, 91.0);
           flowW0 = 1.0 - abs(1.0 - 2.0 * ph);
-          glint = mix(waterGlint(vWorldPosition.xz - flowOff1, gt, n, halfVector),
-                      waterGlint(vWorldPosition.xz - flowOff0, gt, n, halfVector), flowW0);
-        } else {
-          glint = waterGlint(vWorldPosition.xz, gt, n, halfVector);
         }
-        float sparkle = mix(1.0, 0.35 + glint * 8.0, glintFade);
+        float sparkle = 1.0;
+        if (glintFade > 0.001) {
+          float gt = uTime * 2.3;
+          float glint;
+          if (flowAmt > 0.02) {
+            glint = mix(waterGlint(vWorldPosition.xz - flowOff1, gt, n, halfVector),
+                        waterGlint(vWorldPosition.xz - flowOff0, gt, n, halfVector), flowW0);
+          } else {
+            glint = waterGlint(vWorldPosition.xz, gt, n, halfVector);
+          }
+          sparkle = mix(1.0, 0.35 + glint * 8.0, glintFade);
+        }
 
         float pathFresnel = 0.02 + 0.98 * pow(1.0 - max(dot(viewDir, halfVector), 0.0), 5.0);
         float glitter = beckmann * pathFresnel * sparkle * 0.02;
@@ -968,7 +979,7 @@ waterMaterial.onBeforeCompile = function (shader) {
 
         // River current: flecks of foam drifting downstream, faded out
         // before they'd shimmer in the distance
-        if (flowAmt > 0.02) {
+        if (flowAmt > 0.02 && vDistanceXZ < 1600.0) {
           vec2 dir = vFlow / flowAmt;
           float flecks = mix(flowFlecks(vWorldPosition.xz - flowOff1, dir),
                              flowFlecks(vWorldPosition.xz - flowOff0, dir), flowW0);
@@ -984,7 +995,7 @@ waterMaterial.onBeforeCompile = function (shader) {
         // strokes fade in with depth (the open ocean is ~10 units deep;
         // rivers, ponds and most of a lake are shallower), so calm inland
         // water stays calm.
-        {
+        if (vDistanceXZ < 2800.0 && softDepth > 8.0) {
           vec2 swellDir = vec2(0.944, 0.33);
           vec2 crestDir = vec2(-0.33, 0.944);
           vec2 wp = vWorldPosition.xz;
@@ -1002,22 +1013,24 @@ waterMaterial.onBeforeCompile = function (shader) {
         // Shore foam: a white band in the shallowest water that pulses toward
         // the shore, lit like the water so it dims at night. Applied last:
         // foam sits on the surface and doesn't reflect the sky.
-        float lightLevel = clamp(dot(waterLit, vec3(0.333)) / max(dot(vColor.rgb, vec3(0.333)), 0.05), 0.0, 1.2);
-        float foamNoise = sin(vWorldPosition.x * 0.09 + vWorldPosition.z * 0.07) * 0.5
-                        + sin(vWorldPosition.x * -0.05 + vWorldPosition.z * 0.11 + uTime * 0.7) * 0.5;
         // Distance to shore from depth and how fast depth changes across the
         // surface, so foam hugs every shoreline at the same width whether the
         // bottom drops steeply (islands) or gently (lakes).
         float depthSlope = length(vec2(dFdx(vWaterDepth), dFdy(vWaterDepth)))
-                         / max(length(vec2(length(dFdx(vWorldPosition.xz)), length(dFdy(vWorldPosition.xz)))), 0.001);
+                         / max(length(vec2(length(dWpX), length(dWpY))), 0.001);
         float shoreDist = max(vWaterDepth, 0.0) / max(depthSlope, 0.02);
-        // Rings of foam that move toward the shore (phase rises with distance).
-        float foamRings = smoothstep(0.35, 0.8, 0.5 + 0.5 * sin(uTime * 1.3 + shoreDist * 0.3 + foamNoise * 1.5));
-        float foamEdge = 1.0 - smoothstep(3.0, 8.0, shoreDist); // solid at the waterline
-        float foam = (1.0 - smoothstep(12.0, 28.0, shoreDist)) * smoothstep(0.0, 0.05, vWaterDepth)
-                   * max(foamRings * 0.8, foamEdge) * (1.0 - swampWater);
-        gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.95, 0.97, 1.0) * lightLevel, foam * 0.9);
-        gl_FragColor.a = max(gl_FragColor.a, foam * 0.9);
+        if (vWaterDepth > 0.0 && swampWater < 0.999 && shoreDist < 28.0) {
+          float lightLevel = clamp(dot(waterLit, vec3(0.333)) / max(dot(vColor.rgb, vec3(0.333)), 0.05), 0.0, 1.2);
+          float foamNoise = sin(vWorldPosition.x * 0.09 + vWorldPosition.z * 0.07) * 0.5
+                          + sin(vWorldPosition.x * -0.05 + vWorldPosition.z * 0.11 + uTime * 0.7) * 0.5;
+          // Rings of foam that move toward the shore (phase rises with distance).
+          float foamRings = smoothstep(0.35, 0.8, 0.5 + 0.5 * sin(uTime * 1.3 + shoreDist * 0.3 + foamNoise * 1.5));
+          float foamEdge = 1.0 - smoothstep(3.0, 8.0, shoreDist); // solid at the waterline
+          float foam = (1.0 - smoothstep(12.0, 28.0, shoreDist)) * smoothstep(0.0, 0.05, vWaterDepth)
+                     * max(foamRings * 0.8, foamEdge) * (1.0 - swampWater);
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.95, 0.97, 1.0) * lightLevel, foam * 0.9);
+          gl_FragColor.a = max(gl_FragColor.a, foam * 0.9);
+        }
 
         // Where the terrain is right at the surface, the swell pokes the water
         // just above the ground in thin slivers; fade them out so they don't

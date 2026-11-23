@@ -14,18 +14,23 @@ class DynamicPerformanceMonitor {
 
     // Config (in ms/frame)
     this.targetFrameTime = 16.67; // 60 FPS
-    this.slightlyOverloaded = 20; // 50 FPS
+    this.slightlyOverloaded = 19.2; // ~52 FPS
     this.moderatelyOverloaded = 25; // 40 FPS
     this.severelyOverloaded = 33.33; // 30 FPS
 
     // Prop distances (houses, barns, boats) aren't scaled under load:
     // pulling them in made houses visibly pop in close by (#81)
     this.cooldownFrames = 0;
-    this.cooldownMax = 30; // Wait 30 frames between adjustments
+    this.cooldownMax = 60; // Wait ~1s after resizing so swapchain reallocation settles
 
-    // Dynamic resolution scaling (DRS) state
+    // Dynamic resolution scaling (DRS) state: discrete 0.125 tiers down to
+    // 0.75x (1.5x DPR on a 2x Retina screen, matching Mid sharpness) avoid
+    // repeated MSAA canvas reallocations while eliminating the 40-52 FPS dead zone
     this.pixelRatioMultiplier = 1.0;
-    this._minPixelRatioMult = 0.8; // Floor: never drop below 80% of base resolution
+    this._minPixelRatioMult = 0.75;
+    this._calmFrames = 0;
+    this._stepUpWait = 360; // ~6s at steady 60 FPS before stepping back up
+    this._sinceLastStepUp = Infinity;
 
     // Shadows update every frame while the sun is up (0 = off at night). They
     // aren't throttled under load: the plane's shadow visibly steps along
@@ -51,6 +56,8 @@ class DynamicPerformanceMonitor {
     this.frameTimeRing[this.ringIndex] = frameTimeMs;
     this.ringIndex = (this.ringIndex + 1) % this.windowSize;
 
+    if (this._sinceLastStepUp < 1e6) this._sinceLastStepUp++;
+
     if (this.cooldownFrames > 0) {
       this.cooldownFrames--;
       return;
@@ -62,31 +69,45 @@ class DynamicPerformanceMonitor {
       let changed = false;
 
       // --- Dynamic resolution scaling (DRS) ---
-      // Reserve DRS for moderate/severe load (< 40 FPS); the chunk budget handles slight dips.
       if (avgFrameTime > this.severelyOverloaded) {
+        this._calmFrames = 0;
         if (this.pixelRatioMultiplier > this._minPixelRatioMult) {
+          if (this._sinceLastStepUp < 600) {
+            this._stepUpWait = Math.min(1800, this._stepUpWait * 2);
+          }
           this.pixelRatioMultiplier = Math.max(
             this._minPixelRatioMult,
-            this.pixelRatioMultiplier - 0.1
+            this.pixelRatioMultiplier - 0.25
           );
           changed = true;
         }
-      } else if (avgFrameTime > this.moderatelyOverloaded) {
+      } else if (avgFrameTime > this.slightlyOverloaded) {
+        this._calmFrames = 0;
         if (this.pixelRatioMultiplier > this._minPixelRatioMult) {
+          if (this._sinceLastStepUp < 600) {
+            this._stepUpWait = Math.min(1800, this._stepUpWait * 2);
+          }
           this.pixelRatioMultiplier = Math.max(
             this._minPixelRatioMult,
-            this.pixelRatioMultiplier - 0.05
+            this.pixelRatioMultiplier - 0.125
           );
           changed = true;
         }
-      } else if (avgFrameTime <= this.targetFrameTime * 1.05) {
+      } else if (avgFrameTime <= this.targetFrameTime * 1.04) {
         if (this.pixelRatioMultiplier < 1.0) {
-          this.pixelRatioMultiplier = Math.min(
-            1.0,
-            this.pixelRatioMultiplier + 0.05
-          );
-          changed = true;
+          this._calmFrames++;
+          if (this._calmFrames >= this._stepUpWait) {
+            this._calmFrames = 0;
+            this._sinceLastStepUp = 0;
+            this.pixelRatioMultiplier = Math.min(
+              1.0,
+              this.pixelRatioMultiplier + 0.125
+            );
+            changed = true;
+          }
         }
+      } else {
+        this._calmFrames = 0;
       }
 
       // --- Chunk budget scaling ---
@@ -101,6 +122,11 @@ class DynamicPerformanceMonitor {
       }
 
       if (changed) {
+        // Flush the ring so the one-time WebGL canvas reallocation frame
+        // doesn't poison the rolling average into cascading extra steps
+        this.ringIndex = 0;
+        this.ringSum = 0;
+        this.ringCount = 0;
         this.applyDRS();
         this.cooldownFrames = this.cooldownMax;
       }
@@ -118,6 +144,9 @@ class DynamicPerformanceMonitor {
     this.ringSum = 0;
     this.ringCount = 0;
     this.cooldownFrames = 0;
+    this._calmFrames = 0;
+    this._stepUpWait = 360;
+    this._sinceLastStepUp = Infinity;
     this._chunkBudgetMs = 4.0;
     if (this.pixelRatioMultiplier !== 1.0) {
       this.pixelRatioMultiplier = 1.0;

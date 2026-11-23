@@ -79,9 +79,9 @@ export function applyGraphicsPreset(preset) {
       fps = 60;
       break;
     case 'high':
-      segments = 40;
-      dist = 7;
-      propLod = 5000;
+      segments = 30;
+      dist = 6;
+      propLod = 4000;
       fps = 60;
       break;
     case 'mid':
@@ -167,9 +167,9 @@ export function applyGraphicsPreset(preset) {
     renderer.setPixelRatio(pixelRatio);
   }
 
-  // Reset DRS multiplier when preset changes so we start fresh
+  // Reset DRS state when preset changes so we start fresh
   if (performanceMonitor) {
-    performanceMonitor.pixelRatioMultiplier = 1.0;
+    performanceMonitor.reset();
   }
 
   // Sky clouds on every preset (?clouds=none or the debug toggle hides them)

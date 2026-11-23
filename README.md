@@ -505,7 +505,7 @@ The game features automatic graphics preset detection that evaluates your device
 | :-------- | :----------- | :------------------------- | :------------ | :------------------------ | :------------------ | :------------------------ | :------------- |
 | **Low**   | 4 chunks     | 9 × 9 (up to 81 chunks)    | 6,000 units   | 20                        | 800                 | Up to 1.5× (`dpr × 0.75`) | Lean           |
 | **Mid**   | 6 chunks     | 13 × 13 (up to 169 chunks) | 9,000 units   | 30                        | 1,800               | Up to 1.5× (`dpr × 0.75`) | Full           |
-| **High**  | 7 chunks     | 15 × 15 (up to 225 chunks) | 10,500 units  | 40                        | 3,200               | Up to 2.0× (`dpr`)        | Full           |
+| **High**  | 6 chunks     | 13 × 13 (up to 169 chunks) | 9,000 units   | 30                        | 1,800               | Up to 2.0× (`dpr`)        | Full           |
 | **Ultra** | 8 chunks     | 17 × 17 (up to 289 chunks) | 12,000 units  | 50                        | 5,000               | Up to 2.0× (`dpr`)        | Full           |
 
 _Note: Full visual effects include real-time world shadows, transparent water, antialiasing, tall grass, rain and snow. The low preset turns these off for lower-end devices (while keeping the player vehicle's own surface shadow for landing) and keeps the sky clouds and every prop: trees, houses, rocks and the rest are drawn with their cheapest (far-away) models, except in the plane's own chunk, and only out to 3 chunks (`LEAN_PROP_RADIUS` and `LEAN_NEAR_RADIUS` in `terrain-chunks.js`). Low also plants fewer trees (`terrain-gen.js`)._
