@@ -1642,5 +1642,172 @@ console.log(
   '  Passed: Coast road crossings keep their slip roads after the landmarks are placed'
 );
 
+// --- 28. Procedural waterfall lip handoff, desert palm-oasis springs, and biome gates ---
+{
+  useSeed(20261122);
+  const elevParams = {
+    WATER_LEVEL: 50,
+    MOUNTAIN_LEVEL: 500,
+    MAP_WORLD_SIZE: 40000,
+    MAP_HEIGHT_SCALE: 1000,
+  };
+  const {result} = generateChunkData({
+    chunkX: 0,
+    chunkZ: 18,
+    chunkSize: 1500,
+    segments: 40,
+    elevParams,
+    worldSeed: 20261122,
+    enableObjects: true,
+  });
+  const wf = result.chunkProps.waterfall;
+  if (!wf || wf.leap || wf.desert < 0.8 || wf.course.length < 18) {
+    console.error(
+      `FAIL: expected desert oasis procedural waterfall in chunk (0, 18) on seed 20261122, got ${JSON.stringify(
+        wf && {
+          leap: wf.leap,
+          desert: wf.desert,
+          courseLen: wf.course.length,
+        }
+      )}`
+    );
+    process.exit(1);
+  }
+
+  // Course starts upstream along the incoming stream tangent and arcs off the
+  // diagonal gorge along its true SW cliff normal instead of snapping due South
+  const streamEnd = wf.stream[wf.stream.length - 1];
+  const streamPrev = wf.stream[wf.stream.length - 2];
+  const inLen = Math.hypot(
+    streamEnd[0] - streamPrev[0],
+    streamEnd[2] - streamPrev[2]
+  );
+  const inX = (streamEnd[0] - streamPrev[0]) / inLen;
+  const inZ = (streamEnd[2] - streamPrev[2]) / inLen;
+  const overlapDx = streamEnd[0] - wf.course[0][0];
+  const overlapDz = streamEnd[2] - wf.course[0][2];
+  const overlapDist = Math.hypot(overlapDx, overlapDz);
+  const overlapDot = (overlapDx * inX + overlapDz * inZ) / overlapDist;
+  if (Math.abs(overlapDist - 14) > 0.5 || overlapDot < 0.99) {
+    console.error(
+      `FAIL: waterfall course head does not overlap stream tangent cleanly (dist=${overlapDist.toFixed(2)}, dot=${overlapDot.toFixed(3)})`
+    );
+    process.exit(1);
+  }
+  const foot = wf.course[wf.course.length - 1];
+  const fallDx = foot[0] - streamEnd[0];
+  const fallDz = foot[2] - streamEnd[2];
+  const fallHoriz = Math.hypot(fallDx, fallDz);
+  if (fallDx / fallHoriz > -0.45 || fallDz / fallHoriz < 0.45) {
+    console.error(
+      `FAIL: diagonal gorge waterfall snapped off cliff normal (dir=(${(fallDx / fallHoriz).toFixed(2)}, ${(fallDz / fallHoriz).toFixed(2)}))`
+    );
+    process.exit(1);
+  }
+
+  // Oasis palms, boulders, and bushes dress the desert spring, while green turf
+  // colors the source vertex without leaking across the X = 750 chunk border
+  const counts = result.chunkProps.counts;
+  if (counts.trees_palm < 6 || counts.rocks < 8 || counts.bushes < 10) {
+    console.error(
+      `FAIL: desert waterfall oasis missing expected palms/rocks/bushes: ${JSON.stringify(
+        {
+          palms: counts.trees_palm,
+          rocks: counts.rocks,
+          bushes: counts.bushes,
+        }
+      )}`
+    );
+    process.exit(1);
+  }
+  const cols = result.buffers.terrainColors;
+  const srcGx = Math.round((wf.stream[0][0] + 750) / 37.5);
+  const srcGz = Math.round((wf.stream[0][2] + 750) / 37.5);
+  const springIdx = (srcGz * 41 + srcGx) * 3;
+  if (cols[springIdx + 1] <= cols[springIdx] + 0.08) {
+    console.error(
+      `FAIL: expected lush green oasis turf at spring source vertex, got rgb=(${cols[springIdx].toFixed(2)}, ${cols[springIdx + 1].toFixed(2)}, ${cols[springIdx + 2].toFixed(2)})`
+    );
+    process.exit(1);
+  }
+  const borderIdx = (srcGz * 41 + 40) * 3; // eastern X = 750 chunk seam beside spring
+  if (cols[borderIdx] <= cols[borderIdx + 1]) {
+    console.error(
+      `FAIL: oasis turf leaked onto chunk border vertex (750, ${wf.stream[0][2]}), rgb=(${cols[borderIdx].toFixed(2)}, ${cols[borderIdx + 1].toFixed(2)}, ${cols[borderIdx + 2].toFixed(2)})`
+    );
+    process.exit(1);
+  }
+
+  // Temperate procedural waterfall (chunk -9, 0) gets the same 2D cliff-normal
+  // lip overlap without any desert oasis palms or desert flag
+  const {result: rTemp} = generateChunkData({
+    chunkX: -9,
+    chunkZ: 0,
+    chunkSize: 1500,
+    segments: 40,
+    elevParams,
+    worldSeed: 20261122,
+    enableObjects: true,
+  });
+  const wfTemp = rTemp.chunkProps.waterfall;
+  if (
+    !wfTemp ||
+    wfTemp.desert !== 0 ||
+    rTemp.chunkProps.counts.trees_palm > 0
+  ) {
+    console.error(
+      `FAIL: temperate waterfall in chunk (-9, 0) should have desert=0 and 0 palms, got ${JSON.stringify(
+        wfTemp && {
+          desert: wfTemp.desert,
+          palms: rTemp.chunkProps.counts.trees_palm,
+        }
+      )}`
+    );
+    process.exit(1);
+  }
+  const tEnd = wfTemp.stream[wfTemp.stream.length - 1];
+  const tPrev = wfTemp.stream[wfTemp.stream.length - 2];
+  const tInLen = Math.hypot(tEnd[0] - tPrev[0], tEnd[2] - tPrev[2]);
+  const tOverlapDx = tEnd[0] - wfTemp.course[0][0];
+  const tOverlapDz = tEnd[2] - wfTemp.course[0][2];
+  const tOverlapDist = Math.hypot(tOverlapDx, tOverlapDz);
+  const tOverlapDot =
+    (tOverlapDx * (tEnd[0] - tPrev[0]) + tOverlapDz * (tEnd[2] - tPrev[2])) /
+    (tOverlapDist * tInLen);
+  if (Math.abs(tOverlapDist - 14) > 0.5 || tOverlapDot < 0.99) {
+    console.error(
+      `FAIL: temperate waterfall course head does not overlap stream tangent cleanly (dist=${tOverlapDist.toFixed(2)}, dot=${tOverlapDot.toFixed(3)})`
+    );
+    process.exit(1);
+  }
+
+  // Frozen north and alien chunks must never spawn procedural waterfalls
+  for (const [cx, cz] of [
+    [0, -16],
+    [-46, 0],
+    [46, 0],
+  ]) {
+    const {result: rDisallowed} = generateChunkData({
+      chunkX: cx,
+      chunkZ: cz,
+      chunkSize: 1500,
+      segments: 30,
+      elevParams,
+      worldSeed: 20261122,
+      enableObjects: true,
+    });
+    if (rDisallowed.chunkProps.waterfall) {
+      console.error(
+        `FAIL: unexpected procedural waterfall in disallowed snow/alien chunk (${cx}, ${cz})`
+      );
+      process.exit(1);
+    }
+  }
+  useSeed(20260101);
+}
+console.log(
+  '  Passed: Procedural waterfalls align lip handoffs with 2D cliff normals, dress desert springs as palm oases, and stay out of snow and alien lands'
+);
+
 console.log('All terrain invariant tests passed successfully!');
 process.exit(0);

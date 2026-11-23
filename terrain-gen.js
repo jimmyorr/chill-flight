@@ -132,6 +132,8 @@ const _colorSand = new Color(0xe0e0a8);
 const _colorWetSand = new Color(0xb09d6b);
 const _colorDesertSand = new Color(0xf4a460);
 const _colorDesertWetSand = new Color(0xc47e3c);
+const _colorOasisGrass = new Color(0x2e7d4f);
+const _colorOasisDampEarth = new Color(0x765944);
 const _colorWater = new Color(0x40c4ff);
 const _colorSandSnowTint = new Color(0x999999);
 const _colorUpperSandSnowTint = new Color(0xdddddd);
@@ -2823,8 +2825,52 @@ function waterfallChunk(chunkX, chunkZ, chunkSize) {
 // The falls landmark passes `fixed`, its lip and stream (see fallsCells):
 // only that lip is tried, with that stream, and it skips the bar (the
 // landmark is built to pass it).
-function findWaterfall(heightGrid, gridX1, step, halfSize, water, fixed) {
+function findWaterfall(
+  heightGrid,
+  gridX1,
+  step,
+  halfSize,
+  water,
+  fixed,
+  worldOffsetX,
+  worldOffsetZ,
+  elevParams
+) {
   const heightOf = ([x, z]) => heightGrid[z * gridX1 + x];
+  const cellHeightAt = (gx, gz) =>
+    gx >= 0 && gx < gridX1 && gz >= 0 && gz < gridX1
+      ? heightGrid[gz * gridX1 + gx]
+      : getElevation(
+          worldOffsetX - halfSize + gx * step,
+          worldOffsetZ - halfSize + gz * step,
+          elevParams
+        );
+  const meshHeightLocal = (lx, lz) => {
+    const fx = (lx + halfSize) / step;
+    const fz = (lz + halfSize) / step;
+    const ix = Math.floor(fx);
+    const iz = Math.floor(fz);
+    const tx = fx - ix;
+    const tz = fz - iz;
+    const h01 = cellHeightAt(ix, iz + 1);
+    const h10 = cellHeightAt(ix + 1, iz);
+    if (tx + tz <= 1) {
+      const h00 = cellHeightAt(ix, iz);
+      return h00 + (h10 - h00) * tx + (h01 - h00) * tz;
+    }
+    const h11 = cellHeightAt(ix + 1, iz + 1);
+    return h11 + (h01 - h11) * (1 - tx) + (h10 - h11) * (1 - tz);
+  };
+  const disallowedBiomeAt = (wx, wz) => {
+    if (wz < -18500) return true;
+    if (ChillFlightLogic.alienAt(wx, wz, simplex) > 0.02) return true;
+    const snow = ChillFlightLogic.snowFactorAt(
+      wz,
+      ChillFlightLogic.snowNoiseShift(wx, wz, simplex)
+    );
+    return snow > 0.25;
+  };
+
   let best = null;
   let bestStream = null;
   let bestScore = 0;
@@ -2832,6 +2878,11 @@ function findWaterfall(heightGrid, gridX1, step, halfSize, water, fixed) {
   for (let iz = 2; iz < gridX1 - 2; iz++) {
     for (let ix = 2; ix < gridX1 - 2; ix++) {
       if (fixed && (ix !== fixed.lip[0] || iz !== fixed.lip[1])) continue;
+      if (!fixed) {
+        const wx = worldOffsetX - halfSize + ix * step;
+        const wz = worldOffsetZ - halfSize + iz * step;
+        if (disallowedBiomeAt(wx, wz)) continue;
+      }
       const top = heightGrid[iz * gridX1 + ix];
       if (top - water < WATERFALL_MIN_DROP) continue;
       // Downhill, steepest neighbor each step, until the water
@@ -2882,6 +2933,12 @@ function findWaterfall(heightGrid, gridX1, step, halfSize, water, fixed) {
       // of the fall, so the stream only lies on gentle ground
       const stream =
         fixed?.stream ?? traceStream(heightGrid, gridX1, step, ix, iz);
+      if (!fixed) {
+        const src = stream[stream.length - 1];
+        const swx = worldOffsetX - halfSize + src[0] * step;
+        const swz = worldOffsetZ - halfSize + src[1] * step;
+        if (disallowedBiomeAt(swx, swz)) continue;
+      }
       let k = 0;
       let steepRun = 0;
       while (k + 1 < stream.length) {
@@ -2942,9 +2999,6 @@ function findWaterfall(heightGrid, gridX1, step, halfSize, water, fixed) {
     heightGrid[z * gridX1 + x],
     -halfSize + z * step,
   ];
-  const course = fixed
-    ? leapCourse(fixed.curve, fixed.edge, heightOf(best[0]), water)
-    : best.map(toLocal);
   const nearest = (v) =>
     Math.min(gridX1 - 1, Math.max(0, Math.round((v + halfSize) / step)));
   const stream = fixed
@@ -2954,29 +3008,146 @@ function findWaterfall(heightGrid, gridX1, step, halfSize, water, fixed) {
         z,
       ])
     : bestStream.reverse().map(toLocal);
-  best.push(...bestStream);
+
+  let course;
+  if (fixed) {
+    course = leapCourse(fixed.curve, fixed.edge, heightOf(best[0]), water);
+  } else {
+    // Trace a smooth parabolic fall from 14 units back over the stream out
+    // along the true 2D cliff normal (rather than snapping to 90-degree grid
+    // axes), landing cleanly in open water past the cliff toe.
+    const lipCell = best[0];
+    const [lx, lipTop, lz] = toLocal(lipCell);
+    const prevPt =
+      stream.length >= 2 ? stream[stream.length - 2] : [lx, lipTop, lz - step];
+    let inX = lx - prevPt[0];
+    let inZ = lz - prevPt[2];
+    const inLen = Math.hypot(inX, inZ) || 1;
+    inX /= inLen;
+    inZ /= inLen;
+
+    let gx = 0;
+    let gz = 0;
+    for (let dz = -2; dz <= 2; dz++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        if (!dx && !dz) continue;
+        const dist = Math.hypot(dx, dz);
+        const drop = Math.max(
+          0,
+          lipTop - cellHeightAt(lipCell[0] + dx, lipCell[1] + dz)
+        );
+        const w = drop / (dist * dist);
+        gx += (dx / dist) * w;
+        gz += (dz / dist) * w;
+      }
+    }
+    const gLen = Math.hypot(gx, gz);
+    if (gLen > 1e-4) {
+      gx /= gLen;
+      gz /= gLen;
+    } else {
+      gx = inX;
+      gz = inZ;
+    }
+
+    const footLocal = toLocal(best[best.length - 1]);
+    let fxDir = footLocal[0] - lx;
+    let fzDir = footLocal[2] - lz;
+    const fDirLen = Math.hypot(fxDir, fzDir) || 1;
+    fxDir /= fDirLen;
+    fzDir /= fDirLen;
+
+    let fallX = gx * inX + gz * inZ > -0.2 ? gx * 0.78 + inX * 0.22 : gx;
+    let fallZ = gx * inX + gz * inZ > -0.2 ? gz * 0.78 + inZ * 0.22 : gz;
+    const fallNorm = Math.hypot(fallX, fallZ) || 1;
+    fallX /= fallNorm;
+    fallZ /= fallNorm;
+
+    const findWaterRun = (dx, dz) => {
+      for (let s = 4; s <= 220; s += 4) {
+        if (meshHeightLocal(lx + dx * s, lz + dz * s) < water - 0.8) {
+          return s;
+        }
+      }
+      return null;
+    };
+
+    let hitRun = findWaterRun(fallX, fallZ);
+    if (hitRun === null) {
+      fallX = fxDir;
+      fallZ = fzDir;
+      hitRun = findWaterRun(fallX, fallZ) ?? fDirLen;
+    }
+
+    const minGracefulRun = Math.min(52, Math.max(24, (lipTop - water) * 0.17));
+    let outRun = Math.max(hitRun + 10, minGracefulRun);
+    while (
+      outRun > hitRun + 2 &&
+      meshHeightLocal(lx + fallX * outRun, lz + fallZ * outRun) >= water - 0.4
+    ) {
+      outRun -= 3;
+    }
+
+    course = [
+      [
+        lx - inX * 14,
+        meshHeightLocal(lx - inX * 14, lz - inZ * 14),
+        lz - inZ * 14,
+      ],
+      [lx - inX * 6, meshHeightLocal(lx - inX * 6, lz - inZ * 6), lz - inZ * 6],
+    ];
+    for (let i = 0; i <= 16; i++) {
+      const f = i / 16;
+      course.push([
+        lx + fallX * outRun * f,
+        lipTop - (lipTop - water) * f * f,
+        lz + fallZ * outRun * f,
+      ]);
+    }
+  }
+
+  // Desert weight at the stream's headwater, for oasis water tinting and flora
+  const srcPt = stream[0];
+  const srcWorldX = worldOffsetX + srcPt[0];
+  const srcWorldZ = worldOffsetZ + srcPt[2];
+  const srcNoise = simplex.noise2D(srcWorldX * 0.0001, srcWorldZ * 0.0001);
+  const srcBiome =
+    simplex.noise2D(srcWorldX * 0.0005, srcWorldZ * 0.0005) * 0.1;
+  const srcSouth =
+    Math.max(0, srcWorldZ / 5000) +
+    ChillFlightLogic.desertShift(srcWorldX, srcWorldZ, simplex);
+  const srcDesertRaw = Math.max(
+    0,
+    Math.min(1, srcSouth + srcNoise * 0.05 - srcBiome - 2.0)
+  );
+  const desert = fixed
+    ? 0
+    : srcDesertRaw * srcDesertRaw * (3 - 2 * srcDesertRaw);
+
   // Wide enough for the fall's full width either side of its course, for it
-  // to stand out from a gully (MAX_OUT in waterfalls.js), and for a pond at
-  // the stream's source (POND_RADIUS)
+  // to stand out from a gully (MAX_OUT in waterfalls.js), and for a pond or
+  // spring pool at the stream's source (extending smoothly across chunk edges)
   const pad = Math.ceil(90 / step) + 1;
-  const xs = best.map((p) => p[0]);
-  const zs = best.map((p) => p[1]);
-  const x0 = Math.max(0, Math.min(...xs) - pad);
-  const z0 = Math.max(0, Math.min(...zs) - pad);
-  const x1 = Math.min(gridX1 - 1, Math.max(...xs) + pad);
-  const z1 = Math.min(gridX1 - 1, Math.max(...zs) + pad);
+  const allLocal = [...course, ...stream];
+  const gxs = allLocal.map((pt) => Math.round((pt[0] + halfSize) / step));
+  const gzs = allLocal.map((pt) => Math.round((pt[2] + halfSize) / step));
+  const x0 = Math.min(...gxs) - pad;
+  const z0 = Math.min(...gzs) - pad;
+  const x1 = Math.max(...gxs) + pad;
+  const z1 = Math.max(...gzs) + pad;
   const cols = x1 - x0 + 1;
   const rows = z1 - z0 + 1;
   const heights = new Float32Array(cols * rows);
   for (let z = 0; z < rows; z++) {
     for (let x = 0; x < cols; x++) {
-      heights[z * cols + x] = heightGrid[(z0 + z) * gridX1 + x0 + x];
+      heights[z * cols + x] = cellHeightAt(x0 + x, z0 + z);
     }
   }
   return {
     course,
     stream,
     leap: !!fixed,
+    desert,
     ground: {
       x: -halfSize + x0 * step,
       z: -halfSize + z0 * step,
@@ -3444,6 +3615,100 @@ export function generateChunkData({
       reefGrid.buffer
     );
   }
+
+  const waterfall =
+    _enableObjects && hasWater && waterfallChunk(chunkX, chunkZ, chunkSize)
+      ? findWaterfall(
+          heightGrid,
+          gridX1,
+          step,
+          halfSize,
+          elevParams.WATER_LEVEL,
+          fallsCells(chunkX, chunkZ, chunkSize, step),
+          worldOffsetX,
+          worldOffsetZ,
+          elevParams
+        )
+      : null;
+  if (waterfall) {
+    transferables.push(waterfall.ground.heights.buffer);
+  }
+
+  // Precompute polyline segments along a procedural waterfall's stream and
+  // spring head so desert oases can tint their banks and frame them with palms
+  // and rocks without perturbing the chunk's main RNG stream.
+  let wfSegs = null;
+  let wfTotalLen = 0;
+  if (waterfall && !waterfall.leap && waterfall.stream.length >= 2) {
+    const pts = waterfall.stream.map(([x, , z]) => [x, z]);
+    const dx0 = pts[1][0] - pts[0][0];
+    const dz0 = pts[1][1] - pts[0][1];
+    const d0 = Math.hypot(dx0, dz0) || 1;
+    pts.unshift([pts[0][0] - (dx0 / d0) * 11, pts[0][1] - (dz0 / d0) * 11]);
+    wfSegs = [];
+    for (let sIdx = 0; sIdx < pts.length - 1; sIdx++) {
+      const [ax, az] = pts[sIdx];
+      const [bx, bz] = pts[sIdx + 1];
+      const vx = bx - ax;
+      const vz = bz - az;
+      const lenSq = vx * vx + vz * vz;
+      const len = Math.sqrt(lenSq) || 1;
+      wfSegs.push({
+        ax,
+        az,
+        vx,
+        vz,
+        lenSq: Math.max(1e-4, lenSq),
+        len,
+        start: wfTotalLen,
+      });
+      wfTotalLen += len;
+    }
+  }
+  const _wfSample = {dist: Infinity, along: 0, waterHalf: 0, toLip: Infinity};
+  const sampleWaterfallStream = (lx, lz) => {
+    if (!wfSegs) return null;
+    let bestDistSq = Infinity;
+    let bestAlong = 0;
+    for (let sIdx = 0; sIdx < wfSegs.length; sIdx++) {
+      const seg = wfSegs[sIdx];
+      const t = Math.max(
+        0,
+        Math.min(
+          1,
+          ((lx - seg.ax) * seg.vx + (lz - seg.az) * seg.vz) / seg.lenSq
+        )
+      );
+      const px = seg.ax + seg.vx * t;
+      const pz = seg.az + seg.vz * t;
+      const dSq = (lx - px) * (lx - px) + (lz - pz) * (lz - pz);
+      if (dSq < bestDistSq) {
+        bestDistSq = dSq;
+        bestAlong = seg.start + seg.len * t;
+      }
+    }
+    const poolLen = Math.min(46, wfTotalLen * 0.55);
+    const chHalf = 5 + 4 * Math.min(1, bestAlong / Math.max(1, wfTotalLen));
+    let wHalf = chHalf;
+    if (bestAlong < poolLen) {
+      const peak = poolLen * 0.32;
+      if (bestAlong < peak) {
+        const u = bestAlong / Math.max(1e-3, peak);
+        wHalf = Math.max(
+          2,
+          14 * Math.sqrt(Math.max(0.03, 1 - (1 - u) * (1 - u)))
+        );
+      } else {
+        const f = smoothRamp(bestAlong, peak, poolLen);
+        wHalf = 14 + (chHalf - 14) * f;
+      }
+    }
+    _wfSample.dist = Math.sqrt(bestDistSq);
+    _wfSample.along = bestAlong;
+    _wfSample.waterHalf = wHalf;
+    _wfSample.toLip = Math.max(0, wfTotalLen - bestAlong);
+    return _wfSample;
+  };
 
   // Pass 2: Terrain Coloring & Prop Placement Sampling
   const rng = ChillFlightLogic.chunkRng(chunkX, chunkZ);
@@ -6094,6 +6359,48 @@ export function generateChunkData({
       }
     }
 
+    // Desert waterfall headwaters form a lush oasis: damp earth outer halo
+    // giving way to oasis turf around the spring pool and along the stream
+    if (
+      wfSegs &&
+      desertFactor > 0.15 &&
+      height > WATER_LEVEL + 6 &&
+      slopeFactor < 0.45
+    ) {
+      const borderClear =
+        halfSize - Math.max(Math.abs(localX), Math.abs(localZ));
+      if (borderClear > 4) {
+        const ws = sampleWaterfallStream(localX, localZ);
+        if (ws && ws.toLip > 6) {
+          const isSpring = 1 - smoothRamp(ws.along, 18, 52);
+          const wobble = (mottle - 0.5) * 14;
+          const dampReach = ws.waterHalf + 20 + 22 * isSpring + wobble;
+          const turfReach = ws.waterHalf + 9 + 15 * isSpring + wobble * 0.6;
+          if (ws.dist < dampReach) {
+            const borderFade = smoothRamp(borderClear, 4, 28);
+            const lipFade = smoothRamp(ws.toLip, 6, 22);
+            const slopeFade = 1 - smoothRamp(slopeFactor, 0.28, 0.45);
+            const strength =
+              borderFade *
+              lipFade *
+              slopeFade *
+              Math.min(1, desertFactor * 1.4);
+            const dampWeight =
+              (1 - smoothRamp(ws.dist, turfReach * 0.7, dampReach)) * strength;
+            const turfWeight =
+              (1 - smoothRamp(ws.dist, ws.waterHalf * 0.6, turfReach)) *
+              strength;
+            if (dampWeight > 0) {
+              _tempColorObj.lerp(_colorOasisDampEarth, dampWeight * 0.85);
+            }
+            if (turfWeight > 0) {
+              _tempColorObj.lerp(_colorOasisGrass, turfWeight * 0.92);
+            }
+          }
+        }
+      }
+    }
+
     // Final detail pass (slope darkening & grain)
     if (
       (height <= MOUNTAIN_LEVEL || isLowland) &&
@@ -7604,15 +7911,21 @@ export function generateChunkData({
 
       const tKey = pos.trunkKey || trunkKey;
       const lKey = pos.leavesKey || leavesKey;
+      const hasLeaves = Boolean(lKey && baseLeafColor);
+      const rVariation = hasLeaves ? (roll(1407) - 0.5) * 0.1 : 0;
+      const gVariation = hasLeaves ? (roll(1409) - 0.5) * 0.1 : 0;
+      const bVariation = hasLeaves ? (roll(1411) - 0.5) * 0.1 : 0;
+
+      if (wfSegs) {
+        const ws = sampleWaterfallStream(pos.x, pos.z);
+        const clear = tKey === 'joshuaTrunk' ? 22 : 3.5;
+        if (ws && ws.dist < ws.waterHalf + clear) return;
+      }
 
       collector.beginProp(BREAKABLE.TREE);
       if (tKey) collector.add(tKey, _matBuffer);
 
-      if (lKey && baseLeafColor) {
-        const rVariation = (roll(1407) - 0.5) * 0.1;
-        const gVariation = (roll(1409) - 0.5) * 0.1;
-        const bVariation = (roll(1411) - 0.5) * 0.1;
-
+      if (hasLeaves) {
         const leafHex = pos.color !== undefined ? pos.color : baseLeafColor;
         _treeBaseColor.setHex(leafHex);
         _treeBaseColor.r = Math.max(
@@ -7771,6 +8084,11 @@ export function generateChunkData({
   if (deadTreePositions.length > 0) {
     deadTreePositions.forEach((pos) => {
       const scale = 0.8 + rng() * 0.8;
+      const rotY = rng() * Math.PI * 2;
+      if (wfSegs) {
+        const ws = sampleWaterfallStream(pos.x, pos.z);
+        if (ws && ws.dist < ws.waterHalf + 3.5) return;
+      }
       composeMatrix(
         _matBuffer,
         0,
@@ -7781,7 +8099,7 @@ export function generateChunkData({
         scale,
         scale,
         0,
-        rng() * Math.PI * 2,
+        rotY,
         0
       );
       collector.beginProp(BREAKABLE.TREE);
@@ -7802,6 +8120,14 @@ export function generateChunkData({
         const sx = (0.5 + rng() * 2.0) * big;
         const sy = (0.5 + rng() * 2.0) * big;
         const sz = (0.5 + rng() * 2.0) * big;
+        const rx = rng() * Math.PI;
+        const ry = rng() * Math.PI;
+        const rz = rng() * Math.PI;
+        if (wfSegs) {
+          const ws = sampleWaterfallStream(pos.x, pos.z);
+          const clear = Math.max(sx, sz) * 2.4 + 2.5;
+          if (ws && ws.dist < ws.waterHalf + clear) return;
+        }
         composeMatrix(
           _matBuffer,
           0,
@@ -7811,9 +8137,9 @@ export function generateChunkData({
           sx,
           sy,
           sz,
-          rng() * Math.PI,
-          rng() * Math.PI,
-          rng() * Math.PI
+          rx,
+          ry,
+          rz
         );
         // Boulders shatter (breakables.js)
         collector.beginProp(BREAKABLE.HOUSE);
@@ -7832,9 +8158,15 @@ export function generateChunkData({
     ...twoStoryHousePositions,
     ...(lighthousePos ? [lighthousePos] : []),
   ];
-  const graniteKept = granitePositions.filter((g) =>
-    graniteClear.every((c) => Math.hypot(g.x - c.x, g.z - c.z) > g.size + 40)
-  );
+  const graniteKept = granitePositions.filter((g) => {
+    if (wfSegs) {
+      const ws = sampleWaterfallStream(g.x, g.z);
+      if (ws && ws.dist < ws.waterHalf + g.size + 12) return false;
+    }
+    return graniteClear.every(
+      (c) => Math.hypot(g.x - c.x, g.z - c.z) > g.size + 40
+    );
+  });
   graniteKept.forEach((pos) => {
     composeMatrix(
       _matBuffer,
@@ -7858,6 +8190,11 @@ export function generateChunkData({
     cactusPositions.forEach((pos) => {
       // Mostly modest, with a few big old saguaros standing out
       const scale = pos.standout ? 1.8 + rng() * 0.7 : 0.75 + rng() * 0.45;
+      const rotY = rng() * Math.PI * 2;
+      if (wfSegs) {
+        const ws = sampleWaterfallStream(pos.x, pos.z);
+        if (ws && ws.dist < ws.waterHalf + 24) return;
+      }
       composeMatrix(
         _matBuffer,
         0,
@@ -7868,7 +8205,7 @@ export function generateChunkData({
         scale,
         scale,
         0,
-        rng() * Math.PI * 2,
+        rotY,
         0
       );
       collector.beginProp(BREAKABLE.TREE);
@@ -8728,6 +9065,278 @@ export function generateChunkData({
     });
   }
 
+  // Rocky springhead boulders on procedural waterfalls, plus palm groves,
+  // bushes, and shoreline reeds on desert oases (on an isolated RNG stream so
+  // existing chunk props never shift).
+  let oasisPalmCount = 0;
+  let oasisRockCount = 0;
+  let oasisBushCount = 0;
+  if (_enableObjects && waterfall && !waterfall.leap && wfSegs) {
+    const wfRng = ChillFlightLogic.mulberry32(
+      ((ChillFlightLogic.WORLD_SEED ^
+        (chunkX * 73856093) ^
+        (chunkZ * 19349663)) +
+        9187) >>>
+        0
+    );
+    const isOasis = waterfall.desert > 0.22;
+    const rockKey = waterfall.desert > 0.3 ? 'desertRock' : 'rock';
+    const [sx0, , sz0] = waterfall.stream[0];
+    const [sx1, , sz1] = waterfall.stream[1];
+    let hdx = sx1 - sx0;
+    let hdz = sz1 - sz0;
+    const hLen = Math.hypot(hdx, hdz) || 1;
+    hdx /= hLen;
+    hdz /= hLen;
+    const headAngle = Math.atan2(-hdz, -hdx);
+
+    const canPlaceSpringProp = (lx, lz, maxSlope, minLipDist) => {
+      if (Math.abs(lx) > halfSize - 8 || Math.abs(lz) > halfSize - 8) {
+        return null;
+      }
+      const ws = sampleWaterfallStream(lx, lz);
+      if (!ws || ws.toLip < minLipDist) return null;
+      const y = meshHeightAtLocal(lx, lz);
+      if (y <= WATER_LEVEL + 16) return null;
+      const gx =
+        (meshHeightAtLocal(lx + 3, lz) - meshHeightAtLocal(lx - 3, lz)) / 6;
+      const gz =
+        (meshHeightAtLocal(lx, lz + 3) - meshHeightAtLocal(lx, lz - 3)) / 6;
+      if (Math.hypot(gx, gz) > maxSlope) return null;
+      return {y, ws};
+    };
+
+    const addSpringRock = (lx, lz, y, scaleMul) => {
+      const base = scaleMul * ROCK_SIZE;
+      const sx = (0.65 + wfRng() * 1.15) * base;
+      const sy = (0.55 + wfRng() * 0.95) * base;
+      const sz = (0.65 + wfRng() * 1.15) * base;
+      composeMatrix(
+        _matBuffer,
+        0,
+        worldOffsetX + lx,
+        y - sy * 0.35,
+        worldOffsetZ + lz,
+        sx,
+        sy,
+        sz,
+        wfRng() * Math.PI,
+        wfRng() * Math.PI,
+        wfRng() * Math.PI
+      );
+      collector.beginProp(BREAKABLE.HOUSE);
+      collector.add(rockKey, _matBuffer);
+      collector.endProp();
+      oasisRockCount++;
+    };
+
+    // Outcrop boulders framing the uphill rim outside the spring pool
+    for (let i = 0; i < 6; i++) {
+      const ang = headAngle + ((i / 5 - 0.5) * 1.45 + (wfRng() - 0.5) * 0.24);
+      const r = 9.5 + wfRng() * 5.5;
+      const lx = sx0 - hdx * 11 + Math.cos(ang) * r;
+      const lz = sz0 - hdz * 11 + Math.sin(ang) * r;
+      const spot = canPlaceSpringProp(lx, lz, 0.62, 14);
+      if (spot && spot.ws.dist >= spot.ws.waterHalf + 4.8) {
+        const mul = isOasis ? (i < 2 ? 1.2 : 0.82) : i < 2 ? 0.92 : 0.65;
+        addSpringRock(lx, lz, spot.y, mul);
+      }
+    }
+
+    // Bank stones scattered along the spring pool and stream margins
+    for (let attempt = 0, placed = 0; attempt < 26 && placed < 9; attempt++) {
+      const seg = wfSegs[Math.floor(wfRng() * wfSegs.length)];
+      const t = wfRng();
+      const cx = seg.ax + seg.vx * t;
+      const cz = seg.az + seg.vz * t;
+      const nx = -seg.vz / seg.len;
+      const nz = seg.vx / seg.len;
+      const sideSign = wfRng() < 0.5 ? -1 : 1;
+      const wsMid = sampleWaterfallStream(cx, cz);
+      const off = (wsMid ? wsMid.waterHalf : 7) + 3.4 + wfRng() * 5.5;
+      const lx = cx + nx * sideSign * off;
+      const lz = cz + nz * sideSign * off;
+      const spot = canPlaceSpringProp(lx, lz, 0.58, 12);
+      if (spot && spot.ws.dist >= spot.ws.waterHalf + 3.0) {
+        addSpringRock(lx, lz, spot.y, 0.42 + wfRng() * 0.52);
+        placed++;
+      }
+    }
+
+    if (isOasis) {
+      // Cluster of oasis palms around the spring pool and upper stream banks
+      const placedPalms = [];
+      const targetPalms = 12;
+      for (
+        let attempt = 0;
+        attempt < 65 && placedPalms.length < targetPalms;
+        attempt++
+      ) {
+        let lx;
+        let lz;
+        if (attempt < 42) {
+          const ang = wfRng() * Math.PI * 2;
+          const r = 15.5 + wfRng() * 19.0;
+          lx = sx0 + hdx * 3 + Math.cos(ang) * r;
+          lz = sz0 + hdz * 3 + Math.sin(ang) * r;
+        } else {
+          const seg = wfSegs[Math.floor(wfRng() * wfSegs.length)];
+          const t = wfRng() * 0.85;
+          const cx = seg.ax + seg.vx * t;
+          const cz = seg.az + seg.vz * t;
+          const nx = -seg.vz / seg.len;
+          const nz = seg.vx / seg.len;
+          const sideSign = wfRng() < 0.5 ? -1 : 1;
+          const wsMid = sampleWaterfallStream(cx, cz);
+          const off = (wsMid ? wsMid.waterHalf : 7) + 3.2 + wfRng() * 11.5;
+          lx = cx + nx * sideSign * off;
+          lz = cz + nz * sideSign * off;
+        }
+        const spot = canPlaceSpringProp(lx, lz, 0.44, 20);
+        if (
+          !spot ||
+          spot.ws.dist < spot.ws.waterHalf + 2.4 ||
+          spot.ws.dist > spot.ws.waterHalf + 23
+        ) {
+          continue;
+        }
+        if (placedPalms.some((p) => Math.hypot(p.x - lx, p.z - lz) < 5.6)) {
+          continue;
+        }
+        placedPalms.push({x: lx, z: lz});
+        const scale = 0.72 + wfRng() * 0.58;
+        composeMatrix(
+          _matBuffer,
+          0,
+          worldOffsetX + lx,
+          spot.y,
+          worldOffsetZ + lz,
+          scale,
+          scale,
+          scale,
+          0,
+          wfRng() * Math.PI * 2,
+          0
+        );
+        _treeBaseColor.setHex(0x8fbf5a);
+        _treeBaseColor.r = Math.max(
+          0,
+          Math.min(1, _treeBaseColor.r + (wfRng() - 0.5) * 0.1)
+        );
+        _treeBaseColor.g = Math.max(
+          0,
+          Math.min(1, _treeBaseColor.g + (wfRng() - 0.5) * 0.1)
+        );
+        _treeBaseColor.b = Math.max(
+          0,
+          Math.min(1, _treeBaseColor.b + (wfRng() - 0.5) * 0.1)
+        );
+        collector.beginProp(BREAKABLE.TREE);
+        collector.add('palmTrunk', _matBuffer);
+        collector.add('palmLeaves', _matBuffer, _treeBaseColor);
+        collector.endProp();
+        oasisPalmCount++;
+      }
+
+      // Lush oasis undergrowth near the water, dusty sage scrub on the fringe
+      for (
+        let attempt = 0, bushes = 0;
+        attempt < 55 && bushes < 20;
+        attempt++
+      ) {
+        let lx;
+        let lz;
+        if (wfRng() < 0.65) {
+          const ang = wfRng() * Math.PI * 2;
+          const r = 14 + wfRng() * 24;
+          lx = sx0 + hdx * 3 + Math.cos(ang) * r;
+          lz = sz0 + hdz * 3 + Math.sin(ang) * r;
+        } else {
+          const seg = wfSegs[Math.floor(wfRng() * wfSegs.length)];
+          const t = wfRng();
+          const cx = seg.ax + seg.vx * t;
+          const cz = seg.az + seg.vz * t;
+          const nx = -seg.vz / seg.len;
+          const nz = seg.vx / seg.len;
+          const sideSign = wfRng() < 0.5 ? -1 : 1;
+          const wsMid = sampleWaterfallStream(cx, cz);
+          const off = (wsMid ? wsMid.waterHalf : 7) + 1.8 + wfRng() * 14;
+          lx = cx + nx * sideSign * off;
+          lz = cz + nz * sideSign * off;
+        }
+        const spot = canPlaceSpringProp(lx, lz, 0.48, 12);
+        if (!spot || spot.ws.dist < spot.ws.waterHalf + 1.2) continue;
+        const outer = spot.ws.dist > spot.ws.waterHalf + 13;
+        const scale = (0.55 + wfRng() * 1.15) * (outer ? 0.82 : 1.0);
+        composeMatrix(
+          _matBuffer,
+          0,
+          worldOffsetX + lx,
+          spot.y,
+          worldOffsetZ + lz,
+          scale,
+          scale,
+          scale,
+          0,
+          wfRng() * Math.PI * 2,
+          0
+        );
+        _baseBushColor.setHex(outer ? DESERT_SCRUB_COLOR : 0x4e8a30);
+        _baseBushColor.r = Math.max(
+          0,
+          Math.min(1, _baseBushColor.r + (wfRng() - 0.5) * 0.12)
+        );
+        _baseBushColor.g = Math.max(
+          0,
+          Math.min(1, _baseBushColor.g + (wfRng() - 0.5) * 0.12)
+        );
+        _baseBushColor.b = Math.max(
+          0,
+          Math.min(1, _baseBushColor.b + (wfRng() - 0.5) * 0.12)
+        );
+        collector.beginProp(BREAKABLE.SMALL);
+        collector.add('bush', _matBuffer, _baseBushColor);
+        collector.endProp();
+        oasisBushCount++;
+      }
+
+      // Clumps of reeds and cattails tucked into the shallow spring margin
+      for (let attempt = 0, reeds = 0; attempt < 36 && reeds < 15; attempt++) {
+        const ang = wfRng() * Math.PI * 2;
+        const probeR = 11 + wfRng() * 8;
+        const lx = sx0 + hdx * 3 + Math.cos(ang) * probeR;
+        const lz = sz0 + hdz * 3 + Math.sin(ang) * probeR;
+        const spot = canPlaceSpringProp(lx, lz, 0.42, 22);
+        if (
+          !spot ||
+          spot.ws.dist < spot.ws.waterHalf - 1.2 ||
+          spot.ws.dist > spot.ws.waterHalf + 2.0
+        ) {
+          continue;
+        }
+        const size = 0.72 + wfRng() * 0.42;
+        composeMatrix(
+          _matBuffer,
+          0,
+          worldOffsetX + lx,
+          spot.y,
+          worldOffsetZ + lz,
+          size,
+          size,
+          size,
+          0,
+          wfRng() * Math.PI * 2,
+          0
+        );
+        collector.add(
+          wfRng() < 0.35 ? 'swampCattail' : 'swampReed',
+          _matBuffer
+        );
+        reeds++;
+      }
+    }
+  }
+
   const instanceData = collector.finish();
   for (const type in instanceData) {
     const d = instanceData[type];
@@ -8741,18 +9350,6 @@ export function generateChunkData({
     breakables.partTypes.buffer,
     breakables.partIndices.buffer
   );
-
-  const waterfall =
-    _enableObjects && hasWater && waterfallChunk(chunkX, chunkZ, chunkSize)
-      ? findWaterfall(
-          heightGrid,
-          gridX1,
-          step,
-          halfSize,
-          elevParams.WATER_LEVEL,
-          fallsCells(chunkX, chunkZ, chunkSize, step)
-        )
-      : null;
 
   // Boats sail near land, and not off the western alien land's coasts
   // (left out here, after every roll, so the rest of the chunk stays as it
@@ -8797,7 +9394,7 @@ export function generateChunkData({
         birchTreePositions.length +
         broadleafOakTreePositions.length +
         oakTreePositions.length,
-      trees_palm: palmTreePositions.length,
+      trees_palm: palmTreePositions.length + oasisPalmCount,
       trees_dead: deadTreePositions.length,
       trees_joshua: joshuaTreePositions.length,
       trees_autumn:
@@ -8827,9 +9424,10 @@ export function generateChunkData({
       rocks:
         rockPositions.length +
         snowRockPositions.length +
-        desertRockPositions.length,
+        desertRockPositions.length +
+        oasisRockCount,
       granite: granitePositions.length,
-      bushes: bushPositions.length,
+      bushes: bushPositions.length + oasisBushCount,
       snowmen: snowmanPositions.length,
       cactus: cactusPositions.length,
       lily_pads: lilyPadPositions.length,

@@ -618,16 +618,24 @@ function updateRoads(cx, cz) {
   };
   for (let i = ccx - 1; i <= ccx + 1; i++) {
     for (let j = ccz - 1; j <= ccz + 1; j++) {
-      const segs = chunks.get(`${i},${j}`)?.userData.roadSegments;
-      if (!segs) continue;
-      for (const s of segs) {
-        consider(
-          s.x0,
-          s.z0,
-          s.x1,
-          s.z1,
-          (s.halfWidth ?? ChillFlightLogic.ROAD_WIDTH) + 2
-        );
+      const ud = chunks.get(`${i},${j}`)?.userData;
+      const segs = ud?.roadSegments;
+      if (segs) {
+        for (const s of segs) {
+          consider(
+            s.x0,
+            s.z0,
+            s.x1,
+            s.z1,
+            (s.halfWidth ?? ChillFlightLogic.ROAD_WIDTH) + 2
+          );
+        }
+      }
+      const wfSegs = ud?.waterfallStreamSegments;
+      if (wfSegs) {
+        for (const s of wfSegs) {
+          consider(s.x0, s.z0, s.x1, s.z1, Math.max(1.5, s.hw - 2.5));
+        }
       }
     }
   }

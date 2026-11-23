@@ -2652,6 +2652,15 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
         });
       }
     }
+    if (foot.streamSegments?.length) {
+      group.userData.waterfallStreamSegments = foot.streamSegments.map((s) => ({
+        x0: worldOffsetX + s.x0,
+        z0: worldOffsetZ + s.z0,
+        x1: worldOffsetX + s.x1,
+        z1: worldOffsetZ + s.z1,
+        hw: s.hw,
+      }));
+    }
     waterfallFeet.set(group, {
       ...foot,
       x: worldOffsetX + foot.x,
@@ -4618,6 +4627,7 @@ function disposeChunkGroup(group, key, poolGeometries = true) {
   group.userData.counts = null;
   group.userData.rockArch = null;
   group.userData.roadSegments = null;
+  group.userData.waterfallStreamSegments = null;
   if (group.userData.volcanoGlow) volcanoGlow.intensity = 0;
 
   scene.remove(group);
