@@ -44,7 +44,11 @@ class DynamicPerformanceMonitor {
   }
 
   update(delta) {
-    const frameTimeMs = delta * 1000;
+    // One long hitch (a chunk build, a shader compile, GC) is capped so it
+    // can't lift the 30-frame average past slightlyOverloaded on its own:
+    // dropping resolution doesn't help a hitch, and stepping back up takes
+    // seconds. Sustained load (every frame slow) still reads in full.
+    const frameTimeMs = Math.min(delta * 1000, 50);
     this._frameCount++;
 
     if (this.ringCount < this.windowSize) {
