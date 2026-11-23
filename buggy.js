@@ -476,8 +476,14 @@ function rescue(cruiseKts, joyY, speed, dt) {
 // Set down where it's been put (warped there from the map, minimap.js, which
 // zeroes the speed first), stopped. A warp too short to read as a teleport
 // would otherwise keep its speed. Not yet driven: entering it will
+// A car swapped in at the same time (a race's or pursuit's livery) is
+// entered stopped too, rather than carrying on at its old speed.
+let parkPending = false;
 hooks.parkBuggy = () => {
-  if (state.airplaneModel !== lastModel) return;
+  if (state.airplaneModel !== lastModel) {
+    parkPending = true;
+    return;
+  }
   enter(false);
 };
 
@@ -521,9 +527,13 @@ function stepBuggy(dt) {
   if (model !== lastModel) {
     // Switched to from another plane (not the game loading, nor a mid-drive
     // police/civilian livery swap in pursuit mode)
-    const fall = !!model.switchedTo;
+    const fall = !!model.switchedTo && !parkPending;
     const keepDrive =
-      !!model.sameChassis && !!lastModel?.isBuggy && !teleported;
+      !!model.sameChassis &&
+      !!lastModel?.isBuggy &&
+      !teleported &&
+      !parkPending;
+    parkPending = false;
     lastModel = model;
     if (keepDrive) setBuggyHoverFold(model, hoverFold);
     else enter(fall);

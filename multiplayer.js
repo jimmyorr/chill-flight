@@ -1423,6 +1423,10 @@ function lineUp() {
   const me = place(room.id);
   if (me && hooks.movePlane) {
     hooks.movePlane(me.x, me.y, me.z, me.heading, kts / units);
+    // Stopped on the grid, however fast it was going: a line-up spot near
+    // where it was (driving on the race's highway) is too short a hop to
+    // read as a teleport, which would keep its speed
+    if (race.plane === 'buggy') hooks.parkBuggy?.();
     racePrevSet = false;
   }
   for (const {bot, peer} of myBots.values()) {
