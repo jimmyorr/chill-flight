@@ -1,15 +1,3 @@
-@property --hud-bg-a {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: rgba(14, 18, 28, 0.66);
-}
-
-@property --hud-bg-b {
-  syntax: '<color>';
-  inherits: true;
-  initial-value: rgba(10, 14, 22, 0.74);
-}
-
 @property --knob-bg {
   syntax: '<color>';
   inherits: true;
@@ -32,12 +20,15 @@
   --surface-input: rgba(8, 11, 18, 0.65);
   --surface-floating: rgba(14, 18, 28, 0.86);
   --surface-floating-hover: rgba(24, 30, 44, 0.92);
-  --hud-bg-a: rgba(14, 18, 28, 0.66);
-  --hud-bg-b: rgba(10, 14, 22, 0.74);
+  /* The cockpit panel's glass is the idle gradient, with a "lift" layer over
+     it that fades in when awake (0.66 / 0.74 in all) and on hover (about
+     0.8 / 0.88). Lift alpha = 1 - (1 - awake) / (1 - idle). */
   --hud-bg-idle-a: rgba(14, 18, 28, 0.44);
   --hud-bg-idle-b: rgba(10, 14, 22, 0.52);
-  --hud-bg-hover-a: rgba(24, 30, 44, 0.8);
-  --hud-bg-hover-b: rgba(14, 18, 28, 0.88);
+  --hud-lift-a: rgba(14, 18, 28, 0.393);
+  --hud-lift-b: rgba(10, 14, 22, 0.458);
+  --hud-lift-hover-a: rgba(24, 30, 44, 0.643);
+  --hud-lift-hover-b: rgba(14, 18, 28, 0.75);
   --hud-border-idle: rgba(255, 255, 255, 0.11);
   --hud-shadow-idle: 0 6px 22px rgba(0, 0, 0, 0.19);
   --hud-value-fg: #ffd700;
@@ -1164,7 +1155,11 @@ input[type='number'].customization-input {
   top: max(20px, env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
-  background: linear-gradient(135deg, var(--hud-bg-a), var(--hud-bg-b));
+  background: linear-gradient(
+    135deg,
+    var(--hud-bg-idle-a),
+    var(--hud-bg-idle-b)
+  );
   padding: 12px 24px;
   border-radius: 12px;
   backdrop-filter: blur(16px);
@@ -1190,9 +1185,6 @@ input[type='number'].customization-input {
   /* Make entire HUD interactive with clean hover state */
   cursor: pointer;
   transition:
-    --hud-bg-a 0.5s ease,
-    --hud-bg-b 0.5s ease,
-    background 0.2s ease,
     border-color 0.5s ease,
     box-shadow 0.5s ease;
 
@@ -1205,23 +1197,52 @@ input[type='number'].customization-input {
   -webkit-touch-callout: none;
 }
 
+/* Awake and hover glass: layers over the idle gradient that fade with plain
+   opacity, like the throttle. Animating the gradient's colours through
+   @property tokens snapped and then flickered on the backdrop-filtered panel.
+   No opacity on #cockpit-ui itself, so WebKit never wraps
+   -webkit-backdrop-filter in a group-opacity buffer. */
+#cockpit-ui::before,
+#cockpit-ui::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  pointer-events: none;
+  will-change: opacity;
+}
+
+#cockpit-ui::before {
+  background: linear-gradient(135deg, var(--hud-lift-a), var(--hud-lift-b));
+  transition: opacity 0.5s ease;
+}
+
+#cockpit-ui::after {
+  background: linear-gradient(
+    135deg,
+    var(--hud-lift-hover-a),
+    var(--hud-lift-hover-b)
+  );
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
 #cockpit-ui > * {
   transition: opacity 0.5s ease;
 }
 
-/* Fade background/border tokens directly and apply opacity only to children so
-   WebKit never wraps -webkit-backdrop-filter in a group-opacity buffer */
 #cockpit-ui.idle {
-  --hud-bg-a: var(--hud-bg-idle-a);
-  --hud-bg-b: var(--hud-bg-idle-b);
   border-color: var(--hud-border-idle);
   box-shadow: var(--hud-shadow-idle);
   transition:
-    --hud-bg-a 1.4s ease,
-    --hud-bg-b 1.4s ease,
-    background 0.2s ease,
     border-color 1.4s ease,
     box-shadow 1.4s ease;
+}
+
+#cockpit-ui.idle::before {
+  opacity: 0;
+  transition: opacity 1.4s ease;
 }
 
 #cockpit-ui.idle > * {
@@ -1231,13 +1252,12 @@ input[type='number'].customization-input {
 
 @media (hover: hover) and (pointer: fine) {
   #cockpit-ui:hover {
-    background: linear-gradient(
-      135deg,
-      var(--hud-bg-hover-a),
-      var(--hud-bg-hover-b)
-    );
     border-color: var(--border-control);
     box-shadow: var(--floating-shadow);
+  }
+
+  #cockpit-ui:hover::after {
+    opacity: 1;
   }
 
   #cockpit-ui:hover > * {
