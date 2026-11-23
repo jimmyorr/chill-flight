@@ -1037,7 +1037,6 @@ function updateDayNightCycle(delta) {
   streetlightDecalMat.opacity = Math.min(1.0, slNightValue);
   fireGlowMat.opacity = Math.min(1.0, slNightValue);
   // Fully faded out by day: not drawn at all (each is a draw per chunk)
-  streetlightBulbMat.visible = slNightValue > 0.001;
   streetlightDecalMat.visible = streetlightDecalMat.opacity > 0.001;
   fireGlowMat.visible = fireGlowMat.opacity > 0.001;
   updateAirportLights(slNightValue);
