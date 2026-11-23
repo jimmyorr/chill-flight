@@ -1,5 +1,13 @@
 # Release notes
 
+## [1.3.0](https://v1-3-0.chill-flight.pages.dev)
+
+- **Birds:** 8 species that dive for fish, roost in flocks, and scatter when you fly close.
+- **Vehicles:** Upgraded 3D plane and car models.
+- **Menus:** Light and Dark themes, swipeable mobile sheets, and a reorganized pause menu.
+- **World:** Nightly regional fireworks, dry-stone walls, and flower fields.
+- **Pursuit:** New high-speed chase game mode.
+
 ## [1.2.13](https://v1-2-13.chill-flight.pages.dev)
 
 - **Touch & controls:** Stick sensitivity setting under touch Controls, wider 70 px joystick throw, and 60-degree banking limits.

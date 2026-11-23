@@ -1,0 +1,1 @@
+var e;(function(e){e.AdPersonalization=`AD_PERSONALIZATION`,e.AdStorage=`AD_STORAGE`,e.AdUserData=`AD_USER_DATA`,e.AnalyticsStorage=`ANALYTICS_STORAGE`,e.FunctionalityStorage=`FUNCTIONALITY_STORAGE`,e.PersonalizationStorage=`PERSONALIZATION_STORAGE`})(e||={});var t;(function(e){e.Granted=`GRANTED`,e.Denied=`DENIED`})(t||={});export{e as n,t};
