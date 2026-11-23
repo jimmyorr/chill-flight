@@ -2120,7 +2120,8 @@ export const ChillFlightLogic = {};
               simplex.noise2D(x * 0.006 - 7, z * 0.006 + 59) * 0.08,
             0.58,
             0.62
-          ) * (1 - smoothRamp(d, edge + 1400, edge + 2200))
+          ) *
+          (1 - smoothRamp(d, edge + 1400, edge + 2200))
         : 0;
     // ... and lowering toward the mouth, where it meets the sea
     const mouth = Math.max(0, Math.min(1, (CANYON_LENGTH - along) / 5000));
@@ -2140,7 +2141,8 @@ export const ChillFlightLogic = {};
     let top = rim;
     if (d > halfWidth) {
       const out = d - halfWidth;
-      top -= (rim - waterLevel) * CANYON_DIP * Math.min(1, out / CANYON_DIP_RUN);
+      top -=
+        (rim - waterLevel) * CANYON_DIP * Math.min(1, out / CANYON_DIP_RUN);
       const lip = smoothRamp(out, 80, 500);
       const rolling =
         simplex.noise2D(x * 0.0022 + 17, z * 0.0022 - 29) * 14 +
@@ -2990,9 +2992,36 @@ export const ChillFlightLogic = {};
   // The pyramids at (x, z), for getElevation and the terrain's colours:
   // fills _pyramid (plaza 0 to 1, base height, the height of the stone
   // above the plaza, 0 off the pyramids) and returns whether it's near them
-  const _pyramid = {plaza: 0, base: 0, stone: 0};
+  const _pyramid = {plaza: 0, plazaWet: 0, base: 0, stone: 0};
+  // How far the plaza reaches over water, from the bases (it always
+  // fills right round them, so the stone stands on dry sand)
+  const PYRAMID_PLAZA_WET = 120;
+  const PYRAMID_PLAZA_WET_EDGE = 520;
+  // How far (dx, dz) is from the pyramids' bases for the plaza: round
+  // rather than square (the squares' corners made a stepped, square edge
+  // to the plaza, and a square shore where it reached the sea), merged
+  // into one blob round all three, with a wobble so its edge wanders
+  const PYRAMID_PLAZA_BLEND = 400;
+  function pyramidPlazaDistance(dx, dz, x, z, simplex) {
+    let sum = 0;
+    for (const p of PYRAMIDS) {
+      const ox = Math.max(0, Math.abs(dx - p.dx) - p.half);
+      const oz = Math.max(0, Math.abs(dz - p.dz) - p.half);
+      sum += Math.exp(-Math.hypot(ox, oz) / PYRAMID_PLAZA_BLEND);
+    }
+    // A soft minimum: a little under the nearest base's distance between
+    // the pyramids, filling the notches between their squares
+    const d = Math.max(0, -PYRAMID_PLAZA_BLEND * Math.log(sum));
+    const wobble =
+      simplex.noise2D(x * 0.0007 + 31.7, z * 0.0007 - 12.3) * 300 +
+      simplex.noise2D(x * 0.0023 - 4.1, z * 0.0023 + 8.9) * 90 +
+      simplex.noise2D(x * 0.007 + 2.3, z * 0.007 - 6.7) * 35;
+    // None at the bases, full by 250 out (at most 425 either way)
+    return Math.max(0, d + wobble * smoothRamp(d, 0, 250));
+  }
   function pyramidAt(x, z, simplex, constants, lerp) {
     _pyramid.plaza = 0;
+    _pyramid.plazaWet = 0;
     _pyramid.stone = 0;
     if (_findingPyramids || x > -1000 || z < 12000) return false;
     const site = pyramidSite(simplex, constants || {}, lerp);
@@ -3000,9 +3029,13 @@ export const ChillFlightLogic = {};
     const dx = x - site.x;
     const dz = z - site.z;
     if (Math.abs(dx) > 3600 || Math.abs(dz) > 3600) return false;
-    const foot = pyramidFootDistance(dx, dz);
+    const foot = pyramidPlazaDistance(dx, dz, x, z, simplex);
     if (foot >= PYRAMID_PLAZA_EDGE) return false;
     _pyramid.plaza = 1 - smoothRamp(foot, PYRAMID_PLAZA, PYRAMID_PLAZA_EDGE);
+    // Sea and lakes are only filled in close round the stone, so the plaza
+    // meets the water in a ragged shore rather than a square one
+    _pyramid.plazaWet =
+      1 - smoothRamp(foot, PYRAMID_PLAZA_WET, PYRAMID_PLAZA_WET_EDGE);
     _pyramid.base = site.base;
     for (const p of PYRAMIDS) {
       const r = Math.max(Math.abs(dx - p.dx), Math.abs(dz - p.dz));
@@ -5043,7 +5076,14 @@ export const ChillFlightLogic = {};
 
     // The pyramids on their plaza (after the rivers, so none run through)
     if (pyramidAt(origX, origZ, simplex, constants, _lerp)) {
-      n = _lerp(n, _pyramid.base, _pyramid.plaza);
+      // Ground below the water (or just above it, eased) takes the tighter
+      // wet reach, so the plaza doesn't build out into the sea
+      const wet = smoothRamp(n, WATER_LEVEL + 25, WATER_LEVEL - 2);
+      n = _lerp(
+        n,
+        _pyramid.base,
+        _lerp(_pyramid.plaza, Math.min(_pyramid.plaza, _pyramid.plazaWet), wet)
+      );
       n = Math.max(n, _pyramid.base + _pyramid.stone);
     }
 
