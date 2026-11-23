@@ -1030,6 +1030,16 @@ waterMaterial.onBeforeCompile = function (shader) {
         gl_FragColor.rgb = mix(gl_FragColor.rgb, farSeaColor(viewDir, uTopColor, uBottomColor, uSunDirection), farSeaBlend);
         gl_FragColor.a = mix(gl_FragColor.a, 1.0, farSeaBlend * smoothstep(0.05, 0.6, vWaterDepth));
 
+        #ifdef OPAQUE
+        // Opaque water (Low): nothing blends, so the fades above can't hide
+        // the water where it ends. Cut it off where it would have faded out
+        // over land, and write full alpha: the low alpha went straight into
+        // the frame and showed up as black rims and speckled shallows along
+        // the shores on some GPUs (Macs)
+        if (smoothstep(0.05, 0.6, vWaterDepth) < 0.5) discard;
+        gl_FragColor.a = 1.0;
+        #endif
+
         #include <fog_fragment>
         `
   );
