@@ -392,9 +392,36 @@ terrainMaterial.onBeforeCompile = (shader) => {
       return mix(mix(terrainHash(i), terrainHash(i + vec2(1.0, 0.0)), f.x),
                  mix(terrainHash(i + vec2(0.0, 1.0)), terrainHash(i + vec2(1.0, 1.0)), f.x), f.y);
     }
-    // Close-range ground mottling, faded out with distance and in the snow and
-    // desert biomes, and clamped by screen-space derivative so distant terrain
-    // stays clean.
+    float terrainFbm2(vec2 p) {
+      float v = terrainNoise(p) * 0.62;
+      p = mat2(0.8, -0.6, 0.6, 0.8) * p * 2.07 + vec2(17.3, 9.1);
+      return v + terrainNoise(p) * 0.38;
+    }
+    float terrainPlaya(vec2 p) {
+      vec2 ip = floor(p);
+      vec2 fp = fract(p);
+      float d1 = 8.0;
+      float d2 = 8.0;
+      for (int j = -1; j <= 1; j++) {
+        for (int i = -1; i <= 1; i++) {
+          vec2 g = vec2(float(i), float(j));
+          vec2 cell = ip + g;
+          vec2 o = vec2(terrainHash(cell), terrainHash(cell + vec2(37.2, 11.7)));
+          vec2 r = g + (0.14 + 0.72 * o) - fp;
+          float d = dot(r, r);
+          if (d < d1) {
+            d2 = d1;
+            d1 = d;
+          } else if (d < d2) {
+            d2 = d;
+          }
+        }
+      }
+      return sqrt(d2) - sqrt(d1);
+    }
+    // Surface detail for temperate ground and desert landforms, faded out with
+    // distance and in the snow biome, and clamped by screen-space derivative so
+    // distant terrain stays clean.
     void terrainSurfaceDetail(inout vec3 c, float snowW) {
       vec2 wp = vWorldPosition.xz;
       vec3 faceN = normalize(cross(dFdx(vWorldPosition), dFdy(vWorldPosition)));
@@ -403,11 +430,11 @@ terrainMaterial.onBeforeCompile = (shader) => {
       float desertSand = smoothstep(0.06, 0.14, c.r - c.g) * smoothstep(0.06, 0.14, c.g - c.b) * smoothstep(0.45, 0.65, c.r);
       float nonDesert = (1.0 - smoothstep(7500.0, 12000.0, wp.y)) * (1.0 - desertSand);
       float green = smoothstep(0.015, 0.08, c.g - max(c.r, c.b));
+      float foot = length(fwidth(wp));
 
-      // Close-range ground mottling (soil, rock & meadow patches)
+      // Close-range temperate ground mottling (soil, rock & meadow patches)
       float groundFade = (1.0 - smoothstep(350.0, 1800.0, vDistanceXZ)) * smoothstep(0.55, 0.80, upY) * nonSnow * nonDesert;
       if (groundFade > 0.005) {
-        float foot = length(fwidth(wp));
         float fineAA = 1.0 - smoothstep(0.8, 3.2, foot);
         float medPatch = terrainNoise(wp * 0.028) * 0.6 + terrainNoise(wp * 0.095 + 5.7) * 0.4 - 0.5;
         float fineGrain = (terrainNoise(wp * 0.32 + 13.4) - 0.5) * fineAA;
@@ -417,6 +444,66 @@ terrainMaterial.onBeforeCompile = (shader) => {
         #endif
         float modAmt = medPatch * 0.13 + fineGrain * 0.10;
         c *= 1.0 + modAmt * groundFade;
+      }
+
+      // Desert detail across landforms & ~3 km regions (excludes snow, green
+      // vegetation, and neutral grey roadbeds)
+      float desertAmt = (1.0 - nonDesert) * nonSnow * (1.0 - green) * smoothstep(0.04, 0.10, c.r - c.b);
+      float desertMidFade = (1.0 - smoothstep(1500.0, 3600.0, vDistanceXZ)) * desertAmt;
+      if (desertMidFade > 0.004) {
+        float gRatio = c.g / max(c.r, 1e-3);
+        float bRatio = c.b / max(c.r, 1e-3);
+        float looseSand = smoothstep(0.30, 0.42, gRatio) * smoothstep(0.58, 0.82, upY);
+        float paleBasin = smoothstep(0.28, 0.36, bRatio) * smoothstep(0.988, 0.998, upY) * smoothstep(40.8, 41.4, vWorldPosition.y);
+        float desertNearFade = (1.0 - smoothstep(220.0, 850.0, vDistanceXZ)) * desertAmt;
+
+        // 1. Regional shift (~3 km scale) between sun-baked mineral scrubland (0)
+        //    and gently wind-drifted sand seas (1)
+        float duneRegion = smoothstep(0.32, 0.68, terrainFbm2(wp * 0.00032 + vec2(5.3, 11.7)));
+
+        float broadAA = 1.0 - smoothstep(8.0, 26.0, foot);
+        float medAA = 1.0 - smoothstep(1.8, 6.0, foot);
+        float mineralBroad = (terrainFbm2(wp * 0.011 + 3.1) - 0.5) * broadAA;
+        float mineralMed = (terrainFbm2(mat2(0.8, -0.6, 0.6, 0.8) * wp * 0.042 + 19.4) - 0.5) * medAA;
+
+        vec2 wd = normalize(vec2(0.86, 0.51));
+        vec2 wpPerp = vec2(-wd.y, wd.x);
+        float warp = (terrainFbm2(wp * 0.0045) - 0.5) * 75.0;
+        float windWash = (terrainFbm2(vec2(dot(wp, wd) * 0.006, (dot(wp, wpPerp) + warp) * 0.024)) - 0.5) * broadAA;
+
+        float sandWash = mix(mineralBroad, windWash, duneRegion * looseSand);
+        vec3 warmCool = mix(vec3(0.92, 0.948, 1.012), vec3(1.08, 1.038, 0.945), smoothstep(-0.27, 0.27, sandWash));
+        float flatShare = mix(0.55, 1.0, smoothstep(0.55, 0.88, upY));
+        c = mix(c, c * warmCool, desertMidFade * flatShare * 0.85);
+        c *= 1.0 + mineralMed * 0.075 * (1.0 - 0.55 * duneRegion * looseSand) * flatShare * desertMidFade;
+
+        // 2. Sedimentary sandstone strata on steeper red-rock canyon & mesa walls
+        float slopeRock = (1.0 - looseSand) * (1.0 - 0.78 * smoothstep(0.78, 0.95, upY));
+        if (slopeRock > 0.01) {
+          float strataAA = 1.0 - smoothstep(2.5, 8.5, length(vec2(dFdx(vWorldPosition.y), dFdy(vWorldPosition.y))));
+          float strataY = vWorldPosition.y * 0.14 + (terrainFbm2(wp * 0.005 + 11.2) - 0.5) * 3.4;
+          float strata = (sin(strataY) * 0.68 + sin(strataY * 2.6 + 1.1) * 0.32) * strataAA;
+          vec3 rockTint = mix(vec3(0.915, 0.94, 0.98), vec3(1.085, 1.045, 0.97), 0.5 + 0.5 * strata);
+          c = mix(c, c * rockTint, slopeRock * desertMidFade * 0.78);
+        }
+
+        // 3. Two-scale hairline mud-cracks strictly on flat pale alkali/playa basins
+        if (paleBasin > 0.01) {
+          float midCellAA = 1.0 - smoothstep(1.3, 4.2, foot);
+          float nearCellAA = 1.0 - smoothstep(0.38, 1.25, foot);
+          vec2 warpWp = wp + (terrainFbm2(wp * 0.03) - 0.5) * 6.5;
+          float midSeam = 1.0 - smoothstep(0.0, 0.085, terrainPlaya(warpWp * 0.075));
+          float nearSeam = 1.0 - smoothstep(0.0, 0.10, terrainPlaya(warpWp * 0.22 + 8.4));
+          float seam = midSeam * 0.06 * midCellAA * desertMidFade + nearSeam * 0.07 * nearCellAA * desertNearFade;
+          c *= 1.0 - seam * paleBasin;
+        }
+
+        // 4. Crisp sub-meter mineral sand micro-grain up close (no corduroy stripes)
+        if (desertNearFade > 0.004) {
+          float fineAA = 1.0 - smoothstep(0.22, 0.72, foot);
+          float sandGrain = (terrainFbm2(wp * 1.45 + 7.7) - 0.5) * fineAA;
+          c *= 1.0 + sandGrain * 0.08 * mix(0.6, 1.0, looseSand) * desertNearFade;
+        }
       }
     }
     void main() {`
