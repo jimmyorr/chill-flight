@@ -173,22 +173,59 @@ if (typeof document !== 'undefined') {
         !document.getElementById('resume-btn')?.hidden,
       dismiss: () => document.getElementById('resume-btn')?.click(),
       mouseGrabberOnly: true,
+      fadeScrimOnDismiss: true,
       timer: null,
     },
   ];
 
-  function resetSheetStyles(entry) {
+  // keepAnimation: leave the sheet's open animation switched off. Turning
+  // `animation` back on (removing .sheet-dragging or the inline 'none') starts
+  // sheet-enter over, which beats the inline transform: on release the sheet
+  // jumped to the bottom and slid back up before closing. So it stays off
+  // until the sheet closes, and the next open plays it again.
+  function resetSheetStyles(entry, keepAnimation = false) {
     if (entry.timer) {
       clearTimeout(entry.timer);
       entry.timer = null;
     }
     const sheet = entry.getSheet();
     if (!sheet) return;
+    if (keepAnimation && sheet.classList.contains('sheet-dragging')) {
+      sheet.style.animation = 'none';
+    }
     if (sheet.classList.contains('sheet-dragging')) {
       sheet.classList.remove('sheet-dragging');
     }
     if (sheet.style.transform) sheet.style.transform = '';
     if (sheet.style.transition) sheet.style.transition = '';
+    if (!keepAnimation && sheet.style.animation) sheet.style.animation = '';
+    clearScrimFade(entry);
+  }
+
+  // Pause: the dim and blur fade out as the sheet slides away, rather than
+  // vanishing when it closes. (Not the sheets over Pause: under them it's
+  // Pause that comes back, not the open view.)
+  function fadeScrim(entry, durationMs) {
+    if (!entry.fadeScrimOnDismiss) return;
+    const container = entry.getContainer();
+    if (!container) return;
+    const ease = `${durationMs}ms cubic-bezier(0.32, 0.72, 0, 1)`;
+    container.style.transition = `background-color ${ease}, backdrop-filter ${ease}, -webkit-backdrop-filter ${ease}`;
+    container.style.backgroundColor = 'transparent';
+    container.style.backdropFilter = 'blur(0px)';
+    container.style.webkitBackdropFilter = 'blur(0px)';
+    entry.scrimFaded = true;
+  }
+
+  function clearScrimFade(entry) {
+    if (!entry.scrimFaded) return;
+    entry.scrimFaded = false;
+    const container = entry.getContainer();
+    if (!container) return;
+    container.style.transition = '';
+    container.style.backgroundColor = '';
+    container.style.backdropFilter = '';
+    container.style.webkitBackdropFilter = '';
   }
 
   function resolveActiveSheetForTarget(target) {
@@ -219,7 +256,7 @@ if (typeof document !== 'undefined') {
     const match = resolveActiveSheetForTarget(target);
     if (!match) return;
     const {entry, sheet} = match;
-    resetSheetStyles(entry);
+    resetSheetStyles(entry, true);
 
     const fromGrabber = Boolean(
       target instanceof Element && target.closest('.sheet-grabber')
@@ -311,6 +348,7 @@ if (typeof document !== 'undefined') {
 
     suppressClickUntil = performance.now() + 320;
     const {entry, sheet, offsetY, samples} = g;
+    sheet.style.animation = 'none';
     sheet.classList.remove('sheet-dragging');
 
     let vy = 0;
@@ -342,20 +380,24 @@ if (typeof document !== 'undefined') {
       );
       sheet.style.transition = `transform ${durationMs}ms cubic-bezier(0.32, 0.72, 0, 1)`;
       sheet.style.transform = `translate3d(0, ${Math.round(rectH + 48)}px, 0)`;
+      fadeScrim(entry, durationMs);
       entry.timer = setTimeout(() => {
-        resetSheetStyles(entry);
+        entry.timer = null;
+        // Close first, then clear the offset, so the sheet never shows back
+        // in place for a frame
         entry.dismiss();
+        resetSheetStyles(entry, entry.isOpen(entry.getContainer(), sheet));
       }, durationMs + 16);
     } else {
       hooks.onSheetSnap?.();
       if (prefersReducedMotion() || Math.abs(offsetY) < 0.5) {
-        resetSheetStyles(entry);
+        resetSheetStyles(entry, true);
         return;
       }
       sheet.style.transition = 'transform 260ms cubic-bezier(0.32, 0.72, 0, 1)';
       sheet.style.transform = 'translate3d(0, 0px, 0)';
       entry.timer = setTimeout(() => {
-        resetSheetStyles(entry);
+        resetSheetStyles(entry, true);
       }, 275);
     }
   }
