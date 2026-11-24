@@ -24,6 +24,7 @@ import {
   sweptHit,
   sweptWallHit,
   toppleSpin,
+  wingSweptHit,
 } from '../breakables-logic.js';
 
 console.log('Testing breakable props...');
@@ -356,6 +357,53 @@ check(
       1.18,
       3.45
     )
+);
+
+// --- A wing against a streetlight ---
+// Pole at the origin, 25 up; its arm reaches 17 out along +x at y 24. The
+// plane flies north (-z) past it at height 15, wings level along x.
+const pole = [
+  {x: 0, y: 0, z: 0},
+  {x: 0, y: 25, z: 0},
+];
+const arm = [
+  {x: 0, y: 24, z: 0},
+  {x: 17, y: 24, z: 0},
+];
+const level = {x: 1, y: 0, z: 0};
+const reach = 0.8 + BREAK.WING_THICK;
+const past = (x, y) => [
+  {x, y, z: 20},
+  {x, y, z: -20},
+];
+check(
+  'a wingtip 10 units off the pole knocks it, though the ball misses',
+  wingSweptHit(...past(10, 15), level, 14.5, ...pole, reach) &&
+    !sweptHit(...past(10, 15), BREAK.PLANE_RADIUS, 0, 0, 0.44, 0, 25)
+);
+check(
+  'a wingtip 17 units off the pole misses it',
+  !wingSweptHit(...past(17, 15), level, 14.5, ...pole, reach)
+);
+check(
+  'banked 90°, the wing points down and misses a pole 10 units off',
+  !wingSweptHit(...past(10, 15), {x: 0, y: 1, z: 0}, 14.5, ...pole, reach)
+);
+check(
+  'flying down the road under the arm misses it, through it hits',
+  !wingSweptHit(...past(8, 18), level, 14.5, ...arm, 0.5 + BREAK.WING_THICK) &&
+    wingSweptHit(...past(8, 24), level, 14.5, ...arm, 0.5 + BREAK.WING_THICK)
+);
+check(
+  'a fast frame (300 units) still catches the pole',
+  wingSweptHit(
+    {x: 12, y: 15, z: 150},
+    {x: 12, y: 15, z: -150},
+    level,
+    14.5,
+    ...pole,
+    reach
+  )
 );
 
 // --- Speed lost ---

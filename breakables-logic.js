@@ -8,6 +8,9 @@ export const BREAK = {
   // How far around its centre the plane and buggy reach
   PLANE_RADIUS: 6,
   BUGGY_RADIUS: 3,
+  // A wing's half thickness (units): how near a wingtip has to pass a thin
+  // prop (a streetlight's pole or its arm over the road) to knock it over
+  WING_THICK: 1.2,
   // How much of a prop's widest extent counts as solid: a tree's canopy
   // edge is let through, a house's walls aren't
   TREE_REACH: 0.55,
@@ -103,6 +106,83 @@ export function closestOnSegment(ax, az, bx, bz, px, pz, out = {}) {
 }
 
 const _closest = {t: 0, distSq: 0};
+
+// Squared distance between segments p0-p1 and q0-q1 ({x, y, z}, 3D)
+export function segmentDistSq(p0, p1, q0, q1) {
+  const d1x = p1.x - p0.x;
+  const d1y = p1.y - p0.y;
+  const d1z = p1.z - p0.z;
+  const d2x = q1.x - q0.x;
+  const d2y = q1.y - q0.y;
+  const d2z = q1.z - q0.z;
+  const rx = p0.x - q0.x;
+  const ry = p0.y - q0.y;
+  const rz = p0.z - q0.z;
+  const a = d1x * d1x + d1y * d1y + d1z * d1z;
+  const e = d2x * d2x + d2y * d2y + d2z * d2z;
+  const f = d2x * rx + d2y * ry + d2z * rz;
+  const clamp = (v) => Math.min(1, Math.max(0, v));
+  let s = 0;
+  let t = 0;
+  if (a <= 1e-9 && e <= 1e-9) {
+    s = 0;
+    t = 0;
+  } else if (a <= 1e-9) {
+    t = clamp(f / e);
+  } else {
+    const c = d1x * rx + d1y * ry + d1z * rz;
+    if (e <= 1e-9) {
+      s = clamp(-c / a);
+    } else {
+      const b = d1x * d2x + d1y * d2y + d1z * d2z;
+      const denom = a * e - b * b;
+      s = denom > 1e-9 ? clamp((b * f - c * e) / denom) : 0;
+      t = (b * s + f) / e;
+      if (t < 0) {
+        t = 0;
+        s = clamp(-c / a);
+      } else if (t > 1) {
+        t = 1;
+        s = clamp((b - c) / a);
+      }
+    }
+  }
+  const x = rx + d1x * s - d2x * t;
+  const y = ry + d1y * s - d2y * t;
+  const z = rz + d1z * s - d2z * t;
+  return x * x + y * y + z * z;
+}
+
+const _wl = {x: 0, y: 0, z: 0};
+const _wr = {x: 0, y: 0, z: 0};
+
+// Whether a plane's wing, from tip to tip (halfSpan either side of its
+// centre along the unit vector `right`, which leans with its roll), moving
+// from a to b, comes within `reach` of the segment q0-q1 (a thin prop: a
+// pole, or an arm reaching out over the road). The wing is checked every
+// couple of units along the way, so a fast frame can't skip past it.
+export function wingSweptHit(a, b, right, halfSpan, q0, q1, reach) {
+  const step = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
+  const n = Math.min(32, Math.max(1, Math.ceil(step / 2)));
+  const hx = right.x * halfSpan;
+  const hy = right.y * halfSpan;
+  const hz = right.z * halfSpan;
+  const reachSq = reach * reach;
+  for (let k = 0; k <= n; k++) {
+    const t = k / n;
+    const x = a.x + (b.x - a.x) * t;
+    const y = a.y + (b.y - a.y) * t;
+    const z = a.z + (b.z - a.z) * t;
+    _wl.x = x - hx;
+    _wl.y = y - hy;
+    _wl.z = z - hz;
+    _wr.x = x + hx;
+    _wr.y = y + hy;
+    _wr.z = z + hz;
+    if (segmentDistSq(_wl, _wr, q0, q1) <= reachSq) return true;
+  }
+  return false;
+}
 
 // Whether something of radius r moving from a to b ({x, y, z}) touches a
 // prop: an upright cylinder at (x, z) of `radius`, from `base` up to `top`

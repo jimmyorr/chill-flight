@@ -71,6 +71,7 @@ import {startRush} from './crystal-rush.js';
 import {forEachPeerVehicle} from './multiplayer.js';
 import {
   BREAK,
+  closestOnSegment,
   restAngle,
   shouldScareSheep,
   speedKept,
@@ -81,6 +82,7 @@ import {
   stepTopple,
   sweptHit,
   sweptWallHit,
+  wingSweptHit,
 } from './breakables-logic.js';
 
 // Spatial grid cell for looking up a chunk's props (units)
@@ -1568,6 +1570,74 @@ function countPieces() {
 const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
 
+// --- WINGS AND STREETLIGHTS ---
+// The plane counts as a ball of PLANE_RADIUS, which is fine for trees and
+// houses but lets a wing (halfSpan ~14 units) slice through a streetlight's
+// thin pole, or its arm out over the road, untouched. So for streetlights
+// the local plane's whole wing is checked, tip to tip, leaning with its roll.
+// The lamp's pole (base to top) and its arm with the bulb, in its own
+// model's space (terrain-geometry.js streetlight*Geo)
+const LAMP_POLE = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 25, 0)];
+const LAMP_ARM = [
+  new THREE.Vector3(-0.5, 24, 0),
+  new THREE.Vector3(17.75, 23.8, 0),
+];
+const LAMP_POLE_RADIUS = 0.8;
+const LAMP_ARM_RADIUS = 0.5;
+// Furthest a lamp's arm reaches from its pole (units)
+const LAMP_ARM_REACH = 18;
+const _closest2 = {t: 0, distSq: 0};
+const _wing = {right: new THREE.Vector3(), halfSpan: 0, drop: 0};
+const _lampM = new THREE.Matrix4();
+const _q0 = new THREE.Vector3();
+const _q1 = new THREE.Vector3();
+
+// The local plane's wing for this frame, or null (the buggy, or no model)
+function planeWing() {
+  const model = state.airplaneModel;
+  if (!model?.halfSpan) return null;
+  model.updateWorldMatrix(true, false);
+  _wing.right.setFromMatrixColumn(model.matrixWorld, 0).normalize();
+  _wing.halfSpan = model.halfSpan;
+  // How far below the centre a wingtip can reach, banked over
+  _wing.drop = model.halfSpan * Math.abs(_wing.right.y);
+  return _wing;
+}
+
+// Whether the wing, moving from a to b, touches streetlight i's pole or arm
+function wingHitsLamp(group, index, i, a, b, wing) {
+  // Cheap check first: nowhere near the pole and its arm
+  closestOnSegment(a.x, a.z, b.x, b.z, index.cx[i], index.cz[i], _closest2);
+  const near = wing.halfSpan + LAMP_ARM_REACH + BREAK.WING_THICK;
+  if (_closest2.distSq > near * near) return false;
+  const parts = propParts(group, i);
+  if (parts[0]?.type !== 'streetlightPole') return false;
+  const segs = [
+    [parts[0], LAMP_POLE, LAMP_POLE_RADIUS],
+    [parts[1], LAMP_ARM, LAMP_ARM_RADIUS],
+  ];
+  for (const [part, [p0, p1], radius] of segs) {
+    if (!part) continue;
+    _lampM.fromArray(copyMatrix(part));
+    _q0.copy(p0).applyMatrix4(_lampM);
+    _q1.copy(p1).applyMatrix4(_lampM);
+    if (
+      wingSweptHit(
+        a,
+        b,
+        wing.right,
+        wing.halfSpan,
+        _q0,
+        _q1,
+        radius + BREAK.WING_THICK
+      )
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 const _near = [];
 
 // --- BOATS ---
@@ -1692,6 +1762,7 @@ function sweepBoats(a, b, r, ux, uz, mine, buggy) {
 
 // Checks the props a vehicle (radius r) touched moving from a to b
 function sweep(a, b, r, mine, buggy) {
+  const wing = mine && !buggy ? planeWing() : null;
   const dx = b.x - a.x;
   const dz = b.z - a.z;
   const step = Math.hypot(dx, dz);
@@ -1700,7 +1771,7 @@ function sweep(a, b, r, mine, buggy) {
   const kts = mine
     ? BASE_FLIGHT_SPEED * Math.abs(state.flightSpeedMultiplier) * 60
     : step / dt; // 1 unit/s is about 1 knot
-  const minY = Math.min(a.y, b.y) - r;
+  const minY = Math.min(a.y, b.y) - Math.max(r, wing ? wing.drop : 0);
   // Well above the ground, nothing to hit (and no chunk to index)
   if (minY - getElevation(b.x, b.z) > HIGH_ABOVE_GROUND) return;
   const ux = dx / step;
@@ -1802,7 +1873,8 @@ function sweep(a, b, r, mine, buggy) {
               index.radius[i],
               index.base[i],
               index.top[i]
-            )
+            ) ||
+            (wing && !critter && wingHitsLamp(group, index, i, a, b, wing))
           ) {
             if (critter) {
               scatter(group, index, i, b.x, b.z, ux, uz);
