@@ -38,7 +38,7 @@ import {
 } from './post-short.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const OUT = path.join(ROOT, 'promo');
+const OUT = path.join(ROOT, 'promo', 'shorts');
 const CACHE_DIR = path.join(OUT, 'music-cache');
 const BUNDLED_MUSIC = path.join(
   ROOT,

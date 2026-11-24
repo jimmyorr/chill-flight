@@ -11,7 +11,7 @@ description: >-
 
 # Creating daily shorts and match-cut clips
 
-Use [scripts/shorts.js](../../../scripts/shorts.js) to render vertical `1080x1920` (30 fps) short-form videos and their companion `.txt` metadata sidecars (with ready-to-paste YouTube Shorts and TikTok titles, descriptions, timestamps, and music credits) into `promo/`.
+Use [scripts/shorts.js](../../../scripts/shorts.js) to render vertical `1080x1920` (30 fps) short-form videos and their companion `.txt` metadata sidecars (with ready-to-paste YouTube Shorts and TikTok titles, descriptions, timestamps, and music credits) into `promo/shorts/`.
 
 ## Variety and rotation rules
 
@@ -164,7 +164,7 @@ Ensure the local Vite dev server is listening on `http://localhost:5173/` (do no
 node scripts/shorts.js <short-id> --preview
 ```
 
-Inspect `promo/preview-<outBaseName>.jpg` with `read_file`, refine framing/timing until all landmarks, wingmen, and wingtips sit cleanly inside the `9:16` frame, delete `promo/preview-*.jpg`, and render the full `1080x1920` video:
+Inspect `promo/shorts/preview-<outBaseName>.jpg` with `read_file`, refine framing/timing until all landmarks, wingmen, and wingtips sit cleanly inside the `9:16` frame, delete `promo/shorts/preview-*.jpg`, and render the full `1080x1920` video:
 
 ```bash
 node scripts/shorts.js <short-id>
@@ -177,11 +177,11 @@ Confirm music track slugs against `RAW_TRACKS` in [music-logic.js](../../../musi
 Extract a 12-frame `1 fps` contact strip and an 8-frame cut-boundary strip (`frames 0, 89, 90, 179, 180, 269, 270, 359`), inspect both images and the `.txt` sidecar with `read_file`, and delete the temporary `.jpg` strips afterward:
 
 ```bash
-ffmpeg -y -loglevel error -i promo/<outBaseName>.mp4 \
-  -vf "fps=1,scale=270:480,tile=6x2" -frames:v 1 -update 1 -q:v 3 promo/strip-verify-12.jpg
-ffmpeg -y -loglevel error -i promo/<outBaseName>.mp4 \
+ffmpeg -y -loglevel error -i promo/shorts/<outBaseName>.mp4 \
+  -vf "fps=1,scale=270:480,tile=6x2" -frames:v 1 -update 1 -q:v 3 promo/shorts/strip-verify-12.jpg
+ffmpeg -y -loglevel error -i promo/shorts/<outBaseName>.mp4 \
   -vf "select='eq(n\,0)+eq(n\,89)+eq(n\,90)+eq(n\,179)+eq(n\,180)+eq(n\,269)+eq(n\,270)+eq(n\,359)',scale=270:480,tile=4x2" \
-  -fps_mode passthrough -frames:v 1 -update 1 -q:v 3 promo/strip-verify-cuts.jpg
+  -fps_mode passthrough -frames:v 1 -update 1 -q:v 3 promo/shorts/strip-verify-cuts.jpg
 ```
 
 ### Step 4: Metadata hooks & publishing to YouTube Shorts
@@ -189,7 +189,7 @@ ffmpeg -y -loglevel error -i promo/<outBaseName>.mp4 \
 Use [scripts/post-short.js](../../../scripts/post-short.js) to upload, verify the exact read-back YouTube Title, attach the **Related video** link, confirm any `"Publish anyway"` dialog, publish to YouTube Shorts, and automatically post and pin the first comment:
 
 ```bash
-node scripts/post-short.js promo/<outBaseName>.mp4
+node scripts/post-short.js promo/shorts/<outBaseName>.mp4
 ```
 
 - **Short, punchy YouTube titles (`<= 48` chars, no URL suffix)**: Mobile YouTube Shorts truncates titles around ~`45-50` characters in the feed, and `chillflight.app` is already baked into `#short-postcard-badge` on-screen. `writeShortMetadata` does **not** append `(Play free: chillflight.app)` to `Title:`; keep `meta.title` crisp (`<= 48` chars) so the hook never cuts off mid-word.

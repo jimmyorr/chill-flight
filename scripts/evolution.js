@@ -8,9 +8,9 @@
 //   node scripts/evolution.js clips [shot ...] [--force] individual 1920x1080 clips
 //                                                        in promo/evolution/clip-*.mp4
 //   node scripts/evolution.js thumb [--variant=name]     1920x1080 YouTube thumbnail
-//                                                        in promo/chill-flight-evolution-thumb.jpg
+//                                                        in promo/evolution/chill-flight-evolution-thumb.jpg
 //   node scripts/evolution.js stitch                     cards + xfade/cut edit + music
-//                                                        into promo/chill-flight-evolution.mp4
+//                                                        into promo/evolution/chill-flight-evolution.mp4
 //   node scripts/evolution.js video [shot ...] [--force] clips, stitch, and thumb
 
 import {execFileSync, execSync} from 'node:child_process';
@@ -1085,7 +1085,7 @@ async function runStitch(browser) {
   const fadeOutStart = Math.max(0, cumDuration - 1.8).toFixed(3);
   filter += `[${parts.length}:a]atrim=0:${cumDuration.toFixed(3)},afade=t=in:st=0:d=1.0,afade=t=out:st=${fadeOutStart}:d=1.8[a]`;
 
-  const outMp4 = path.join(PROMO_DIR, 'chill-flight-evolution.mp4');
+  const outMp4 = path.join(EVO_DIR, 'chill-flight-evolution.mp4');
   console.log(
     `Stitching ${parts.length} parts (${cumDuration.toFixed(2)}s) ...`
   );
@@ -1171,7 +1171,7 @@ async function runThumb(browser) {
   const htmlPath = path.join(tempRoot, `thumb-${THUMB_VARIANT}.html`);
   const outJpg = outArg
     ? path.resolve(outArg)
-    : path.join(PROMO_DIR, 'chill-flight-evolution-thumb.jpg');
+    : path.join(EVO_DIR, 'chill-flight-evolution-thumb.jpg');
 
   await captureThumbPlate(browser, preset.left, leftPng);
   await captureThumbPlate(browser, preset.right, rightPng);

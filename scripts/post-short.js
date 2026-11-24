@@ -3,7 +3,7 @@
 //
 // Usage:
 //   node scripts/post-short.js --login
-//   node scripts/post-short.js promo/short-20261109-match-cut.mp4 [options]
+//   node scripts/post-short.js promo/shorts/short-20261109-match-cut.mp4 [options]
 //
 // Options:
 //   --login                        Open Chrome to sign into YouTube & TikTok once

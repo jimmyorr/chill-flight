@@ -4,10 +4,8 @@
 // can be re-rendered after visual changes.
 //
 // Usage:
-//   node scripts/promo.js sheet [shot ...]           small renders and a
-//                                                    contact sheet, for scouting
 //   node scripts/promo.js stills [shot ...]          each shot for each still
-//                                                    target (STILLS=iphone,web)
+//                                                    target (STILLS=iphone,ipad)
 //   node scripts/promo.js video <target> [shot ...]  the clips, then the edited
 //                                                    video (e.g. iphone-preview)
 //   node scripts/promo.js urls [shot ...]            a link to each shot on the
@@ -16,10 +14,10 @@
 //                                                    thumbnail and App Store
 //                                                    header and search results
 //                                                    asset (ARTWORK)
-//   node scripts/promo.js view                       rewrites promo/index.html,
-//                                                    a page for browsing the
-//                                                    stills (stills does too),
-//                                                    and opens it
+//   node scripts/promo.js strip <target> [shot ...]  timestamped filmstrip
+//                                                    contact sheet for scouting
+//                                                    stillTime and framing
+//                                                    (STEP=0.4)
 //
 // Each mode is also an npm script: npm run promo:stills [-- shot ...]
 //
@@ -27,10 +25,10 @@
 // a production build written to a temp dir (never docs/); GAME_URL (e.g.
 // http://localhost:5173/) uses the dev server instead. Output goes to promo/
 // (OUT=dir). STYLE=anime renders in the anime art style, into promo/anime/
-// (the default, lowpoly, is the low-poly look). Options (env): SHEET (a target for the contact sheet, shrunk;
-// default web), SETTLE_MS (extra wait after the game loads, before a still or
-// a clip; default 1000), FPS (30), MUSIC (an audio file for the video; default the
-// bundled Purrple Cat track, `none` for silence). Needs ffmpeg.
+// (the default, lowpoly, is the low-poly look). Options (env): SETTLE_MS (extra
+// wait after the game loads, before a still or a clip; default 1000), FPS (30),
+// MUSIC (an audio file for the video; default the bundled Purrple Cat track,
+// `none` for silence). Needs ffmpeg.
 //
 // Every shot runs on a virtual clock: the page's requestAnimationFrame,
 // performance.now and Date.now are replaced and the script steps the frames.
@@ -51,19 +49,25 @@ const {version: VERSION} = JSON.parse(
   fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')
 );
 const USAGE =
-  'Usage: node scripts/promo.js sheet|stills|urls|view [shot ...]\n' +
+  'Usage: node scripts/promo.js stills|urls [shot ...]\n' +
   '       node scripts/promo.js artwork [name ...]\n' +
-  '       node scripts/promo.js video <target> [shot ...]';
+  '       node scripts/promo.js video <target> [shot ...]\n' +
+  '       node scripts/promo.js strip <target> [shot ...]';
 const [mode, ...args] = process.argv.slice(2);
-if (!['sheet', 'stills', 'artwork', 'video', 'urls', 'view'].includes(mode)) {
+if (!['stills', 'artwork', 'video', 'urls', 'strip'].includes(mode)) {
   console.error(USAGE);
   process.exit(1);
 }
-const videoTargetName = mode === 'video' ? args.shift() : null;
+const videoTargetName =
+  mode === 'video' || mode === 'strip' ? args.shift() : null;
 const videoTarget = videoTargetName && TARGETS[videoTargetName];
 if (mode === 'video' && !videoTarget?.video) {
   const videoTargets = Object.keys(TARGETS).filter((t) => TARGETS[t].video);
   console.error(`${USAGE}\nVideo targets: ${videoTargets.join(', ')}`);
+  process.exit(1);
+}
+if (mode === 'strip' && !videoTarget) {
+  console.error(`${USAGE}\nTargets: ${Object.keys(TARGETS).join(', ')}`);
   process.exit(1);
 }
 // STYLE=anime renders everything in the anime art style, into promo/anime/
@@ -93,12 +97,16 @@ for (const name of selected) {
 }
 
 // A shot's URL for a target: the shared defaults, the shot's parameters, then
-// its portrait ones on a portrait target (e.g. another camera position)
-function shotUrl(shot, target, gameBase) {
+// its portrait/landscape ones and any per-target override (e.g. `iphone`)
+function shotUrl(shot, target, gameBase, targetName) {
   const params = new URLSearchParams(COMMON);
   params.set('style', STYLE);
   const portrait = target.height > target.width;
-  const queries = [shot.query, portrait ? shot.portrait : shot.landscape];
+  const queries = [
+    shot.query,
+    portrait ? shot.portrait : shot.landscape,
+    targetName ? shot[targetName] : null,
+  ];
   for (const query of queries) {
     // A whole copied link works too: only its parameters count
     const search = (query || '').replace(/^[^?]*\?/, '');
@@ -113,7 +121,7 @@ if (mode === 'urls') {
   const devBase = process.env.GAME_URL || 'http://localhost:5173/';
   for (const name of selected) {
     for (const [targetName, target] of [
-      ['landscape', TARGETS.web],
+      ['landscape', TARGETS.trailer],
       ['portrait', TARGETS.iphone],
     ]) {
       const shot = SHOTS[name];
@@ -131,134 +139,10 @@ if (mode === 'urls') {
 
 fs.mkdirSync(OUT, {recursive: true});
 
-// A page for browsing the stills in OUT, by device or by shot
-function writeViewer() {
-  const devices = Object.keys(TARGETS).filter((t) => !TARGETS[t].video);
-  const stills = [];
-  for (const shot of Object.keys(SHOTS)) {
-    for (const device of devices) {
-      const file = `${shot}-${device}.jpg`;
-      if (fs.existsSync(path.join(OUT, file)))
-        stills.push({shot, device, file});
-    }
-  }
-  const sizes = Object.fromEntries(
-    devices.map((d) => {
-      const t = TARGETS[d];
-      const scale = t.scale || 1;
-      return [
-        d,
-        `${Math.round(t.width * scale)}x${Math.round(t.height * scale)}`,
-      ];
-    })
-  );
-  const data = JSON.stringify({stills, devices, sizes});
-  const file = path.join(OUT, 'index.html');
-  fs.writeFileSync(
-    file,
-    `<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Chill Flight promo stills</title>
-<style>
-  :root { color-scheme: dark; --bg: #0f0f1a; --panel: #1a1a2e; --text: #e8e8f0;
-    --muted: #8a8aa0; --accent: #ffd34d; }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text);
-    font: 14px/1.4 -apple-system, system-ui, sans-serif; }
-  header { position: sticky; top: 0; z-index: 1; background: var(--panel);
-    padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 8px 16px;
-    align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.4); }
-  h1 { margin: 0; font-size: 16px; font-weight: 600; }
-  .group { display: flex; flex-wrap: wrap; gap: 6px; }
-  button { font: inherit; color: var(--text); background: #2a2a44;
-    border: 1px solid #3a3a5a; border-radius: 999px; padding: 4px 12px;
-    cursor: pointer; }
-  button[aria-pressed="true"] { background: var(--accent); color: #111;
-    border-color: var(--accent); }
-  .divider { width: 1px; align-self: stretch; background: #3a3a5a; }
-  main { padding: 16px; display: flex; flex-wrap: wrap; gap: 16px;
-    align-items: flex-start; }
-  figure { margin: 0; }
-  figure a { display: block; }
-  figure img { display: block; width: auto; height: auto; max-height: var(--h);
-    max-width: calc(100vw - 32px); border-radius: 6px; background: #000; }
-  figcaption { color: var(--muted); padding-top: 4px; }
-  .empty { color: var(--muted); }
-</style></head>
-<body>
-<header>
-  <h1>Promo stills</h1>
-  <div class="group" id="modes"></div>
-  <div class="divider"></div>
-  <div class="group" id="picks"></div>
-</header>
-<main id="grid"></main>
-<script>
-const {stills, devices, sizes} = ${data};
-const shots = [...new Set(stills.map((s) => s.shot))];
-const state = {mode: 'device', pick: devices[0]};
-try {
-  const [mode, pick] = decodeURIComponent(location.hash.slice(1)).split('/');
-  if (mode === 'device' || mode === 'shot') Object.assign(state, {mode, pick});
-} catch {}
-function button(label, pressed, onClick) {
-  const b = document.createElement('button');
-  b.textContent = label;
-  b.setAttribute('aria-pressed', pressed);
-  b.onclick = onClick;
-  return b;
-}
-function render() {
-  const options = state.mode === 'device' ? devices : shots;
-  if (!options.includes(state.pick)) state.pick = options[0];
-  history.replaceState(null, '', '#' + state.mode + '/' + state.pick);
-  const modes = document.getElementById('modes');
-  modes.replaceChildren(
-    button('By device', state.mode === 'device', () => { state.mode = 'device'; render(); }),
-    button('By shot', state.mode === 'shot', () => { state.mode = 'shot'; render(); })
-  );
-  document.getElementById('picks').replaceChildren(
-    ...options.map((o) => button(o, o === state.pick, () => { state.pick = o; render(); }))
-  );
-  const grid = document.getElementById('grid');
-  const shown = stills.filter((s) => s[state.mode] === state.pick);
-  // Portrait devices get taller tiles; in one shot's row every device gets the same height
-  const height = (d) => state.mode === 'shot' ? '360px'
-    : ['iphone', 'ipad'].includes(d) ? '520px' : '300px';
-  grid.replaceChildren(...shown.map((s) => {
-    const fig = document.createElement('figure');
-    fig.style.setProperty('--h', height(s.device));
-    const a = document.createElement('a');
-    a.href = s.file;
-    a.target = '_blank';
-    const img = document.createElement('img');
-    img.src = s.file;
-    img.alt = s.shot + ' on ' + s.device;
-    img.loading = 'lazy';
-    a.append(img);
-    const cap = document.createElement('figcaption');
-    cap.textContent = (state.mode === 'device' ? s.shot : s.device) + ' · ' + sizes[s.device];
-    fig.append(a, cap);
-    return fig;
-  }));
-  if (!shown.length) {
-    grid.innerHTML = '<p class="empty">No stills yet. Run node scripts/promo.js stills.</p>';
-  }
-}
-render();
-</script>
-</body></html>
-`
-  );
-  return file;
-}
-
-if (mode === 'view') {
-  const page = writeViewer();
-  console.log(page);
-  if (process.platform === 'darwin') execFileSync('open', [page]);
-  process.exit(0);
+const STILL_SHOTS = Object.keys(SHOTS).filter((s) => SHOTS[s].still !== false);
+function stillFile(shot, device) {
+  const num = String(STILL_SHOTS.indexOf(shot) + 1).padStart(2, '0');
+  return `${device}-${num}-${shot}.jpg`;
 }
 
 requireGpu(`promo.js ${mode}`);
@@ -318,7 +202,7 @@ function shotScriptDetail(shot) {
 // Opens a shot in a fresh profile (saved settings like Zen or the livery don't
 // carry over), emulating a phone or tablet for mobile targets so the game uses
 // its touch layout, and waits for the scene to settle.
-async function openShot(browser, shot, target) {
+async function openShot(browser, shot, target, targetName) {
   const context = await browser.createBrowserContext();
   const page = await context.newPage();
   page.errors = [];
@@ -350,7 +234,7 @@ async function openShot(browser, shot, target) {
   });
   const loadShrink = Math.min(1, 480 / Math.max(target.width, target.height));
   await page.setViewport(viewport(loadShrink));
-  await page.goto(shotUrl(shot, target, base), {
+  await page.goto(shotUrl(shot, target, base, targetName), {
     waitUntil: 'load',
     timeout: 120000,
   });
@@ -406,10 +290,12 @@ async function openShot(browser, shot, target) {
     await step(page, 1000 / FPS);
   }
   const detail = shotScriptDetail(shot);
-  if (mode !== 'video' && detail && shot.stillTime) {
-    await page.evaluate((d) => {
-      window.dispatchEvent(new CustomEvent('promo-script', {detail: d}));
-    }, detail);
+  if (mode !== 'video' && mode !== 'strip' && shot.stillTime) {
+    if (detail) {
+      await page.evaluate((d) => {
+        window.dispatchEvent(new CustomEvent('promo-script', {detail: d}));
+      }, detail);
+    }
     for (let i = 0; i < Math.round(shot.stillTime * FPS); i++) {
       await step(page, 1000 / FPS);
     }
@@ -521,62 +407,9 @@ const H264 = ['-c:v', 'libx264', '-crf', '18', '-pix_fmt', 'yuv420p'];
 
 const browser = await launch();
 try {
-  if (mode === 'sheet') {
-    // The sheet target, shrunk to about 640 px across its longer side
-    const full = TARGETS[process.env.SHEET || 'web'];
-    const shrink = 640 / Math.max(full.width, full.height);
-    const target = {
-      ...full,
-      width: Math.round(full.width * shrink),
-      height: Math.round(full.height * shrink),
-      scale: 1,
-    };
-    const files = [];
-    for (const name of selected) {
-      const page = await openShot(browser, SHOTS[name], target);
-      const file = path.join(OUT, `sheet-${name}.jpg`);
-      // Labelled here rather than by ffmpeg, whose drawtext filter isn't in
-      // Homebrew's ffmpeg
-      await page.evaluate((text) => {
-        const label = document.createElement('div');
-        label.textContent = text;
-        label.style.cssText =
-          'position:fixed;left:8px;bottom:8px;z-index:2147483647;' +
-          'padding:2px 6px;font:500 14px Inter,sans-serif;color:#fff;' +
-          'background:rgba(0,0,0,0.5);' +
-          // Over ui=0's hiding of everything but the canvas
-          'visibility:visible !important';
-        document.body.append(label);
-      }, name);
-      await page.screenshot({path: file, type: 'jpeg', quality: 85});
-      reportErrors(name, page);
-      await page.close();
-      files.push(file);
-      console.log(file);
-    }
-    // Tiles two across for landscape and four for portrait
-    const cols = Math.min(target.height > target.width ? 4 : 2, files.length);
-    const layout = files
-      .map(
-        (_, i) =>
-          `${(i % cols) * target.width}_${Math.floor(i / cols) * target.height}`
-      )
-      .join('|');
-    const sheet = path.join(OUT, 'sheet.jpg');
-    ffmpeg([
-      ...files.flatMap((f) => ['-i', f]),
-      ...(files.length > 1
-        ? [
-            '-filter_complex',
-            `xstack=inputs=${files.length}:layout=${layout}:fill=black`,
-          ]
-        : []),
-      ...['-frames:v', '1', sheet],
-    ]);
-    console.log(sheet);
-  }
-
   if (mode === 'artwork') {
+    const artDir = path.join(OUT, 'artwork');
+    fs.mkdirSync(artDir, {recursive: true});
     for (const name of selected) {
       const art = ARTWORK[name];
       const base = SHOTS[art.shot];
@@ -585,7 +418,7 @@ try {
         : base;
       const page = await openShot(browser, shot, art);
       if (art.logo) await addLogo(page);
-      const file = path.join(OUT, `${name}.${art.png ? 'png' : 'jpg'}`);
+      const file = path.join(artDir, `${name}.${art.png ? 'png' : 'jpg'}`);
       if (art.png) {
         // Browser PNGs carry an alpha channel; the App Store wants plain RGB
         const rgba = file.replace(/\.png$/, '-rgba.png');
@@ -611,19 +444,111 @@ try {
     for (const name of selected) {
       if (SHOTS[name].still === false) continue;
       for (const targetName of stillTargets) {
-        const page = await openShot(browser, SHOTS[name], TARGETS[targetName]);
-        const file = path.join(OUT, `${name}-${targetName}.jpg`);
+        const page = await openShot(
+          browser,
+          SHOTS[name],
+          TARGETS[targetName],
+          targetName
+        );
+        const file = path.join(OUT, stillFile(name, targetName));
         await page.screenshot({path: file, type: 'jpeg', quality: 92});
         reportErrors(name, page);
         await page.close();
         console.log(file);
       }
     }
-    console.log(writeViewer());
+  }
+
+  if (mode === 'strip') {
+    const stepSec = Number(process.env.STEP || 0.4);
+    const stripDir = path.join(OUT, 'strips');
+    fs.mkdirSync(stripDir, {recursive: true});
+    // Render at native CSS dimensions with scale=1 so HUD and aspect ratio match
+    // the real target, then shrink each tile with ffmpeg when assembling the grid.
+    const stripTarget = {...videoTarget, scale: 1};
+    const portrait = stripTarget.height > stripTarget.width;
+    const tileW = portrait ? 280 : 420;
+    const tileH = Math.round((tileW * stripTarget.height) / stripTarget.width);
+    const cols = portrait ? 5 : 4;
+    for (const name of selected) {
+      const shot = SHOTS[name];
+      const dur = shot.seconds || 4;
+      const frameDir = path.join(stripDir, `frames-${videoTargetName}-${name}`);
+      fs.rmSync(frameDir, {recursive: true, force: true});
+      fs.mkdirSync(frameDir, {recursive: true});
+      const page = await openShot(browser, shot, stripTarget, videoTargetName);
+      const detail = shotScriptDetail(shot);
+      if (detail) {
+        await page.evaluate((d) => {
+          window.dispatchEvent(new CustomEvent('promo-script', {detail: d}));
+        }, detail);
+      }
+      // Small timestamp badge in the top-left corner of each tile
+      await page.evaluate(() => {
+        const badge = document.createElement('div');
+        badge.id = '__promo-strip-badge';
+        badge.style.cssText =
+          'position:fixed;left:2vw;top:2vw;z-index:2147483647;' +
+          'padding:1.2vw 2.2vw;border-radius:1vw;background:rgba(0,0,0,0.78);' +
+          'color:#ffd34d;font:700 5vw/1 monospace;visibility:visible !important';
+        document.body.append(badge);
+      });
+      const totalFrames = Math.round(dur * FPS);
+      const stepFrames = Math.max(1, Math.round(stepSec * FPS));
+      const tiles = [];
+      for (let i = 0; i <= totalFrames; i++) {
+        if (i > 0) await step(page, 1000 / FPS);
+        if (i % stepFrames === 0 || i === totalFrames) {
+          const tSec = i / FPS;
+          await page.evaluate(
+            (label) => {
+              document.getElementById('__promo-strip-badge').textContent =
+                label;
+            },
+            `t=${tSec.toFixed(2)}`
+          );
+          const tile = path.join(
+            frameDir,
+            `${String(tiles.length).padStart(3, '0')}.jpg`
+          );
+          await page.screenshot({path: tile, type: 'jpeg', quality: 85});
+          tiles.push(tile);
+        }
+      }
+      reportErrors(name, page);
+      await page.close();
+      const layout = tiles
+        .map((_, i) => `${(i % cols) * tileW}_${Math.floor(i / cols) * tileH}`)
+        .join('|');
+      const scaled = tiles
+        .map((_, i) => `[${i}:v]scale=${tileW}:${tileH}[v${i}]`)
+        .join(';');
+      const inputs = tiles.map((_, i) => `[v${i}]`).join('');
+      const out = path.join(stripDir, `${videoTargetName}-${name}.jpg`);
+      ffmpeg([
+        ...tiles.flatMap((f) => ['-i', f]),
+        ...(tiles.length > 1
+          ? [
+              '-filter_complex',
+              `${scaled};${inputs}xstack=inputs=${tiles.length}:layout=${layout}:fill=black`,
+            ]
+          : ['-vf', `scale=${tileW}:${tileH}`]),
+        ...['-frames:v', '1', out],
+      ]);
+      fs.rmSync(frameDir, {recursive: true, force: true});
+      console.log(out);
+    }
   }
 
   if (mode === 'video') {
     const target = videoTarget;
+    const allShots = (target.shots || Object.keys(SHOTS)).filter(
+      (name) => SHOTS[name]?.seconds
+    );
+    const clipFile = (name) => {
+      const num = String(allShots.indexOf(name) + 1).padStart(2, '0');
+      return path.join(OUT, `${videoTargetName}-clip-${num}-${name}.mp4`);
+    };
     const pixelW = Math.round(target.width * (target.scale || 1));
     const pixelH = Math.round(target.height * (target.scale || 1));
     const clips = [];
@@ -649,7 +574,7 @@ try {
       const frameDir = path.join(OUT, `frames-${name}`);
       fs.rmSync(frameDir, {recursive: true, force: true});
       fs.mkdirSync(frameDir, {recursive: true});
-      const page = await openShot(browser, shot, target);
+      const page = await openShot(browser, shot, target, videoTargetName);
       // Filming starts now: a shot's moves (scripted banks and pull ups),
       // driveMoves, or replay run from this frame on the virtual clock
       const detail = shotScriptDetail(shot);
@@ -672,7 +597,7 @@ try {
       }
       reportErrors(name, page);
       await page.close();
-      const mp4 = path.join(OUT, `${videoTargetName}-clip-${name}.mp4`);
+      const mp4 = clipFile(name);
       ffmpeg([
         ...['-framerate', String(FPS), '-i', path.join(frameDir, '%05d.jpg')],
         ...['-vf', `scale=${pixelW}:${pixelH}`, ...H264, mp4],
@@ -680,11 +605,8 @@ try {
       fs.rmSync(frameDir, {recursive: true, force: true});
       console.log(mp4);
     }
-    const allShots = (target.shots || Object.keys(SHOTS)).filter(
-      (name) => SHOTS[name]?.seconds
-    );
     for (const name of allShots) {
-      const mp4 = path.join(OUT, `${videoTargetName}-clip-${name}.mp4`);
+      const mp4 = clipFile(name);
       if (fs.existsSync(mp4)) {
         clips.push({mp4, seconds: SHOTS[name].seconds});
       }
@@ -724,7 +646,7 @@ try {
     if (withMusic) {
       filter += `[${parts.length}:a]atrim=0:${total.toFixed(3)},afade=t=in:d=1,afade=t=out:st=${(total - 2).toFixed(3)}:d=2[a];`;
     }
-    const video = path.join(OUT, `chill-flight-${videoTargetName}.mp4`);
+    const video = path.join(OUT, `${videoTargetName}-full-chill-flight.mp4`);
     ffmpeg([
       ...parts.flatMap((p) => ['-i', p.mp4]),
       ...(withMusic ? ['-i', MUSIC] : []),
