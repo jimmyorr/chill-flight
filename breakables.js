@@ -492,6 +492,8 @@ function chunkIndex(group) {
     radius: new Float32Array(n),
     base: new Float32Array(n),
     top: new Float32Array(n),
+    // Whether the plane's whole wing can knock it over (wingHitsProp)
+    wing: new Uint8Array(n),
     broken: ud.breakBroken || new Set(),
     cells: new Map(),
     maxTop: -Infinity,
@@ -549,6 +551,7 @@ function chunkIndex(group) {
     index.radius[i] = radius;
     index.base[i] = base;
     index.top[i] = top;
+    index.wing[i] = wingCanHit(parts, kind, radius, top - base) ? 1 : 0;
     index.maxTop = Math.max(index.maxTop, top);
     const gx0 = Math.floor((cx - radius) / CELL);
     const gx1 = Math.floor((cx + radius) / CELL);
@@ -1570,11 +1573,14 @@ function countPieces() {
 const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
 
-// --- WINGS AND STREETLIGHTS ---
-// The plane counts as a ball of PLANE_RADIUS, which is fine for trees and
-// houses but lets a wing (halfSpan ~14 units) slice through a streetlight's
-// thin pole, or its arm out over the road, untouched. So for streetlights
-// the local plane's whole wing is checked, tip to tip, leaning with its roll.
+// --- WINGS AND THIN PROPS ---
+// The plane counts as a ball of PLANE_RADIUS, which is fine for houses and
+// leafy trees but lets a wing (halfSpan ~14 units) slice through a
+// streetlight's pole, a silo, a dead trunk or a bridge pier untouched. So for
+// thin props the local plane's whole wing is checked, tip to tip, leaning
+// with its roll, against the prop's upright axis. A leafy tree's canopy
+// still only sheds leaves when a wing brushes it (skimTree), and houses
+// keep the ball. A streetlight also counts its arm out over the road.
 // The lamp's pole (base to top) and its arm with the bulb, in its own
 // model's space (terrain-geometry.js streetlight*Geo)
 const LAMP_POLE = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 25, 0)];
@@ -1586,11 +1592,30 @@ const LAMP_POLE_RADIUS = 0.8;
 const LAMP_ARM_RADIUS = 0.5;
 // Furthest a lamp's arm reaches from its pole (units)
 const LAMP_ARM_REACH = 18;
+// A building counts as thin when it's at least this many times taller than
+// it is wide (a bridge pier's shaft)
+const THIN_BUILDING = 4;
 const _closest2 = {t: 0, distSq: 0};
 const _wing = {right: new THREE.Vector3(), halfSpan: 0, drop: 0};
 const _lampM = new THREE.Matrix4();
 const _q0 = new THREE.Vector3();
 const _q1 = new THREE.Vector3();
+
+// Whether a prop (its parts, kind, hit radius and height) is thin enough
+// for the wing check
+function wingCanHit(parts, kind, radius, height) {
+  // Critters only scatter, and a dry-stone wall has its own hit test
+  if (kind === BREAKABLE.CRITTER || /^stoneWall/.test(parts[0].type)) {
+    return false;
+  }
+  if (kind === BREAKABLE.HOUSE) return height >= radius * 2 * THIN_BUILDING;
+  if (kind !== BREAKABLE.TREE) return true;
+  if (!TREE_PART.test(parts[0].type) && !SWAMP_CANOPY[parts[0].type]) {
+    return true;
+  }
+  const canopy = canopyOf(parts);
+  return !canopy || NO_LEAVES.test(canopy);
+}
 
 // The local plane's wing for this frame, or null (the buggy, or no model)
 function planeWing() {
@@ -1604,14 +1629,31 @@ function planeWing() {
   return _wing;
 }
 
-// Whether the wing, moving from a to b, touches streetlight i's pole or arm
-function wingHitsLamp(group, index, i, a, b, wing) {
-  // Cheap check first: nowhere near the pole and its arm
+// Whether the wing, moving from a to b, touches thin prop i (a streetlight's
+// pole or arm, or anything else's upright axis)
+function wingHitsProp(group, index, i, a, b, wing) {
+  if (!index.wing[i]) return false;
+  // Cheap check first: nowhere near it (or a lamp's arm)
   closestOnSegment(a.x, a.z, b.x, b.z, index.cx[i], index.cz[i], _closest2);
-  const near = wing.halfSpan + LAMP_ARM_REACH + BREAK.WING_THICK;
+  const near =
+    wing.halfSpan + index.radius[i] + LAMP_ARM_REACH + BREAK.WING_THICK;
   if (_closest2.distSq > near * near) return false;
   const parts = propParts(group, i);
-  if (parts[0]?.type !== 'streetlightPole') return false;
+  if (parts[0]?.type !== 'streetlightPole') {
+    const far = wing.halfSpan + index.radius[i] + BREAK.WING_THICK;
+    if (_closest2.distSq > far * far) return false;
+    _q0.set(index.cx[i], index.base[i], index.cz[i]);
+    _q1.set(index.cx[i], index.top[i], index.cz[i]);
+    return wingSweptHit(
+      a,
+      b,
+      wing.right,
+      wing.halfSpan,
+      _q0,
+      _q1,
+      index.radius[i] + BREAK.WING_THICK
+    );
+  }
   const segs = [
     [parts[0], LAMP_POLE, LAMP_POLE_RADIUS],
     [parts[1], LAMP_ARM, LAMP_ARM_RADIUS],
@@ -1874,7 +1916,7 @@ function sweep(a, b, r, mine, buggy) {
               index.base[i],
               index.top[i]
             ) ||
-            (wing && !critter && wingHitsLamp(group, index, i, a, b, wing))
+            (wing && wingHitsProp(group, index, i, a, b, wing))
           ) {
             if (critter) {
               scatter(group, index, i, b.x, b.z, ux, uz);
