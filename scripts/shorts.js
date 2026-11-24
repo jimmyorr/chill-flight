@@ -13,6 +13,7 @@
 //  11. short-20261116-twin-cut.mp4   - 12s purple twin-prop roll across volcano, pyramids, arctic arch & alien pillars (seed 20261116)
 //  12. short-20261117-orbit-cut.mp4  - 12s staggered 2-jet 360-degree orbit & wormhole warp across 4 biomes (seed 20261117)
 //  13. short-20261118-wingtip-cut.mp4 - 12s sage biplane wingtip-boom GoPro inverted arch & canyon cut (seed 20261118)
+//  14. short-20261123-dolly-cut.mp4  - 12s rose seaplane bayou water-wake skim, gorge roll & volcano dolly-zoom (seed 20261123)
 //
 // Usage:
 //   node scripts/shorts.js [short-id | meta | check] [--preview] [--check]
@@ -2500,6 +2501,110 @@ async function renderWingtipInvertedCutShort(browser, seed = 20261118) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Prototype 14: Bayou Water-Wake Skim + Vertigo Dolly-Zoom Match-Cut (Seed 20261123)
+// ---------------------------------------------------------------------------
+async function renderDollySkimCutShort(browser, seed = 20261123) {
+  const speedMult = 1.2;
+  await renderMatchCutClip(browser, {
+    id: 'dolly-cut',
+    banner: `Bayou Water-Skim & Vertigo Dolly-Zoom Cut (Seed ${seed}: Rose Seaplane)`,
+    seed,
+    speedMult,
+    direct: true,
+    camFrame: 'yaw-lock',
+    cam:
+      `plane=seaplane&livery=rose&smoke=1&speed=${speedMult}` +
+      '&camOffset=14,4.2,50&camLook=-5,6,-75&fov=66',
+    camMoves: [
+      [0.0, 14, 4.2, 50, -5, 6, -75, 66],
+      [1.8, 13, 3.8, 50, -5, 7, -78, 66],
+      [3.0, 12, -3, 56, -3, 8, -82, 64],
+      [4.6, 12, 2, 58, -3, 5, -82, 62],
+      [6.0, 24, 28, 110, -6, -18, -78, 36],
+      [8.7, 22, 26, 106, -5, -16, -78, 37],
+      [9.3, 16, 5, 56, -5, 4, -78, 58],
+      [11.3, 14, 4.2, 50, -5, 6, -75, 66],
+      [12.0, 14, 4.2, 50, -5, 6, -75, 66],
+    ],
+    moves: [
+      [0.0, 0, 0, 0],
+      [1.75, 0, 0, 0],
+      [2.5, -16, 12, -3],
+      [3.0, -34, 13, -6],
+      [4.4, -225, 2, -9],
+      [5.5, -360, 1, -12],
+      [6.3, -334, -2, -14],
+      [7.7, -378, 2, -14],
+      [9.0, -348, -2, -14],
+      [10.3, -366, -1, -14],
+      [11.4, -360, 0, -14],
+      [12.0, -360, 0, -14],
+    ],
+    segments: [
+      {
+        label: 'Giant Swamp Oak · 1.8°S, 2.0°W',
+        x: -9268,
+        y: 44,
+        z: 9846,
+        heading: 30,
+        preroll: 2.3,
+        surface: true,
+        extra: 'tod=0.305&weather=none&cloudMood=fair',
+        startFrame: 0,
+        endFrame: 90,
+      },
+      {
+        label: 'Mountain Gorge Bridge · 0.6°S, 9.3°W',
+        tx: -46229,
+        ty: 410,
+        tz: 3129,
+        heading: 53,
+        hitFrame: 136,
+        extra: 'tod=0.49&weather=none&cloudMood=fair',
+        startFrame: 90,
+        endFrame: 180,
+      },
+      {
+        label: 'Volcano Caldera · 1.0°S, 1.0°W',
+        tx: -5120,
+        ty: 2070,
+        tz: 4520,
+        heading: 166,
+        hitFrame: 235,
+        extra: 'tod=0.69&weather=none&cloudMood=mackerel',
+        startFrame: 180,
+        endFrame: 270,
+      },
+      {
+        label: 'Alien Basalt Arch · 4.1°S, 15.3°E',
+        tx: 76666,
+        ty: 265,
+        tz: 20251,
+        heading: 133,
+        hitFrame: 332,
+        extra: 'tod=0.77&headlight=1&weather=none&cloudMood=high',
+        startFrame: 270,
+        endFrame: 360,
+      },
+    ],
+    outBaseName: `short-${seed}-dolly-cut`,
+    trackSlug: 'purrple-cat-moving-landscapes',
+    musicStart: 18,
+    meta: {
+      title: 'Bayou water skim to volcano dolly-zoom ✈️',
+      tiktokQuestion: 'Bayou oak, gorge bridge, volcano, or alien arch?',
+      stops: [
+        '0:00 Giant Swamp Oak (1.8°S, 2.0°W)',
+        '0:03 Mountain Gorge Bridge (0.6°S, 9.3°W)',
+        '0:06 Volcano Caldera (1.0°S, 1.0°W)',
+        '0:09 Alien Basalt Arch (4.1°S, 15.3°E)',
+      ],
+      trackTitle: 'Moving Landscapes',
+    },
+  });
+}
+
 async function main() {
   const cliArgs = process.argv.slice(2).filter((a) => !a.startsWith('--'));
   const isCheck = CHECK_ONLY || cliArgs[0] === 'check';
@@ -2651,6 +2756,17 @@ async function main() {
       ],
       trackTitle: 'Upside Down',
     });
+    writeShortMetadata(path.join(OUT, 'short-20261123-dolly-cut.mp4'), {
+      title: 'Bayou water skim to volcano dolly-zoom ✈️',
+      tiktokQuestion: 'Bayou oak, gorge bridge, volcano, or alien arch?',
+      stops: [
+        '0:00 Giant Swamp Oak (1.8°S, 2.0°W)',
+        '0:03 Mountain Gorge Bridge (0.6°S, 9.3°W)',
+        '0:06 Volcano Caldera (1.0°S, 1.0°W)',
+        '0:09 Alien Basalt Arch (4.1°S, 15.3°E)',
+      ],
+      trackTitle: 'Moving Landscapes',
+    });
     return;
   }
   const browser = isCheck
@@ -2697,6 +2813,9 @@ async function main() {
     }
     if (!filter || filter === 'wingtip-cut') {
       await renderWingtipInvertedCutShort(browser, 20261118);
+    }
+    if (!filter || filter === 'dolly-cut') {
+      await renderDollySkimCutShort(browser, 20261123);
     }
     if (!filter || filter === 'daily-postcard') {
       await renderDailyPostcardShort(browser, 20261108);
