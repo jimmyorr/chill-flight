@@ -194,6 +194,9 @@ export default {
   'Invert y axis': 'Invertir eje Y',
   'Push up to dive, like a flight stick':
     'Empuja hacia arriba para bajar, como una palanca de vuelo',
+  'Bank camera': 'Cámara inclinada',
+  'Horizon tilts with the plane in turns and rolls':
+    'El horizonte se inclina con el avión en giros y toneles',
   Haptics: 'Vibración',
   'Feel landings, gear, stalls and thunder':
     'Siente aterrizajes, tren, pérdidas y truenos',

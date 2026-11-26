@@ -192,6 +192,9 @@ export default {
   'Invert y axis': 'Інвертувати вісь Y',
   'Push up to dive, like a flight stick':
     'Від себе для зниження, як зі штурвалом',
+  'Bank camera': 'Нахил камери',
+  'Horizon tilts with the plane in turns and rolls':
+    'Горизонт нахиляється разом з літаком у віражах і бочках',
   Haptics: 'Вібрація',
   'Feel landings, gear, stalls and thunder':
     'Відчувай посадки, шасі, звалювання та грім',

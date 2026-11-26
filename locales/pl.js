@@ -190,6 +190,9 @@ export default {
   'Invert y axis': 'Odwróć oś Y',
   'Push up to dive, like a flight stick':
     'Popchnij w górę, aby nurkować, jak wolantem',
+  'Bank camera': 'Przechylana kamera',
+  'Horizon tilts with the plane in turns and rolls':
+    'Horyzont przechyla się z samolotem w zakrętach i beczkach',
   Haptics: 'Wibracje',
   'Feel landings, gear, stalls and thunder':
     'Poczuj lądowania, podwozie, przeciągnięcia i grzmoty',
