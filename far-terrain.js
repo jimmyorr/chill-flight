@@ -25,6 +25,7 @@ import {
   WATER_LEVEL,
   terrainUniforms,
   CLOUD_SHADOW_GLSL,
+  GROUND_FOG_GLSL,
   addAtmosphereUniforms,
   withCloudShade,
 } from './constants.js';
@@ -111,6 +112,7 @@ farMaterial.onBeforeCompile = (shader) => {
     FAR_SEA_GLSL +
     FOG_SKY_FRAGMENT_GLSL +
     CLOUD_SHADOW_GLSL +
+    GROUND_FOG_GLSL +
     shader.fragmentShader;
   shader.fragmentShader = shader.fragmentShader.replace(
     '#include <lights_fragment_begin>',
@@ -138,6 +140,9 @@ farMaterial.onBeforeCompile = (shader) => {
        // Aerial perspective: distant ranges read as soft, hazy layers. Starts
        // from none at the draw distance, to match the near terrain there.
        float haze = 0.8 * smoothstep(uRenderRadius, uFarRadius, vDistanceXZ);
+       gl_FragColor.rgb = mix(gl_FragColor.rgb,
+         groundFogColor(fogSkyColor, cameraPosition, vFarWorldPos),
+         groundFogAlong(cameraPosition, vFarWorldPos));
        gl_FragColor.rgb = mix(gl_FragColor.rgb, fogSkyColor, max(max(fogFactor, haze), edgeFade));
      #endif`
   );

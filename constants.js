@@ -621,9 +621,9 @@ vec4 cloudsAlong(vec3 p, vec3 dir, float cloudHeight, float density, float time,
 }
 `;
 
-// Cloud shadows. Every lit surface (terrain, water, the far
+// Cloud shadows and valley mist. Every lit surface (terrain, water, the far
 // terrain ring, and props through createMaterial) reads these; cloud-shadow.js
-// sets them each frame.
+// and game-loop.js set them each frame.
 export const atmosphereUniforms = {
   // The cumulus cover over a square of the cloud deck around the camera
   // (cloud-shadow.js), 0 clear to 1 solid cloud
@@ -635,6 +635,8 @@ export const atmosphereUniforms = {
   uCloudShadow: {value: 0},
   // The cumulus deck's height
   uShadowDeck: {value: 3000},
+  // How much low mist lies in the valleys, 0 to 1 (morning and after rain)
+  uGroundFog: {value: 0},
 };
 export function addAtmosphereUniforms(shader) {
   Object.assign(shader.uniforms, atmosphereUniforms);
@@ -677,6 +679,39 @@ export function withCloudShade(
     )
   );
 }
+
+// GLSL: low mist lying in the valleys and on the water, thick at the water
+// line and thinning with height (exponential height fog, integrated along
+// the view ray), so ridges and peaks stand clear of it. groundFogAlong(cam,
+// p) is how much of the view from cam to p it hides; groundFogColor is its
+// lit colour (whiter than the haze, warm toward a low sun). Needs
+// uSunDirection.
+export const GROUND_FOG_GLSL = `
+uniform float uGroundFog;
+float groundFogAlong(vec3 cam, vec3 p) {
+  if (uGroundFog <= 0.0) return 0.0;
+  const float DENSITY = 0.005;
+  const float HEIGHT = 120.0;
+  float y0 = max(cam.y - ${WATER_LEVEL.toFixed(1)}, 0.0);
+  float y1 = max(p.y - ${WATER_LEVEL.toFixed(1)}, 0.0);
+  float dy = y1 - y0;
+  float e0 = exp(-y0 / HEIGHT);
+  float e1 = exp(-y1 / HEIGHT);
+  // The mist's mean thickness along the ray
+  float mean = abs(dy) > 0.5 ? (e0 - e1) * HEIGHT / dy : 0.5 * (e0 + e1);
+  // Thicker and thinner banks
+  float banks = 0.7 + 0.3 * sin(p.x * 0.0011 + p.z * 0.0007) * sin(p.z * 0.0013 - p.x * 0.0005);
+  return 1.0 - exp(-uGroundFog * DENSITY * banks * length(p - cam) * mean);
+}
+vec3 groundFogColor(vec3 fogColor, vec3 cam, vec3 p) {
+  vec3 v = normalize(p - cam);
+  float toSun = pow(max(dot(v, uSunDirection), 0.0), 4.0);
+  float lowSun = 1.0 - smoothstep(0.1, 0.4, uSunDirection.y);
+  float day = smoothstep(-0.05, 0.1, uSunDirection.y);
+  vec3 lit = mix(vec3(0.92, 0.94, 0.98), vec3(1.0, 0.86, 0.68), toSun * lowSun);
+  return mix(fogColor, lit * mix(0.35, 1.0, day), 0.45 * day);
+}
+`;
 
 export const terrainUniforms = {
   uCameraPosXZ: {value: new THREE.Vector2(0, 0)},
@@ -780,6 +815,7 @@ export function createMaterial(params) {
     ` +
       SKY_COLOR_GLSL +
       CLOUD_SHADOW_GLSL +
+      GROUND_FOG_GLSL +
       shader.fragmentShader;
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <lights_fragment_begin>',
@@ -855,6 +891,9 @@ export function createMaterial(params) {
              if (thin > 0.0 && fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) < thin) discard;
          }
          
+         gl_FragColor.rgb = mix(gl_FragColor.rgb,
+           groundFogColor(fogSkyColor, cameraPosition, vWorldPosition),
+           groundFogAlong(cameraPosition, vWorldPosition));
          gl_FragColor.rgb = mix(gl_FragColor.rgb, fogSkyColor, finalFogFactor);
        #endif`
     );

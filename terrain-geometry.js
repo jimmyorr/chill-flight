@@ -76,6 +76,7 @@ import {
   createMaterial,
   terrainUniforms,
   CLOUD_SHADOW_GLSL,
+  GROUND_FOG_GLSL,
   addAtmosphereUniforms,
   withCloudShade,
 } from './constants.js';
@@ -343,6 +344,7 @@ terrainMaterial.onBeforeCompile = (shader) => {
     SKY_COLOR_GLSL +
     FOG_SKY_FRAGMENT_GLSL +
     CLOUD_SHADOW_GLSL +
+    GROUND_FOG_GLSL +
     shader.fragmentShader;
 
   // The sea floor under shallow see-through water shows the sun's shadows
@@ -579,6 +581,10 @@ terrainMaterial.onBeforeCompile = (shader) => {
        float xzFogFactor = smoothstep(0.9, 0.99, distRatio) * uNearEdgeFade;
        
        float finalFogFactor = max(fogFactor, xzFogFactor);
+
+       gl_FragColor.rgb = mix(gl_FragColor.rgb,
+         groundFogColor(fogSkyColor, cameraPosition, vWorldPosition),
+         groundFogAlong(cameraPosition, vWorldPosition));
        gl_FragColor.rgb = mix(gl_FragColor.rgb, fogSkyColor, finalFogFactor);
      #endif
     `
@@ -750,6 +756,7 @@ waterMaterial.onBeforeCompile = function (shader) {
     FOG_SKY_FRAGMENT_GLSL +
     CLOUD_GLSL +
     CLOUD_SHADOW_GLSL +
+    GROUND_FOG_GLSL +
     `
         // Glints: finer, faster ripples that break the sun's path into
         // bright sparkles near the camera
@@ -1085,6 +1092,10 @@ waterMaterial.onBeforeCompile = function (shader) {
        float xzFogFactor = smoothstep(0.9, 0.99, distRatio) * uNearEdgeFade;
        
        float finalFogFactor = max(fogFactor, xzFogFactor);
+
+       gl_FragColor.rgb = mix(gl_FragColor.rgb,
+         groundFogColor(fogSkyColor, cameraPosition, vWorldPosition),
+         groundFogAlong(cameraPosition, vWorldPosition));
        gl_FragColor.rgb = mix(gl_FragColor.rgb, fogSkyColor, finalFogFactor);
      #endif
     `

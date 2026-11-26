@@ -102,6 +102,7 @@ import {
   MACH_1_KTS,
   TURN_SPEED,
   WATER_LEVEL,
+  atmosphereUniforms,
   displaySpeed,
   getCachedElement,
   moonlightUniforms,
@@ -219,6 +220,8 @@ const CLOUD_EASE_SECONDS = 12;
 let _debugVirtualClockNow;
 // Lingering mist after rain or snow, 0..1 (drives fog density).
 let fogAfterRain = 0;
+// Low valley mist (morning, after rain); off with ?mist=0
+const MIST_ENABLED = ChillFlightLogic.urlParams?.get('mist') !== '0';
 let benchmarkComplete;
 let benchmarkStartTime;
 let benchmarkFrameTimes;
@@ -2642,6 +2645,23 @@ function updateEnvironmentLighting(delta, now) {
     afterRain: fogAfterRain,
     clearDensity: baseFogDensity,
   });
+  // Low mist in the valleys (GROUND_FOG_GLSL), with the morning fog and
+  // while the air is still wet after rain
+  const targetMist = MIST_ENABLED
+    ? Math.max(
+        ChillFlightLogic.morningFogFactor(
+          (state.timeOfDay / (Math.PI * 2)) * 24
+        ),
+        fogAfterRain * 0.8
+      )
+    : 0;
+  atmosphereUniforms.uGroundFog.value = state.snapEnvironment
+    ? targetMist
+    : THREE.MathUtils.lerp(
+        atmosphereUniforms.uGroundFog.value,
+        targetMist,
+        1 - Math.pow(1 - 0.01, delta * 60)
+      );
   // Low-lying bayou mist when flying or driving low over the swamp
   const swampMist =
     ChillFlightLogic.swampFactorAt(

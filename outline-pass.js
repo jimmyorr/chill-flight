@@ -19,7 +19,11 @@ import * as THREE from 'three';
 import {FXAAShader} from 'three/addons/shaders/FXAAShader.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {ART_POST, ART_STYLE} from './art-style.js';
-import {terrainUniforms} from './constants.js';
+import {
+  GROUND_FOG_GLSL,
+  atmosphereUniforms,
+  terrainUniforms,
+} from './constants.js';
 import {renderer} from './sky.js';
 import {state} from './state.js';
 
@@ -63,6 +67,11 @@ const outlineMaterial = new THREE.ShaderMaterial({
     uHaze: {value: haze},
     uHorizonColor: terrainUniforms.uBottomColor,
     uSunDirection: terrainUniforms.uSunDirection,
+    // For the valley mist, which the ink fades into like the surfaces
+    uGroundFog: atmosphereUniforms.uGroundFog,
+    uCamPos: {value: new THREE.Vector3()},
+    uCamWorld: {value: new THREE.Matrix4()},
+    uInvProj: {value: new THREE.Matrix4()},
   },
   defines: {
     // How far toward the horizon's color distant land fades (aerial
@@ -78,7 +87,12 @@ const outlineMaterial = new THREE.ShaderMaterial({
       gl_Position = vec4(position.xy, 0.0, 1.0);
     }
   `,
-  fragmentShader: /* glsl */ `
+  fragmentShader:
+    /* glsl */ `
+    uniform vec3 uSunDirection;
+    ` +
+    GROUND_FOG_GLSL +
+    /* glsl */ `
     uniform sampler2D tColor;
     uniform sampler2D tDepth;
     uniform vec2 uTexel;
@@ -91,7 +105,9 @@ const outlineMaterial = new THREE.ShaderMaterial({
     uniform bool uKuwahara;
     uniform bool uHaze;
     uniform vec3 uHorizonColor;
-    uniform vec3 uSunDirection;
+    uniform vec3 uCamPos;
+    uniform mat4 uCamWorld;
+    uniform mat4 uInvProj;
     varying vec2 vUv;
 
     // Kuwahara: the mean of whichever of the four quadrants around the pixel
@@ -234,6 +250,15 @@ const outlineMaterial = new THREE.ShaderMaterial({
         ink = mix(ink, landInk, landEdge);
         edge = max(edge, landEdge);
       }
+      // Lines fade into the valley mist too
+      if (uGroundFog > 0.0) {
+        vec4 ray = uInvProj * vec4(uv * 2.0 - 1.0, 1.0, 1.0);
+        vec3 viewRay = ray.xyz / ray.w;
+        viewRay /= -viewRay.z;
+        vec3 wp = (uCamWorld * vec4(viewRay * dist, 1.0)).xyz;
+        float mist = groundFogAlong(uCamPos, wp);
+        edge *= (1.0 - mist) * (1.0 - mist);
+      }
       edge *= 1.0 - 0.75 * blurAmt;
       color = mix(color, ink, edge);
       }
@@ -334,6 +359,9 @@ export function renderFrame(scene, camera) {
   u.uFogDensity.value = scene.fog ? scene.fog.density || 0 : 0;
   u.uNear.value = camera.near;
   u.uFar.value = camera.far;
+  camera.getWorldPosition(u.uCamPos.value);
+  u.uCamWorld.value.copy(camera.matrixWorld);
+  u.uInvProj.value.copy(camera.projectionMatrixInverse);
   // Mid too, intentionally (see inkTarget above)
   const fxaa = fxaaParam ? fxaaParam !== '0' : state.graphicsPreset !== 'low';
   if (!fxaa) {
