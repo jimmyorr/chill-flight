@@ -78,6 +78,7 @@ import {
   CLOUD_SHADOW_GLSL,
   GROUND_FOG_GLSL,
   addAtmosphereUniforms,
+  atmosphereUniforms,
   withCloudShade,
 } from './constants.js';
 import {scene} from './scene.js';
@@ -564,6 +565,39 @@ terrainMaterial.onBeforeCompile = (shader) => {
       }`
     );
   }
+
+  // Light rippling on the sea floor under the shallows (?caustics=0 off)
+  if (ChillFlightLogic.urlParams?.get('caustics') === '0') {
+    atmosphereUniforms.uCaustics.value = 0;
+  }
+  shader.uniforms.uFxTime = animationUniforms.uTime;
+  shader.fragmentShader = shader.fragmentShader
+    .replace(
+      'void main() {',
+      'uniform float uFxTime;\nuniform float uCaustics;\nvoid main() {'
+    )
+    .replace(
+      '#include <lights_fragment_end>',
+      `#include <lights_fragment_end>
+      {
+        // Caustics: sunlight rippling over the sea floor in the shallows,
+        // two drifting noise layers bright where they cross (?caustics=0 off)
+        if (uCaustics > 0.0) {
+          float fxDist = length(cameraPosition - vWorldPosition);
+          float fxSun = smoothstep(0.0, 0.12, uSunDirection.y) * cloudShadowAt(vWorldPosition);
+          float depth = ${WATER_LEVEL.toFixed(1)} - vWorldPosition.y;
+          float shallow = smoothstep(0.1, 1.2, depth) * (1.0 - smoothstep(6.0, 14.0, depth));
+          if (shallow > 0.0) {
+            vec2 p = vWorldPosition.xz / 9.0;
+            float t = uFxTime * 0.35;
+            float n1 = terrainNoise(p + vec2(t, 0.6 * t));
+            float n2 = terrainNoise(p * 1.37 + vec2(-0.7 * t, 0.9 * t) + 4.1);
+            float caus = smoothstep(0.09, 0.0, abs(n1 - n2));
+            totalEmissiveRadiance += vec3(0.75, 1.0, 0.95) * caus * shallow * fxSun * uCaustics * 0.45 * (1.0 - smoothstep(700.0, 2000.0, fxDist));
+          }
+        }
+      }`
+    );
 
   shader.fragmentShader = shader.fragmentShader.replace(
     `#include <fog_fragment>`,

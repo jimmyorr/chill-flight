@@ -643,6 +643,8 @@ export const atmosphereUniforms = {
   // How much of that mist is the east alien land's haze, 0 to 1: grey-teal,
   // deeper (it climbs the basalt spires) and faintly glowing at night
   uGroundFogAlien: {value: 0},
+  // Light rippling on the shallow sea floor, 0 to 1 (?caustics=0 off)
+  uCaustics: {value: 1},
 };
 export function addAtmosphereUniforms(shader) {
   Object.assign(shader.uniforms, atmosphereUniforms);
