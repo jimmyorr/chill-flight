@@ -103,21 +103,6 @@ export function fitToBounds(shape, geo) {
   return shape;
 }
 
-export const farCanopy = (geo) =>
-  fitToBounds(new THREE.IcosahedronGeometry(1, 0), geo); // 20 triangles
-
-export const farTrunk = (geo) => {
-  geo.computeBoundingBox();
-  const h = geo.boundingBox.max.y * 0.75;
-  const shape = new THREE.CylinderGeometry(0.9, 1.4, h, 6, 1, true); // 12 triangles
-  shape.translate(0, h * 0.5, 0);
-  if (geo.attributes.color) {
-    const [r, g, b] = geometryAverageColor(geo);
-    fillVertexColor(shape, r, g, b);
-  }
-  return shape;
-};
-
 const sharedShadow = (targetType, shape, geo) => {
   const proxy = fitToBounds(shape, geo);
   const box = geo.boundingBox;
@@ -135,6 +120,30 @@ const sharedShadow = (targetType, shape, geo) => {
   return proxy;
 };
 
+export const farCanopy = (geo) =>
+  sharedShadow('shadowCanopy', new THREE.IcosahedronGeometry(1, 0), geo); // 20 triangles
+
+export const farTrunk = (geo) => {
+  geo.computeBoundingBox();
+  const h = geo.boundingBox.max.y * 0.75;
+  const shape = new THREE.CylinderGeometry(0.9, 1.4, h, 6, 1, true); // 12 triangles
+  shape.translate(0, h * 0.5, 0);
+  if (geo.attributes.color) {
+    const [r, g, b] = geometryAverageColor(geo);
+    fillVertexColor(shape, r, g, b);
+  }
+  shape._shadowShare = {
+    targetType: 'shadowTrunk',
+    sx: 1,
+    sy: h,
+    sz: 1,
+    tx: 0,
+    ty: 0,
+    tz: 0,
+  };
+  return shape;
+};
+
 export const shadowBox = (geo) =>
   sharedShadow('shadowBox', new THREE.BoxGeometry(2, 2, 2), geo); // 12 triangles
 
@@ -150,18 +159,26 @@ export const shadowCylinder = (geo) =>
 export const shadowCone = (geo) =>
   sharedShadow('shadowCone', new THREE.ConeGeometry(1, 2, 8, 1, false), geo);
 
-// A gable roof: a box whose top edges meet along the longer side (8 triangles)
-export const shadowGable = (geo) => {
-  geo.computeBoundingBox();
-  const size = geo.boundingBox.getSize(new THREE.Vector3());
+export function gableUnitGeo(across) {
   const shape = new THREE.BoxGeometry(2, 2, 2);
   const pos = shape.attributes.position;
-  const across = size.x < size.z ? 0 : 2; // ridge runs along the other axis
   for (let i = 0; i < pos.count; i++) {
     if (pos.getY(i) > 0) pos.setComponent(i, across, 0);
   }
   shape.computeVertexNormals();
-  return fitToBounds(shape, geo);
+  return shape;
+}
+
+// A gable roof: a box whose top edges meet along the longer side (8 triangles)
+export const shadowGable = (geo) => {
+  geo.computeBoundingBox();
+  const size = geo.boundingBox.getSize(new THREE.Vector3());
+  const across = size.x < size.z ? 0 : 2; // ridge runs along the other axis
+  return sharedShadow(
+    across === 0 ? 'shadowGableX' : 'shadowGableZ',
+    gableUnitGeo(across),
+    geo
+  );
 };
 
 function geometryBandColor(geo, y0Frac, y1Frac) {

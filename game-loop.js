@@ -2157,10 +2157,11 @@ function updatePhysicsAndControls(delta, nowTime) {
       let target = state.targetRoll;
       while (target > roll + Math.PI) target -= Math.PI * 2;
       while (target < roll - Math.PI) target += Math.PI * 2;
-      const step = Math.min(delta, 0.05);
-      rollRate +=
-        (omega * omega * (target - roll) - 2 * omega * rollRate) * step;
-      planeGroup.rotation.z = wrapAngle(roll + rollRate * step);
+      const err = roll - target;
+      const b = rollRate + omega * err;
+      const exp = Math.exp(-omega * delta);
+      rollRate = (rollRate - omega * b * delta) * exp;
+      planeGroup.rotation.z = wrapAngle(target + (err + b * delta) * exp);
     } else {
       planeGroup.rotation.z = flightRot.roll;
       // Carried over, so switching to the weighted roll (or out of a barrel
@@ -2390,8 +2391,8 @@ function updateEnvironmentLighting(delta, now) {
             weatherNoise,
             1 - Math.exp(-delta / CLOUD_EASE_SECONDS)
           );
-    const coverValElem = document.getElementById('debug-cloud-cover-val');
-    const autoElem = document.getElementById('debug-cloud-auto-toggle');
+    const coverValElem = getCachedElement('debug-cloud-cover-val');
+    const autoElem = getCachedElement('debug-cloud-auto-toggle');
     if (coverValElem && autoElem && autoElem.checked) {
       coverValElem.textContent = `Auto (${_currentOvercast.toFixed(2)})`;
     }

@@ -773,16 +773,18 @@ export function updateFlightCamera(delta, nowTime) {
       targetBlendedFov = THREE.MathUtils.lerp(followFov, topDownFov, easedT);
     }
 
-    if (scriptedCam && scriptedCam.fov !== null) {
-      camera.fov = targetBlendedFov;
-    } else {
-      camera.fov = THREE.MathUtils.lerp(
-        camera.fov,
-        targetBlendedFov,
-        1 - Math.pow(1 - 0.1, delta * 60)
-      );
+    const nextFov =
+      scriptedCam && scriptedCam.fov !== null
+        ? targetBlendedFov
+        : THREE.MathUtils.lerp(
+            camera.fov,
+            targetBlendedFov,
+            1 - Math.pow(1 - 0.1, delta * 60)
+          );
+    if (Math.abs(nextFov - camera.fov) > 1e-4) {
+      camera.fov = nextFov;
+      camera.updateProjectionMatrix();
     }
-    camera.updateProjectionMatrix();
 
     // 5. Blend Positions & Targets
     if (state.cameraMode === 'cinematic') {

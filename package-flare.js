@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import {scene} from './scene.js';
 import {state} from './state.js';
+import {hooks} from './hooks.js';
 import {WATER_LEVEL, createMaterial} from './constants.js';
 import {sampleGround} from './terrain-geometry.js';
 import {camera} from './sky.js';
@@ -176,3 +177,21 @@ export function updatePackage(delta) {
 export function packageSpot() {
   return spot;
 }
+
+hooks.warmUps.push(async (at) => {
+  if (spot) return null;
+  const wasVisible = group.visible;
+  const prevGlow = glowMat.opacity;
+  const prevCore = coreMat.opacity;
+  group.position.copy(at);
+  group.scale.setScalar(1e-4);
+  glowMat.opacity = 0;
+  coreMat.opacity = 0;
+  group.visible = true;
+  return () => {
+    group.scale.setScalar(1);
+    glowMat.opacity = prevGlow;
+    coreMat.opacity = prevCore;
+    group.visible = wasVisible;
+  };
+});

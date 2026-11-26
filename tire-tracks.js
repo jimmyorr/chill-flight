@@ -12,6 +12,8 @@
 import * as THREE from 'three';
 import {scene} from './scene.js';
 import {state} from './state.js';
+import {hooks} from './hooks.js';
+import {renderer} from './sky.js';
 import {BASE_FLIGHT_SPEED, roadSnowUniforms} from './constants.js';
 import {sampleGround} from './terrain-geometry.js';
 import {sampleGroundColor} from './terrain-chunks.js';
@@ -546,4 +548,28 @@ export function updateTireTracks(delta) {
 
   upload();
   mesh.visible = uniforms.uTime.value < allDeadAt;
+}
+
+if (ChillFlightLogic.TIRE_TRACKS) {
+  hooks.warmUps.push(async () => {
+    if (renderer) {
+      const target = renderer.getRenderTarget();
+      const clearAlpha = renderer.getClearAlpha();
+      renderer.getClearColor(_clear);
+      const xr = renderer.xr.enabled;
+      renderer.xr.enabled = false;
+      renderer.setRenderTarget(trample.target);
+      renderer.setClearColor(0x000000, 1);
+      renderer.clear(true, false, false);
+      renderer.render(trampleScene, trampleCamera);
+      renderer.setRenderTarget(target);
+      renderer.setClearColor(_clear, clearAlpha);
+      renderer.xr.enabled = xr;
+    }
+    const wasVisible = mesh.visible;
+    mesh.visible = true;
+    return () => {
+      mesh.visible = wasVisible;
+    };
+  });
 }

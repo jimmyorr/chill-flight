@@ -5,6 +5,7 @@ import {
   farTrunk,
   fillVertexColor,
   fitToBounds,
+  gableUnitGeo,
   geometryAverageColor,
   shadowBox,
   shadowCone,
@@ -168,7 +169,6 @@ import {
   roadCentreLinesGeo,
   roadLaneDashesGeo,
   roadWhiteMat,
-  roadYellowMat,
   rockArchGrassMat,
   rockGeo,
   graniteGeo,
@@ -438,9 +438,11 @@ class GlobalInstanceManager {
     this.showLodColors = false;
     this.group = new THREE.Group();
     this.group.name = 'GlobalInstances';
+    this.group.matrixAutoUpdate = false;
     this.shadowGroup = new THREE.Group();
     this.shadowGroup.name = 'GlobalShadowInstances';
     this.shadowGroup.visible = false;
+    this.shadowGroup.matrixAutoUpdate = false;
     this.group.add(this.shadowGroup);
     scene.add(this.group);
     this._dirty = true;
@@ -448,7 +450,7 @@ class GlobalInstanceManager {
     this._planeChunkZ = NaN;
     this._nextChunkId = 0;
     this._configVersion = 0;
-    this._maxNearRadius = 0;
+    this._maxNearBandRadius = 0;
     this._maxFarRadius = 0;
     this._tileSigs = new Map();
     this._farTileSigs = new Map();
@@ -480,6 +482,7 @@ class GlobalInstanceManager {
     mesh.frustumCulled = false;
     mesh.castShadow = true;
     mesh.visible = false;
+    mesh.matrixAutoUpdate = false;
     return mesh;
   }
 
@@ -489,7 +492,8 @@ class GlobalInstanceManager {
     mat,
     maxInstances = 30000,
     useColor = false,
-    castsShadow = true
+    castsShadow = true,
+    {alwaysVisible = false, noLodColor = false} = {}
   ) {
     // Shadow-only mesh with just the instances near the plane, kept in
     // shadowGroup (visible only during shadowMap.render) so the main pass
@@ -502,6 +506,7 @@ class GlobalInstanceManager {
 
     this.types.set(type, {
       type,
+      idx: this.types.size,
       geo,
       farGeo: geo, // see setFarGeometry
       farShare: null,
@@ -509,12 +514,16 @@ class GlobalInstanceManager {
       mat,
       useColor,
       maxInstances,
+      alwaysVisible,
+      noLodColor,
       shadowMesh,
       shadowShare: null,
+      shadowSig: '',
       screenSized: false,
       nearRadius: null,
       farRadius: Infinity,
-      tiles: new Map(), // tile key (+ '|far') -> on-screen InstancedMesh
+      tiles: new Map(), // tile key (+ '|far' / '|close') -> on-screen InstancedMesh
+      tileSigs: new Map(), // meshKey -> exact contributing chunk signature
     });
     this._configVersion++;
   }
@@ -540,15 +549,23 @@ class GlobalInstanceManager {
       farShare = null,
     } = {}
   ) {
-    Object.assign(this.types.get(type), {
+    const typeInfo = this.types.get(type);
+    Object.assign(typeInfo, {
       farGeo,
       screenSized,
       nearRadius,
       farRadius,
       farShare,
     });
-    if (nearRadius !== null && nearRadius > this._maxNearRadius) {
-      this._maxNearRadius = nearRadius;
+    if (nearRadius !== null && nearRadius > this._maxNearBandRadius) {
+      this._maxNearBandRadius = nearRadius;
+    }
+    if (
+      (farGeo === null || farGeo === typeInfo.geo) &&
+      Number.isFinite(farRadius) &&
+      farRadius > this._maxNearBandRadius
+    ) {
+      this._maxNearBandRadius = farRadius;
     }
     if (Number.isFinite(farRadius) && farRadius > this._maxFarRadius) {
       this._maxFarRadius = farRadius;
@@ -573,10 +590,15 @@ class GlobalInstanceManager {
       typeInfo.shadowShare = null;
       typeInfo.shadowMesh.geometry = shadowGeo;
     }
+    this._configVersion++;
   }
 
   _tileMat(typeInfo, tileKey) {
-    if (!this.showLodColors || typeInfo.type === 'townStreet') {
+    if (
+      !this.showLodColors ||
+      typeInfo.noLodColor ||
+      typeInfo.type === 'townStreet'
+    ) {
       return typeInfo.mat;
     }
     if (tileKey.endsWith('|far')) return lodFarMat;
@@ -606,6 +628,7 @@ class GlobalInstanceManager {
       mesh = createTreeInstancedMesh(geo, mat, capacity, typeInfo.useColor);
       mesh.receiveShadow = true;
       mesh.castShadow = false;
+      mesh.matrixAutoUpdate = false;
       mesh.renderOrder = typeInfo.renderOrder || 0;
       mesh.boundingSphere = new THREE.Sphere(
         new THREE.Vector3(
@@ -688,28 +711,26 @@ class GlobalInstanceManager {
     }
 
     const detailRadius = canopyDetailRadius();
-    const maxLodRadius = Math.max(
-      TREE_LOD_CHUNK_RADIUS,
-      detailRadius,
-      this._maxNearRadius,
-      this._maxFarRadius
-    );
-    // Low's lean props: every type with a cheaper far model draws it at any
-    // range, nothing draws its close-up model, and props stop at
-    // LEAN_PROP_RADIUS chunks
     const lean = state.leanProps === true;
+    const maxNearRadius = lean
+      ? LEAN_PROP_RADIUS
+      : Math.max(TREE_LOD_CHUNK_RADIUS, detailRadius, this._maxNearBandRadius);
+    const maxFarRadius = lean
+      ? LEAN_PROP_RADIUS
+      : Math.max(maxNearRadius, this._maxFarRadius);
     const sigPrefix = `${this._configVersion}|${state._enableObjects ? 1 : 0}|${detailRadius}|${lean ? 'l' : ''}|`;
+    const shadowSigPrefix = `${this._configVersion}|${state._enableObjects ? 1 : 0}|`;
     const tileChunks = new Map();
     const farTileChunks = new Map();
     const shadowChunks = [];
-    let shadowSig = `${this._configVersion}|${state._enableObjects ? 1 : 0}|`;
+    const shadowChunkSet = new Set();
+    let shadowSig = shadowSigPrefix;
 
     chunks.forEach((chunk) => {
       const instanceData = chunk.userData.instanceData;
       if (!instanceData) return;
       const id = (chunk.userData._instId ??= ++this._nextChunkId);
       const {chunkX, chunkZ} = chunk.userData;
-      // Tiles are aligned so chunk centers (chunkX * CHUNK_SIZE) fall inside.
       const tileX = Math.floor((chunkX * CHUNK_SIZE) / TREE_TILE_SIZE);
       const tileZ = Math.floor((chunkZ * CHUNK_SIZE) / TREE_TILE_SIZE);
       const tileKey = tileX + ',' + tileZ;
@@ -720,26 +741,28 @@ class GlobalInstanceManager {
         Math.abs(chunkX - planeChunkX),
         Math.abs(chunkZ - planeChunkZ)
       );
-      const band = Math.min(chunkDistance, maxLodRadius + 1);
+      const nearBand = Math.min(chunkDistance, maxNearRadius + 1);
+      const farBand = Math.min(chunkDistance, maxFarRadius + 1);
       const ox = chunkX - planeChunkX + 1;
       const oz = chunkZ - planeChunkZ + 1;
       const close =
         chunkDistance <= 1 && ((closeMask >> (oz * 3 + ox)) & 1) === 1;
+
       let entry = tileChunks.get(tileKey);
       if (!entry) {
         entry = {tileX, tileZ, list: [], sig: sigPrefix};
         tileChunks.set(tileKey, entry);
       }
-      entry.list.push({chunk, chunkDistance, close});
-      entry.sig += `${id}:${band}${close ? 'c' : ''},`;
+      entry.list.push({chunk, chunkDistance, close, id});
+      entry.sig += `${id}:${nearBand}${close ? 'c' : ''},`;
 
       let farEntry = farTileChunks.get(farTileKey);
       if (!farEntry) {
         farEntry = {tileX: farTileX, tileZ: farTileZ, list: [], sig: sigPrefix};
         farTileChunks.set(farTileKey, farEntry);
       }
-      farEntry.list.push({chunk, chunkDistance});
-      farEntry.sig += `${id}:${band},`;
+      farEntry.list.push({chunk, chunkDistance, id});
+      farEntry.sig += `${id}:${farBand},`;
 
       let castsShadows;
       if (hasShadowCam) {
@@ -763,6 +786,7 @@ class GlobalInstanceManager {
       }
       if (castsShadows) {
         shadowChunks.push(chunk);
+        shadowChunkSet.add(chunk);
         shadowSig += `${id},`;
       }
     });
@@ -775,6 +799,8 @@ class GlobalInstanceManager {
         for (const typeInfo of this.types.values()) {
           this._removeTileMesh(typeInfo, oldTileKey);
           this._removeTileMesh(typeInfo, closeKey);
+          typeInfo.tileSigs.delete(oldTileKey);
+          typeInfo.tileSigs.delete(closeKey);
         }
       }
     }
@@ -784,6 +810,7 @@ class GlobalInstanceManager {
         const farMeshKey = oldFarKey + '|far';
         for (const typeInfo of this.types.values()) {
           this._removeTileMesh(typeInfo, farMeshKey);
+          typeInfo.tileSigs.delete(farMeshKey);
         }
       }
     }
@@ -810,11 +837,13 @@ class GlobalInstanceManager {
       return;
     }
 
-    // 1. Group instance data only for dirty near/far tiles (and shadow chunks if dirty).
-    const byType = new Map(); // type -> Map(meshKey -> {tileX, tileZ, isFar, geo, parts, count})
+    // 1. Group instance data only for dirty near/far tiles, and track an exact
+    // per-(bucketType, meshKey) chunk-ID signature so types whose own subset of
+    // chunks did not change skip matrix copying and WebGL buffer uploads.
+    const byType = new Map();
     for (const tileKey of dirtyTiles) {
       const {tileX, tileZ, list} = tileChunks.get(tileKey);
-      for (const {chunk, chunkDistance, close} of list) {
+      for (const {chunk, chunkDistance, close, id} of list) {
         const instanceData = chunk.userData.instanceData;
         for (const type in instanceData) {
           const typeInfo = this.types.get(type);
@@ -829,17 +858,22 @@ class GlobalInstanceManager {
               (typeInfo.screenSized ? detailRadius : TREE_LOD_CHUNK_RADIUS));
           const useFar =
             chunkDistance > nearRadius && typeInfo.farGeo !== typeInfo.geo;
-          if (useFar) continue;
           const data = instanceData[type];
-          data._tileMesh = null;
-          data._tileSlot = 0;
-          syncDrawnAt(data);
           if (
+            useFar ||
             !data.count ||
             chunkDistance > typeInfo.farRadius ||
-            (lean && chunkDistance > LEAN_PROP_RADIUS)
-          )
+            (!typeInfo.alwaysVisible &&
+              lean &&
+              chunkDistance > LEAN_PROP_RADIUS)
+          ) {
+            if (data._tileMesh && !data._tileIsFar) {
+              data._tileMesh = null;
+              data._tileSlot = 0;
+              syncDrawnAt(data);
+            }
             continue;
+          }
           const closeUp = !lean && close && typeInfo.nearGeo !== null;
           const meshKey = closeUp ? tileKey + '|close' : tileKey;
           let tiles = byType.get(type);
@@ -856,11 +890,13 @@ class GlobalInstanceManager {
               geo: closeUp ? typeInfo.nearGeo : typeInfo.geo,
               parts: [],
               count: 0,
+              sig: sigPrefix,
             };
             tiles.set(meshKey, tile);
           }
           tile.parts.push({data, share: null, tinted: typeInfo.useColor});
           tile.count += data.count;
+          tile.sig += `${id},`;
         }
       }
     }
@@ -872,7 +908,7 @@ class GlobalInstanceManager {
         list,
       } = farTileChunks.get(farKey);
       const meshKey = farKey + '|far';
-      for (const {chunk, chunkDistance} of list) {
+      for (const {chunk, chunkDistance, id} of list) {
         const instanceData = chunk.userData.instanceData;
         for (const type in instanceData) {
           const typeInfo = this.types.get(type);
@@ -887,18 +923,24 @@ class GlobalInstanceManager {
               (typeInfo.screenSized ? detailRadius : TREE_LOD_CHUNK_RADIUS));
           const useFar =
             chunkDistance > nearRadius && typeInfo.farGeo !== typeInfo.geo;
-          if (!useFar) continue;
           const data = instanceData[type];
-          data._tileMesh = null;
-          data._tileSlot = 0;
-          syncDrawnAt(data);
           if (
+            !useFar ||
             typeInfo.farGeo === null ||
             !data.count ||
             chunkDistance > typeInfo.farRadius ||
-            (lean && chunkDistance > LEAN_PROP_RADIUS)
-          )
+            (!typeInfo.alwaysVisible &&
+              lean &&
+              chunkDistance > LEAN_PROP_RADIUS)
+          ) {
+            if (data._tileMesh && data._tileIsFar) {
+              data._tileMesh = null;
+              data._tileSlot = 0;
+              data._tileIsFar = false;
+              syncDrawnAt(data);
+            }
             continue;
+          }
           const share = typeInfo.farShare;
           const bucketType = share ? share.targetType : type;
           const bucketInfo = share ? this.types.get(bucketType) : typeInfo;
@@ -916,18 +958,21 @@ class GlobalInstanceManager {
               geo: share ? bucketInfo.geo : typeInfo.farGeo,
               parts: [],
               count: 0,
+              sig: sigPrefix,
             };
             tiles.set(meshKey, tile);
           }
           tile.parts.push({data, share, tinted: typeInfo.useColor});
           tile.count += data.count;
+          tile.sig += share ? `${id}.${typeInfo.idx},` : `${id},`;
         }
       }
     }
 
-    const shadowParts = new Map(); // type -> [data]
+    const shadowParts = new Map();
     if (shadowDirty) {
       chunks.forEach((chunk) => {
+        if (shadowChunkSet.has(chunk)) return;
         const instanceData = chunk.userData.instanceData;
         if (!instanceData) return;
         for (const type in instanceData) {
@@ -940,6 +985,7 @@ class GlobalInstanceManager {
         }
       });
       for (const chunk of shadowChunks) {
+        const id = chunk.userData._instId;
         const instanceData = chunk.userData.instanceData;
         for (const type in instanceData) {
           const typeInfo = this.types.get(type);
@@ -948,35 +994,43 @@ class GlobalInstanceManager {
           if (!data.count) continue;
           const share = typeInfo.shadowShare;
           const bucketType = share ? share.targetType : type;
-          let parts = shadowParts.get(bucketType);
-          if (!parts) {
-            parts = [];
-            shadowParts.set(bucketType, parts);
+          let entry = shadowParts.get(bucketType);
+          if (!entry) {
+            entry = {parts: [], sig: shadowSigPrefix};
+            shadowParts.set(bucketType, entry);
           }
-          parts.push({data, share});
+          entry.parts.push({data, share});
+          entry.sig += share ? `${id}.${typeInfo.idx},` : `${id},`;
         }
       }
     }
 
-    // 2. Fill dirty tile meshes and (when shadowDirty) shadow-only meshes.
+    // 2. Fill dirty tile meshes and shadow meshes whose own chunk signature changed.
     for (const [type, typeInfo] of this.types) {
       if (dirtyTiles.size > 0 || dirtyFarTiles.size > 0) {
         const tiles = byType.get(type);
         for (const baseKey of dirtyTiles) {
           if (!tiles?.has(baseKey)) {
             this._removeTileMesh(typeInfo, baseKey);
+            typeInfo.tileSigs.delete(baseKey);
           }
           const closeKey = baseKey + '|close';
-          if (!tiles?.has(closeKey)) this._removeTileMesh(typeInfo, closeKey);
+          if (!tiles?.has(closeKey)) {
+            this._removeTileMesh(typeInfo, closeKey);
+            typeInfo.tileSigs.delete(closeKey);
+          }
         }
         for (const farBase of dirtyFarTiles) {
           const farMeshKey = farBase + '|far';
           if (!tiles?.has(farMeshKey)) {
             this._removeTileMesh(typeInfo, farMeshKey);
+            typeInfo.tileSigs.delete(farMeshKey);
           }
         }
         if (tiles) {
           for (const [meshKey, tile] of tiles) {
+            if (typeInfo.tileSigs.get(meshKey) === tile.sig) continue;
+            typeInfo.tileSigs.set(meshKey, tile.sig);
             const mesh = this._tileMesh(
               typeInfo,
               meshKey,
@@ -990,6 +1044,7 @@ class GlobalInstanceManager {
             for (const {data, share, tinted} of tile.parts) {
               data._tileMesh = mesh;
               data._tileSlot = n;
+              data._tileIsFar = tile.isFar;
               syncDrawnAt(data);
               if (!share) {
                 mesh.instanceMatrix.array.set(
@@ -1033,7 +1088,7 @@ class GlobalInstanceManager {
             }
             mesh.count = n;
             markInstancesUpdated(mesh, typeInfo.useColor);
-            mesh.visible = state._enableObjects;
+            mesh.visible = typeInfo.alwaysVisible || state._enableObjects;
           }
         }
       }
@@ -1041,7 +1096,11 @@ class GlobalInstanceManager {
       if (!shadowDirty) continue;
       let shadowMesh = typeInfo.shadowMesh;
       if (!shadowMesh) continue;
-      const parts = shadowParts.get(type) || [];
+      const sEntry = shadowParts.get(type);
+      const nextShadowSig = sEntry ? sEntry.sig : shadowSigPrefix;
+      if (typeInfo.shadowSig === nextShadowSig) continue;
+      typeInfo.shadowSig = nextShadowSig;
+      const parts = sEntry ? sEntry.parts : [];
       let total = 0;
       for (const {data} of parts) total += data.count;
       total = Math.min(total, typeInfo.maxInstances);
@@ -1064,7 +1123,14 @@ class GlobalInstanceManager {
       let n = 0;
       for (const {data, share} of parts) {
         const numToCopy = Math.min(data.count, typeInfo.maxInstances - n);
-        if (numToCopy <= 0) break;
+        if (numToCopy <= 0) {
+          if (data._shadowMesh) {
+            data._shadowMesh = null;
+            data._shadowSlot = 0;
+            syncDrawnAt(data);
+          }
+          continue;
+        }
         data._shadowMesh = shadowMesh;
         data._shadowSlot = n;
         syncDrawnAt(data);
@@ -1086,7 +1152,8 @@ class GlobalInstanceManager {
       }
       shadowMesh.count = n;
       if (n > 0) markInstancesUpdated(shadowMesh, false);
-      shadowMesh.visible = state._enableObjects && n > 0;
+      shadowMesh.visible =
+        (typeInfo.alwaysVisible || state._enableObjects) && n > 0;
     }
   }
 }
@@ -1534,9 +1601,58 @@ for (const [shadowType, unitGeo] of [
   ['shadowBox', new THREE.BoxGeometry(2, 2, 2)],
   ['shadowCylinder', new THREE.CylinderGeometry(1, 1, 2, 8, 1, true)],
   ['shadowCone', new THREE.ConeGeometry(1, 2, 8, 1, false)],
+  ['shadowGableX', gableUnitGeo(0)],
+  ['shadowGableZ', gableUnitGeo(2)],
+  ['shadowCanopy', new THREE.IcosahedronGeometry(1, 0)],
+  [
+    'shadowTrunk',
+    new THREE.CylinderGeometry(0.9, 1.4, 1, 6, 1, true).translate(0, 0.5, 0),
+  ],
 ]) {
   globalInstancer.registerType(shadowType, unitGeo, houseTintMat, 100000);
   globalInstancer.setFarGeometry(shadowType, null);
+}
+for (const [farType, unitGeo] of [
+  ['farBox', new THREE.BoxGeometry(2, 2, 2)],
+  ['farCylinder', new THREE.CylinderGeometry(1, 1, 2, 8, 1, true)],
+  ['farCone', new THREE.ConeGeometry(1, 2, 8, 1, false)],
+  ['farGableX', gableUnitGeo(0)],
+  ['farGableZ', gableUnitGeo(2)],
+]) {
+  globalInstancer.registerType(
+    farType,
+    unitGeo,
+    houseTintMat,
+    30000,
+    true,
+    false
+  );
+}
+const FAR_PROXY_BUCKET = {
+  shadowBox: 'farBox',
+  shadowCylinder: 'farCylinder',
+  shadowCone: 'farCone',
+  shadowGableX: 'farGableX',
+  shadowGableZ: 'farGableZ',
+};
+function shareFarProxy(type, geo, proxy, opts = {}) {
+  const sh = proxy._shadowShare;
+  const [cr, cg, cb] = geometryAverageColor(geo);
+  globalInstancer.setFarGeometry(type, proxy, {
+    ...opts,
+    farShare: {
+      targetType: FAR_PROXY_BUCKET[sh.targetType],
+      sx: sh.sx,
+      sy: sh.sy,
+      sz: sh.sz,
+      tx: sh.tx,
+      ty: sh.ty,
+      tz: sh.tz,
+      cr,
+      cg,
+      cb,
+    },
+  });
 }
 for (const [type, geo] of [
   ['houseBody', houseBodyGeo],
@@ -1547,14 +1663,22 @@ for (const [type, geo] of [
 ]) {
   globalInstancer.setShadowGeometry(type, shadowBox(geo));
 }
+for (const [type, geo] of [
+  ['houseRoof', houseRoofGeo],
+  ['twoStoryRoof', twoStoryRoofGeo],
+  ['iceHutRoof', iceHutGeos.roof],
+]) {
+  globalInstancer.setShadowGeometry(type, shadowGable(geo));
+}
 
 const TOWER_FAR_CHUNK_RADIUS = 3;
 
 // Straw huts, barns, monasteries, castle ruins and windmills, one
 // material each (collectStructures in terrain-gen.js). Past
 // TREE_LOD_CHUNK_RADIUS the farm buildings, huts and chapels draw as the same
-// simple shapes they cast shadows with: a barn is a few pixels there. Castle
-// ruins and windmills switch to custom skyline models past TOWER_FAR_CHUNK_RADIUS.
+// simple shapes they cast shadows with, batched into shared far proxy meshes:
+// a barn is a few pixels there. Castle ruins and windmills switch to custom
+// skyline models past TOWER_FAR_CHUNK_RADIUS.
 const TOWER_FAR_TYPES = new Set(['castleRuins', 'windmillBase']);
 for (const [type, geo, mat, round] of [
   ['strawHutBody', strawHutBodyGeo, strawHutMat, true],
@@ -1588,7 +1712,7 @@ for (const [type, geo, mat, round] of [
         nearRadius: TOWER_FAR_CHUNK_RADIUS,
       });
     } else {
-      globalInstancer.setFarGeometry(type, proxy);
+      shareFarProxy(type, geo, proxy);
     }
   }
 }
@@ -1607,9 +1731,7 @@ for (const [type, geo] of Object.entries({
 // courses & cock-and-hen capstones (~640 triangles a 12-unit bay) only in the
 // chunks within CLOSE_UP_RANGE, the 10-triangle battered prism everywhere
 // else, so meandering famine walls wind into the distance. With the cobbles
-// out to 2 chunks, wall country drew 300k more triangles on a phone. No
-// farRadius: a finite one over 6 widens every type's LOD bands (see
-// maxLodRadius) and rebuilds more tiles each time the plane changes chunk
+// out to 2 chunks, wall country drew 300k more triangles on a phone.
 const stoneWallGeos = buildStoneWallGeos();
 for (const [type, near, far, cap] of [
   ['stoneWall', stoneWallGeos.stoneWall, stoneWallGeos.stoneWallFar, 40000],
@@ -1688,14 +1810,24 @@ for (const [type, geo] of Object.entries(buildLandmarkGeos(LANDMARK_SMALL))) {
   globalInstancer.setShadowGeometry(type, shadowBox(geo));
 }
 // The landmark houses (beach huts, shacks, ranger stations and
-// lean-tos): too small to see far off
+// lean-tos): too small to see far off. Backyard garden sheds (~4.5 units wide)
+// swap to their shared colored box/gable stand-in past the camera's own chunk.
 for (const [type, geo] of Object.entries(buildLandmarkGeos(LANDMARK_HOUSES))) {
   globalInstancer.registerType(type, geo, buildingMat, 400);
-  globalInstancer.setFarGeometry(type, null);
-  globalInstancer.setShadowGeometry(
-    type,
-    type.startsWith('mushroomCottage') ? shadowCylinder(geo) : shadowBox(geo)
-  );
+  const proxy = type.startsWith('mushroomCottage')
+    ? shadowCylinder(geo)
+    : type.endsWith('Roof')
+      ? shadowGable(geo)
+      : shadowBox(geo);
+  globalInstancer.setShadowGeometry(type, proxy);
+  if (type.startsWith('gardenShed')) {
+    shareFarProxy(type, geo, proxy, {
+      nearRadius: 0,
+      farRadius: TREE_LOD_CHUNK_RADIUS,
+    });
+  } else {
+    globalInstancer.setFarGeometry(type, null);
+  }
 }
 // The sails turn in their shader, shadows too
 globalInstancer.types.get('windmillBlades').shadowMesh.customDepthMaterial =
@@ -1792,6 +1924,7 @@ const shareFarTrunk = (type, geo, mat = null) => {
       cb,
     },
   });
+  globalInstancer.setShadowGeometry(type, farGeo);
   return farGeo;
 };
 const screenSized = {screenSized: true};
@@ -1822,17 +1955,24 @@ shareFarCanopy('palmLeaves', palmGeos.leaves);
   const center = box.getCenter(new THREE.Vector3());
   const size = box.getSize(new THREE.Vector3());
   const [cr, cg, cb] = geometryAverageColor(palmGeos.trunk);
+  const trunkShare = {
+    sx: (size.x * 0.5) / 1.4,
+    sy: size.y,
+    sz: (size.z * 0.5) / 1.4,
+    tx: center.x,
+    ty: box.min.y,
+    tz: center.z,
+  };
+  palmFarTrunk._shadowShare = {
+    targetType: 'shadowTrunk',
+    ...trunkShare,
+  };
   globalInstancer.setFarGeometry('palmTrunk', palmFarTrunk, {
     screenSized: true,
     farRadius: SMALL_PROP_FAR_RADIUS,
     farShare: {
       targetType: 'farTreeTrunk',
-      sx: (size.x * 0.5) / 1.4,
-      sy: size.y,
-      sz: (size.z * 0.5) / 1.4,
-      tx: center.x,
-      ty: box.min.y,
-      tz: center.z,
+      ...trunkShare,
       cr,
       cg,
       cb,
@@ -1988,8 +2128,152 @@ globalInstancer.registerType(
   bridgeDeckMat,
   30000,
   false,
+  false,
+  {noLodColor: true}
+);
+
+// Highways, slip roads, bridges, streetlights, and wooden piers: batched across
+// 4x4-chunk tiles instead of separate per-chunk / per-highway InstancedMeshes.
+globalInstancer.registerType(
+  'highwayDeck',
+  bridgeDeckGeo,
+  highwayDeckMat,
+  60000,
+  true,
+  false,
+  {alwaysVisible: true, noLodColor: true}
+);
+globalInstancer.registerType(
+  'bridgeGirder',
+  bridgeGirderGeo,
+  bridgeGirderMat,
+  25000,
+  false,
+  true,
+  {alwaysVisible: true, noLodColor: true}
+);
+globalInstancer.registerType(
+  'bridgePierShaft',
+  bridgePierShaftGeo,
+  bridgePilingMat,
+  10000,
+  false,
+  true,
+  {alwaysVisible: true, noLodColor: true}
+);
+globalInstancer.registerType(
+  'roadSlipLine',
+  roadSlipLineGeo,
+  roadWhiteMat,
+  20000,
+  true,
+  false,
+  {alwaysVisible: true, noLodColor: true}
+);
+globalInstancer.registerType(
+  'bridgeRail',
+  bridgeRailGeo,
+  highwayRailMat,
+  30000,
+  true,
+  true,
+  {noLodColor: true}
+);
+globalInstancer.setFarGeometry('bridgeRail', null);
+globalInstancer.setShadowGeometry('bridgeRail', shadowBox(bridgeRailGeo));
+globalInstancer.registerType(
+  'bridgePierCap',
+  bridgePierCapGeo,
+  bridgePilingMat,
+  10000,
+  false,
+  true,
+  {noLodColor: true}
+);
+globalInstancer.setFarGeometry('bridgePierCap', null);
+globalInstancer.setShadowGeometry('bridgePierCap', shadowBox(bridgePierCapGeo));
+globalInstancer.registerType(
+  'bridgePierFooting',
+  bridgePierFootingGeo,
+  bridgePilingMat,
+  10000,
+  false,
+  true,
+  {noLodColor: true}
+);
+globalInstancer.setFarGeometry('bridgePierFooting', null);
+globalInstancer.setShadowGeometry(
+  'bridgePierFooting',
+  shadowCylinder(bridgePierFootingGeo)
+);
+for (const [stripeType, stripeGeo, cap] of [
+  ['roadLaneDashes', roadLaneDashesGeo, 40000],
+  ['roadCentreLines', roadCentreLinesGeo, 40000],
+  ['roadCentreDash', roadCentreDashGeo, 40000],
+  ['roadEdgeLine', roadEdgeLineGeo, 60000],
+]) {
+  globalInstancer.registerType(
+    stripeType,
+    stripeGeo,
+    roadWhiteMat,
+    cap,
+    true,
+    false,
+    {noLodColor: true}
+  );
+  globalInstancer.setFarGeometry(stripeType, null);
+}
+globalInstancer.registerType(
+  'streetlightPole',
+  streetlightPoleGeo,
+  streetlightPoleMat,
+  15000,
+  false,
+  true
+);
+globalInstancer.setFarGeometry('streetlightPole', null);
+globalInstancer.setShadowGeometry(
+  'streetlightPole',
+  shadowCylinder(streetlightPoleGeo)
+);
+globalInstancer.registerType(
+  'streetlightArm',
+  streetlightArmGeo,
+  streetlightPoleMat,
+  15000,
+  false,
+  true
+);
+globalInstancer.setFarGeometry('streetlightArm', null);
+globalInstancer.setShadowGeometry(
+  'streetlightArm',
+  shadowBox(streetlightArmGeo)
+);
+globalInstancer.registerType(
+  'streetlightBulb',
+  streetlightBulbGeo,
+  streetlightBulbMat,
+  15000,
+  false,
   false
 );
+globalInstancer.registerType(
+  'streetlightDecal',
+  streetlightDecalGeo,
+  streetlightDecalMat,
+  15000,
+  false,
+  false
+);
+globalInstancer.registerType('pierDeck', pierDeckGeo, pierDeckMat, 4000);
+globalInstancer.setFarGeometry('pierDeck', null);
+globalInstancer.setShadowGeometry('pierDeck', shadowBox(pierDeckGeo));
+globalInstancer.registerType('pierDeckL', pierDeckLGeo, pierDeckMat, 2000);
+globalInstancer.setFarGeometry('pierDeckL', null);
+globalInstancer.setShadowGeometry('pierDeckL', shadowBox(pierDeckLGeo));
+globalInstancer.registerType('pierPost', pierPostGeo, woodMat, 16000);
+globalInstancer.setFarGeometry('pierPost', null);
+globalInstancer.setShadowGeometry('pierPost', shadowCylinder(pierPostGeo));
 
 // Doors and chimneys aren't drawn far away; windows are, so villages still
 // twinkle on the horizon at night
@@ -2418,7 +2702,81 @@ function roadPaintAt(paint, x, z, fade) {
   const t = Math.min(1, weather + (1 - weather) * fade);
   return _paintTint.copy(paint).lerp(roadAsphaltAt(x, z), t);
 }
-function addSlipRoads(group, roadSegments, worldOffsetX, worldOffsetZ) {
+class ChunkInstancer {
+  constructor(baseData, ox, oz) {
+    this.data = {...baseData};
+    this.ox = ox;
+    this.oz = oz;
+    this._builders = new Map();
+  }
+
+  addLocal(type, matrix, color = null) {
+    let b = this._builders.get(type);
+    if (!b) {
+      b = {mats: [], cols: color ? [] : null};
+      this._builders.set(type, b);
+    }
+    const e = matrix.elements;
+    b.mats.push(
+      e[0],
+      e[1],
+      e[2],
+      e[3],
+      e[4],
+      e[5],
+      e[6],
+      e[7],
+      e[8],
+      e[9],
+      e[10],
+      e[11],
+      e[12] + this.ox,
+      e[13],
+      e[14] + this.oz,
+      e[15]
+    );
+    if (color && b.cols) b.cols.push(color.r, color.g, color.b);
+    return (b.mats.length >> 4) - 1;
+  }
+
+  finish(meshProps) {
+    for (const [type, b] of this._builders) {
+      const prev = this.data[type];
+      const prevCount = prev ? prev.count : 0;
+      const addCount = b.mats.length >> 4;
+      const count = prevCount + addCount;
+      const matrices = new Float32Array(count * 16);
+      if (prevCount) matrices.set(prev.matrices.subarray(0, prevCount * 16));
+      matrices.set(b.mats, prevCount * 16);
+      const entry = {count, matrices};
+      if (b.cols) {
+        const colors = new Float32Array(count * 3);
+        if (prevCount && prev.colors) {
+          colors.set(prev.colors.subarray(0, prevCount * 3));
+        }
+        colors.set(b.cols, prevCount * 3);
+        entry.colors = colors;
+      }
+      this.data[type] = entry;
+      b.entry = entry;
+      b.baseIndex = prevCount;
+    }
+    for (const spec of meshProps) {
+      if (!spec._deferredParts) continue;
+      spec.parts = spec._deferredParts.map(([type, localIdx, role]) => {
+        const b = this._builders.get(type);
+        return role
+          ? {type, data: b.entry, index: b.baseIndex + localIdx, role}
+          : {type, data: b.entry, index: b.baseIndex + localIdx};
+      });
+      delete spec._deferredParts;
+    }
+    return this.data;
+  }
+}
+
+const _slipNext = new THREE.Vector3();
+function addSlipRoads(chunkInst, roadSegments, worldOffsetX, worldOffsetZ) {
   const half = CHUNK_SIZE / 2;
   const pieces = [];
   for (const s of ChillFlightLogic.slipRoads(simplex, {
@@ -2456,21 +2814,9 @@ function addSlipRoads(group, roadSegments, worldOffsetX, worldOffsetZ) {
     }
   }
   if (pieces.length === 0) return;
-  const deckInst = getInstancedMesh(
-    bridgeDeckGeo,
-    highwayDeckMat,
-    pieces.length
-  );
-  // Each edge line one at a time, and only where it's clear of the
-  // highways' decks (not while it runs inside a highway's lane)
-  const lineInst = getInstancedMesh(
-    roadSlipLineGeo,
-    roadWhiteMat,
-    pieces.length * 2
-  );
   const dummy = _slipDummy;
-  const next = new THREE.Vector3();
-  pieces.forEach(([a, b], i) => {
+  const next = _slipNext;
+  pieces.forEach(([a, b]) => {
     const sx = (a.x + b.x) / 2;
     const sz = (a.z + b.z) / 2;
     dummy.position.set(sx - worldOffsetX, (a.y + b.y) / 2, sz - worldOffsetZ);
@@ -2480,39 +2826,32 @@ function addSlipRoads(group, roadSegments, worldOffsetX, worldOffsetZ) {
     const length = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z) + 1.5;
     dummy.scale.set(SLIP_DECK_SCALE, 1, length / BRIDGE_SEGMENT_LENGTH);
     dummy.updateMatrix();
-    deckInst.setMatrixAt(i, dummy.matrix);
-    deckInst.setColorAt(i, roadAsphaltAt(sx, sz));
+    chunkInst.addLocal('highwayDeck', dummy.matrix, roadAsphaltAt(sx, sz));
     const w = ChillFlightLogic.roadWeatherAt(sx, sz, simplex);
     const slipFade = Math.max(
       THREE.MathUtils.smoothstep(w.dirt, 0, 0.55),
       THREE.MathUtils.smoothstep(w.alien, 0.1, ALIEN_PROPS_AT)
     );
+    if (slipFade >= 1) return;
     const lineColor = roadPaintAt(ROAD_PAINT.white, sx, sz, slipFade);
-    [-1, 1].forEach((side, k) => {
+    [-1, 1].forEach((side) => {
       dummy.position.set(sx - worldOffsetX, (a.y + b.y) / 2, sz - worldOffsetZ);
       dummy.lookAt(next);
       dummy.translateX(side * SLIP_EDGE_LINE_X);
-      const clear =
-        slipFade < 1 &&
+      if (
         ChillFlightLogic.highwayDistance(
           dummy.position.x + worldOffsetX,
           dummy.position.z + worldOffsetZ
-        ) >
-          ChillFlightLogic.ROAD_WIDTH + 1;
-      dummy.scale.setScalar(0);
-      if (clear) dummy.scale.set(1, 1, length / BRIDGE_SEGMENT_LENGTH);
+        ) <=
+        ChillFlightLogic.ROAD_WIDTH + 1
+      ) {
+        return;
+      }
+      dummy.scale.set(1, 1, length / BRIDGE_SEGMENT_LENGTH);
       dummy.updateMatrix();
-      lineInst.setMatrixAt(i * 2 + k, dummy.matrix);
-      lineInst.setColorAt(i * 2 + k, lineColor);
+      chunkInst.addLocal('roadSlipLine', dummy.matrix, lineColor);
     });
   });
-  if (deckInst.instanceColor) deckInst.instanceColor.needsUpdate = true;
-  if (lineInst.instanceColor) lineInst.instanceColor.needsUpdate = true;
-  for (const m of [deckInst, lineInst]) {
-    m.position.set(worldOffsetX, 0, worldOffsetZ);
-    group.add(m);
-  }
-  lineInst.userData.noShadow = true;
 }
 
 // Is world (x, z), on a highway (one running along x if crossCountry: the
@@ -2939,6 +3278,11 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   const dummy = new THREE.Object3D();
   const meshProps = [];
   group.userData.meshProps = meshProps;
+  const chunkInst = new ChunkInstancer(
+    workerData.instanceData,
+    worldOffsetX,
+    worldOffsetZ
+  );
 
   // 2.3b Generate Rock Arches (Unique instances)
   if (rockArchPositions.length > 0) {
@@ -3090,36 +3434,19 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
 
   // 2.95 Generate Piers
   if (pierPositions.length > 0) {
-    // Straight piers, and the ones turning off at the end (an L)
-    const ells = pierPositions.filter((p) => p.ell).length;
-    const deckInst = getInstancedMesh(
-      pierDeckGeo,
-      pierDeckMat,
-      pierPositions.length - ells
-    );
-    const ellInst =
-      ells > 0 ? getInstancedMesh(pierDeckLGeo, pierDeckMat, ells) : null;
-    const postInst = getInstancedMesh(
-      pierPostGeo,
-      woodMat,
-      pierPositions.length * 4 + ells * 3
-    );
-
-    let straightIndex = 0;
-    let ellIndex = 0;
-    let postIndex = 0;
+    const pierOff = new THREE.Vector3();
     pierPositions.forEach((pos) => {
       // The deck at its old height (1 above the shore), its posts down
       // into the sand and water
       dummy.position.set(pos.x, pos.y + 1 - PIER_DECK_TOP, pos.z);
       dummy.rotation.set(0, pos.rotY, 0);
+      dummy.scale.set(1, 1, 1);
       dummy.updateMatrix();
-      const inst = pos.ell ? ellInst : deckInst;
-      const index = pos.ell ? ellIndex++ : straightIndex++;
-      inst.setMatrixAt(index, dummy.matrix);
+      const deckType = pos.ell ? 'pierDeckL' : 'pierDeck';
+      const deckIdx = chunkInst.addLocal(deckType, dummy.matrix);
       meshProps.push({
         kind: BREAKABLE.HOUSE,
-        parts: [{type: pos.ell ? 'pierDeckL' : 'pierDeck', mesh: inst, index}],
+        _deferredParts: [[deckType, deckIdx]],
       });
 
       // Pilings carrying the deck's outer posts on down to the bottom (and
@@ -3132,26 +3459,20 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
       ];
       if (pos.ell) offsets.push([6.6, 41.5], [-34.5, 31.5], [-34.5, 41.5]);
       offsets.forEach((off) => {
-        const p = new THREE.Vector3(
-          off[0],
-          1 - PIER_DECK_TOP - 5,
-          off[1]
-        ).applyAxisAngle(yAxis, pos.rotY);
-        dummy.position.set(pos.x + p.x, pos.y + p.y, pos.z + p.z);
+        pierOff
+          .set(off[0], 1 - PIER_DECK_TOP - 5, off[1])
+          .applyAxisAngle(yAxis, pos.rotY);
+        dummy.position.set(
+          pos.x + pierOff.x,
+          pos.y + pierOff.y,
+          pos.z + pierOff.z
+        );
         dummy.rotation.set(0, 0, 0);
+        dummy.scale.set(1, 1, 1);
         dummy.updateMatrix();
-        postInst.setMatrixAt(postIndex++, dummy.matrix);
+        chunkInst.addLocal('pierPost', dummy.matrix);
       });
     });
-
-    deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    postInst.position.set(worldOffsetX, 0, worldOffsetZ);
-    objectsGroup.add(deckInst);
-    objectsGroup.add(postInst);
-    if (ellInst) {
-      ellInst.position.set(worldOffsetX, 0, worldOffsetZ);
-      objectsGroup.add(ellInst);
-    }
   }
 
   // 2.955 Generate West Coast Highway
@@ -3532,15 +3853,8 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
 
       if (bridgePositions.length > 0) {
         // 1. Determine which segments need girders, railings, and piers
-        let numGirderSegments = 0;
-        let numRailSegments = 0;
-        let numPiers = 0;
-
         bridgePositions.forEach((pos) => {
           if (pos.needsPilings) {
-            numGirderSegments++;
-            numRailSegments++;
-
             const globalSegmentIndex = segmentIndex(pos);
             // Place major piers every 4 segments (120 units)
             pos.hasPier = Math.abs(globalSegmentIndex) % 4 === 0;
@@ -3575,51 +3889,6 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           }
         }
 
-        bridgePositions.forEach((p) => {
-          if (p.hasPier) numPiers++;
-        });
-
-        // Road decks (paper-thin, for all segments)
-        const deckInst = getInstancedMesh(
-          bridgeDeckGeo,
-          highwayDeckMat,
-          bridgePositions.length
-        );
-
-        // Box girders (trapezoidal underside, only for elevated bridge sections)
-        const girderInst =
-          numGirderSegments > 0
-            ? getInstancedMesh(
-                bridgeGirderGeo,
-                bridgeGirderMat,
-                numGirderSegments
-              )
-            : null;
-
-        // Railings (2 per segment, only for elevated bridge sections)
-        const railInst =
-          numRailSegments > 0
-            ? getInstancedMesh(
-                bridgeRailGeo,
-                highwayRailMat,
-                numRailSegments * 2
-              )
-            : null;
-
-        // Pier caps, shafts, and foundation caissons
-        const pierCapInst =
-          numPiers > 0
-            ? getInstancedMesh(bridgePierCapGeo, bridgePilingMat, numPiers)
-            : null;
-        const pierShaftInst =
-          numPiers > 0
-            ? getInstancedMesh(bridgePierShaftGeo, bridgePilingMat, numPiers)
-            : null;
-        const pierFootingInst =
-          numPiers > 0
-            ? getInstancedMesh(bridgePierFootingGeo, bridgePilingMat, numPiers)
-            : null;
-
         const halfRoadW = ChillFlightLogic.ROAD_WIDTH + 1.4;
         // Whether a railing (placed by dummy, `length` long) runs onto
         // another road: any of its ends or middle inside another highway's
@@ -3644,110 +3913,21 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           }
           return false;
         };
-        let girderIndex = 0;
-        let railIndex = 0;
-        let pierIndex = 0;
 
-        // Lane markings thin out with the streetlights: full markings in
-        // the heartland, fading out into a dashed centre line further out,
-        // and fading into the deck on dirt or the frontier
-        const hasLaneMarkings = bridgePositions.some((p) => p.laneFade < 1);
-        const hasCentreLines = bridgePositions.some(
-          (p) => p.centreLinesFade < 1
-        );
-        const hasCentreDash = bridgePositions.some((p) => p.centreDashFade < 1);
-        const laneDashesInst = hasLaneMarkings
-          ? getInstancedMesh(
-              roadLaneDashesGeo,
-              roadWhiteMat,
-              bridgePositions.length
-            )
-          : null;
-        const centreLinesInst = hasCentreLines
-          ? getInstancedMesh(
-              roadCentreLinesGeo,
-              roadYellowMat,
-              bridgePositions.length
-            )
-          : null;
-        const centreDashInst = hasCentreDash
-          ? getInstancedMesh(
-              roadCentreDashGeo,
-              roadYellowMat,
-              bridgePositions.length
-            )
-          : null;
-        // White edge lines with the lane lines, each side on its own so it
-        // can break where a slip road joins
-        const edgeInst = hasLaneMarkings
-          ? getInstancedMesh(
-              roadEdgeLineGeo,
-              roadWhiteMat,
-              bridgePositions.length * 2
-            )
-          : null;
-        const markingInsts = [
-          laneDashesInst,
-          centreLinesInst,
-          centreDashInst,
-          edgeInst,
-        ].filter(Boolean);
+        const currentVec = new THREE.Vector3();
+        const nextVec = new THREE.Vector3();
+        const midVec = new THREE.Vector3();
+        const euler = new THREE.Euler();
+        const decalPos = new THREE.Vector3();
+        const forward = new THREE.Vector3();
+        const lookTarget = new THREE.Vector3();
 
-        // Calculate exact number of streetlights based on global segment alignment
-        let numStreetlights = 0;
         bridgePositions.forEach((pos) => {
-          if (
-            pos.slFreq > 0 &&
-            !pos.junction &&
-            Math.abs(segmentIndex(pos)) % pos.slFreq === 0
-          ) {
-            numStreetlights++;
-          }
-        });
-        const slBaseInst =
-          numStreetlights > 0
-            ? getInstancedMesh(
-                streetlightPoleGeo,
-                streetlightPoleMat,
-                numStreetlights
-              )
-            : null;
-        const slArmInst =
-          numStreetlights > 0
-            ? getInstancedMesh(
-                streetlightArmGeo,
-                streetlightPoleMat,
-                numStreetlights
-              )
-            : null;
-        const slBulbInst =
-          numStreetlights > 0
-            ? getInstancedMesh(
-                streetlightBulbGeo,
-                streetlightBulbMat,
-                numStreetlights
-              )
-            : null;
-        const slDecalInst =
-          numStreetlights > 0
-            ? getInstancedMesh(
-                streetlightDecalGeo,
-                streetlightDecalMat,
-                numStreetlights
-              )
-            : null;
-        let slIndex = 0;
-
-        bridgePositions.forEach((pos, index) => {
-          const currentVec = new THREE.Vector3(pos.x, pos.y, pos.z);
-          const nextVec = new THREE.Vector3(
-            pos.nextPos.x,
-            pos.nextPos.y,
-            pos.nextPos.z
-          );
+          currentVec.set(pos.x, pos.y, pos.z);
+          nextVec.set(pos.nextPos.x, pos.nextPos.y, pos.nextPos.z);
 
           // Calculate center of the edge and the exact distance
-          const midVec = currentVec.clone().lerp(nextVec, 0.5);
+          midVec.copy(currentVec).lerp(nextVec, 0.5);
           const dist = currentVec.distanceTo(nextVec);
           const mx = midVec.x + worldOffsetX;
           const mz = midVec.z + worldOffsetZ;
@@ -3755,81 +3935,78 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
           // 1. Deck (paper-thin, for all segments)
           dummy.position.copy(midVec);
           dummy.lookAt(nextVec);
+          // Extract just the yaw from the deck's rotation for pilings & lamps
+          euler.setFromQuaternion(dummy.quaternion, 'YXZ');
+          const yaw = euler.y;
           // A little longer than the segment, so no seam shows where the
           // road bends over a rise
           dummy.scale.set(1, 1, (dist + 1) / BRIDGE_SEGMENT_LENGTH);
           dummy.updateMatrix();
-          deckInst.setMatrixAt(index, dummy.matrix);
-          deckInst.setColorAt(index, roadAsphaltAt(mx, mz));
+          chunkInst.addLocal(
+            'highwayDeck',
+            dummy.matrix,
+            roadAsphaltAt(mx, mz)
+          );
+
           // No markings in the box where it crosses another highway
           const inBox = inCrossingBox(mx, mz, alongX, sampleStep / 2);
-          if (laneDashesInst) {
-            dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
-            if (inBox || pos.laneFade >= 1) dummy.scale.setScalar(0);
-            dummy.updateMatrix();
-            laneDashesInst.setMatrixAt(index, dummy.matrix);
-            laneDashesInst.setColorAt(
-              index,
-              roadPaintAt(ROAD_PAINT.white, mx, mz, pos.laneFade)
-            );
-          }
-          if (centreLinesInst) {
-            dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
-            if (inBox || pos.centreLinesFade >= 1) dummy.scale.setScalar(0);
-            dummy.updateMatrix();
-            centreLinesInst.setMatrixAt(index, dummy.matrix);
-            centreLinesInst.setColorAt(
-              index,
-              roadPaintAt(ROAD_PAINT.yellow, mx, mz, pos.centreLinesFade)
-            );
-          }
-          if (centreDashInst) {
-            dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
-            if (inBox || pos.centreDashFade >= 1) dummy.scale.setScalar(0);
-            dummy.updateMatrix();
-            centreDashInst.setMatrixAt(index, dummy.matrix);
-            centreDashInst.setColorAt(
-              index,
-              roadPaintAt(ROAD_PAINT.yellow, mx, mz, pos.centreDashFade)
-            );
-          }
-          if (edgeInst) {
-            const edgeColor = roadPaintAt(
-              ROAD_PAINT.white,
-              mx,
-              mz,
-              pos.laneFade
-            );
-            [-1, 1].forEach((side, k) => {
-              dummy.position.copy(midVec);
-              dummy.lookAt(nextVec);
-              dummy.translateX(side * ROAD_EDGE_LINE_X);
-              dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
-              if (
-                inBox ||
-                pos.laneFade >= 1 ||
-                ChillFlightLogic.isOnSlipRoad(
-                  dummy.position.x + worldOffsetX,
-                  dummy.position.z + worldOffsetZ,
-                  1,
-                  simplex,
-                  constants
-                )
-              ) {
-                dummy.scale.setScalar(0);
-              }
+          if (!inBox) {
+            const zScale = dist / BRIDGE_SEGMENT_LENGTH;
+            if (pos.laneFade < 1) {
+              dummy.scale.set(1, 1, zScale);
               dummy.updateMatrix();
-              edgeInst.setMatrixAt(index * 2 + k, dummy.matrix);
-              edgeInst.setColorAt(index * 2 + k, edgeColor);
-            });
+              chunkInst.addLocal(
+                'roadLaneDashes',
+                dummy.matrix,
+                roadPaintAt(ROAD_PAINT.white, mx, mz, pos.laneFade)
+              );
+            }
+            if (pos.centreLinesFade < 1) {
+              dummy.scale.set(1, 1, zScale);
+              dummy.updateMatrix();
+              chunkInst.addLocal(
+                'roadCentreLines',
+                dummy.matrix,
+                roadPaintAt(ROAD_PAINT.yellow, mx, mz, pos.centreLinesFade)
+              );
+            }
+            if (pos.centreDashFade < 1) {
+              dummy.scale.set(1, 1, zScale);
+              dummy.updateMatrix();
+              chunkInst.addLocal(
+                'roadCentreDash',
+                dummy.matrix,
+                roadPaintAt(ROAD_PAINT.yellow, mx, mz, pos.centreDashFade)
+              );
+            }
+            if (pos.laneFade < 1) {
+              const edgeColor = roadPaintAt(
+                ROAD_PAINT.white,
+                mx,
+                mz,
+                pos.laneFade
+              );
+              [-1, 1].forEach((side) => {
+                dummy.position.copy(midVec);
+                dummy.lookAt(nextVec);
+                dummy.translateX(side * ROAD_EDGE_LINE_X);
+                if (
+                  ChillFlightLogic.isOnSlipRoad(
+                    dummy.position.x + worldOffsetX,
+                    dummy.position.z + worldOffsetZ,
+                    1,
+                    simplex,
+                    constants
+                  )
+                ) {
+                  return;
+                }
+                dummy.scale.set(1, 1, zScale);
+                dummy.updateMatrix();
+                chunkInst.addLocal('roadEdgeLine', dummy.matrix, edgeColor);
+              });
+            }
           }
-
-          // Extract just the yaw from the deck's rotation for pilings
-          const euler = new THREE.Euler().setFromQuaternion(
-            dummy.quaternion,
-            'YXZ'
-          );
-          const yaw = euler.y;
 
           // 2. Box Girder & Railings (only for elevated bridge segments)
           if (pos.needsPilings) {
@@ -3837,28 +4014,25 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
             dummy.lookAt(nextVec);
             dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
             dummy.updateMatrix();
-            girderInst.setMatrixAt(girderIndex++, dummy.matrix);
+            chunkInst.addLocal('bridgeGirder', dummy.matrix);
 
             // Railings - one on each side, sitting flush on top of deck
             // (+0.75). None where another road joins or crosses: under the
             // other road's deck at a junction, or across the mouth where a
             // road or slip road leaves this one
-            [-halfRoadW, halfRoadW].forEach((xOff) => {
-              dummy.position.copy(midVec);
-              dummy.lookAt(nextVec);
-              dummy.translateX(xOff);
-              dummy.translateY(2.05);
-              dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
-              if (pos.junction || railMeetsRoad(dummy, dist)) {
-                dummy.scale.setScalar(0);
-              }
-              dummy.updateMatrix();
-              railInst.setColorAt(
-                railIndex,
-                roadRailAt(midVec.x + worldOffsetX, midVec.z + worldOffsetZ)
-              );
-              railInst.setMatrixAt(railIndex++, dummy.matrix);
-            });
+            if (!pos.junction) {
+              const railColor = roadRailAt(mx, mz);
+              [-halfRoadW, halfRoadW].forEach((xOff) => {
+                dummy.position.copy(midVec);
+                dummy.lookAt(nextVec);
+                dummy.translateX(xOff);
+                dummy.translateY(2.05);
+                if (railMeetsRoad(dummy, dist)) return;
+                dummy.scale.set(1, 1, dist / BRIDGE_SEGMENT_LENGTH);
+                dummy.updateMatrix();
+                chunkInst.addLocal('bridgeRail', dummy.matrix, railColor);
+              });
+            }
           }
 
           // 3. Viaduct Piers (every 120 units on elevated sections)
@@ -3872,44 +4046,44 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
             dummy.rotation.set(0, yaw, 0);
             dummy.scale.set(1, 1, 1);
             dummy.updateMatrix();
-            pierCapInst.setMatrixAt(pierIndex, dummy.matrix);
+            chunkInst.addLocal('bridgePierCap', dummy.matrix);
 
             // Faceted pylon shaft (stretches from pier cap seat down to ground/water)
             dummy.position.set(midVec.x, seatY, midVec.z);
             dummy.rotation.set(0, yaw, 0);
             dummy.scale.set(1, shaftHeight, 1);
             dummy.updateMatrix();
-            pierShaftInst.setMatrixAt(pierIndex, dummy.matrix);
+            const shaftIdx = chunkInst.addLocal(
+              'bridgePierShaft',
+              dummy.matrix
+            );
 
             // Foundation footing (anchored into ground/water)
             dummy.position.set(midVec.x, targetGroundY + 1.5, midVec.z);
             dummy.rotation.set(0, yaw, 0);
             dummy.scale.set(1, 1, 1);
             dummy.updateMatrix();
-            pierFootingInst.setMatrixAt(pierIndex, dummy.matrix);
+            const footingIdx = chunkInst.addLocal(
+              'bridgePierFooting',
+              dummy.matrix
+            );
 
             // The shaft and footing crumble when hit; the cap stays up
             // under the deck, which stays up too
             if (shaftHeight > 0) {
               meshProps.push({
                 kind: BREAKABLE.HOUSE,
-                parts: [
-                  {type: 'bridgePierShaft', mesh: pierShaftInst, role: 'fold'},
-                  {
-                    type: 'bridgePierFooting',
-                    mesh: pierFootingInst,
-                    role: 'rubble',
-                  },
-                ].map((part) => ({...part, index: pierIndex})),
+                _deferredParts: [
+                  ['bridgePierShaft', shaftIdx, 'fold'],
+                  ['bridgePierFooting', footingIdx, 'rubble'],
+                ],
                 rubble: 20,
               });
             }
-
-            pierIndex++;
           }
 
           // Streetlights
-          if (pos.slFreq > 0 && slIndex < numStreetlights && !pos.junction) {
+          if (pos.slFreq > 0 && !pos.junction) {
             const globalSegmentIndex = segmentIndex(pos);
 
             if (Math.abs(globalSegmentIndex) % pos.slFreq === 0) {
@@ -3922,122 +4096,50 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
               const dxSl = sideOff * Math.cos(yaw);
               const dzSl = -sideOff * Math.sin(yaw);
 
-              const slPos = new THREE.Vector3(
-                midVec.x + dxSl,
-                midVec.y,
-                midVec.z + dzSl
-              );
-
-              // Position pole, arm, bulb
-              const slParts = [
-                {geo: streetlightPoleGeo, rot: [0, slYaw, 0], pos: [0, 0, 0]},
-                {geo: streetlightArmGeo, rot: [0, slYaw, 0], pos: [0, 0, 0]},
-                {geo: streetlightBulbGeo, rot: [0, slYaw, 0], pos: [0, 0, 0]},
-              ];
-
-              slParts.forEach((part, pIdx) => {
-                dummy.position.set(
-                  slPos.x + part.pos[0],
-                  slPos.y + part.pos[1],
-                  slPos.z + part.pos[2]
-                );
-                dummy.rotation.set(...part.rot);
-                dummy.scale.set(1, 1, 1);
-                dummy.updateMatrix();
-                if (pIdx === 0) slBaseInst.setMatrixAt(slIndex, dummy.matrix);
-                else if (pIdx === 1)
-                  slArmInst.setMatrixAt(slIndex, dummy.matrix);
-                else if (pIdx === 2)
-                  slBulbInst.setMatrixAt(slIndex, dummy.matrix);
-              });
-
-              // Decal on the road under the bulb
-              const decalDx = 17 * Math.cos(slYaw);
-              const decalDz = -17 * Math.sin(slYaw);
-              // Push it slightly higher (1.2) to prevent any Z-fighting on steep bridges
-              const decalPos = new THREE.Vector3(
-                slPos.x + decalDx,
-                slPos.y + 1.2,
-                slPos.z + decalDz
-              );
-
-              const forward = new THREE.Vector3()
-                .subVectors(nextVec, midVec)
-                .normalize();
-
-              dummy.position.copy(decalPos);
-              dummy.lookAt(decalPos.clone().add(forward));
-              dummy.scale.set(1.5, 1, 1.5); // Perfectly circular, large soft pool
+              dummy.position.set(midVec.x + dxSl, midVec.y, midVec.z + dzSl);
+              dummy.rotation.set(0, slYaw, 0);
+              dummy.scale.set(1, 1, 1);
               dummy.updateMatrix();
-              slDecalInst.setMatrixAt(slIndex, dummy.matrix);
+              const poleIdx = chunkInst.addLocal(
+                'streetlightPole',
+                dummy.matrix
+              );
+              const armIdx = chunkInst.addLocal('streetlightArm', dummy.matrix);
+              const bulbIdx = chunkInst.addLocal(
+                'streetlightBulb',
+                dummy.matrix
+              );
+
+              // Decal on the road under the bulb (1.2 above deck to avoid Z-fighting)
+              decalPos.set(
+                midVec.x + dxSl + 17 * Math.cos(slYaw),
+                midVec.y + 1.2,
+                midVec.z + dzSl - 17 * Math.sin(slYaw)
+              );
+              forward.subVectors(nextVec, midVec).normalize();
+              dummy.position.copy(decalPos);
+              dummy.lookAt(lookTarget.copy(decalPos).add(forward));
+              dummy.scale.set(1.5, 1, 1.5);
+              dummy.updateMatrix();
+              const decalIdx = chunkInst.addLocal(
+                'streetlightDecal',
+                dummy.matrix
+              );
               meshProps.push({
                 kind: BREAKABLE.TREE,
-                parts: [
-                  ['streetlightPole', slBaseInst],
-                  ['streetlightArm', slArmInst],
-                  ['streetlightBulb', slBulbInst],
-                  ['streetlightDecal', slDecalInst],
-                ].map(([type, mesh]) => ({type, mesh, index: slIndex})),
+                _deferredParts: [
+                  ['streetlightPole', poleIdx],
+                  ['streetlightArm', armIdx],
+                  ['streetlightBulb', bulbIdx],
+                  ['streetlightDecal', decalIdx],
+                ],
               });
-
-              slIndex++;
             }
           }
         });
-
-        // The deck, girders, pier shafts and the lamps' glow show to the
-        // horizon; lane markings, rails, pier caps, footings and lamp posts
-        // are sub-pixel that far, so they go with the chunk's props.
-        if (deckInst.instanceColor) deckInst.instanceColor.needsUpdate = true;
-        if (railInst?.instanceColor) railInst.instanceColor.needsUpdate = true;
-        deckInst.position.set(worldOffsetX, 0, worldOffsetZ);
-        group.add(deckInst);
-        for (const m of markingInsts) {
-          if (m.instanceColor) m.instanceColor.needsUpdate = true;
-          m.position.set(worldOffsetX, 0, worldOffsetZ);
-          m.userData.noShadow = true;
-          objectsGroup.add(m);
-        }
-
-        if (girderInst) {
-          girderInst.position.set(worldOffsetX, 0, worldOffsetZ);
-          group.add(girderInst);
-        }
-
-        if (railInst) {
-          railInst.position.set(worldOffsetX, 0, worldOffsetZ);
-          objectsGroup.add(railInst);
-        }
-
-        if (pierShaftInst) {
-          pierCapInst.position.set(worldOffsetX, 0, worldOffsetZ);
-          pierShaftInst.position.set(worldOffsetX, 0, worldOffsetZ);
-          pierFootingInst.position.set(worldOffsetX, 0, worldOffsetZ);
-          objectsGroup.add(pierCapInst);
-          group.add(pierShaftInst);
-          objectsGroup.add(pierFootingInst);
-        }
-
-        if (slBaseInst) {
-          slBaseInst.position.set(worldOffsetX, 0, worldOffsetZ);
-          slArmInst.position.set(worldOffsetX, 0, worldOffsetZ);
-          slBulbInst.position.set(worldOffsetX, 0, worldOffsetZ);
-          slDecalInst.position.set(worldOffsetX, 0, worldOffsetZ);
-          slBulbInst.userData.noShadow = true;
-          slBulbInst.visible = state._enableObjects;
-          slDecalInst.visible = state._enableObjects;
-          objectsGroup.add(slBaseInst);
-          objectsGroup.add(slArmInst);
-          group.add(slBulbInst);
-          group.add(slDecalInst);
-          (group.userData.streetlightMeshes ??= []).push(
-            slBulbInst,
-            slDecalInst
-          );
-        }
       }
     }); // End activeRoads.forEach
-    addSlipRoads(group, roadSegments, worldOffsetX, worldOffsetZ);
+    addSlipRoads(chunkInst, roadSegments, worldOffsetX, worldOffsetZ);
     if (roadSegments.length > 0) group.userData.roadSegments = roadSegments;
   }
 
@@ -4517,13 +4619,22 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
     watercraftChunks.add(group);
   }
 
-  group.userData.instanceData = workerData.instanceData;
+  group.userData.instanceData = chunkInst.finish(meshProps);
   group.userData.breakables = workerData.breakables || null;
   group.userData.breakwaters = workerData.breakwaters?.length
     ? workerData.breakwaters
     : null;
   enableChunkInstanceCulling(group);
   scene.add(group);
+  group.updateMatrixWorld(true);
+  const dynamicBeam = group.userData.lighthouseBeam;
+  const dynamicTarget = group.userData.lighthouseTarget;
+  const dynamicLight = group.userData.lighthouseLight;
+  group.traverse((obj) => {
+    if (obj !== dynamicBeam && obj !== dynamicTarget && obj !== dynamicLight) {
+      obj.matrixAutoUpdate = false;
+    }
+  });
   return group;
 }
 

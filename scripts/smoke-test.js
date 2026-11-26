@@ -553,9 +553,10 @@ async function exerciseControls(page, tag, onDebugEnabled) {
   let c = b;
   for (let i = 0; i < 3 && !(c.target > b.target); i++) {
     await page.keyboard.down('Shift'); // Shift+Up: throttle up
-    await hold('ArrowUp', 1000);
+    await page.keyboard.down('ArrowUp');
+    c = await readUntil((s) => s.target > b.target, 3000);
+    await page.keyboard.up('ArrowUp');
     await page.keyboard.up('Shift');
-    c = await readUntil((s) => s.target > b.target, 2000);
   }
   if (!(c.target > b.target)) {
     fail(`throttle up did not raise target speed (${b.target} -> ${c.target})`);
@@ -822,7 +823,7 @@ async function exerciseControls(page, tag, onDebugEnabled) {
         }),
       n
     );
-  await Promise.all([wait(500), waitFrames(2)]);
+  await Promise.all([wait(500), waitFrames(5)]);
   const readMouseCheck = () =>
     page.evaluate(() => {
       const m = document

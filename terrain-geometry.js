@@ -148,6 +148,7 @@ export function getInstancedMesh(geometry, material, count) {
       const mesh = pool.splice(i, 1)[0];
       mesh.count = count;
       mesh.visible = true;
+      mesh.matrixAutoUpdate = true;
       mesh.instanceMatrix.needsUpdate = true;
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
       return mesh;

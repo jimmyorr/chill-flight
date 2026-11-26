@@ -110,6 +110,10 @@ check(
   'the game loop does not average frame times',
   !/_deltaRing|DELTA_BUFFER_SIZE|deltaRingSum/.test(loop)
 );
+check(
+  'weightedRoll uses exact closed-form critically damped decay across stalls',
+  /Math\.exp\(-omega \* delta\)/.test(loop)
+);
 
 if (failed) {
   console.error('Frame timing test failed');

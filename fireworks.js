@@ -28,6 +28,7 @@ import {
   scheduledVenuesForNight,
 } from './fireworks-logic.js';
 import {state} from './state.js';
+import {hooks} from './hooks.js';
 import {MOUNTAIN_LEVEL, WATER_LEVEL} from './constants.js';
 import {simplex} from './noise.js';
 import {scene} from './scene.js';
@@ -684,3 +685,11 @@ export function updateFireworks(delta) {
 
   mesh.visible = simTime <= allDeadAt + 0.05 && Boolean(state._enableObjects);
 }
+
+hooks.warmUps.push(async () => {
+  const wasVisible = mesh.visible;
+  mesh.visible = true;
+  return () => {
+    mesh.visible = wasVisible;
+  };
+});

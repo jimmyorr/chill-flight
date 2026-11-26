@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {scene} from './scene.js';
 import {state} from './state.js';
+import {hooks} from './hooks.js';
 import {WATER_LEVEL} from './constants.js';
 import {createDolphinModel, getElevation} from './terrain-geometry.js';
 import {planeGroup} from './airplane.js';
@@ -239,4 +240,20 @@ export function updateDolphins(delta) {
     hidePod();
     wait = rand(POD_WAIT_MIN, POD_WAIT_MAX);
   }
+}
+
+if (ChillFlightLogic.TRAFFIC_PARAM !== false && dolphins.length > 0) {
+  hooks.warmUps.push(async (at) => {
+    const holder = dolphins[0].holder;
+    const wasVisible = holder.visible;
+    const prevPos = holder.position.clone();
+    holder.position.copy(at);
+    holder.scale.setScalar(1e-4);
+    holder.visible = true;
+    return () => {
+      holder.position.copy(prevPos);
+      holder.scale.setScalar(DOLPHIN_SCALE);
+      holder.visible = wasVisible;
+    };
+  });
 }

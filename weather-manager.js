@@ -7,6 +7,7 @@ import {simplex} from './noise.js';
 import {roadSnowUniforms, updateUrlParams} from './constants.js';
 import {camera, getCameraWorldPosition, skyUniforms} from './sky.js';
 import {state} from './state.js';
+import {hooks} from './hooks.js';
 import {WIND_DIR_X, WIND_DIR_Z} from './terrain-gen.js';
 import {playThunder} from './sfx-events.js';
 import {thunderHaptic} from './haptics.js';
@@ -421,6 +422,10 @@ function initWeather() {
       headBias: 1,
     }
   );
+  if (!lightningLight) {
+    lightningLight = new THREE.DirectionalLight(0xe0e0ff, 0);
+    scene.add(lightningLight);
+  }
 
   // Bind UI
   const weatherSelect = document.getElementById('weather-select');
@@ -807,3 +812,21 @@ export function updateWeather(delta) {
 
 // Initialize immediately
 initWeather();
+
+hooks.warmUps.push(async () => {
+  if (!snowParticles || !rainParticles || state.SEGMENTS <= 20) return null;
+  const snowWasVisible = snowParticles.visible;
+  const rainWasVisible = rainParticles.visible;
+  const snowOpacity = snowParticles.material.uniforms.uOpacity.value;
+  const rainOpacity = rainParticles.material.uniforms.uOpacity.value;
+  if (!snowWasVisible) snowParticles.material.uniforms.uOpacity.value = 0;
+  if (!rainWasVisible) rainParticles.material.uniforms.uOpacity.value = 0;
+  snowParticles.visible = true;
+  rainParticles.visible = true;
+  return () => {
+    snowParticles.material.uniforms.uOpacity.value = snowOpacity;
+    rainParticles.material.uniforms.uOpacity.value = rainOpacity;
+    snowParticles.visible = snowWasVisible;
+    rainParticles.visible = rainWasVisible;
+  };
+});

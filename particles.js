@@ -10,6 +10,7 @@
 import * as THREE from 'three';
 import {scene} from './scene.js';
 import {state} from './state.js';
+import {hooks} from './hooks.js';
 import {
   BASE_FLIGHT_SPEED,
   CONTRAILS_BELOW_CEILING,
@@ -451,17 +452,26 @@ export function isPaved(x, z) {
 // --- RAIN ON THE VEHICLE ---
 // Splashes a second on the vehicle at full rain
 const RAIN_SPLASH_RATE = 60;
-// Spots on the vehicle's upper surfaces (model space), found once per model
-// by casting rays straight down onto it
+// Spots on the vehicle's upper surfaces (model space), found once per vehicle
+// type by casting rays straight down onto it
 let rainSpotsModel = null;
 let rainSpots = [];
 let rainSpotsRetry = 0;
+const rainSpotsCache = new Map();
 const _ray = new THREE.Raycaster();
 const _down = new THREE.Vector3();
 const _box = new THREE.Box3();
+const _localMat = new THREE.Matrix4();
 
 function findRainSpots(model) {
-  rainSpots = [];
+  const cacheKey = `${activePlaneType}:${Boolean(model.isPolice)}`;
+  const cached = rainSpotsCache.get(cacheKey);
+  if (cached) {
+    rainSpots = cached;
+    rainSpotsModel = model;
+    return;
+  }
+  const spots = [];
   model.updateMatrixWorld(true);
   const props = state.propGroups || [];
   const isProp = (o) => {
@@ -475,11 +485,11 @@ function findRainSpots(model) {
     if (!o.isMesh || !o.geometry || !o.visible) return;
     if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
     const b = o.geometry.boundingBox.clone();
-    b.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+    b.applyMatrix4(_localMat.multiplyMatrices(inv, o.matrixWorld));
     _box.union(b);
   });
   if (_box.isEmpty()) return;
-  const N = 28;
+  const N = 16;
   const up = _box.max.y + 1;
   _down.set(0, -1, 0).transformDirection(model.matrixWorld);
   for (let i = 0; i < N; i++) {
@@ -492,12 +502,27 @@ function findRainSpots(model) {
         .intersectObject(model, true)
         .find((h) => h.object.isMesh && h.object.visible && !isProp(h.object));
       if (!hit) continue;
-      rainSpots.push(hit.point.clone().applyMatrix4(inv));
+      spots.push(hit.point.clone().applyMatrix4(inv));
     }
   }
   // A model still being set up can come up empty: try again later
-  if (rainSpots.length > 0) rainSpotsModel = model;
+  if (spots.length > 0) {
+    rainSpotsCache.set(cacheKey, spots);
+    rainSpots = spots;
+    rainSpotsModel = model;
+  }
 }
+
+hooks.earlyWarmUps.push(async () => {
+  if (state.airplaneModel) findRainSpots(state.airplaneModel);
+});
+hooks.warmUps.push(async () => {
+  const wasVisible = mesh.visible;
+  mesh.visible = true;
+  return () => {
+    mesh.visible = wasVisible;
+  };
+});
 
 // Raindrops landing on the wings, body and buggy: brief tiny specks
 function rainOnVehicle(delta) {

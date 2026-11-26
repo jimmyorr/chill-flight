@@ -11,6 +11,7 @@
 import * as THREE from 'three';
 import {scene} from './scene.js';
 import {state} from './state.js';
+import {hooks} from './hooks.js';
 import {MOUNTAIN_LEVEL, WATER_LEVEL} from './constants.js';
 import {animationUniforms, getElevation} from './terrain-geometry.js';
 import {sampleGroundColor} from './terrain-chunks.js';
@@ -324,4 +325,26 @@ export function updateFireflies() {
     points.geometry.getAttribute('aSpot').needsUpdate = true;
     points.geometry.getAttribute('aBorn').needsUpdate = true;
   }
+}
+
+if (ChillFlightLogic.TRAFFIC_PARAM !== false) {
+  hooks.warmUps.push(async () => {
+    const preset = state.graphicsPreset;
+    if (!points || points.userData.preset !== preset) {
+      if (points) {
+        scene.remove(points);
+        points.geometry.dispose();
+        points.material.dispose();
+      }
+      build(preset);
+    }
+    const wasVisible = points.visible;
+    const wasAmount = uniforms.uAmount.value;
+    if (!wasVisible) uniforms.uAmount.value = 0;
+    points.visible = true;
+    return () => {
+      uniforms.uAmount.value = wasAmount;
+      points.visible = wasVisible;
+    };
+  });
 }

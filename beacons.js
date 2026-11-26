@@ -399,4 +399,6 @@ export function updateBeacons() {
   lightUniforms.uNight.value =
     1 - THREE.MathUtils.smoothstep(state.dayFactor, 0.3, 0.8);
   lightUniforms.uScale.value = renderer.getPixelRatio();
+  masts.visible = masts.count > 0;
+  lights.visible = masts.count > 0 && lightUniforms.uNight.value > 0.003;
 }

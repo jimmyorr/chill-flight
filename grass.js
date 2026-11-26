@@ -19,6 +19,7 @@
 import * as THREE from 'three';
 import {scene} from './scene.js';
 import {state} from './state.js';
+import {hooks} from './hooks.js';
 import {
   CHUNK_SIZE,
   MOUNTAIN_LEVEL,
@@ -783,4 +784,29 @@ export function updateGrass(delta) {
   drawTrample(renderer, cx, cz, field.radius * 2 + 16);
   uniforms.uTrampleSpan.value = trample.live ? trample.span : 0;
   if (updateGround(cx, cz)) updateRoads(cx, cz);
+}
+
+// For the loading screen's warm-up (hooks.warmUps): build and compile the
+// tall-grass shader before flight starts so the first low pass doesn't hitch
+if (GRASS_ON) {
+  hooks.warmUps.push(async () => {
+    const preset = state.graphicsPreset;
+    if (preset === 'low' || state.isVRPresenting) return null;
+    if (!mesh || FIELD[preset] !== field) {
+      if (mesh) {
+        scene.remove(mesh);
+        mesh.geometry.dispose();
+        mesh.material.dispose();
+      }
+      buildMesh(preset);
+    }
+    const wasVisible = mesh.visible;
+    const wasFade = uniforms.uGrassFade.value;
+    uniforms.uGrassFade.value = 0;
+    mesh.visible = true;
+    return () => {
+      uniforms.uGrassFade.value = wasFade;
+      mesh.visible = wasVisible;
+    };
+  });
 }

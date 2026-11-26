@@ -10,6 +10,7 @@ import {skyUniforms} from './sky-uniforms.js';
 import {CLOUD_GLSL} from './constants.js';
 import {ART_POST} from './art-style.js';
 import {state} from './state.js';
+import {hooks} from './hooks.js';
 import {ABOVE_CLOUDS} from './flight-physics-logic.js';
 import {headlight, HEADLIGHT_COLOR} from './airplane.js';
 
@@ -361,4 +362,27 @@ export function updateCloudVeil(fogColor, camPos) {
   if (headlight.intensity > 0) {
     u.uColor.value.lerp(_litCloud, 0.55 * (1 - day));
   }
+}
+
+if (ABOVE_CLOUDS) {
+  hooks.warmUps.push(async () => {
+    if (!skyUniforms.uShowClouds.value) return null;
+    const deckWas = deck.visible;
+    const domesWas = domes.visible;
+    const veilWas = veil.visible;
+    const prevTypesX = deckUniforms.uCloudTypes.value.x;
+    const prevBand = veilMaterial.uniforms.uBand.value;
+    if (!deckWas) deckUniforms.uCloudTypes.value.x = 0;
+    if (!veilWas) veilMaterial.uniforms.uBand.value = 0;
+    deck.visible = true;
+    domes.visible = true;
+    veil.visible = true;
+    return () => {
+      deckUniforms.uCloudTypes.value.x = prevTypesX;
+      veilMaterial.uniforms.uBand.value = prevBand;
+      deck.visible = deckWas;
+      domes.visible = domesWas;
+      veil.visible = veilWas;
+    };
+  });
 }
