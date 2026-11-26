@@ -1541,7 +1541,9 @@ async function uploadToYouTube(
     const readBack = await page.evaluate(() => {
       const dateEl = document.querySelector('#datepicker-trigger');
       const timeEl = document.querySelector('#time-of-day-container input');
-      const doneEl = document.querySelector('#done-button');
+      const doneEl =
+        document.querySelector('ytcp-uploads-dialog #done-button') ||
+        document.querySelector('#done-button');
       return {
         date: (dateEl?.innerText || dateEl?.textContent || '')
           .replace(/\s+/g, ' ')
@@ -1584,15 +1586,23 @@ async function uploadToYouTube(
         ? '  Clicking Schedule on YouTube...'
         : '  Clicking Publish on YouTube...'
     );
-    await page.waitForSelector('#done-button:not([disabled])', {
+    const doneSel =
+      'ytcp-uploads-dialog #done-button:not([disabled]):not([aria-disabled="true"])';
+    await page.waitForSelector(doneSel, {
       visible: true,
       timeout: 120000,
     });
-    await humanSleep(400, 800);
-    await page.click('#done-button');
+    await humanSleep(500, 900);
+    const doneHandle = await findFirstVisibleHandle(page, doneSel);
+    if (doneHandle) {
+      await doneHandle.click();
+    } else {
+      await page.click(doneSel);
+    }
 
-    // Poll for up to 90s: if YouTube still prompts "Publish/Schedule anyway", click it;
-    // then wait until `ytcp-video-share-dialog` confirms publication/scheduling.
+    // Poll for up to 90s: if YouTube prompts "Publish/Schedule anyway" or
+    // "We're still checking your content" ("Got it"), confirm it; then wait
+    // until `ytcp-video-share-dialog` opens or `ytcp-uploads-dialog` closes.
     const publishStart = Date.now();
     let clickedPublishAnyway = false;
     let retriedDoneButton = false;
@@ -1600,17 +1610,6 @@ async function uploadToYouTube(
     let publishedUrl = null;
     while (Date.now() - publishStart < 90000) {
       await humanSleep(900, 1400);
-
-      if (!retriedDoneButton && Date.now() - publishStart > 6500) {
-        const stillHasDone = await page.evaluate(() => {
-          const el = document.querySelector('#done-button:not([disabled])');
-          return Boolean(el && el.getBoundingClientRect().width > 0);
-        });
-        if (stillHasDone) {
-          retriedDoneButton = true;
-          await page.click('#done-button').catch(() => {});
-        }
-      }
 
       if (!clickedPublishAnyway) {
         const dialogButtons = await page.$$(
@@ -1624,26 +1623,61 @@ async function uploadToYouTube(
         for (const btn of dialogButtons) {
           const info = await btn.evaluate((el) => {
             const rect = el.getBoundingClientRect();
+            const dlg = el.closest(
+              'ytcp-confirmation-dialog, tp-yt-paper-dialog[opened], [role="dialog"]'
+            );
             return {
               text: (el.innerText || el.textContent || '').trim(),
               aria: (el.getAttribute('aria-label') || '').trim(),
+              dlgText: (dlg?.innerText || '').replace(/\s+/g, ' ').trim(),
               visible: rect.width > 0 && rect.height > 0,
             };
           });
-          if (
-            info.visible &&
-            (/(publish|schedule) anyway/i.test(info.text) ||
-              /(publish|schedule) anyway/i.test(info.aria))
-          ) {
+          const isAnyway =
+            /(publish|schedule) anyway/i.test(info.text) ||
+            /(publish|schedule) anyway/i.test(info.aria);
+          const isStillCheckingGotIt =
+            /^got it$/i.test(info.text) &&
+            /still checking your (content|video)/i.test(info.dlgText);
+          if (info.visible && (isAnyway || isStillCheckingGotIt)) {
             console.log(
-              '  Confirming "Publish/Schedule anyway" dialog on YouTube...'
+              isStillCheckingGotIt
+                ? '  Confirming "Still checking your content (Got it)" dialog on YouTube...'
+                : '  Confirming "Publish/Schedule anyway" dialog on YouTube...'
             );
-            await humanSleep(900, 1600);
-            await humanClickHandle(page, btn);
+            await humanSleep(700, 1300);
+            await btn.click();
             clickedPublishAnyway = true;
-            await humanSleep(1600, 2400);
+            await humanSleep(2000, 3000);
+            if (isStillCheckingGotIt) {
+              scheduleConfirmed = true;
+              break;
+            }
             break;
           }
+        }
+        if (scheduleConfirmed) break;
+      }
+
+      if (
+        !retriedDoneButton &&
+        !clickedPublishAnyway &&
+        Date.now() - publishStart > 6500
+      ) {
+        const canRetryDone = await page.evaluate((sel) => {
+          const el = document.querySelector(sel);
+          if (!el) return false;
+          const r = el.getBoundingClientRect();
+          if (r.width <= 0 || r.height <= 0) return false;
+          const hit = document.elementFromPoint(
+            r.left + r.width / 2,
+            r.top + r.height / 2
+          );
+          return Boolean(hit && el.contains(hit));
+        }, doneSel);
+        if (canRetryDone) {
+          retriedDoneButton = true;
+          await page.click(doneSel).catch(() => {});
         }
       }
 
@@ -1656,31 +1690,47 @@ async function uploadToYouTube(
           const rect = d.getBoundingClientRect();
           return rect.width > 0 && rect.height > 0;
         });
-        if (!shareDialog) return null;
-        const link = shareDialog.querySelector(
-          'a[href*="youtube.com/shorts/"], a[href*="youtu.be/"]'
+        if (shareDialog) {
+          const link = shareDialog.querySelector(
+            'a[href*="youtube.com/shorts/"], a[href*="youtu.be/"]'
+          );
+          return {
+            kind: 'dialog',
+            text: (shareDialog.innerText || '').slice(0, 200),
+            href: link ? link.href : null,
+          };
+        }
+        const uploadPaperDialog = document.querySelector(
+          'ytcp-uploads-dialog tp-yt-paper-dialog[opened]'
         );
-        return {
-          text: (shareDialog.innerText || '').slice(0, 200),
-          href: link ? link.href : null,
-        };
+        if (
+          !uploadPaperDialog ||
+          uploadPaperDialog.getBoundingClientRect().width === 0
+        ) {
+          return {kind: 'closed', text: '', href: null};
+        }
+        return null;
       });
       if (shareState) {
         publishedUrl = shareState.href;
-        await humanSleep(1800, 2800);
-        const closeBtns = await page.$$(
-          'ytcp-video-share-dialog #close-button, ytcp-uploads-still-processing-dialog #close-button'
-        );
-        for (const closeBtn of closeBtns) {
-          const vis = await closeBtn.evaluate(
-            (el) => el.getBoundingClientRect().width > 0
+        if (shareState.kind === 'dialog') {
+          await humanSleep(1800, 2800);
+          const closeBtns = await page.$$(
+            'ytcp-video-share-dialog #close-button, ytcp-uploads-still-processing-dialog #close-button'
           );
-          if (vis) {
-            await humanClickHandle(page, closeBtn).catch(() => {});
-            break;
+          for (const closeBtn of closeBtns) {
+            const vis = await closeBtn.evaluate(
+              (el) => el.getBoundingClientRect().width > 0
+            );
+            if (vis) {
+              await closeBtn.click().catch(() => {});
+              break;
+            }
           }
+          await humanSleep(1500, 2400);
+        } else {
+          await humanSleep(1200, 2000);
         }
-        await humanSleep(1500, 2400);
         scheduleConfirmed = true;
         break;
       }
