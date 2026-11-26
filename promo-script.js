@@ -15,58 +15,80 @@
 const DEG = Math.PI / 180;
 const TWO_PI = Math.PI * 2;
 
-function channelAt(moves, t, index) {
-  let i0 = 0;
-  for (let i = 0; i < moves.length; i++) {
-    if (moves[i][index] != null && moves[i][0] <= t) i0 = i;
-  }
-  let i1 = i0;
-  for (let i = i0 + 1; i < moves.length; i++) {
-    if (moves[i][index] != null) {
-      i1 = i;
-      break;
-    }
-  }
-  const t0 = moves[i0][0];
-  const v0 = moves[i0][index] ?? 0;
-  const t1 = moves[i1][0];
-  const v1 = moves[i1][index] ?? v0;
-  const u = t1 > t0 ? Math.min(1, Math.max(0, (t - t0) / (t1 - t0))) : 1;
-  const s = u * u * (3 - 2 * u);
-  return (v0 + (v1 - v0) * s) * DEG;
-}
-
-// Smoothstep channel lookup in raw units (returns `fallback` when no keyframe
-// defines `index`).
+// Fritsch-Carlson monotone cubic Hermite interpolation across active keyframes
+// for `index` (skipping null/undefined intermediate entries). Hits every
+// keyframe `(t_k, v_k)` exactly, starts and ends with zero slope (`m_0 = 0`,
+// `m_{n-1} = 0`), never overshoots flat plateaus or extrema, and keeps smooth
+// non-zero velocity across interior keyframes moving in the same direction.
 export function rawChannelAt(moves, t, index, fallback = null) {
   if (!Array.isArray(moves) || moves.length === 0) return fallback;
-  let first = -1;
+  const pts = [];
   for (let i = 0; i < moves.length; i++) {
-    if (moves[i][index] != null) {
-      first = i;
-      break;
+    const val = moves[i]?.[index];
+    if (val != null) {
+      pts.push([moves[i][0], val]);
     }
   }
-  if (first < 0) return fallback;
-  let i0 = first;
-  for (let i = first; i < moves.length; i++) {
-    if (moves[i][index] != null && moves[i][0] <= t) i0 = i;
+  const n = pts.length;
+  if (n === 0) return fallback;
+  if (n === 1 || t <= pts[0][0]) return pts[0][1];
+  if (t >= pts[n - 1][0]) return pts[n - 1][1];
+
+  const d = new Array(n - 1);
+  const h = new Array(n - 1);
+  for (let k = 0; k < n - 1; k++) {
+    const dt = pts[k + 1][0] - pts[k][0];
+    h[k] = dt;
+    d[k] = dt > 0 ? (pts[k + 1][1] - pts[k][1]) / dt : 0;
   }
-  let i1 = i0;
-  for (let i = i0 + 1; i < moves.length; i++) {
-    if (moves[i][index] != null) {
-      i1 = i;
-      break;
+
+  const m = new Array(n).fill(0);
+  for (let k = 1; k < n - 1; k++) {
+    if (d[k - 1] !== 0 && d[k] !== 0 && d[k - 1] * d[k] > 0) {
+      const w0 = 2 * h[k] + h[k - 1];
+      const w1 = h[k] + 2 * h[k - 1];
+      m[k] = (w0 + w1) / (w0 / d[k - 1] + w1 / d[k]);
     }
   }
-  const t0 = moves[i0][0];
-  const v0 = moves[i0][index];
-  const t1 = moves[i1][0];
-  const v1 = moves[i1][index] ?? v0;
-  if (t <= t0 || t1 <= t0) return v0;
-  const u = Math.min(1, Math.max(0, (t - t0) / (t1 - t0)));
-  const s = u * u * (3 - 2 * u);
-  return v0 + (v1 - v0) * s;
+
+  for (let k = 0; k < n - 1; k++) {
+    if (d[k] === 0) {
+      m[k] = 0;
+      m[k + 1] = 0;
+    } else {
+      const a = m[k] / d[k];
+      const b = m[k + 1] / d[k];
+      const hyp = Math.hypot(a, b);
+      if (hyp > 3) {
+        const tau = 3 / hyp;
+        m[k] = tau * a * d[k];
+        m[k + 1] = tau * b * d[k];
+      }
+    }
+  }
+
+  let seg = 0;
+  for (let k = 0; k < n - 1; k++) {
+    if (pts[k][0] <= t) seg = k;
+    else break;
+  }
+  const span = h[seg];
+  if (!(span > 0)) return pts[seg][1];
+  const u = Math.min(1, Math.max(0, (t - pts[seg][0]) / span));
+  const u2 = u * u;
+  const u3 = u2 * u;
+  const v0 = pts[seg][1];
+  const v1 = pts[seg + 1][1];
+  return (
+    (2 * u3 - 3 * u2 + 1) * v0 +
+    (u3 - 2 * u2 + u) * span * m[seg] +
+    (-2 * u3 + 3 * u2) * v1 +
+    (u3 - u2) * span * m[seg + 1]
+  );
+}
+
+function channelAt(moves, t, index) {
+  return (rawChannelAt(moves, t, index, 0) ?? 0) * DEG;
 }
 
 function lerpWrappedAngle(a, b, u) {
@@ -139,6 +161,37 @@ export function driveAt(driveMoves, t) {
 
 export function scriptedDrive(driveMoves, start) {
   return (now) => driveAt(driveMoves, (now - start) / 1000);
+}
+
+// Virtual human pilot inputs at `t` seconds:
+// - `stick`: [[t, steerX (-1 left .. +1 right), steerY (-1 dive .. +1 climb), throttle], ...]
+// - `stunts`: [[tStart, tEnd, kind], ...] where `kind` is one of:
+//   'roll-left' | 'roll-right' | 'sharp-left' | 'sharp-right' | 'loop' |
+//   'immelmann' | 'climb' | 'steep-climb' | 'dive' | 'steep-dive'
+// Feeds straight into the real flight controls & physics in game-loop.js.
+export function pilotAt(pilotSpec, t) {
+  if (!pilotSpec || t < 0) {
+    return {steerX: 0, steerY: 0, throttle: null, stunt: null};
+  }
+  const stick = Array.isArray(pilotSpec) ? pilotSpec : pilotSpec.stick || [];
+  const stunts = Array.isArray(pilotSpec) ? [] : pilotSpec.stunts || [];
+  let stunt = null;
+  for (let i = 0; i < stunts.length; i++) {
+    const s = stunts[i];
+    if (s && t >= s[0] && t < s[1]) {
+      stunt = s[2] || null;
+    }
+  }
+  return {
+    steerX: rawChannelAt(stick, t, 1, 0) ?? 0,
+    steerY: rawChannelAt(stick, t, 2, 0) ?? 0,
+    throttle: rawChannelAt(stick, t, 3, null),
+    stunt,
+  };
+}
+
+export function scriptedPilot(pilotSpec, start) {
+  return (now) => pilotAt(pilotSpec, (now - start) / 1000);
 }
 
 // Interpolated vehicle pose at `t` seconds from recorded frames:

@@ -167,6 +167,7 @@ export const state = {
   targetRoll: 0,
   // Promo clip scripting hooks (promo-script.js, promo-director.js)
   scriptedFlight: null,
+  scriptedPilot: null,
   scriptedCamera: null,
   scriptedDrive: null,
   scriptedReplay: null,

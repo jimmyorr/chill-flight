@@ -33,6 +33,7 @@ import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {simplex} from '../noise.js';
 import {ARCH, archBlocks, archCeiling, archSites} from '../arches-logic.js';
 import {solveStartCoords, traceScriptedTrajectory} from '../promo-script.js';
+import {simulatePilotTrajectory, solvePilotStartCoords} from './pilot-sim.js';
 import {
   DEFAULT_RELATED_VIDEO,
   buildDefaultPinnedComment,
@@ -618,12 +619,14 @@ function resolveWingmenSpecs(
 export function verifySegmentCorridor({
   seed,
   label = 'segment',
+  planeType = 'seaplane',
   x,
   y,
   z,
   headingDeg = 0,
   speedMult = 1,
   moves = [[0, 0, 0, 0]],
+  pilotMoves = null,
   startFrame = 0,
   endFrame = 90,
   prerollSec = PREROLL,
@@ -639,18 +642,31 @@ export function verifySegmentCorridor({
   ChillFlightLogic.XMAS_SEASON = xmasMode;
   simplex.seed(seed);
 
-  const rawSamples = traceScriptedTrajectory({
-    x,
-    y,
-    z,
-    headingDeg,
-    speedMult,
-    moves,
-    endFrame,
-    prerollSec,
-    fps,
-    loopDip,
-  });
+  const rawSamples = pilotMoves
+    ? simulatePilotTrajectory({
+        planeType,
+        x,
+        y,
+        z,
+        headingDeg,
+        speedMult,
+        pilotMoves,
+        endFrame,
+        prerollSec,
+        fps,
+      })
+    : traceScriptedTrajectory({
+        x,
+        y,
+        z,
+        headingDeg,
+        speedMult,
+        moves,
+        endFrame,
+        prerollSec,
+        fps,
+        loopDip,
+      });
 
   // Apply portal warp to remaining samples if the trajectory threads a portal
   let portalCrossFrame = null;
@@ -805,6 +821,7 @@ export function startCoordsForFrame(
 function planSegment(clipSpec, seg) {
   const segSeed = seg.seed ?? clipSpec.seed;
   const segMoves = seg.moves ?? clipSpec.moves ?? [[0, 0, 0, 0]];
+  const pilotMoves = seg.pilotMoves ?? clipSpec.pilotMoves ?? null;
   const segSpeed = seg.speed ?? clipSpec.speedMult ?? 1;
   const segLoopDip = seg.loopDip ?? clipSpec.loopDip ?? false;
   const segSurface = Boolean(seg.surface ?? clipSpec.surface);
@@ -812,6 +829,11 @@ function planSegment(clipSpec, seg) {
   const segPreroll = seg.preroll ?? clipSpec.preroll ?? PREROLL;
   const segXmas =
     seg.xmas || (seg.extra?.includes('xmas=full') ? 'full' : 'off');
+  const defaultPlane =
+    new URLSearchParams((clipSpec.cam || '').replace(/^[^?]*\?/, '')).get(
+      'plane'
+    ) || 'seaplane';
+  const planeType = seg.plane || defaultPlane;
 
   const lm = seg.landmark
     ? resolveLandmarkTarget(segSeed, seg.landmark, segXmas)
@@ -819,24 +841,46 @@ function planSegment(clipSpec, seg) {
   const tx = seg.tx ?? lm?.tx ?? 0;
   const ty = seg.ty ?? lm?.ty ?? 200;
   const tz = seg.tz ?? lm?.tz ?? 0;
-  const heading = seg.heading ?? lm?.heading ?? 0;
+  const rawHeading = seg.heading ?? lm?.heading ?? 0;
   const targetFrame = seg.hitFrame ?? seg.startFrame ?? 0;
+  const alignHeading = Boolean(
+    seg.alignHeading ?? clipSpec.alignHeading ?? Boolean(lm)
+  );
 
-  const start =
+  const solved =
     seg.x !== undefined && seg.y !== undefined && seg.z !== undefined
-      ? {x: seg.x, y: seg.y, z: seg.z}
-      : solveStartCoords({
-          tx,
-          ty,
-          tz,
-          headingDeg: heading,
-          speedMult: segSpeed,
-          moves: segMoves,
-          targetFrame,
-          prerollSec: segPreroll,
-          fps: FPS,
-          loopDip: segLoopDip,
-        });
+      ? {x: seg.x, y: seg.y, z: seg.z, headingDeg: rawHeading}
+      : pilotMoves
+        ? solvePilotStartCoords({
+            planeType,
+            tx,
+            ty,
+            tz,
+            headingDeg: rawHeading,
+            speedMult: segSpeed,
+            pilotMoves,
+            targetFrame,
+            prerollSec: segPreroll,
+            fps: FPS,
+            alignHeading,
+          })
+        : {
+            ...solveStartCoords({
+              tx,
+              ty,
+              tz,
+              headingDeg: rawHeading,
+              speedMult: segSpeed,
+              moves: segMoves,
+              targetFrame,
+              prerollSec: segPreroll,
+              fps: FPS,
+              loopDip: segLoopDip,
+            }),
+            headingDeg: rawHeading,
+          };
+  const start = {x: solved.x, y: solved.y, z: solved.z};
+  const heading = solved.headingDeg;
 
   const resolvedWingmen = resolveWingmenSpecs(seg.wingmen ?? clipSpec.wingmen, {
     prerollSec: segPreroll,
@@ -874,12 +918,14 @@ function planSegment(clipSpec, seg) {
       : verifySegmentCorridor({
           seed: segSeed,
           label: `${clipSpec.id}:${seg.label}`,
+          planeType,
           x: start.x,
           y: start.y,
           z: start.z,
           headingDeg: heading,
           speedMult: segSpeed,
           moves: segMoves,
+          pilotMoves,
           startFrame: seg.startFrame ?? 0,
           endFrame: seg.endFrame,
           prerollSec: segPreroll,
@@ -894,6 +940,8 @@ function planSegment(clipSpec, seg) {
   return {
     segSeed,
     segMoves,
+    pilotMoves,
+    planeType,
     segSpeed,
     segLoopDip,
     segSurface,
@@ -1014,12 +1062,15 @@ async function renderMatchCutClip(browser, clipSpec) {
     }
 
     const scriptDetail =
+      plan.pilotMoves ||
       plan.segDirect !== undefined ||
       plan.segSurface ||
       plan.driveMoves ||
       plan.replay
         ? {
-            moves: plan.segMoves,
+            ...(plan.pilotMoves
+              ? {pilotMoves: plan.pilotMoves}
+              : {moves: plan.segMoves}),
             direct: plan.segDirect,
             surface: plan.segSurface,
             driveMoves: plan.driveMoves,

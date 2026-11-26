@@ -13,13 +13,16 @@ import {
   attitudeAt,
   cameraAt,
   driveAt,
+  pilotAt,
   scriptedCamera,
   scriptedDrive,
   scriptedFlight,
+  scriptedPilot,
   scriptedReplay,
   solveStartCoords,
   traceScriptedTrajectory,
 } from '../promo-script.js';
+import {simulatePilotTrajectory, solvePilotStartCoords} from './pilot-sim.js';
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {
   SHORT_BADGE_TOP_PX,
@@ -485,6 +488,128 @@ check(
     !canReuseTab('seed=20260928', 'seed=20260928&style=anime') &&
     !canReuseTab('seed=20260928', 'seed=20260928&xmas=full') &&
     !canReuseTab('seed=20260928', 'seed=20260928&objects=0')
+);
+
+// Monotone cubic Hermite spline keeps smooth non-zero angular velocity across interior keyframes
+const multiKeyRoll = [
+  [0, 0, 0],
+  [1, 90, 0],
+  [2, 270, 0],
+  [3, 360, 0],
+];
+const eps = 1e-4;
+const velAt1 =
+  (attitudeAt(multiKeyRoll, 1 + eps).roll -
+    attitudeAt(multiKeyRoll, 1 - eps).roll) /
+  (2 * eps);
+const velAt2 =
+  (attitudeAt(multiKeyRoll, 2 + eps).roll -
+    attitudeAt(multiKeyRoll, 2 - eps).roll) /
+  (2 * eps);
+const multiSamples = [];
+for (let t = 0; t <= 3; t += 0.02) {
+  multiSamples.push(attitudeAt(multiKeyRoll, t).roll);
+}
+const multiMonotonic = multiSamples.every(
+  (v, i) =>
+    v >= -1e-12 &&
+    v <= 360 * DEG + 1e-12 &&
+    (i === 0 || v >= multiSamples[i - 1] - 1e-12)
+);
+check(
+  'monotone cubic Hermite spline maintains continuous non-zero velocity through interior roll keyframes without overshoot',
+  near(attitudeAt(multiKeyRoll, 1).roll, 90 * DEG) &&
+    near(attitudeAt(multiKeyRoll, 2).roll, 270 * DEG) &&
+    velAt1 > 90 * DEG &&
+    velAt2 > 90 * DEG &&
+    multiMonotonic
+);
+
+// Virtual human pilot (pilotAt + scriptedPilot + simulatePilotTrajectory + solvePilotStartCoords)
+const samplePilot = {
+  stick: [
+    [0.0, 0, 0, 1.2],
+    [1.2, -0.45, 0.08, null],
+    [2.4, 0, 0, 1.3],
+    [5.8, 0.35, -0.05, 1.3],
+    [7.5, 0, 0, 1.2],
+  ],
+  stunts: [[2.6, 4.7, 'roll-right']],
+};
+const pFn = scriptedPilot(samplePilot, 1000);
+check(
+  'pilotAt + scriptedPilot interpolate stick/throttle and activate held stunts cleanly',
+  pilotAt(samplePilot, -0.5).stunt === null &&
+    pFn(500).steerX === 0 &&
+    pFn(2200).steerX < -0.4 &&
+    pFn(3800).stunt === 'roll-right' &&
+    pFn(6000).stunt === null
+);
+
+const pilotSim = simulatePilotTrajectory({
+  planeType: 'biplane',
+  x: 0,
+  y: 450,
+  z: 0,
+  headingDeg: 35,
+  speedMult: 1.2,
+  pilotMoves: samplePilot,
+  endFrame: 225, // 7.5s at 30 fps
+  prerollSec: 1.5,
+  fps: 30,
+});
+// Check constant non-staggered roll rate during held barrel roll (frames 90..138 => t = 3.0s..4.6s)
+const prerollOffset = 45;
+let minMidRollRate = Infinity;
+for (let f = 90; f <= 138; f++) {
+  const s0 = pilotSim[prerollOffset + f - 1];
+  const s1 = pilotSim[prerollOffset + f];
+  const rate = Math.abs(s1.roll - s0.roll) * 30;
+  if (rate < minMidRollRate) minMidRollRate = rate;
+}
+const endSample = pilotSim[pilotSim.length - 1];
+const endWrappedRoll =
+  endSample.roll - Math.PI * 2 * Math.round(endSample.roll / (Math.PI * 2));
+check(
+  'simulatePilotTrajectory flies a smooth constant-rate barrel roll (>2.4 rad/s) and settles back near wings-level',
+  minMidRollRate > 2.4 && Math.abs(endWrappedRoll) < 8 * DEG
+);
+
+const archTarget = {tx: 3100, ty: 280, tz: -6400};
+const archHeading = 128;
+const archHitFrame = 54;
+const solvedPilotStart = solvePilotStartCoords({
+  planeType: 'biplane',
+  ...archTarget,
+  headingDeg: archHeading,
+  speedMult: 1.2,
+  pilotMoves: samplePilot,
+  targetFrame: archHitFrame,
+  prerollSec: 1.5,
+  fps: 30,
+  alignHeading: true,
+  round: false,
+});
+const verifyPilotTrace = simulatePilotTrajectory({
+  planeType: 'biplane',
+  x: solvedPilotStart.x,
+  y: solvedPilotStart.y,
+  z: solvedPilotStart.z,
+  headingDeg: solvedPilotStart.headingDeg,
+  speedMult: 1.2,
+  pilotMoves: samplePilot,
+  endFrame: 90,
+  prerollSec: 1.5,
+  fps: 30,
+});
+const pilotHit = verifyPilotTrace.find((s) => s.frame === archHitFrame);
+check(
+  'solvePilotStartCoords hits target (tx, ty, tz) and aligns curved approach heading at targetFrame',
+  Boolean(pilotHit) &&
+    near(pilotHit.x, archTarget.tx, 1e-6) &&
+    near(pilotHit.y, archTarget.ty, 1e-6) &&
+    near(pilotHit.z, archTarget.tz, 1e-6) &&
+    near(pilotHit.yaw, archHeading * DEG, 1e-6)
 );
 
 console.log(

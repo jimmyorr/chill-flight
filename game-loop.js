@@ -204,6 +204,7 @@ import {xmasGlowMat} from './xmas-models.js';
 
 let scriptedStartYaw = 0;
 let scriptedStartSpeed = 1;
+let pilotImmelmannLatched = false;
 const immelmann = {
   pitch: 0,
   pitchRate: 0,
@@ -217,6 +218,7 @@ const immelmann = {
 window.addEventListener('promo-script', (event) => {
   scriptedStartYaw = planeGroup.rotation.y;
   scriptedStartSpeed = state.flightSpeedMultiplier;
+  pilotImmelmannLatched = false;
   configurePromoDirector(event.detail, performance.now());
 });
 
@@ -1285,6 +1287,7 @@ function resetFlightManeuvers() {
   loopExit.turns = 0;
   loopExit.t = 0;
   vrSimStickWereFlying = false;
+  pilotImmelmannLatched = false;
   state.isDoingImmelmann = false;
   state.immelmannProgress = 0;
   state.isLooping = false;
@@ -1474,30 +1477,62 @@ function updatePhysicsAndControls(delta, nowTime) {
     : touchSteer
       ? (v) => stickResponse(THREE.MathUtils.clamp(v * steerScale, -1, 1))
       : stickResponse;
-  let effMouseX = steeringOn ? respond(state.mouseX) : 0;
-  let effMouseY = steeringOn ? respond(state.mouseY) : 0;
+  const pilot = !state.isFreeCamera && state.scriptedPilot?.(nowTime);
+  let effMouseX = pilot
+    ? THREE.MathUtils.clamp(pilot.steerX || 0, -1, 1)
+    : steeringOn
+      ? respond(state.mouseX)
+      : 0;
+  let effMouseY = pilot
+    ? THREE.MathUtils.clamp(pilot.steerY || 0, -1, 1)
+    : steeringOn
+      ? respond(state.mouseY)
+      : 0;
 
   // Logical inputs based on effective Y-axis inversion
-  const invertY = inputManager.shouldInvertYAxis();
-  const isUp = (invertY ? keys.ArrowDown : keys.ArrowUp) && !state.isFreeCamera;
-  const isDown =
-    (invertY ? keys.ArrowUp : keys.ArrowDown) && !state.isFreeCamera;
-  const dtUp =
+  const invertY = pilot ? false : inputManager.shouldInvertYAxis();
+  let isUp = (invertY ? keys.ArrowDown : keys.ArrowUp) && !state.isFreeCamera;
+  let isDown = (invertY ? keys.ArrowUp : keys.ArrowDown) && !state.isFreeCamera;
+  let dtUp =
     (invertY ? doubleTap.ArrowDown : doubleTap.ArrowUp) && !state.isFreeCamera;
-  const dtDown =
+  let dtDown =
     (invertY ? doubleTap.ArrowUp : doubleTap.ArrowDown) && !state.isFreeCamera;
-  const ttUp =
+  let ttUp =
     (invertY ? tripleTap.ArrowDown : tripleTap.ArrowUp) && !state.isFreeCamera;
-  const startUp = invertY
+  let startUp = invertY
     ? keyPressStartTime.ArrowDown
     : keyPressStartTime.ArrowUp;
 
-  const isLeft = keys.ArrowLeft && !state.isFreeCamera;
-  const isRight = keys.ArrowRight && !state.isFreeCamera;
-  const dtLeft = doubleTap.ArrowLeft && !state.isFreeCamera;
-  const dtRight = doubleTap.ArrowRight && !state.isFreeCamera;
-  const ttLeft = tripleTap.ArrowLeft && !state.isFreeCamera;
-  const ttRight = tripleTap.ArrowRight && !state.isFreeCamera;
+  let isLeft = keys.ArrowLeft && !state.isFreeCamera;
+  let isRight = keys.ArrowRight && !state.isFreeCamera;
+  let dtLeft = doubleTap.ArrowLeft && !state.isFreeCamera;
+  let dtRight = doubleTap.ArrowRight && !state.isFreeCamera;
+  let ttLeft = tripleTap.ArrowLeft && !state.isFreeCamera;
+  let ttRight = tripleTap.ArrowRight && !state.isFreeCamera;
+  if (pilot) {
+    const stunt = pilot.stunt;
+    isUp = stunt === 'climb' || stunt === 'steep-climb' || stunt === 'loop';
+    dtUp = stunt === 'steep-climb';
+    ttUp = stunt === 'loop';
+    if (ttUp) startUp = nowTime - STEER_HOLD_THRESHOLD - 10;
+    isDown = stunt === 'dive' || stunt === 'steep-dive';
+    dtDown = stunt === 'steep-dive';
+    isLeft = stunt === 'roll-left' || stunt === 'sharp-left';
+    dtLeft = stunt === 'sharp-left';
+    ttLeft = stunt === 'roll-left';
+    isRight = stunt === 'roll-right' || stunt === 'sharp-right';
+    dtRight = stunt === 'sharp-right';
+    ttRight = stunt === 'roll-right';
+    if (stunt === 'immelmann') {
+      if (!pilotImmelmannLatched && !state.isDoingImmelmann && !loopActive) {
+        state.isDoingImmelmann = true;
+        state.immelmannProgress = 0;
+      }
+      pilotImmelmannLatched = true;
+    } else {
+      pilotImmelmannLatched = false;
+    }
+  }
   const inAirGrip =
     !state.isFreeCamera && !state.isOnGround && !state.isOnWater;
   const inAirGripTurn = inAirGrip
@@ -1512,19 +1547,23 @@ function updatePhysicsAndControls(delta, nowTime) {
   // the deadzone (deliberateSteer)
   if (
     state.autopilotEnabled &&
-    !keys.Shift &&
-    (isUp ||
-      isDown ||
-      isLeft ||
-      isRight ||
-      inAirGripTurn !== 0 ||
-      inAirGripRoll !== 0 ||
-      deliberateSteer())
+    (Boolean(pilot) ||
+      (!keys.Shift &&
+        (isUp ||
+          isDown ||
+          isLeft ||
+          isRight ||
+          inAirGripTurn !== 0 ||
+          inAirGripRoll !== 0 ||
+          deliberateSteer())))
   ) {
     toggleAutopilot();
   }
 
   applyShiftThrottle(delta, nowTime);
+  if (pilot && pilot.throttle !== null && pilot.throttle !== undefined) {
+    state.targetFlightSpeed = pilot.throttle;
+  }
 
   if (
     !state.isFreeCamera &&
@@ -1541,6 +1580,7 @@ function updatePhysicsAndControls(delta, nowTime) {
     );
 
     const hasAnalogPitch =
+      Boolean(pilot) ||
       inputManager.state.mouse.controlActive ||
       inputManager.state.gamepad.steeringActive;
     const effAnalogY = hasAnalogPitch ? effMouseY : 0;
@@ -1943,6 +1983,7 @@ function updatePhysicsAndControls(delta, nowTime) {
 
           let targetAngle;
           const hasAnalogPitch =
+            Boolean(pilot) ||
             inputManager.state.mouse.controlActive ||
             inputManager.state.gamepad.steeringActive;
           const effAnalogY = hasAnalogPitch ? effMouseY : 0;
@@ -2159,7 +2200,8 @@ function updatePhysicsAndControls(delta, nowTime) {
       // straight on keys as it does on the phone
       manualYaw:
         state.isBarrelRolling &&
-        (inputManager.state.mouse.controlActive ||
+        (Boolean(pilot) ||
+          inputManager.state.mouse.controlActive ||
           inputManager.state.gamepad.steeringActive)
           ? -effMouseX
           : 0,

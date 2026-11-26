@@ -12,6 +12,7 @@ import {
   scriptedCamera,
   scriptedDrive,
   scriptedFlight,
+  scriptedPilot,
   scriptedReplay,
 } from './promo-script.js';
 import {state} from './state.js';
@@ -487,6 +488,7 @@ export function updatePromoDirector(delta, nowTime) {
 export function configurePromoDirector(detail, nowTime = performance.now()) {
   if (!detail) {
     state.scriptedFlight = null;
+    state.scriptedPilot = null;
     state.scriptedCamera = null;
     state.scriptedDrive = null;
     state.scriptedReplay = null;
@@ -497,6 +499,7 @@ export function configurePromoDirector(detail, nowTime = performance.now()) {
 
   if (Array.isArray(detail)) {
     state.scriptedSpeed = null;
+    state.scriptedPilot = null;
     const fn = scriptedFlight(detail, nowTime);
     state.scriptedFlight = fn;
     return fn;
@@ -521,6 +524,15 @@ export function configurePromoDirector(detail, nowTime = performance.now()) {
     state.scriptedDrive = detail.driveMoves
       ? scriptedDrive(detail.driveMoves, startMs)
       : null;
+  }
+  if (detail.pilotMoves !== undefined) {
+    state.scriptedPilot = detail.pilotMoves
+      ? scriptedPilot(detail.pilotMoves, startMs)
+      : null;
+    if (detail.pilotMoves && !detail.moves) {
+      state.scriptedFlight = null;
+      state.scriptedSpeed = null;
+    }
   }
   if (detail.replay !== undefined) {
     if (
@@ -597,6 +609,20 @@ if (typeof window !== 'undefined') {
     const startMs =
       performance.now() + (Array.isArray(d) ? 0 : (d.startOffsetMs ?? 0));
     state.scriptedDrive = moves ? scriptedDrive(moves, startMs) : null;
+  });
+
+  window.addEventListener('promo-pilot', (event) => {
+    const d = event.detail;
+    if (!d) {
+      state.scriptedPilot = null;
+      return;
+    }
+    const spec = Array.isArray(d) || d.stick || d.stunts ? d : d.pilotMoves;
+    const startMs =
+      performance.now() + (Array.isArray(d) ? 0 : (d.startOffsetMs ?? 0));
+    state.scriptedFlight = null;
+    state.scriptedSpeed = null;
+    state.scriptedPilot = spec ? scriptedPilot(spec, startMs) : null;
   });
 
   window.addEventListener('promo-replay', (event) => {
