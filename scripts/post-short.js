@@ -1584,15 +1584,33 @@ async function uploadToYouTube(
         ? '  Clicking Schedule on YouTube...'
         : '  Clicking Publish on YouTube...'
     );
-    await humanClickSelector(page, '#done-button:not([disabled])', 120000);
+    await page.waitForSelector('#done-button:not([disabled])', {
+      visible: true,
+      timeout: 120000,
+    });
+    await humanSleep(400, 800);
+    await page.click('#done-button');
 
-    // Poll for up to 90s: if YouTube still prompts "Publish anyway", click it;
-    // then wait until the post-publish share dialog confirms publication
+    // Poll for up to 90s: if YouTube still prompts "Publish/Schedule anyway", click it;
+    // then wait until `ytcp-video-share-dialog` confirms publication/scheduling.
     const publishStart = Date.now();
     let clickedPublishAnyway = false;
+    let retriedDoneButton = false;
+    let scheduleConfirmed = false;
     let publishedUrl = null;
     while (Date.now() - publishStart < 90000) {
       await humanSleep(900, 1400);
+
+      if (!retriedDoneButton && Date.now() - publishStart > 6500) {
+        const stillHasDone = await page.evaluate(() => {
+          const el = document.querySelector('#done-button:not([disabled])');
+          return Boolean(el && el.getBoundingClientRect().width > 0);
+        });
+        if (stillHasDone) {
+          retriedDoneButton = true;
+          await page.click('#done-button').catch(() => {});
+        }
+      }
 
       if (!clickedPublishAnyway) {
         const dialogButtons = await page.$$(
@@ -1649,7 +1667,7 @@ async function uploadToYouTube(
       });
       if (shareState) {
         publishedUrl = shareState.href;
-        await humanSleep(2200, 3600);
+        await humanSleep(1800, 2800);
         const closeBtns = await page.$$(
           'ytcp-video-share-dialog #close-button, ytcp-uploads-still-processing-dialog #close-button'
         );
@@ -1662,7 +1680,8 @@ async function uploadToYouTube(
             break;
           }
         }
-        await humanSleep(1800, 2800);
+        await humanSleep(1500, 2400);
+        scheduleConfirmed = true;
         break;
       }
     }
@@ -1674,12 +1693,16 @@ async function uploadToYouTube(
           ? `  YouTube Short scheduled: ${publishedUrl}`
           : `  YouTube Short published: ${publishedUrl}`
       );
-    } else if (opts.schedule) {
+    } else if (opts.schedule && !scheduleConfirmed) {
       throw new Error(
-        'YouTube did not show the "Video scheduled" confirmation dialog; the video may still be a Draft.'
+        'YouTube upload dialog remained open after clicking Schedule; the video may still be a Draft.'
       );
     } else {
-      console.log('  YouTube Short publish flow completed.');
+      console.log(
+        opts.schedule
+          ? '  YouTube Short scheduled cleanly.'
+          : '  YouTube Short publish flow completed.'
+      );
     }
 
     if (relatedSpec && !relatedAttached && shortId) {
