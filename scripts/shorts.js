@@ -37,6 +37,11 @@ import {
   DEFAULT_RELATED_VIDEO,
   buildDefaultPinnedComment,
 } from './post-short.js';
+import {
+  addDaysToSeed,
+  buildDailyShortSpec,
+  seedToIsoDate,
+} from './short-recipes.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'promo', 'shorts');
@@ -2905,51 +2910,100 @@ async function main() {
           '--disable-backgrounding-occluded-windows',
         ],
       });
+  const batchArg = process.argv.find((a) => a.startsWith('--batch='));
+  const daysArg = process.argv.find((a) => a.startsWith('--days='));
+  const offsetArg = process.argv.find((a) => a.startsWith('--offset='));
+  const forceBatch = process.argv.includes('--force');
+  const batchStartSeed = batchArg
+    ? Number(batchArg.slice('--batch='.length))
+    : null;
+  const batchDays = daysArg ? Number(daysArg.slice('--days='.length)) : 30;
+  const batchOffset = offsetArg
+    ? Number(offsetArg.slice('--offset='.length))
+    : 1;
+
   try {
-    if (!filter || filter === 'match-cut') {
-      await renderMatchCutShort(browser);
-    }
-    if (!filter || filter === 'daily-match-cut') {
-      await renderDailyMatchCutShort(browser, 20261109);
-    }
-    if (!filter || filter === 'seaplane-cut') {
-      await renderSeaplaneCutShort(browser, 20261109);
-    }
-    if (!filter || filter === 'weather-cut') {
-      await renderWeatherCutShort(browser, 20261110);
-    }
-    if (!filter || filter === 'jet-cut') {
-      await renderJetWondersCutShort(browser, 20261111);
-    }
-    if (!filter || filter === 'aerobatic-cut') {
-      await renderAerobaticCutShort(browser, 20261112);
-    }
-    if (!filter || filter === 'bayou-cut') {
-      await renderBayouArchCutShort(browser, 20261114);
-    }
-    if (!filter || filter === 'twin-cut') {
-      await renderTwinWondersCutShort(browser, 20261116);
-    }
-    if (!filter || filter === 'orbit-cut') {
-      await renderOrbitFormationCutShort(browser, 20261117);
-    }
-    if (!filter || filter === 'wingtip-cut') {
-      await renderWingtipInvertedCutShort(browser, 20261118);
-    }
-    if (!filter || filter === 'dolly-cut') {
-      await renderDollySkimCutShort(browser, 20261123);
-    }
-    if (!filter || filter === 'evolution-cut') {
-      await renderEvolutionCutShort(browser, 20261125);
-    }
-    if (!filter || filter === 'daily-postcard') {
-      await renderDailyPostcardShort(browser, 20261108);
-    }
-    if (!filter || filter === 'wing-cam') {
-      await renderWingCamShort(browser);
-    }
-    if (!filter || filter === 'landmark-cut') {
-      await renderLandmarkCutShort(browser);
+    if (batchStartSeed) {
+      const queue = [];
+      for (let i = 0; i < batchDays; i++) {
+        const seed = addDaysToSeed(batchStartSeed, i);
+        const dayIndex = batchOffset + i;
+        const spec = buildDailyShortSpec(seed, dayIndex, planSegment);
+        const outMp4 = path.join(OUT, `${spec.outBaseName}.mp4`);
+        const outPreview = path.join(OUT, `preview-${spec.outBaseName}.jpg`);
+        queue.push({
+          day: i + 1,
+          seed,
+          date: seedToIsoDate(seed),
+          archetype: spec.archetype,
+          title: spec.meta.title,
+          track: spec.meta.trackTitle,
+          mp4: path.relative(ROOT, outMp4),
+          txt: path.relative(ROOT, outMp4.replace(/\.mp4$/, '.txt')),
+        });
+        if (!isCheck && !forceBatch) {
+          if (PREVIEW && fs.existsSync(outPreview)) {
+            console.log(`Skipping existing preview: ${outPreview}`);
+            continue;
+          }
+          if (!PREVIEW && fs.existsSync(outMp4)) {
+            console.log(`Skipping existing Short: ${outMp4}`);
+            continue;
+          }
+        }
+        await renderMatchCutClip(browser, spec);
+      }
+      if (!isCheck && !PREVIEW) {
+        const queuePath = path.join(OUT, 'schedule-queue.json');
+        fs.writeFileSync(queuePath, JSON.stringify(queue, null, 2) + '\n');
+        console.log(`Wrote schedule queue: ${queuePath}`);
+      }
+    } else {
+      if (!filter || filter === 'match-cut') {
+        await renderMatchCutShort(browser);
+      }
+      if (!filter || filter === 'daily-match-cut') {
+        await renderDailyMatchCutShort(browser, 20261109);
+      }
+      if (!filter || filter === 'seaplane-cut') {
+        await renderSeaplaneCutShort(browser, 20261109);
+      }
+      if (!filter || filter === 'weather-cut') {
+        await renderWeatherCutShort(browser, 20261110);
+      }
+      if (!filter || filter === 'jet-cut') {
+        await renderJetWondersCutShort(browser, 20261111);
+      }
+      if (!filter || filter === 'aerobatic-cut') {
+        await renderAerobaticCutShort(browser, 20261112);
+      }
+      if (!filter || filter === 'bayou-cut') {
+        await renderBayouArchCutShort(browser, 20261114);
+      }
+      if (!filter || filter === 'twin-cut') {
+        await renderTwinWondersCutShort(browser, 20261116);
+      }
+      if (!filter || filter === 'orbit-cut') {
+        await renderOrbitFormationCutShort(browser, 20261117);
+      }
+      if (!filter || filter === 'wingtip-cut') {
+        await renderWingtipInvertedCutShort(browser, 20261118);
+      }
+      if (!filter || filter === 'dolly-cut') {
+        await renderDollySkimCutShort(browser, 20261123);
+      }
+      if (!filter || filter === 'evolution-cut') {
+        await renderEvolutionCutShort(browser, 20261125);
+      }
+      if (!filter || filter === 'daily-postcard') {
+        await renderDailyPostcardShort(browser, 20261108);
+      }
+      if (!filter || filter === 'wing-cam') {
+        await renderWingCamShort(browser);
+      }
+      if (!filter || filter === 'landmark-cut') {
+        await renderLandmarkCutShort(browser);
+      }
     }
   } finally {
     if (browser) await browser.close();

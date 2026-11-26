@@ -9,6 +9,7 @@
 //   --login                        Open Chrome to sign into YouTube & TikTok once
 //   --platform=all|youtube|tiktok  Which platform(s) to upload to (default: youtube)
 //   --visibility=public|unlisted|private  YouTube visibility (default: public)
+//   --schedule="YYYY-MM-DD HH:MM"  Schedule YouTube Short for a future local date/time
 //   --related=<title|url|id|none>  YouTube Short "Related video" link
 //                                  (default: "9 months of building Chill Flight")
 //   --no-comment                   Skip auto-posting/pinning a YouTube comment (default)
@@ -266,6 +267,89 @@ export function resolvePinnedComment(
   });
 }
 
+const MONTH_SHORT = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+export function parseScheduleSpec(raw, {allowPast = false} = {}) {
+  if (!raw) return null;
+  const trimmed = String(raw).trim();
+  const m = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})$/);
+  if (!m) {
+    throw new Error(
+      `Invalid --schedule "${raw}". Expected "YYYY-MM-DD HH:MM" (24-hour local time).`
+    );
+  }
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  const hour24 = Number(m[4]);
+  const minute = Number(m[5]);
+  if (
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31 ||
+    hour24 < 0 ||
+    hour24 > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    throw new Error(`Out-of-range date/time in --schedule "${raw}".`);
+  }
+  const check = new Date(year, month - 1, day, hour24, minute);
+  if (
+    check.getFullYear() !== year ||
+    check.getMonth() !== month - 1 ||
+    check.getDate() !== day ||
+    check.getHours() !== hour24
+  ) {
+    throw new Error(`Invalid local date/time in --schedule "${raw}".`);
+  }
+  // YouTube Studio schedules in 15-minute increments (:00, :15, :30, :45).
+  const snappedMin = Math.round(minute / 15) * 15;
+  const dt = new Date(year, month - 1, day, hour24, snappedMin);
+  if (!allowPast && dt.getTime() < Date.now() + 5 * 60 * 1000) {
+    throw new Error(
+      `--schedule "${raw}" must be at least 5 minutes in the future.`
+    );
+  }
+  const h24 = dt.getHours();
+  const min = dt.getMinutes();
+  const ampm = h24 >= 12 ? 'PM' : 'AM';
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  const mm = String(min).padStart(2, '0');
+  const dateText = `${MONTH_SHORT[dt.getMonth()]} ${dt.getDate()}, ${dt.getFullYear()}`;
+  const timeText = `${h12}:${mm} ${ampm}`;
+  const isoLocal =
+    `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-` +
+    `${String(dt.getDate()).padStart(2, '0')} ` +
+    `${String(h24).padStart(2, '0')}:${mm}`;
+  return {
+    raw: trimmed,
+    year: dt.getFullYear(),
+    month: dt.getMonth() + 1,
+    monthShort: MONTH_SHORT[dt.getMonth()],
+    day: dt.getDate(),
+    hour24: h24,
+    minute: min,
+    dateText,
+    timeText,
+    isoLocal,
+  };
+}
+
 function parseArgs(argv) {
   const opts = {
     login: false,
@@ -273,6 +357,7 @@ function parseArgs(argv) {
     publish: true,
     platform: 'youtube',
     visibility: 'public',
+    schedule: null,
     related: undefined,
     comment: 'none',
     videoPath: null,
@@ -286,6 +371,8 @@ function parseArgs(argv) {
       opts.platform = arg.slice('--platform='.length).toLowerCase();
     } else if (arg.startsWith('--visibility=')) {
       opts.visibility = arg.slice('--visibility='.length).toLowerCase();
+    } else if (arg.startsWith('--schedule=')) {
+      opts.schedule = parseScheduleSpec(arg.slice('--schedule='.length));
     } else if (arg.startsWith('--related=')) {
       opts.related = arg.slice('--related='.length);
     } else if (arg === '--no-related') {
@@ -318,12 +405,13 @@ function printUsage() {
       '  --login                        Open Chrome to sign into YouTube Studio once',
       '  --platform=youtube|tiktok|all  Which platform(s) to upload to (default: youtube)',
       '  --visibility=public|unlisted|private  YouTube visibility (default: public)',
+      '  --schedule="YYYY-MM-DD HH:MM"  Schedule YouTube Short for a future local date/time',
       `  --related=<title|url|id|none>  YouTube Short Related video (default: "${DEFAULT_RELATED_VIDEO}")`,
       '  --no-comment                   Skip auto-posting/pinning a YouTube comment (default)',
       '  --pin-comment                  Auto-post and pin the .txt Pinned comment on YouTube',
       '  --comment=<text|none>          Auto-post and pin custom first YouTube comment',
-      '  --publish                      Automatically click the final Publish button (default)',
-      '  --review                       Fill everything and pause on final Publish button',
+      '  --publish                      Automatically click the final Publish/Schedule button (default)',
+      '  --review                       Fill everything and pause on final Publish/Schedule button',
       '  --dry-run                      Print parsed metadata without launching Chrome',
     ].join('\n')
   );
@@ -1391,16 +1479,104 @@ async function uploadToYouTube(
     }
   }
 
-  // Select visibility radio button
-  const visName = opts.visibility.toUpperCase(); // PUBLIC, UNLISTED, PRIVATE
-  const visSel = `tp-yt-paper-radio-button[name="${visName}"]`;
-  await humanClickSelector(page, visSel, 30000);
-  await humanSleep(1400, 2400);
+  // Select visibility or Schedule radio button
+  if (opts.schedule) {
+    console.log(
+      `  Scheduling on YouTube for ${opts.schedule.dateText} at ${opts.schedule.timeText}...`
+    );
+    const pickerAlreadyOpen = await findFirstVisibleHandle(
+      page,
+      '#datepicker-trigger'
+    );
+    if (!pickerAlreadyOpen) {
+      const schedToggle = await findFirstVisibleHandle(
+        page,
+        '#second-container-expand-button, tp-yt-paper-radio-button#schedule-radio-button'
+      );
+      if (schedToggle) {
+        await humanClickHandle(page, schedToggle);
+      } else {
+        await humanClickSelector(
+          page,
+          'tp-yt-paper-radio-button#schedule-radio-button, #second-container-expand-button',
+          30000
+        );
+      }
+      await humanSleep(1000, 1800);
+    }
+
+    // Helper: select all via native .select() + Backspace (reliable on macOS Chromium)
+    const replaceInput = async (handle, value) => {
+      await humanClickHandle(page, handle);
+      await humanSleep(250, 450);
+      await handle.evaluate((el) => {
+        el.focus();
+        if (typeof el.select === 'function') el.select();
+      });
+      await page.keyboard.press('Backspace');
+      await humanSleep(150, 300);
+      await page.keyboard.type(value, {delay: randBetween(45, 85)});
+      await page.keyboard.press('Enter');
+      await humanSleep(750, 1250);
+    };
+
+    // Date picker: click trigger, replace date text, press Enter
+    await humanClickSelector(page, '#datepicker-trigger', 20000);
+    await humanSleep(700, 1200);
+    const dateInput = await page.waitForSelector(
+      'ytcp-date-picker input, tp-yt-paper-dialog[opened] ytcp-date-picker input',
+      {visible: true, timeout: 15000}
+    );
+    await replaceInput(dateInput, opts.schedule.dateText);
+
+    // Time picker: click time input, replace time text, press Enter + Tab
+    const timeInput = await page.waitForSelector(
+      '#time-of-day-container input, ytcp-datetime-picker #time-of-day-container input',
+      {visible: true, timeout: 15000}
+    );
+    await replaceInput(timeInput, opts.schedule.timeText);
+    await page.keyboard.press('Tab');
+    await humanSleep(600, 1000);
+
+    const readBack = await page.evaluate(() => {
+      const dateEl = document.querySelector('#datepicker-trigger');
+      const timeEl = document.querySelector('#time-of-day-container input');
+      return {
+        date: (dateEl?.innerText || dateEl?.textContent || '')
+          .replace(/\s+/g, ' ')
+          .trim(),
+        time: (timeEl?.value || '').replace(/\s+/g, ' ').trim(),
+      };
+    });
+    console.log(
+      `  Verified YouTube Schedule: ${readBack.date || '(unknown date)'} @ ${readBack.time || '(unknown time)'}`
+    );
+    const normTime = (s) => s.toUpperCase().replace(/\s+/g, '');
+    if (
+      !readBack.date.includes(opts.schedule.monthShort) ||
+      !readBack.date.includes(String(opts.schedule.day)) ||
+      !readBack.date.includes(String(opts.schedule.year)) ||
+      normTime(readBack.time) !== normTime(opts.schedule.timeText)
+    ) {
+      throw new Error(
+        `YouTube schedule mismatch: expected "${opts.schedule.dateText} @ ${opts.schedule.timeText}", read "${readBack.date} @ ${readBack.time}"`
+      );
+    }
+  } else {
+    const visName = opts.visibility.toUpperCase(); // PUBLIC, UNLISTED, PRIVATE
+    const visSel = `tp-yt-paper-radio-button[name="${visName}"]`;
+    await humanClickSelector(page, visSel, 30000);
+    await humanSleep(1400, 2400);
+  }
 
   shortId = shortId || (await readUploadedShortId(page));
 
   if (opts.publish) {
-    console.log('  Clicking Publish on YouTube...');
+    console.log(
+      opts.schedule
+        ? '  Clicking Schedule on YouTube...'
+        : '  Clicking Publish on YouTube...'
+    );
     await humanClickSelector(page, '#done-button:not([disabled])', 120000);
 
     // Poll for up to 90s: if YouTube still prompts "Publish anyway", click it;
@@ -1431,10 +1607,12 @@ async function uploadToYouTube(
           });
           if (
             info.visible &&
-            (/publish anyway/i.test(info.text) ||
-              /publish anyway/i.test(info.aria))
+            (/(publish|schedule) anyway/i.test(info.text) ||
+              /(publish|schedule) anyway/i.test(info.aria))
           ) {
-            console.log('  Confirming "Publish anyway" dialog on YouTube...');
+            console.log(
+              '  Confirming "Publish/Schedule anyway" dialog on YouTube...'
+            );
             await humanSleep(900, 1600);
             await humanClickHandle(page, btn);
             clickedPublishAnyway = true;
@@ -1494,7 +1672,11 @@ async function uploadToYouTube(
     }
 
     if (pinnedComment) {
-      if (opts.visibility === 'private') {
+      if (opts.schedule) {
+        console.log(
+          '  Skipping auto-comment/pin because YouTube Short is scheduled for future publish.'
+        );
+      } else if (opts.visibility === 'private') {
         console.log(
           '  Skipping auto-comment/pin because YouTube visibility is private.'
         );
@@ -1674,10 +1856,17 @@ async function main() {
   const relatedSpec = resolveRelatedVideo(opts, meta);
   const pinnedComment = resolvePinnedComment(opts, meta);
   console.log(`Loaded metadata from ${path.basename(txtPath)}:`);
-  console.log(`  YouTube Title:   ${meta.youtube.title}`);
-  console.log(`  YouTube Related: ${relatedSpec ? relatedSpec.raw : '(none)'}`);
-  console.log(`  YouTube Comment: ${pinnedComment || '(none)'}`);
-  console.log(`  TikTok Hook:     ${meta.tiktok.caption.split('\n')[0]}`);
+  console.log(`  YouTube Title:    ${meta.youtube.title}`);
+  if (opts.schedule) {
+    console.log(
+      `  YouTube Schedule: ${opts.schedule.dateText} at ${opts.schedule.timeText} (${opts.schedule.isoLocal})`
+    );
+  }
+  console.log(
+    `  YouTube Related:  ${relatedSpec ? relatedSpec.raw : '(none)'}`
+  );
+  console.log(`  YouTube Comment:  ${pinnedComment || '(none)'}`);
+  console.log(`  TikTok Hook:      ${meta.tiktok.caption.split('\n')[0]}`);
 
   if (opts.dryRun) {
     if (pinnedComment) {
@@ -1701,7 +1890,13 @@ async function main() {
       );
     }
     if (opts.platform === 'all' || opts.platform === 'tiktok') {
-      await uploadToTikTok(browser, mp4Path, meta.tiktok, opts);
+      if (opts.schedule) {
+        console.warn(
+          '  Skipping TikTok upload because --schedule is currently YouTube-only.'
+        );
+      } else {
+        await uploadToTikTok(browser, mp4Path, meta.tiktok, opts);
+      }
     }
     if (opts.publish) {
       await browser.close();
