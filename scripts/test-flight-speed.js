@@ -19,14 +19,20 @@ import {
 } from '../constants.js';
 import {
   CEILING,
+  LOOP,
+  canEnterLoop,
   ceilingClimbLimit,
   ABOVE_CLOUDS_ROOM,
   flightCeiling,
   underCloudsCeiling,
+  loopDipAt,
+  loopRateAt,
+  loopSwingAt,
   pitchedTarget,
   rollExitHandOver,
   rollExitTurns,
   sagClimbCap,
+  stepLoopPitch,
   stepRollExit,
   joystickResponse,
   thinAirAt,
@@ -348,6 +354,84 @@ check(
     if (joystickResponse(d + 0.01) <= joystickResponse(d)) rising = false;
   }
   check('joystick: rises all the way to the rim', rising);
+}
+
+// Per-plane loop physics: entry gates, G-load speed widening, apex float,
+// thin-air ceiling tuck, frame-rate invariance, and 360-degree altitude closure
+{
+  const planes = ['biplane', 'seaplane', 'twin', 'jet'];
+  for (const name of planes) {
+    const h = PLANE_HANDLING[name];
+    check(
+      `${name}: loop requires level flying speed and room under the ceiling`,
+      !canEnterLoop(h.levelKts - 1, null, h) &&
+        canEnterLoop(h.levelKts, null, h) &&
+        !canEnterLoop(h.topKts, deg(20), h) &&
+        canEnterLoop(h.topKts, deg(60), h)
+    );
+    const slowDip = loopDipAt(h.levelKts + 15, h);
+    const fastDip = loopDipAt(h.topKts, h);
+    const minApexKts = (h.levelKts + 15) * (1 - slowDip);
+    check(
+      `${name}: slower loop entry floats deeper at the apex without stalling`,
+      slowDip > fastDip &&
+        minApexKts >= h.stallKts + LOOP.MIN_APEX_MARGIN_KTS - 1e-6,
+      `(slow ${(slowDip * 100).toFixed(1)}%, fast ${(fastDip * 100).toFixed(1)}%, apex ${minApexKts.toFixed(1)} kts)`
+    );
+  }
+  check(
+    'buggy cannot enter a loop',
+    !canEnterLoop(200, null, PLANE_HANDLING.buggy)
+  );
+  check(
+    'cruise loop rates reflect per-plane personality (biplane > seaplane > twin)',
+    loopRateAt(200, PLANE_HANDLING.biplane) >
+      loopRateAt(200, PLANE_HANDLING.seaplane) &&
+      loopRateAt(200, PLANE_HANDLING.seaplane) >
+        loopRateAt(200, PLANE_HANDLING.twin)
+  );
+  check(
+    'jet widens its loop arc smoothly at high speed and tucks in thin air',
+    loopRateAt(1100, PLANE_HANDLING.jet) <
+      loopRateAt(250, PLANE_HANDLING.jet) * 0.72 &&
+      loopRateAt(400, PLANE_HANDLING.jet, 1) >
+        loopRateAt(400, PLANE_HANDLING.jet, 0) * 1.4
+  );
+
+  // Full 360-degree steady-state loop: identical duration at 30/60/120 fps
+  // and returns cleanly to entry altitude (symmetric cos(pitch) energy exchange)
+  for (const name of planes) {
+    const h = PLANE_HANDLING[name];
+    const cruiseKts = (h.levelKts + h.topKts) * 0.5;
+    const rate = loopRateAt(cruiseKts, h, 0);
+    const swing = loopSwingAt(cruiseKts, h);
+    const accel = h.loopAccel;
+    const dip = loopDipAt(cruiseKts, h);
+    const runs = [30, 60, 120].map((fps) => {
+      const dt = 1 / fps;
+      const s = {pitch: 0, rate: rate + swing};
+      let prev = 0;
+      let y = 0;
+      let t = 0;
+      while (t < 8) {
+        stepLoopPitch(s, rate, swing, accel, dt);
+        t += dt;
+        const speed = cruiseKts * (1 - (dip * (1 - Math.cos(s.pitch))) / 2);
+        y += Math.sin(s.pitch) * speed * dt;
+        if (t > 0.5 && s.pitch < prev) break;
+        prev = s.pitch;
+      }
+      return {t, y};
+    });
+    const [r30, r60, r120] = runs;
+    check(
+      `${name}: full loop closes at entry altitude and matches across 30/60/120 fps`,
+      Math.abs(r60.y) < 8 &&
+        Math.abs(r30.t - r60.t) < 0.05 &&
+        Math.abs(r120.t - r60.t) < 0.03,
+      `(t=${runs.map((r) => r.t.toFixed(2)).join('/')}s, dy=${r60.y.toFixed(1)}u)`
+    );
+  }
 }
 
 if (failed) {

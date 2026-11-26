@@ -360,3 +360,95 @@ export function stepRollExit(s, target, maxRate, delta) {
     Math.abs(s.rate) < ROLL_EXIT.DONE_RATE
   );
 }
+
+/**
+ * Per-plane loop handling (triple-tap up and hold in game-loop.js).
+ * - High-speed G-load widening: above FAST_FROM_KTS up to FAST_TO_KTS, pitch
+ *   rate tapers toward FAST_SCALE (like banked turns), so a fast twin or jet
+ *   carves a wide fighter arc instead of a violent snap turn.
+ * - Energy-scaled apex float: entering slower near `levelKts` deepens the
+ *   speed dip over the top (SLOW_DIP_BOOST), while high-energy entries dip
+ *   less (FAST_DIP_SCALE), clamped safely above `stallKts + MIN_APEX_MARGIN_KTS`
+ *   and kept symmetric in `cos(pitch)` so sustained loops close at entry height.
+ * - Thin-air ceiling arch: climbing into thin air near `flightCeiling` tucks
+ *   the nose over (`1 + CEILING_TUCK * thinAir`) instead of scraping flat
+ *   against the sky lid.
+ */
+export const LOOP = {
+  RATE: 2.2,
+  SWING: 0.35,
+  ACCEL: 5.0,
+  DIP: 0.2,
+  FAST_FROM_KTS: 260,
+  FAST_TO_KTS: 950,
+  FAST_SCALE: 0.68,
+  SLOW_DIP_BOOST: 1.35,
+  FAST_DIP_SCALE: 0.85,
+  MIN_APEX_MARGIN_KTS: 5,
+  CEILING_TUCK: 0.55,
+  MIN_CEILING_CAP: (35 * Math.PI) / 180,
+  CARRY_SHARE: 0.55,
+  WING_LEVEL_RATE: 4.5,
+};
+
+// Requires level flying speed and room below the thin-air ceiling to start a loop.
+export function canEnterLoop(kts, ceilingCap, handling) {
+  if (!handling || !(handling.loopRate > 0 || handling.rollRate > 0)) {
+    return false;
+  }
+  if (kts < handling.levelKts) return false;
+  if (
+    ceilingCap !== null &&
+    ceilingCap !== undefined &&
+    ceilingCap < LOOP.MIN_CEILING_CAP
+  ) {
+    return false;
+  }
+  return true;
+}
+
+export function loopSpeedScale(kts) {
+  return lerp(
+    1,
+    LOOP.FAST_SCALE,
+    smoothstep(kts, LOOP.FAST_FROM_KTS, LOOP.FAST_TO_KTS)
+  );
+}
+
+export function loopRateAt(kts, handling, thinAir = 0) {
+  const base = handling.loopRate || LOOP.RATE * (handling.agility || 1);
+  return (
+    base * loopSpeedScale(kts) * (1 + LOOP.CEILING_TUCK * Math.max(0, thinAir))
+  );
+}
+
+export function loopSwingAt(kts, handling) {
+  const base = handling.loopSwing ?? LOOP.SWING * (handling.agility || 1);
+  return base * loopSpeedScale(kts);
+}
+
+export function loopDipAt(kts, handling) {
+  const base = handling.loopDip ?? LOOP.DIP;
+  const energy = smoothstep(kts, handling.levelKts, handling.topKts);
+  const raw = base * lerp(LOOP.SLOW_DIP_BOOST, LOOP.FAST_DIP_SCALE, energy);
+  const maxSafe =
+    kts > 0
+      ? Math.max(0, 1 - (handling.stallKts + LOOP.MIN_APEX_MARGIN_KTS) / kts)
+      : 0;
+  return Math.min(raw, maxSafe);
+}
+
+// Frame-rate-independent pitch integration around a loop (`s` is `{pitch, rate}`).
+export function stepLoopPitch(s, effRate, effSwing, effAccel, delta) {
+  const turn = Math.PI * 2;
+  const steps = Math.max(1, Math.ceil(delta * 60 - 1e-6));
+  const dt = delta / steps;
+  for (let i = 0; i < steps; i++) {
+    const wantRate = effRate + effSwing * Math.cos(s.pitch);
+    const diff = wantRate - s.rate;
+    const step = effAccel * dt;
+    s.rate += Math.max(-step, Math.min(step, diff));
+    s.pitch += s.rate * dt;
+    if (s.pitch >= turn) s.pitch -= turn;
+  }
+}

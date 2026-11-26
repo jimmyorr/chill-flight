@@ -15,15 +15,22 @@ import {archCeiling} from './arches-logic.js';
 import {
   ABOVE_CLOUDS,
   CEILING,
+  LOOP,
+  ROLL_EXIT,
+  canEnterLoop,
   ceilingClimbLimit,
   flightCeiling,
-  ROLL_EXIT,
   joystickResponse,
+  loopDipAt,
+  loopRateAt,
+  loopSwingAt,
   rollExitHandOver,
   rollExitTurns,
   sagClimbCap,
+  stepLoopPitch,
   stepRollExit,
   thinAirAt,
+  throttleSpeed,
 } from './flight-physics-logic.js';
 import {LANDMARKS} from './landmarks.js';
 import {
@@ -165,7 +172,7 @@ import {updateFireworks} from './fireworks.js';
 import {updateMultiplayer} from './multiplayer.js';
 import {updateBreakables} from './breakables.js';
 import {applyTrip, restoreTrip, updateTrip} from './mushroom-trip.js';
-import {updateRush} from './crystal-rush.js';
+import {rushTarget, updateRush} from './crystal-rush.js';
 import {applyBumps, updateBumps} from './bumps.js';
 import {updateWallScrape} from './wall-scrape.js';
 import {updateCrash} from './crash.js';
@@ -1124,22 +1131,18 @@ let manualPitchActive = false;
 let steepPitchActive = false; // persists across steep climb/dive recovery until level
 let lastPitchMode = 0; // 1 normal climb, -1 normal dive, 2 steep climb, -2 steep dive, 0 none
 
-// Loop (triple-tap up and hold): the pitch rate eases in from the climb and
-// floats over the top, going round for as long as up is held. Letting go
-// commits to the level its momentum carries it nearest and settles softly
-// (stepRollExit), handing back to key or analog pitch steering once upright.
-// Rates scale with the plane's agility (PLANE_HANDLING).
-const LOOP_RATE = 2.2; // rad/s
-const LOOP_RATE_SWING = 0.35;
-const LOOP_ACCEL = 5; // rad/s^2 easing in
-// Speed lost over the top, coming back on the way down, so the loop comes
-// round to the height it started at (diving alone would speed it up)
-const LOOP_SPEED_DIP = 0.15;
+// Loop (triple-tap up and hold): pitch rate, apex float swing, and speed dip
+// come from each plane's handling (`PLANE_HANDLING` and `LOOP` in
+// flight-physics-logic.js), scaling smoothly with airspeed and thin air.
+// Deterministic promo scripts keep their fixed 15% dip (`SCRIPTED_LOOP_SPEED_DIP`)
+// so existing choreography and `solveStartCoords` stay bit-exact.
+const SCRIPTED_LOOP_SPEED_DIP = 0.15;
 let loopActive = false;
 let loopPitchRate = 0;
-let loopSpeed = 0; // speed going in
+let loopSpeed = 0; // base speed multiplier through the loop
 let loopRecovering = false; // settling onto level after letting go
 const loopExit = {roll: 0, rate: 0, accel: 0, turns: 0, t: 0};
+const _loopStep = {pitch: 0, rate: 0};
 
 // Immelmann (triple-tap down): a half loop to inverted level over the first
 // IMMELMANN_PITCH_END of the maneuver, then a half roll upright
@@ -1640,7 +1643,7 @@ function updatePhysicsAndControls(delta, nowTime) {
       state._nextYaw = planeGroup.rotation.y;
       const dip = scripted.surface
         ? 0
-        : (LOOP_SPEED_DIP * (1 - Math.cos(scripted.pitch))) / 2;
+        : (SCRIPTED_LOOP_SPEED_DIP * (1 - Math.cos(scripted.pitch))) / 2;
       const effSpeed = baseSpeed * (1 - dip);
       state.flightSpeedMultiplier = effSpeed;
       if (scripted.speed !== null || scripted.surface) {
@@ -1769,19 +1772,30 @@ function updatePhysicsAndControls(delta, nowTime) {
         state.immelmannProgress = 0;
       }
     } else {
-      const effLoopRate = LOOP_RATE * agility;
-      const effLoopSwing = LOOP_RATE_SWING * agility;
-      const effLoopAccel = LOOP_ACCEL * agility;
+      const currentKts =
+        BASE_FLIGHT_SPEED * Math.abs(state.flightSpeedMultiplier) * 60;
+      const loopCeiling = flightCeiling(manualCloudHeight);
+      const loopThinAir = thinAirAt(planeGroup.position.y, loopCeiling);
       const loopHeld =
         isUp && ttUp && nowTime - startUp > STEER_HOLD_THRESHOLD && !keys.Shift;
-      if (loopHeld && !loopActive) {
-        // Triple-tap up and hold: start a loop, carrying on from the climb, or
-        // from a settle still under way
+      const canStartLoop = loopRecovering
+        ? currentKts >= handling.stallKts + 10
+        : canEnterLoop(currentKts, ceilingCap, handling);
+
+      if (loopHeld && !loopActive && canStartLoop) {
+        // Triple-tap up and hold: start a loop, carrying climb momentum straight
+        // through without pausing at the intermediate climb caps
         const turn = Math.PI * 2;
+        const entryRate = loopRateAt(currentKts, handling, loopThinAir);
         if (!loopRecovering) {
-          loopPitchRate = manualPitchActive ? Math.max(0, manualPitchVel) : 0;
+          const wrappedX = wrapAngle(planeGroup.rotation.x);
+          const climbCarry = wrappedX > 0.12 ? LOOP.CARRY_SHARE * entryRate : 0;
+          loopPitchRate = Math.max(
+            manualPitchActive ? Math.max(0, manualPitchVel) : 0,
+            climbCarry
+          );
           loopSpeed = state.flightSpeedMultiplier;
-          planeGroup.rotation.x = wrapAngle(planeGroup.rotation.x);
+          planeGroup.rotation.x = wrappedX;
         } else {
           loopPitchRate = Math.max(0, loopExit.rate);
           planeGroup.rotation.x =
@@ -1796,18 +1810,51 @@ function updatePhysicsAndControls(delta, nowTime) {
       }
 
       if (loopActive || loopRecovering) {
-        const turn = Math.PI * 2;
+        // Let the throttle (or a crystal rush) spool smoothly across sustained loops
+        loopSpeed = throttleSpeed(
+          loopSpeed,
+          rushTarget(state.targetFlightSpeed),
+          handling,
+          delta
+        );
+        const baseKts = BASE_FLIGHT_SPEED * Math.abs(loopSpeed) * 60;
+        const effLoopRate = loopRateAt(
+          baseKts,
+          handling,
+          loopActive ? loopThinAir : 0
+        );
+        const effLoopSwing = loopSwingAt(baseKts, handling);
+        const effLoopAccel = handling.loopAccel || LOOP.ACCEL * agility;
+        const effLoopDip = loopDipAt(baseKts, handling);
+
         let x = planeGroup.rotation.x;
         if (loopActive) {
-          // Floaty over the top, crisp at the pull-up and pull-out
-          const wantRate = effLoopRate + effLoopSwing * Math.cos(x);
-          loopPitchRate += THREE.MathUtils.clamp(
-            wantRate - loopPitchRate,
-            -effLoopAccel * delta,
-            effLoopAccel * delta
+          _loopStep.pitch = x;
+          _loopStep.rate = loopPitchRate;
+          stepLoopPitch(
+            _loopStep,
+            effLoopRate,
+            effLoopSwing,
+            effLoopAccel,
+            delta
           );
-          x += loopPitchRate * delta;
-          if (x >= turn) x -= turn;
+          x = _loopStep.pitch;
+          loopPitchRate = _loopStep.rate;
+
+          // Hands-off on roll: briskly level any residual entry bank so a
+          // plain loop tracks dead straight on heading (deliberate steering
+          // still banks into a cloverleaf)
+          if (
+            !state.isBarrelRolling &&
+            !rollExit.active &&
+            Math.abs(state.targetRoll) < 0.02
+          ) {
+            const levelEase = 1 - Math.exp(-LOOP.WING_LEVEL_RATE * delta);
+            planeGroup.rotation.z =
+              wrapAngle(planeGroup.rotation.z) * (1 - levelEase);
+            rollRate *= 1 - levelEase;
+          }
+
           // Letting go commits once to the nearest level by momentum and
           // settles softly (stepRollExit)
           if (!loopHeld) {
@@ -1865,7 +1912,7 @@ function updatePhysicsAndControls(delta, nowTime) {
         planeGroup.rotation.x = x;
         if (loopActive || loopRecovering) {
           state.flightSpeedMultiplier =
-            loopSpeed * (1 - (LOOP_SPEED_DIP * (1 - Math.cos(x))) / 2);
+            loopSpeed * (1 - (effLoopDip * (1 - Math.cos(x))) / 2);
           state.maneuverBaseSpeed = loopSpeed;
         }
 

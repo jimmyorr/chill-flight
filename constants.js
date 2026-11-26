@@ -97,6 +97,9 @@ export function speedUnit(planeType = 'seaplane', imperial = IMPERIAL) {
 //   sharply it turns for a given bank (1 for the seaplane)
 // - rollRate: its roll rate (radians per second); a barrel roll goes at 70%
 //   of this (BARREL_ROLL_SPEED in game-loop.js)
+// - loopRate / loopSwing / loopDip / loopAccel: per-plane loop pitch rate,
+//   apex float swing (rad/s), apex speed loss share, and onset acceleration
+//   (rad/s^2; see LOOP and loopRateAt in flight-physics-logic.js)
 export const PLANE_HANDLING = {
   biplane: {
     topKts: 280,
@@ -107,6 +110,10 @@ export const PLANE_HANDLING = {
     diveGain: 0.4,
     agility: 1.3,
     rollRate: 3.7,
+    loopRate: 2.85,
+    loopSwing: 0.55,
+    loopDip: 0.24,
+    loopAccel: 6.5,
   },
   seaplane: {
     topKts: 380,
@@ -117,6 +124,10 @@ export const PLANE_HANDLING = {
     diveGain: 0.35,
     agility: 1,
     rollRate: 2.8,
+    loopRate: 2.15,
+    loopSwing: 0.38,
+    loopDip: 0.2,
+    loopAccel: 4.8,
   },
   twin: {
     topKts: 500,
@@ -127,6 +138,10 @@ export const PLANE_HANDLING = {
     diveGain: 0.3,
     agility: 0.75,
     rollRate: 2.25,
+    loopRate: 1.55,
+    loopSwing: 0.3,
+    loopDip: 0.28,
+    loopAccel: 3.2,
   },
   jet: {
     topKts: 1100,
@@ -137,6 +152,10 @@ export const PLANE_HANDLING = {
     diveGain: 0.3,
     agility: 1,
     rollRate: 3,
+    loopRate: 2.45,
+    loopSwing: 0.28,
+    loopDip: 0.12,
+    loopAccel: 7.0,
   },
   // The buggy (buggy.js) drives rather than flies: only its top speed
   // forward is used (300 units/s, shown as 161 KM/H), and it never stalls.
@@ -149,6 +168,10 @@ export const PLANE_HANDLING = {
     diveGain: 0,
     agility: 1,
     rollRate: 0,
+    loopRate: 0,
+    loopSwing: 0,
+    loopDip: 0,
+    loopAccel: 0,
   },
 };
 
