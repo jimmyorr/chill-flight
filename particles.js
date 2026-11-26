@@ -1386,6 +1386,54 @@ export function whaleSplash(x, z, size) {
   }
 }
 
+// A package's flare (package-flare.js): a puff of pale smoke rising from
+// (x, y, z) to drift off on the wind, and `sparks` hot pink-red sparks
+// spitting from it
+// A soft red, the colour of signal smoke, so it shows on a pale sky
+const FLARE_SMOKE = new THREE.Color(0.96, 0.58, 0.52);
+const FLARE_HOT = new THREE.Color(1, 0.55, 0.5);
+const FLARE_RED = new THREE.Color(1, 0.12, 0.1);
+const _flareColor = new THREE.Color();
+const _flareVel = {x: 0, y: 0, z: 0};
+export function flareSmoke(x, y, z) {
+  _p.set(x + rand(-0.4, 0.4), y, z + rand(-0.4, 0.4));
+  _flareVel.x = rand(-1, 1);
+  _flareVel.y = rand(10, 14);
+  _flareVel.z = rand(-1, 1);
+  // Warm smoke keeps rising (a small upward pull) as the wind bends it over
+  spawn(
+    _p,
+    _flareVel,
+    2.2,
+    rand(11, 15),
+    rand(2.5, 3.5),
+    rand(26, 36),
+    FLARE_SMOKE,
+    rand(0.38, 0.5)
+  );
+}
+export function flareSparks(x, y, z, sparks) {
+  for (let i = 0; i < sparks; i++) {
+    _p.set(x + rand(-0.3, 0.3), y + rand(0, 0.4), z + rand(-0.3, 0.3));
+    _flareVel.x = rand(-4, 4);
+    _flareVel.y = rand(2, 9);
+    _flareVel.z = rand(-4, 4);
+    _flareColor.lerpColors(FLARE_HOT, FLARE_RED, Math.random());
+    spawn(
+      _p,
+      _flareVel,
+      -20,
+      rand(0.25, 0.5),
+      rand(0.8, 1.3),
+      0.2,
+      _flareColor,
+      1,
+      false,
+      true
+    );
+  }
+}
+
 export function toggleSmoke() {
   smokeOn = !smokeOn;
   smokeLast.valid = false;

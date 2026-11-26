@@ -153,6 +153,7 @@ import {updateTraffic} from './traffic.js';
 import {updateBeacons} from './beacons.js';
 import {updateRoadTraffic} from './road-traffic.js';
 import {updateParticles} from './particles.js';
+import {updatePackage} from './package-flare.js';
 import {updateTireTracks} from './tire-tracks.js';
 import {updateWhales} from './whales.js';
 import {updateDolphins} from './dolphins.js';
@@ -761,6 +762,7 @@ function performFrame(timestamp) {
   updateRush(delta);
   updatePromoDirector(delta, nowTime);
   updateParticles(delta);
+  updatePackage(delta);
   updateTireTracks(delta);
   updateWhales(delta);
   updateDolphins(delta);

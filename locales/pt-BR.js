@@ -995,4 +995,115 @@ export default {
   "You're on the run!": 'Você está em fuga!',
   '{name} is on the run': '{name} está em fuga',
   wanted: 'procurado',
+  // Retrieval jobs (people.js, jobs-logic.js)
+  'Coffee sack': 'Saco de café',
+  'A sack of beans bounced off a truck somewhere {to} of here. My beans, bud!':
+    'Um saco de grãos caiu de um caminhão em algum lugar {to} daqui. Meus grãos, parceiro!',
+  'Look for the red flare. Could you swoop down, grab it and bring it back?':
+    'Procure o sinalizador vermelho. Dá para dar um rasante, pegar e trazer de volta?',
+  'I sent a drone out with a sample, and the drone had other plans.':
+    'Mandei um drone com uma amostra, e o drone tinha outros planos.',
+  "It's down somewhere {to} of here with a flare going. Want to fetch it, buddy?":
+    'Ele caiu em algum lugar {to} daqui com um sinalizador aceso. Vai buscar, parceiro?',
+  "My beans! A little dusty, but that's just extra flavor.":
+    'Meus grãos! Um pouco empoeirados, mas é só sabor extra.',
+  "You found it! That's {done} for me, buddy. Coffee's on me.":
+    'Você achou! Já são {done} para mim, parceiro. O café é por minha conta.',
+  'Lucky mic': 'Microfone da sorte',
+  'I threw my lucky mic in the air during a power ballad, and the wind took it.':
+    'Joguei meu microfone da sorte para o alto numa balada épica, e o vento levou.',
+  "It's somewhere {to} of here. Could you follow the flare and bring it home?":
+    'Está em algum lugar {to} daqui. Pode seguir o sinalizador e trazer de volta?',
+  'My fry delivery drone ran out of battery {to} of here.':
+    'A bateria do meu drone de entrega de batata frita acabou {to} daqui.',
+  'It lit a flare, smart little guy. Want to scoop it up for me?':
+    'Ele acendeu um sinalizador, espertinho. Pode buscar para mim?',
+  'My lucky mic! Check, check... still got it.':
+    'Meu microfone da sorte! Som, som... ainda funciona.',
+  "Rescued! That's {done} for me. Next song's for you.":
+    'Resgatado! Já são {done} para mim. A próxima música é sua.',
+  'Moonwater jar': 'Pote de água de lua',
+  'I left a jar out to soak up the full moon, and it rolled off somewhere {to} of here.':
+    'Deixei um pote lá fora para pegar a lua cheia, e ele rolou para algum lugar {to} daqui.',
+  'I lit a flare by it so the stars could find it. Could you?':
+    'Acendi um sinalizador do lado para as estrelas acharem. Você vai lá?',
+  'A jar of moonwater rolled off my wagon {to} of here.':
+    'Um pote de água de lua caiu da minha carroça {to} daqui.',
+  'Follow the smoke, friend. Could you bring it back to me?':
+    'Siga a fumaça, amigo. Pode trazer de volta para mim?',
+  'Still glowing! The universe kept it safe for you.':
+    'Ainda brilha! O universo guardou para você.',
+  "Home again! That's {done} for me, friend. The jar says thanks.":
+    'De volta para casa! Já são {done} para mim. O pote agradece.',
+  'Weather probe': 'Sonda meteorológica',
+  'My weather balloon popped and the probe came down somewhere {to} of here.':
+    'Meu balão meteorológico estourou e a sonda caiu em algum lugar {to} daqui.',
+  'It fires a flare when it lands. Could you go get it? It has all my data!':
+    'Ela solta um sinalizador quando pousa. Pode ir buscar? Todos os meus dados estão nela!',
+  'I dropped a sensor buoy {to} of here, and now I need it back.':
+    'Deixei uma boia de sensores {to} daqui e agora preciso dela de volta.',
+  'Look for the red flare. Mind fetching it for the lab?':
+    'Procure o sinalizador vermelho. Pode buscar para o laboratório?',
+  "The data's intact! This is going straight into my paper.":
+    'Os dados estão intactos! Isso vai direto para o meu artigo.',
+  "Probe recovered! That's {done} for me. Science thanks you.":
+    'Sonda recuperada! Já são {done} para mim. A ciência agradece.',
+  'Golf bag': 'Bolsa de golfe',
+  'I hit a drive so far it went into the water, bag and all. Long story.':
+    'Dei uma tacada tão longa que foi parar na água, com bolsa e tudo. Longa história.',
+  "It's floating somewhere {to} of here, by a flare. Could you fish it out?":
+    'Está boiando em algum lugar {to} daqui, perto de um sinalizador. Pode pescar ela?',
+  'My golf bag fell off the boat {to} of here. It floats, luckily!':
+    'Minha bolsa de golfe caiu do barco {to} daqui. Ainda bem que ela boia!',
+  'Could you swoop down over the flare and bring it back?':
+    'Pode dar um rasante sobre o sinalizador e trazer de volta?',
+  'My clubs! A little soggy, but my swing was always a bit wet.':
+    'Meus tacos! Um pouco encharcados, mas meu swing sempre foi meio molhado.',
+  "Fished out! That's {done} for me. Fore-ever grateful!":
+    'Pescada! Já são {done} para mim. Eternamente grato!',
+  'A box of library books fell off the ferry {to} of here!':
+    'Uma caixa de livros da biblioteca caiu da balsa {to} daqui!',
+  "It's in a waterproof crate with a flare on top. Could you rescue it?":
+    "Está numa caixa à prova d'água com um sinalizador em cima. Pode resgatar?",
+  "Tim says he saw a box of books floating {to} of here. They're ours!":
+    'O Tim disse que viu uma caixa de livros boiando {to} daqui. São nossos!',
+  "Could you go and pick them up before they're overdue?":
+    'Pode ir buscar antes que atrasem a devolução?',
+  'Not a single page wet! Returned right on time.':
+    'Nenhuma página molhada! Devolvidos bem a tempo.',
+  "Saved from the sea! That's {done} for me. Thank you!":
+    'Salvos do mar! Já são {done} para mim. Obrigada!',
+  'My ball machine went rogue and fired a whole crate {to} of here.':
+    'Minha máquina de bolinhas enlouqueceu e disparou uma caixa inteira {to} daqui.',
+  'I tied a flare to it. Could you go and pick it up?':
+    'Amarrei um sinalizador nela. Pode ir buscar?',
+  'Lauren hit a serve so hard a whole box of balls flew off {to} of here.':
+    'A Lauren sacou tão forte que uma caixa inteira de bolinhas voou {to} daqui.',
+  'Follow the smoke and bring it back for me?':
+    'Segue a fumaça e traz de volta para mim?',
+  'All here! Even the fuzzy ones.': 'Estão todas aqui! Até as mais peludinhas.',
+  "Got them! That's {done} for me. Rematch time!":
+    'Peguei! Já são {done} para mim. Hora da revanche!',
+  'Yarn crate': 'Caixa de lã',
+  'A crate of yarn fell off my sled somewhere {to} of here.':
+    'Uma caixa de lã caiu do meu trenó em algum lugar {to} daqui.',
+  'I can see the flare from the window. Could you fetch it?':
+    'Dá para ver o sinalizador da janela. Pode buscar?',
+  "Erin's birthday yarn got lost on the way, somewhere {to} of here.":
+    'A lã de aniversário da Erin se perdeu no caminho, em algum lugar {to} daqui.',
+  "Follow the red flare and bring it back? It's a surprise!":
+    'Segue o sinalizador vermelho e traz de volta? É surpresa!',
+  'Fluffy and safe! Erin will never know.':
+    'Fofinha e segura! A Erin nunca vai saber.',
+  "Found it! That's {done} for me. You're a star!":
+    'Achou! Já são {done} para mim. Você é demais!',
+  north: 'ao norte',
+  northeast: 'ao nordeste',
+  east: 'ao leste',
+  southeast: 'ao sudeste',
+  south: 'ao sul',
+  southwest: 'ao sudoeste',
+  west: 'ao oeste',
+  northwest: 'ao noroeste',
+  Flare: 'Sinalizador',
 };

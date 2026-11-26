@@ -1005,4 +1005,115 @@ export default {
   "You're on the run!": 'Du bist auf der Flucht!',
   '{name} is on the run': '{name} ist auf der Flucht',
   wanted: 'gesucht',
+  // Retrieval jobs (people.js, jobs-logic.js)
+  'Coffee sack': 'Kaffeesack',
+  'A sack of beans bounced off a truck somewhere {to} of here. My beans, bud!':
+    'Ein Sack Bohnen ist irgendwo {to} von hier von einem Laster gefallen. Meine Bohnen, Kumpel!',
+  'Look for the red flare. Could you swoop down, grab it and bring it back?':
+    'Halt Ausschau nach der roten Leuchtfackel. Kannst du runterstoßen, ihn schnappen und zurückbringen?',
+  'I sent a drone out with a sample, and the drone had other plans.':
+    'Ich habe eine Drohne mit einer Probe losgeschickt, und die Drohne hatte andere Pläne.',
+  "It's down somewhere {to} of here with a flare going. Want to fetch it, buddy?":
+    'Sie ist irgendwo {to} von hier runtergekommen, mit brennender Fackel. Holst du sie, Kumpel?',
+  "My beans! A little dusty, but that's just extra flavor.":
+    'Meine Bohnen! Ein bisschen staubig, aber das ist nur extra Aroma.',
+  "You found it! That's {done} for me, buddy. Coffee's on me.":
+    'Du hast ihn gefunden! Das sind {done} für mich, Kumpel. Der Kaffee geht auf mich.',
+  'Lucky mic': 'Glücksmikro',
+  'I threw my lucky mic in the air during a power ballad, and the wind took it.':
+    'Ich hab mein Glücksmikro bei einer Power-Ballade in die Luft geworfen, und der Wind hat es mitgenommen.',
+  "It's somewhere {to} of here. Could you follow the flare and bring it home?":
+    'Es liegt irgendwo {to} von hier. Folgst du der Fackel und bringst es heim?',
+  'My fry delivery drone ran out of battery {to} of here.':
+    'Meiner Pommes-Lieferdrohne ist {to} von hier der Akku ausgegangen.',
+  'It lit a flare, smart little guy. Want to scoop it up for me?':
+    'Sie hat eine Fackel gezündet, schlaues Kerlchen. Sammelst du sie für mich ein?',
+  'My lucky mic! Check, check... still got it.':
+    'Mein Glücksmikro! Check, check... läuft noch.',
+  "Rescued! That's {done} for me. Next song's for you.":
+    'Gerettet! Das sind {done} für mich. Der nächste Song ist für dich.',
+  'Moonwater jar': 'Mondwasser-Glas',
+  'I left a jar out to soak up the full moon, and it rolled off somewhere {to} of here.':
+    'Ich habe ein Glas zum Vollmondladen rausgestellt, und es ist irgendwo {to} von hier weggerollt.',
+  'I lit a flare by it so the stars could find it. Could you?':
+    'Ich habe eine Fackel daneben angezündet, damit die Sterne es finden. Findest du es?',
+  'A jar of moonwater rolled off my wagon {to} of here.':
+    'Ein Glas Mondwasser ist {to} von hier von meinem Wagen gerollt.',
+  'Follow the smoke, friend. Could you bring it back to me?':
+    'Folg dem Rauch, du Liebe. Bringst du es mir zurück?',
+  'Still glowing! The universe kept it safe for you.':
+    'Es leuchtet noch! Das Universum hat es für dich aufbewahrt.',
+  "Home again! That's {done} for me, friend. The jar says thanks.":
+    'Wieder daheim! Das sind {done} für mich. Das Glas sagt danke.',
+  'Weather probe': 'Wettersonde',
+  'My weather balloon popped and the probe came down somewhere {to} of here.':
+    'Mein Wetterballon ist geplatzt, und die Sonde ist irgendwo {to} von hier runtergekommen.',
+  'It fires a flare when it lands. Could you go get it? It has all my data!':
+    'Sie zündet bei der Landung eine Fackel. Holst du sie? Da sind alle meine Daten drauf!',
+  'I dropped a sensor buoy {to} of here, and now I need it back.':
+    'Ich habe {to} von hier eine Messboje ausgesetzt, und jetzt brauche ich sie zurück.',
+  'Look for the red flare. Mind fetching it for the lab?':
+    'Halt Ausschau nach der roten Fackel. Holst du sie fürs Labor?',
+  "The data's intact! This is going straight into my paper.":
+    'Die Daten sind heil! Das kommt direkt in mein Paper.',
+  "Probe recovered! That's {done} for me. Science thanks you.":
+    'Sonde geborgen! Das sind {done} für mich. Die Wissenschaft dankt dir.',
+  'Golf bag': 'Golftasche',
+  'I hit a drive so far it went into the water, bag and all. Long story.':
+    'Ich habe einen Drive so weit geschlagen, dass er samt Tasche im Wasser gelandet ist. Lange Geschichte.',
+  "It's floating somewhere {to} of here, by a flare. Could you fish it out?":
+    'Sie treibt irgendwo {to} von hier, neben einer Fackel. Fischst du sie raus?',
+  'My golf bag fell off the boat {to} of here. It floats, luckily!':
+    'Meine Golftasche ist {to} von hier vom Boot gefallen. Zum Glück schwimmt sie!',
+  'Could you swoop down over the flare and bring it back?':
+    'Kannst du über die Fackel runterstoßen und sie zurückbringen?',
+  'My clubs! A little soggy, but my swing was always a bit wet.':
+    'Meine Schläger! Etwas nass, aber mein Schwung war schon immer etwas feucht.',
+  "Fished out! That's {done} for me. Fore-ever grateful!":
+    'Rausgefischt! Das sind {done} für mich. Ewig dankbar, Fore-ever!',
+  'A box of library books fell off the ferry {to} of here!':
+    'Eine Kiste Bibliotheksbücher ist {to} von hier von der Fähre gefallen!',
+  "It's in a waterproof crate with a flare on top. Could you rescue it?":
+    'Sie steckt in einer wasserdichten Kiste mit einer Fackel obendrauf. Rettest du sie?',
+  "Tim says he saw a box of books floating {to} of here. They're ours!":
+    'Tim sagt, er hat {to} von hier eine Kiste Bücher treiben sehen. Die gehören uns!',
+  "Could you go and pick them up before they're overdue?":
+    'Holst du sie, bevor sie überfällig sind?',
+  'Not a single page wet! Returned right on time.':
+    'Keine einzige Seite nass! Pünktlich zurückgegeben.',
+  "Saved from the sea! That's {done} for me. Thank you!":
+    'Aus dem Meer gerettet! Das sind {done} für mich. Danke!',
+  'My ball machine went rogue and fired a whole crate {to} of here.':
+    'Meine Ballmaschine ist durchgedreht und hat eine ganze Kiste {to} von hier geschossen.',
+  'I tied a flare to it. Could you go and pick it up?':
+    'Ich habe eine Fackel drangebunden. Holst du sie?',
+  'Lauren hit a serve so hard a whole box of balls flew off {to} of here.':
+    'Lauren hat so hart aufgeschlagen, dass eine ganze Kiste Bälle {to} von hier davongeflogen ist.',
+  'Follow the smoke and bring it back for me?':
+    'Folgst du dem Rauch und bringst sie mir zurück?',
+  'All here! Even the fuzzy ones.': 'Alle da! Sogar die flauschigen.',
+  "Got them! That's {done} for me. Rematch time!":
+    'Hab sie! Das sind {done} für mich. Zeit für eine Revanche!',
+  'Yarn crate': 'Wollkiste',
+  'A crate of yarn fell off my sled somewhere {to} of here.':
+    'Eine Kiste Wolle ist irgendwo {to} von hier von meinem Schlitten gefallen.',
+  'I can see the flare from the window. Could you fetch it?':
+    'Ich sehe die Fackel vom Fenster aus. Holst du sie?',
+  "Erin's birthday yarn got lost on the way, somewhere {to} of here.":
+    'Erins Geburtstagswolle ist unterwegs verloren gegangen, irgendwo {to} von hier.',
+  "Follow the red flare and bring it back? It's a surprise!":
+    'Folgst du der roten Fackel und bringst sie zurück? Es ist eine Überraschung!',
+  'Fluffy and safe! Erin will never know.':
+    'Flauschig und sicher! Erin wird nie etwas merken.',
+  "Found it! That's {done} for me. You're a star!":
+    'Gefunden! Das sind {done} für mich. Du bist ein Schatz!',
+  north: 'nördlich',
+  northeast: 'nordöstlich',
+  east: 'östlich',
+  southeast: 'südöstlich',
+  south: 'südlich',
+  southwest: 'südwestlich',
+  west: 'westlich',
+  northwest: 'nordwestlich',
+  Flare: 'Leuchtfackel',
 };

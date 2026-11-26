@@ -1000,4 +1000,115 @@ export default {
   "You're on the run!": 'Sei in fuga!',
   '{name} is on the run': '{name} è in fuga',
   wanted: 'ricercato',
+  // Retrieval jobs (people.js, jobs-logic.js)
+  'Coffee sack': 'Sacco di caffè',
+  'A sack of beans bounced off a truck somewhere {to} of here. My beans, bud!':
+    'Un sacco di chicchi è caduto da un camion da qualche parte {to} da qui. I miei chicchi, amico!',
+  'Look for the red flare. Could you swoop down, grab it and bring it back?':
+    'Cerca il bengala rosso. Puoi scendere in picchiata, prenderlo e riportarlo?',
+  'I sent a drone out with a sample, and the drone had other plans.':
+    'Ho mandato un drone con un campione, e il drone aveva altri piani.',
+  "It's down somewhere {to} of here with a flare going. Want to fetch it, buddy?":
+    'È caduto da qualche parte {to} da qui con un bengala acceso. Vai a prenderlo, amico?',
+  "My beans! A little dusty, but that's just extra flavor.":
+    "I miei chicchi! Un po' impolverati, ma è solo sapore in più.",
+  "You found it! That's {done} for me, buddy. Coffee's on me.":
+    "L'hai trovato! Fanno {done} per me, amico. Il caffè lo offro io.",
+  'Lucky mic': 'Microfono portafortuna',
+  'I threw my lucky mic in the air during a power ballad, and the wind took it.':
+    "Ho lanciato in aria il mio microfono portafortuna durante una ballata, e il vento se l'è portato via.",
+  "It's somewhere {to} of here. Could you follow the flare and bring it home?":
+    'È da qualche parte {to} da qui. Puoi seguire il bengala e riportarlo a casa?',
+  'My fry delivery drone ran out of battery {to} of here.':
+    'Al mio drone delle patatine si è scaricata la batteria {to} da qui.',
+  'It lit a flare, smart little guy. Want to scoop it up for me?':
+    'Ha acceso un bengala, furbo il piccoletto. Me lo recuperi?',
+  'My lucky mic! Check, check... still got it.':
+    'Il mio microfono portafortuna! Prova, prova... funziona ancora.',
+  "Rescued! That's {done} for me. Next song's for you.":
+    'Salvato! Fanno {done} per me. La prossima canzone è per te.',
+  'Moonwater jar': 'Barattolo di acqua di luna',
+  'I left a jar out to soak up the full moon, and it rolled off somewhere {to} of here.':
+    'Avevo lasciato fuori un barattolo per la luna piena, ed è rotolato da qualche parte {to} da qui.',
+  'I lit a flare by it so the stars could find it. Could you?':
+    'Ci ho acceso accanto un bengala perché le stelle lo trovassero. Ci pensi tu?',
+  'A jar of moonwater rolled off my wagon {to} of here.':
+    'Un barattolo di acqua di luna è caduto dal mio carretto {to} da qui.',
+  'Follow the smoke, friend. Could you bring it back to me?':
+    'Segui il fumo, amico mio. Me lo riporti?',
+  'Still glowing! The universe kept it safe for you.':
+    "Brilla ancora! L'universo l'ha custodito per te.",
+  "Home again! That's {done} for me, friend. The jar says thanks.":
+    'Di nuovo a casa! Fanno {done} per me. Il barattolo ti ringrazia.',
+  'Weather probe': 'Sonda meteo',
+  'My weather balloon popped and the probe came down somewhere {to} of here.':
+    'Il mio pallone meteo è scoppiato e la sonda è caduta da qualche parte {to} da qui.',
+  'It fires a flare when it lands. Could you go get it? It has all my data!':
+    'Accende un bengala quando atterra. Puoi andare a prenderla? Ci sono tutti i miei dati!',
+  'I dropped a sensor buoy {to} of here, and now I need it back.':
+    'Ho lasciato una boa con i sensori {to} da qui, e ora mi serve indietro.',
+  'Look for the red flare. Mind fetching it for the lab?':
+    'Cerca il bengala rosso. Me la porti in laboratorio?',
+  "The data's intact! This is going straight into my paper.":
+    'I dati sono intatti! Finiscono dritti nel mio articolo.',
+  "Probe recovered! That's {done} for me. Science thanks you.":
+    'Sonda recuperata! Fanno {done} per me. La scienza ti ringrazia.',
+  'Golf bag': 'Sacca da golf',
+  'I hit a drive so far it went into the water, bag and all. Long story.':
+    'Ho tirato un drive così lungo che è finito in acqua, sacca compresa. Lunga storia.',
+  "It's floating somewhere {to} of here, by a flare. Could you fish it out?":
+    'Galleggia da qualche parte {to} da qui, vicino a un bengala. Puoi ripescarla?',
+  'My golf bag fell off the boat {to} of here. It floats, luckily!':
+    'La mia sacca da golf è caduta dalla barca {to} da qui. Per fortuna galleggia!',
+  'Could you swoop down over the flare and bring it back?':
+    'Puoi scendere in picchiata sul bengala e riportarla?',
+  'My clubs! A little soggy, but my swing was always a bit wet.':
+    "I miei bastoni! Un po' fradici, ma il mio swing è sempre stato un po' annacquato.",
+  "Fished out! That's {done} for me. Fore-ever grateful!":
+    'Ripescata! Fanno {done} per me. Grato per sempre!',
+  'A box of library books fell off the ferry {to} of here!':
+    'Una cassa di libri della biblioteca è caduta dal traghetto {to} da qui!',
+  "It's in a waterproof crate with a flare on top. Could you rescue it?":
+    'È in una cassa impermeabile con un bengala sopra. Puoi salvarla?',
+  "Tim says he saw a box of books floating {to} of here. They're ours!":
+    'Tim dice di aver visto una cassa di libri galleggiare {to} da qui. Sono nostri!',
+  "Could you go and pick them up before they're overdue?":
+    'Puoi andare a prenderli prima che scada il prestito?',
+  'Not a single page wet! Returned right on time.':
+    'Nemmeno una pagina bagnata! Restituiti in tempo.',
+  "Saved from the sea! That's {done} for me. Thank you!":
+    'Salvati dal mare! Fanno {done} per me. Grazie!',
+  'My ball machine went rogue and fired a whole crate {to} of here.':
+    "La mia sparapalline è impazzita e ha sparato un'intera cassa {to} da qui.",
+  'I tied a flare to it. Could you go and pick it up?':
+    'Ci ho legato un bengala. Puoi andare a prenderla?',
+  'Lauren hit a serve so hard a whole box of balls flew off {to} of here.':
+    "Lauren ha servito così forte che un'intera scatola di palline è volata via {to} da qui.",
+  'Follow the smoke and bring it back for me?':
+    'Segui il fumo e me la riporti?',
+  'All here! Even the fuzzy ones.': 'Ci sono tutte! Anche quelle più pelose.',
+  "Got them! That's {done} for me. Rematch time!":
+    'Prese! Fanno {done} per me. È ora della rivincita!',
+  'Yarn crate': 'Cassa di lana',
+  'A crate of yarn fell off my sled somewhere {to} of here.':
+    'Una cassa di lana è caduta dalla mia slitta da qualche parte {to} da qui.',
+  'I can see the flare from the window. Could you fetch it?':
+    'Vedo il bengala dalla finestra. Puoi andare a prenderla?',
+  "Erin's birthday yarn got lost on the way, somewhere {to} of here.":
+    'La lana per il compleanno di Erin si è persa per strada, da qualche parte {to} da qui.',
+  "Follow the red flare and bring it back? It's a surprise!":
+    'Segui il bengala rosso e la riporti? È una sorpresa!',
+  'Fluffy and safe! Erin will never know.':
+    'Morbida e al sicuro! Erin non lo saprà mai.',
+  "Found it! That's {done} for me. You're a star!":
+    'Trovata! Fanno {done} per me. Sei un tesoro!',
+  north: 'a nord',
+  northeast: 'a nord-est',
+  east: 'a est',
+  southeast: 'a sud-est',
+  south: 'a sud',
+  southwest: 'a sud-ovest',
+  west: 'a ovest',
+  northwest: 'a nord-ovest',
+  Flare: 'Bengala',
 };

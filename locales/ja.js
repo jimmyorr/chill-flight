@@ -979,4 +979,115 @@ export default {
   "You're on the run!": 'あなたが逃走者！',
   '{name} is on the run': '{name}が逃走中',
   wanted: '逃走中',
+  // Retrieval jobs (people.js, jobs-logic.js)
+  'Coffee sack': 'コーヒー豆の袋',
+  'A sack of beans bounced off a truck somewhere {to} of here. My beans, bud!':
+    '豆の袋がトラックから落ちちゃった。ここから{to}のほうのどこかだ。俺の豆なんだよ、相棒！',
+  'Look for the red flare. Could you swoop down, grab it and bring it back?':
+    '赤い発煙筒を探して。急降下して拾って、持って帰ってくれる？',
+  'I sent a drone out with a sample, and the drone had other plans.':
+    'サンプルを積んだドローンを飛ばしたら、ドローンに別の予定があったみたい。',
+  "It's down somewhere {to} of here with a flare going. Want to fetch it, buddy?":
+    'ここから{to}のほうのどこかに落ちて、発煙筒が燃えてる。取ってきてくれる、相棒？',
+  "My beans! A little dusty, but that's just extra flavor.":
+    '俺の豆！ちょっと埃っぽいけど、それも風味のうちさ。',
+  "You found it! That's {done} for me, buddy. Coffee's on me.":
+    '見つけてくれた！これで{done}だね、相棒。コーヒーはおごるよ。',
+  'Lucky mic': 'ラッキーマイク',
+  'I threw my lucky mic in the air during a power ballad, and the wind took it.':
+    'パワーバラードの最中にラッキーマイクを放り投げたら、風に持っていかれちゃった。',
+  "It's somewhere {to} of here. Could you follow the flare and bring it home?":
+    'ここから{to}のほうのどこかにある。発煙筒をたどって持って帰ってくれる？',
+  'My fry delivery drone ran out of battery {to} of here.':
+    'ポテト配達ドローンのバッテリーが、ここから{to}のほうで切れちゃった。',
+  'It lit a flare, smart little guy. Want to scoop it up for me?':
+    '発煙筒をたいてるよ、賢いやつだ。拾ってきてくれる？',
+  'My lucky mic! Check, check... still got it.':
+    'ラッキーマイク！テスト、テスト…まだいける。',
+  "Rescued! That's {done} for me. Next song's for you.":
+    '救出成功！これで{done}だね。次の曲は君に捧げるよ。',
+  'Moonwater jar': '月の水の瓶',
+  'I left a jar out to soak up the full moon, and it rolled off somewhere {to} of here.':
+    '満月の光を吸わせようと瓶を外に置いたら、ここから{to}のほうのどこかに転がっていっちゃった。',
+  'I lit a flare by it so the stars could find it. Could you?':
+    '星が見つけられるように、そばに発煙筒をたいたの。探してくれる？',
+  'A jar of moonwater rolled off my wagon {to} of here.':
+    '月の水の瓶が、ここから{to}のほうで荷車から落ちちゃった。',
+  'Follow the smoke, friend. Could you bring it back to me?':
+    '煙をたどってね。持って帰ってきてくれる？',
+  'Still glowing! The universe kept it safe for you.':
+    'まだ光ってる！宇宙があなたのために守ってくれたのね。',
+  "Home again! That's {done} for me, friend. The jar says thanks.":
+    'おかえり！これで{done}ね。瓶もありがとうって。',
+  'Weather probe': '気象観測器',
+  'My weather balloon popped and the probe came down somewhere {to} of here.':
+    '気象気球が割れて、観測器がここから{to}のほうのどこかに落ちたの。',
+  'It fires a flare when it lands. Could you go get it? It has all my data!':
+    '着地すると発煙筒が上がるようになってる。取ってきてくれる？データが全部入ってるの！',
+  'I dropped a sensor buoy {to} of here, and now I need it back.':
+    'ここから{to}のほうにセンサーブイを置いてきたんだけど、回収が必要になったの。',
+  'Look for the red flare. Mind fetching it for the lab?':
+    '赤い発煙筒を探して。研究室のために取ってきてくれる？',
+  "The data's intact! This is going straight into my paper.":
+    'データは無事！そのまま論文行きね。',
+  "Probe recovered! That's {done} for me. Science thanks you.":
+    '観測器を回収！これで{done}ね。科学があなたに感謝してる。',
+  'Golf bag': 'ゴルフバッグ',
+  'I hit a drive so far it went into the water, bag and all. Long story.':
+    'ドライバーを飛ばしすぎて、バッグごと水に落ちちゃった。話せば長い。',
+  "It's floating somewhere {to} of here, by a flare. Could you fish it out?":
+    'ここから{to}のほうのどこかで、発煙筒のそばに浮かんでる。すくい上げてくれる？',
+  'My golf bag fell off the boat {to} of here. It floats, luckily!':
+    'ゴルフバッグがボートから落ちたんだ、ここから{to}のほうで。浮くのが救いだね！',
+  'Could you swoop down over the flare and bring it back?':
+    '発煙筒めがけて急降下して、持って帰ってくれる？',
+  'My clubs! A little soggy, but my swing was always a bit wet.':
+    '俺のクラブ！ちょっとびしょびしょだけど、俺のスイングはもともと湿っぽいからね。',
+  "Fished out! That's {done} for me. Fore-ever grateful!":
+    '引き上げ成功！これで{done}だね。一生感謝！',
+  'A box of library books fell off the ferry {to} of here!':
+    '図書館の本の箱が、ここから{to}のほうでフェリーから落ちちゃったの！',
+  "It's in a waterproof crate with a flare on top. Could you rescue it?":
+    '発煙筒のついた防水の箱に入ってる。助けてくれる？',
+  "Tim says he saw a box of books floating {to} of here. They're ours!":
+    'ここから{to}のほうで本の箱が浮いてるのを見たってティムが言ってる。うちの本よ！',
+  "Could you go and pick them up before they're overdue?":
+    '返却期限が過ぎる前に拾ってきてくれる？',
+  'Not a single page wet! Returned right on time.':
+    '一ページも濡れてない！期限ぴったりに返却できたわ。',
+  "Saved from the sea! That's {done} for me. Thank you!":
+    '海から救出！これで{done}ね。ありがとう！',
+  'My ball machine went rogue and fired a whole crate {to} of here.':
+    'ボールマシンが暴走して、箱ごとここから{to}のほうへ撃ち出しちゃった。',
+  'I tied a flare to it. Could you go and pick it up?':
+    '発煙筒をくくりつけておいた。拾ってきてくれる？',
+  'Lauren hit a serve so hard a whole box of balls flew off {to} of here.':
+    'ローレンのサーブが強すぎて、ボールの箱がまるごとここから{to}のほうへ飛んでいったの。',
+  'Follow the smoke and bring it back for me?':
+    '煙をたどって持って帰ってくれる？',
+  'All here! Even the fuzzy ones.': '全部ある！ふわふわのやつまで。',
+  "Got them! That's {done} for me. Rematch time!":
+    '回収完了！これで{done}だね。リベンジマッチの時間よ！',
+  'Yarn crate': '毛糸の箱',
+  'A crate of yarn fell off my sled somewhere {to} of here.':
+    '毛糸の箱がそりから落ちちゃった。ここから{to}のほうのどこか。',
+  'I can see the flare from the window. Could you fetch it?':
+    '窓から発煙筒が見えるの。取ってきてくれる？',
+  "Erin's birthday yarn got lost on the way, somewhere {to} of here.":
+    'エリンの誕生日用の毛糸が途中でなくなっちゃった。ここから{to}のほうのどこか。',
+  "Follow the red flare and bring it back? It's a surprise!":
+    '赤い発煙筒をたどって持って帰ってくれる？サプライズなの！',
+  'Fluffy and safe! Erin will never know.':
+    'ふわふわで無事！エリンには絶対ばれないわ。',
+  "Found it! That's {done} for me. You're a star!":
+    '見つけてくれた！これで{done}ね。あなたは最高！',
+  north: '北',
+  northeast: '北東',
+  east: '東',
+  southeast: '南東',
+  south: '南',
+  southwest: '南西',
+  west: '西',
+  northwest: '北西',
+  Flare: '発煙筒',
 };

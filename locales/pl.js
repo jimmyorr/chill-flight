@@ -996,4 +996,115 @@ export default {
   "You're on the run!": 'Uciekasz!',
   '{name} is on the run': '{name} ucieka',
   wanted: 'ścigany',
+  // Retrieval jobs (people.js, jobs-logic.js)
+  'Coffee sack': 'Worek kawy',
+  'A sack of beans bounced off a truck somewhere {to} of here. My beans, bud!':
+    'Worek ziaren spadł z ciężarówki gdzieś {to} stąd. Moje ziarna, stary!',
+  'Look for the red flare. Could you swoop down, grab it and bring it back?':
+    'Szukaj czerwonej racy. Zanurkujesz, złapiesz go i przywieziesz?',
+  'I sent a drone out with a sample, and the drone had other plans.':
+    'Wysłałem drona z próbką, a dron miał inne plany.',
+  "It's down somewhere {to} of here with a flare going. Want to fetch it, buddy?":
+    'Spadł gdzieś {to} stąd i pali się przy nim raca. Przywieziesz go, stary?',
+  "My beans! A little dusty, but that's just extra flavor.":
+    'Moje ziarna! Trochę zakurzone, ale to tylko dodatkowy aromat.',
+  "You found it! That's {done} for me, buddy. Coffee's on me.":
+    'Znalazłeś! Dla mnie to już {done}, stary. Kawa na mój koszt.',
+  'Lucky mic': 'Szczęśliwy mikrofon',
+  'I threw my lucky mic in the air during a power ballad, and the wind took it.':
+    'Podrzuciłem szczęśliwy mikrofon w trakcie ballady i porwał go wiatr.',
+  "It's somewhere {to} of here. Could you follow the flare and bring it home?":
+    'Jest gdzieś {to} stąd. Polecisz za racą i przywieziesz go?',
+  'My fry delivery drone ran out of battery {to} of here.':
+    'Mojemu dronowi z frytkami padła bateria {to} stąd.',
+  'It lit a flare, smart little guy. Want to scoop it up for me?':
+    'Odpalił racę, sprytny maluch. Zgarniesz go dla mnie?',
+  'My lucky mic! Check, check... still got it.':
+    'Mój szczęśliwy mikrofon! Raz, dwa, raz, dwa... nadal działa.',
+  "Rescued! That's {done} for me. Next song's for you.":
+    'Uratowany! Dla mnie to już {done}. Następna piosenka dla ciebie.',
+  'Moonwater jar': 'Słoik księżycowej wody',
+  'I left a jar out to soak up the full moon, and it rolled off somewhere {to} of here.':
+    'Wystawiłam słoik, żeby nasiąkł pełnią, a on potoczył się gdzieś {to} stąd.',
+  'I lit a flare by it so the stars could find it. Could you?':
+    'Zapaliłam przy nim racę, żeby gwiazdy go znalazły. Polecisz?',
+  'A jar of moonwater rolled off my wagon {to} of here.':
+    'Słoik księżycowej wody spadł z mojego wózka {to} stąd.',
+  'Follow the smoke, friend. Could you bring it back to me?':
+    'Leć za dymem, przyjacielu. Przywieziesz mi go?',
+  'Still glowing! The universe kept it safe for you.':
+    'Nadal świeci! Wszechświat przechował go dla ciebie.',
+  "Home again! That's {done} for me, friend. The jar says thanks.":
+    'Znowu w domu! Dla mnie to już {done}, przyjacielu. Słoik dziękuje.',
+  'Weather probe': 'Sonda pogodowa',
+  'My weather balloon popped and the probe came down somewhere {to} of here.':
+    'Mój balon meteorologiczny pękł i sonda spadła gdzieś {to} stąd.',
+  'It fires a flare when it lands. Could you go get it? It has all my data!':
+    'Przy lądowaniu odpala racę. Przywieziesz ją? Są w niej wszystkie moje dane!',
+  'I dropped a sensor buoy {to} of here, and now I need it back.':
+    'Zostawiłam boję z czujnikami {to} stąd, a teraz jest mi potrzebna.',
+  'Look for the red flare. Mind fetching it for the lab?':
+    'Szukaj czerwonej racy. Przywieziesz ją do laboratorium?',
+  "The data's intact! This is going straight into my paper.":
+    'Dane są całe! To idzie prosto do mojej publikacji.',
+  "Probe recovered! That's {done} for me. Science thanks you.":
+    'Sonda odzyskana! Dla mnie to już {done}. Nauka ci dziękuje.',
+  'Golf bag': 'Torba golfowa',
+  'I hit a drive so far it went into the water, bag and all. Long story.':
+    'Uderzyłem tak daleko, że wylądowało w wodzie razem z torbą. Długa historia.',
+  "It's floating somewhere {to} of here, by a flare. Could you fish it out?":
+    'Unosi się gdzieś {to} stąd, obok racy. Wyłowisz ją?',
+  'My golf bag fell off the boat {to} of here. It floats, luckily!':
+    'Moja torba golfowa wypadła z łodzi {to} stąd. Na szczęście pływa!',
+  'Could you swoop down over the flare and bring it back?':
+    'Zanurkujesz nad racą i przywieziesz ją?',
+  'My clubs! A little soggy, but my swing was always a bit wet.':
+    'Moje kije! Trochę przemoczone, ale mój swing zawsze był trochę mokry.',
+  "Fished out! That's {done} for me. Fore-ever grateful!":
+    'Wyłowiona! Dla mnie to już {done}. Dozgonnie wdzięczny!',
+  'A box of library books fell off the ferry {to} of here!':
+    'Skrzynka książek z biblioteki wypadła z promu {to} stąd!',
+  "It's in a waterproof crate with a flare on top. Could you rescue it?":
+    'Jest w wodoszczelnej skrzynce z racą na wierzchu. Uratujesz ją?',
+  "Tim says he saw a box of books floating {to} of here. They're ours!":
+    'Tim mówi, że widział skrzynkę książek dryfującą {to} stąd. To nasze!',
+  "Could you go and pick them up before they're overdue?":
+    'Przywieziesz je, zanim minie termin zwrotu?',
+  'Not a single page wet! Returned right on time.':
+    'Ani jednej mokrej strony! Oddane na czas.',
+  "Saved from the sea! That's {done} for me. Thank you!":
+    'Uratowane z morza! Dla mnie to już {done}. Dziękuję!',
+  'My ball machine went rogue and fired a whole crate {to} of here.':
+    'Moja maszyna do piłek oszalała i wystrzeliła całą skrzynkę {to} stąd.',
+  'I tied a flare to it. Could you go and pick it up?':
+    'Przywiązałam do niej racę. Przywieziesz ją?',
+  'Lauren hit a serve so hard a whole box of balls flew off {to} of here.':
+    'Lauren zaserwowała tak mocno, że całe pudło piłek poleciało {to} stąd.',
+  'Follow the smoke and bring it back for me?': 'Poleć za dymem i przywieź je?',
+  'All here! Even the fuzzy ones.':
+    'Wszystkie są! Nawet te najbardziej puchate.',
+  "Got them! That's {done} for me. Rematch time!":
+    'Mam je! Dla mnie to już {done}. Czas na rewanż!',
+  'Yarn crate': 'Skrzynka włóczki',
+  'A crate of yarn fell off my sled somewhere {to} of here.':
+    'Skrzynka włóczki spadła z moich sanek gdzieś {to} stąd.',
+  'I can see the flare from the window. Could you fetch it?':
+    'Widzę racę z okna. Przywieziesz ją?',
+  "Erin's birthday yarn got lost on the way, somewhere {to} of here.":
+    'Urodzinowa włóczka dla Erin zgubiła się po drodze, gdzieś {to} stąd.',
+  "Follow the red flare and bring it back? It's a surprise!":
+    'Poleć za czerwoną racą i przywieź ją? To niespodzianka!',
+  'Fluffy and safe! Erin will never know.':
+    'Puszysta i bezpieczna! Erin się nie dowie.',
+  "Found it! That's {done} for me. You're a star!":
+    'Znalazłeś! Dla mnie to już {done}. Jesteś super!',
+  north: 'na północ',
+  northeast: 'na północny wschód',
+  east: 'na wschód',
+  southeast: 'na południowy wschód',
+  south: 'na południe',
+  southwest: 'na południowy zachód',
+  west: 'na zachód',
+  northwest: 'na północny zachód',
+  Flare: 'Raca',
 };

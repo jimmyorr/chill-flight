@@ -1005,4 +1005,115 @@ export default {
   "You're on the run!": 'Kamu dalam pelarian!',
   '{name} is on the run': '{name} sedang kabur',
   wanted: 'buron',
+  // Retrieval jobs (people.js, jobs-logic.js)
+  'Coffee sack': 'Karung kopi',
+  'A sack of beans bounced off a truck somewhere {to} of here. My beans, bud!':
+    'Sekarung biji kopi jatuh dari truk di suatu tempat di sebelah {to} dari sini. Biji kopiku, bro!',
+  'Look for the red flare. Could you swoop down, grab it and bring it back?':
+    'Cari suar merah. Bisa menukik, ambil, lalu bawa pulang?',
+  'I sent a drone out with a sample, and the drone had other plans.':
+    'Aku mengirim drone membawa sampel, dan dronenya punya rencana lain.',
+  "It's down somewhere {to} of here with a flare going. Want to fetch it, buddy?":
+    'Jatuhnya di suatu tempat di sebelah {to} dari sini, suarnya menyala. Mau ambilkan, bro?',
+  "My beans! A little dusty, but that's just extra flavor.":
+    'Biji kopiku! Agak berdebu, tapi itu cuma rasa tambahan.',
+  "You found it! That's {done} for me, buddy. Coffee's on me.":
+    'Ketemu! Itu sudah {done} untukku, bro. Kopinya aku traktir.',
+  'Lucky mic': 'Mik keberuntungan',
+  'I threw my lucky mic in the air during a power ballad, and the wind took it.':
+    'Aku melempar mik keberuntunganku ke udara waktu lagu balada, dan anginnya membawanya pergi.',
+  "It's somewhere {to} of here. Could you follow the flare and bring it home?":
+    'Ada di suatu tempat di sebelah {to} dari sini. Bisa ikuti suarnya dan bawa pulang?',
+  'My fry delivery drone ran out of battery {to} of here.':
+    'Baterai drone pengantar kentang gorengku habis di sebelah {to} dari sini.',
+  'It lit a flare, smart little guy. Want to scoop it up for me?':
+    'Dia menyalakan suar, pintar juga. Mau ambilkan untukku?',
+  'My lucky mic! Check, check... still got it.':
+    'Mik keberuntunganku! Tes, tes... masih jalan.',
+  "Rescued! That's {done} for me. Next song's for you.":
+    'Selamat! Itu sudah {done} untukku. Lagu berikutnya untukmu.',
+  'Moonwater jar': 'Toples air bulan',
+  'I left a jar out to soak up the full moon, and it rolled off somewhere {to} of here.':
+    'Aku menaruh toples di luar untuk menyerap bulan purnama, dan toplesnya menggelinding ke suatu tempat di sebelah {to} dari sini.',
+  'I lit a flare by it so the stars could find it. Could you?':
+    'Aku menyalakan suar di dekatnya supaya bintang bisa menemukannya. Kamu mau?',
+  'A jar of moonwater rolled off my wagon {to} of here.':
+    'Setoples air bulan jatuh dari gerobakku di sebelah {to} dari sini.',
+  'Follow the smoke, friend. Could you bring it back to me?':
+    'Ikuti asapnya, kawan. Bisa bawa kembali padaku?',
+  'Still glowing! The universe kept it safe for you.':
+    'Masih bersinar! Alam semesta menjaganya untukmu.',
+  "Home again! That's {done} for me, friend. The jar says thanks.":
+    'Pulang lagi! Itu sudah {done} untukku, kawan. Toplesnya berterima kasih.',
+  'Weather probe': 'Probe cuaca',
+  'My weather balloon popped and the probe came down somewhere {to} of here.':
+    'Balon cuacaku meletus dan probenya jatuh di suatu tempat di sebelah {to} dari sini.',
+  'It fires a flare when it lands. Could you go get it? It has all my data!':
+    'Dia menembakkan suar saat mendarat. Bisa ambilkan? Semua dataku ada di situ!',
+  'I dropped a sensor buoy {to} of here, and now I need it back.':
+    'Aku memasang pelampung sensor di sebelah {to} dari sini, dan sekarang aku butuh kembali.',
+  'Look for the red flare. Mind fetching it for the lab?':
+    'Cari suar merah. Mau ambilkan untuk lab?',
+  "The data's intact! This is going straight into my paper.":
+    'Datanya utuh! Ini langsung masuk ke makalahku.',
+  "Probe recovered! That's {done} for me. Science thanks you.":
+    'Probe ditemukan! Itu sudah {done} untukku. Sains berterima kasih.',
+  'Golf bag': 'Tas golf',
+  'I hit a drive so far it went into the water, bag and all. Long story.':
+    'Pukulanku jauh sekali sampai masuk air, tasnya juga. Ceritanya panjang.',
+  "It's floating somewhere {to} of here, by a flare. Could you fish it out?":
+    'Mengapung di suatu tempat di sebelah {to} dari sini, dekat suar. Bisa diambil?',
+  'My golf bag fell off the boat {to} of here. It floats, luckily!':
+    'Tas golfku jatuh dari perahu di sebelah {to} dari sini. Untung mengapung!',
+  'Could you swoop down over the flare and bring it back?':
+    'Bisa menukik ke arah suar dan bawa pulang?',
+  'My clubs! A little soggy, but my swing was always a bit wet.':
+    'Stik golfku! Agak basah, tapi ayunanku memang selalu agak basah.',
+  "Fished out! That's {done} for me. Fore-ever grateful!":
+    'Berhasil diambil! Itu sudah {done} untukku. Terima kasih banyak!',
+  'A box of library books fell off the ferry {to} of here!':
+    'Sepeti buku perpustakaan jatuh dari kapal feri di sebelah {to} dari sini!',
+  "It's in a waterproof crate with a flare on top. Could you rescue it?":
+    'Ada di peti tahan air dengan suar di atasnya. Bisa selamatkan?',
+  "Tim says he saw a box of books floating {to} of here. They're ours!":
+    'Tim bilang dia melihat sepeti buku mengapung di sebelah {to} dari sini. Itu punya kita!',
+  "Could you go and pick them up before they're overdue?":
+    'Bisa ambilkan sebelum lewat batas pengembalian?',
+  'Not a single page wet! Returned right on time.':
+    'Tidak ada satu halaman pun yang basah! Dikembalikan tepat waktu.',
+  "Saved from the sea! That's {done} for me. Thank you!":
+    'Selamat dari laut! Itu sudah {done} untukku. Terima kasih!',
+  'My ball machine went rogue and fired a whole crate {to} of here.':
+    'Mesin pelontar bolaku mengamuk dan menembakkan satu peti penuh ke sebelah {to} dari sini.',
+  'I tied a flare to it. Could you go and pick it up?':
+    'Sudah kuikat suar. Bisa ambilkan?',
+  'Lauren hit a serve so hard a whole box of balls flew off {to} of here.':
+    'Servis Lauren keras sekali sampai satu kotak bola terbang ke sebelah {to} dari sini.',
+  'Follow the smoke and bring it back for me?':
+    'Ikuti asapnya dan bawa kembali untukku?',
+  'All here! Even the fuzzy ones.': 'Lengkap! Bahkan yang paling berbulu.',
+  "Got them! That's {done} for me. Rematch time!":
+    'Dapat! Itu sudah {done} untukku. Waktunya tanding ulang!',
+  'Yarn crate': 'Peti benang',
+  'A crate of yarn fell off my sled somewhere {to} of here.':
+    'Sepeti benang jatuh dari kereta saljuku di suatu tempat di sebelah {to} dari sini.',
+  'I can see the flare from the window. Could you fetch it?':
+    'Aku bisa lihat suarnya dari jendela. Bisa ambilkan?',
+  "Erin's birthday yarn got lost on the way, somewhere {to} of here.":
+    'Benang hadiah ulang tahun Erin hilang di jalan, di suatu tempat di sebelah {to} dari sini.',
+  "Follow the red flare and bring it back? It's a surprise!":
+    'Ikuti suar merah dan bawa pulang? Ini kejutan!',
+  'Fluffy and safe! Erin will never know.':
+    'Lembut dan aman! Erin tidak akan tahu.',
+  "Found it! That's {done} for me. You're a star!":
+    'Ketemu! Itu sudah {done} untukku. Kamu hebat!',
+  north: 'utara',
+  northeast: 'timur laut',
+  east: 'timur',
+  southeast: 'tenggara',
+  south: 'selatan',
+  southwest: 'barat daya',
+  west: 'barat',
+  northwest: 'barat laut',
+  Flare: 'Suar',
 };

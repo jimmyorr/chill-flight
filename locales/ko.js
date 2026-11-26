@@ -966,4 +966,114 @@ export default {
   "You're on the run!": '도주 시작!',
   '{name} is on the run': '{name} 도주 중',
   wanted: '수배',
+  // Retrieval jobs (people.js, jobs-logic.js)
+  'Coffee sack': '커피 자루',
+  'A sack of beans bounced off a truck somewhere {to} of here. My beans, bud!':
+    '원두 한 자루가 트럭에서 떨어졌어. 여기서 {to} 어딘가야. 내 원두라고, 친구!',
+  'Look for the red flare. Could you swoop down, grab it and bring it back?':
+    '빨간 신호탄을 찾아. 내려가서 낚아채고 가져다줄 수 있어?',
+  'I sent a drone out with a sample, and the drone had other plans.':
+    '샘플을 실은 드론을 보냈는데, 드론한테 다른 계획이 있었나 봐.',
+  "It's down somewhere {to} of here with a flare going. Want to fetch it, buddy?":
+    '여기서 {to} 어딘가에 떨어졌고 신호탄이 타고 있어. 가져다줄래, 친구?',
+  "My beans! A little dusty, but that's just extra flavor.":
+    '내 원두! 먼지가 좀 묻었지만 그것도 풍미야.',
+  "You found it! That's {done} for me, buddy. Coffee's on me.":
+    '찾았구나! 이걸로 {done}째야, 친구. 커피는 내가 쏠게.',
+  'Lucky mic': '행운의 마이크',
+  'I threw my lucky mic in the air during a power ballad, and the wind took it.':
+    '파워 발라드 부르다가 행운의 마이크를 던졌는데 바람이 가져가 버렸어.',
+  "It's somewhere {to} of here. Could you follow the flare and bring it home?":
+    '여기서 {to} 어딘가에 있어. 신호탄을 따라가서 가져다줄래?',
+  'My fry delivery drone ran out of battery {to} of here.':
+    '감자튀김 배달 드론 배터리가 여기서 {to}에서 나갔어.',
+  'It lit a flare, smart little guy. Want to scoop it up for me?':
+    '신호탄을 켰더라, 똑똑한 녀석. 주워다 줄래?',
+  'My lucky mic! Check, check... still got it.':
+    '내 행운의 마이크! 아, 아… 아직 살아 있네.',
+  "Rescued! That's {done} for me. Next song's for you.":
+    '구조 완료! 이걸로 {done}째야. 다음 곡은 너를 위해.',
+  'Moonwater jar': '달빛 물 병',
+  'I left a jar out to soak up the full moon, and it rolled off somewhere {to} of here.':
+    '보름달을 담으려고 병을 밖에 뒀는데 여기서 {to} 어딘가로 굴러가 버렸어.',
+  'I lit a flare by it so the stars could find it. Could you?':
+    '별들이 찾을 수 있게 옆에 신호탄을 켜 뒀어. 네가 찾아 줄래?',
+  'A jar of moonwater rolled off my wagon {to} of here.':
+    '달빛 물 한 병이 여기서 {to}에서 내 수레에서 떨어졌어.',
+  'Follow the smoke, friend. Could you bring it back to me?':
+    '연기를 따라가, 친구. 다시 가져다줄래?',
+  'Still glowing! The universe kept it safe for you.':
+    '아직 빛나! 우주가 널 위해 지켜 줬나 봐.',
+  "Home again! That's {done} for me, friend. The jar says thanks.":
+    '다시 집으로! 이걸로 {done}째야, 친구. 병도 고맙대.',
+  'Weather probe': '기상 관측기',
+  'My weather balloon popped and the probe came down somewhere {to} of here.':
+    '기상 풍선이 터져서 관측기가 여기서 {to} 어딘가에 떨어졌어.',
+  'It fires a flare when it lands. Could you go get it? It has all my data!':
+    '착지하면 신호탄을 쏘거든. 가져다줄래? 내 데이터가 다 들어 있어!',
+  'I dropped a sensor buoy {to} of here, and now I need it back.':
+    '여기서 {to}에 센서 부표를 띄워 뒀는데 이제 회수해야 해.',
+  'Look for the red flare. Mind fetching it for the lab?':
+    '빨간 신호탄을 찾아. 연구실을 위해 가져다줄래?',
+  "The data's intact! This is going straight into my paper.":
+    '데이터 멀쩡해! 바로 내 논문에 들어간다.',
+  "Probe recovered! That's {done} for me. Science thanks you.":
+    '관측기 회수! 이걸로 {done}째야. 과학이 고마워해.',
+  'Golf bag': '골프 가방',
+  'I hit a drive so far it went into the water, bag and all. Long story.':
+    '드라이브를 너무 멀리 쳐서 가방째로 물에 빠졌어. 얘기가 길어.',
+  "It's floating somewhere {to} of here, by a flare. Could you fish it out?":
+    '여기서 {to} 어딘가에 신호탄 옆에 떠 있어. 건져 줄래?',
+  'My golf bag fell off the boat {to} of here. It floats, luckily!':
+    '골프 가방이 여기서 {to}에서 배에서 떨어졌어. 다행히 물에 떠!',
+  'Could you swoop down over the flare and bring it back?':
+    '신호탄 위로 내려가서 가져다줄래?',
+  'My clubs! A little soggy, but my swing was always a bit wet.':
+    '내 클럽! 좀 젖었지만 내 스윙은 원래 좀 축축했어.',
+  "Fished out! That's {done} for me. Fore-ever grateful!":
+    '건져 냈다! 이걸로 {done}째야. 평생 고마워!',
+  'A box of library books fell off the ferry {to} of here!':
+    '도서관 책 상자가 여기서 {to}에서 페리에서 떨어졌어!',
+  "It's in a waterproof crate with a flare on top. Could you rescue it?":
+    '위에 신호탄이 달린 방수 상자에 들어 있어. 구해 줄래?',
+  "Tim says he saw a box of books floating {to} of here. They're ours!":
+    '팀이 여기서 {to}에서 책 상자가 떠다니는 걸 봤대. 우리 거야!',
+  "Could you go and pick them up before they're overdue?":
+    '반납 기한 넘기기 전에 가져다줄래?',
+  'Not a single page wet! Returned right on time.':
+    '한 장도 안 젖었어! 기한 맞춰 반납했어.',
+  "Saved from the sea! That's {done} for me. Thank you!":
+    '바다에서 구했어! 이걸로 {done}째야. 고마워!',
+  'My ball machine went rogue and fired a whole crate {to} of here.':
+    '볼 머신이 폭주해서 공 한 상자를 통째로 여기서 {to}으로 쏴 버렸어.',
+  'I tied a flare to it. Could you go and pick it up?':
+    '신호탄을 묶어 뒀어. 가져다줄래?',
+  'Lauren hit a serve so hard a whole box of balls flew off {to} of here.':
+    '로렌 서브가 너무 세서 공 한 상자가 통째로 여기서 {to}으로 날아갔어.',
+  'Follow the smoke and bring it back for me?': '연기를 따라가서 가져다줄래?',
+  'All here! Even the fuzzy ones.': '다 있어! 보송보송한 것까지.',
+  "Got them! That's {done} for me. Rematch time!":
+    '찾았다! 이걸로 {done}째야. 리턴 매치 시간이야!',
+  'Yarn crate': '털실 상자',
+  'A crate of yarn fell off my sled somewhere {to} of here.':
+    '털실 상자가 썰매에서 떨어졌어. 여기서 {to} 어딘가야.',
+  'I can see the flare from the window. Could you fetch it?':
+    '창문으로 신호탄이 보여. 가져다줄래?',
+  "Erin's birthday yarn got lost on the way, somewhere {to} of here.":
+    '에린 생일 선물 털실이 오는 길에 없어졌어. 여기서 {to} 어딘가야.',
+  "Follow the red flare and bring it back? It's a surprise!":
+    '빨간 신호탄을 따라가서 가져다줄래? 깜짝 선물이야!',
+  'Fluffy and safe! Erin will never know.':
+    '보송보송하고 무사해! 에린은 절대 모를 거야.',
+  "Found it! That's {done} for me. You're a star!":
+    '찾았구나! 이걸로 {done}째야. 넌 최고야!',
+  north: '북쪽',
+  northeast: '북동쪽',
+  east: '동쪽',
+  southeast: '남동쪽',
+  south: '남쪽',
+  southwest: '남서쪽',
+  west: '서쪽',
+  northwest: '북서쪽',
+  Flare: '신호탄',
 };

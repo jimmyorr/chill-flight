@@ -9,7 +9,7 @@
  * a round trip goes there and back, a one-way job ends where it sends you,
  * only the destination moves a job on, the person you've helped least asks
  * first, dropping a job cancels it, saved progress is checked before it's
- * used, and a visit to an airport greets you once and ends when you leave.
+ * used, a retrieval job goes out to a package and back, and a visit to an airport greets you once and ends when you leave.
  */
 import {ChillFlightLogic} from '../chill-flight-logic.js';
 import {PEOPLE} from '../people.js';
@@ -27,6 +27,10 @@ import {
   land,
   newProgress,
   passSight,
+  pickUp,
+  reachesPackage,
+  directionTo,
+  spotAhead,
   sightAhead,
   sightRadius,
   validProgress,
@@ -371,6 +375,124 @@ check(
   check(
     'every sight has a pass zone of at least 500 m',
     SIGHTS.every((s) => sightRadius(s) >= 500)
+  );
+}
+
+// Retrieval: out to a package lying off the runways, picked up, then home
+{
+  const finder = {
+    name: 'Finder',
+    airport: 'Meadow Field',
+    intro: line,
+    hello: line,
+    accept: line,
+    decline: line,
+    jobs: [
+      {
+        id: 'fetch',
+        kind: 'retrieval',
+        where: 'water',
+        cargo: 'Parcel',
+        offer: ['It fell {to} of here.'],
+        thanks: ['Got it.'],
+      },
+    ],
+  };
+  const people = [finder];
+  const r = rng(13);
+  const wheres = [];
+  // A package 3 km north-east of an airport at (0, 0)
+  const findSpot = (field, where) => {
+    wheres.push([field, where]);
+    return {x: 2121, z: -2121, from: {x: 0, z: 0}};
+  };
+  check(
+    'a retrieval job checks out, but not with a `to` or no cargo',
+    !checkPeople(people, AIRPORTS).length &&
+      checkPeople(
+        [{...finder, jobs: [{...finder.jobs[0], to: ['Mesa Field']}]}],
+        AIRPORTS
+      ).length === 1 &&
+      checkPeople(
+        [{...finder, jobs: [{...finder.jobs[0], cargo: undefined}]}],
+        AIRPORTS
+      ).length === 1
+  );
+  check(
+    "without a way to find a spot, it isn't offered",
+    !land(newProgress(), 'Meadow Field', r, people).offer
+  );
+  check(
+    "with nowhere for a package, it isn't offered",
+    !land(newProgress(), 'Meadow Field', r, people, null, () => null).offer
+  );
+  const offered = land(
+    newProgress(),
+    'Meadow Field',
+    r,
+    people,
+    null,
+    findSpot
+  );
+  check(
+    'it asks for a spot on its kind of ground, and says which way it lies',
+    wheres[0]?.[0] === 'Meadow Field' &&
+      wheres[0]?.[1] === 'water' &&
+      offered.offer?.to === 'northeast' &&
+      offered.offer?.spot?.x === 2121 &&
+      offered.dialog?.includes('It fell northeast of here.')
+  );
+  check(
+    'directions go clockwise from north (-z)',
+    directionTo(0, -1) === 'north' &&
+      directionTo(1, 0) === 'east' &&
+      directionTo(0, 1) === 'south' &&
+      directionTo(-1, -1) === 'northwest'
+  );
+  const p = accept(newProgress(), offered.offer, r, people).progress;
+  check(
+    'it heads for the flare with the hold empty',
+    destination(p, people) === 'Flare' &&
+      spotAhead(p)?.z === -2121 &&
+      cargoLabel(p, people) === null
+  );
+  check(
+    'landing back home before picking it up does nothing',
+    land(p, 'Meadow Field', r, people).progress === p
+  );
+  check(
+    'a low pass over it reaches it, a high or wide one does not',
+    reachesPackage(spotAhead(p), 2121, -2100, 20, false) &&
+      !reachesPackage(spotAhead(p), 2121, -2100, 80, false) &&
+      !reachesPackage(spotAhead(p), 2121, -2050, 10, false)
+  );
+  check(
+    'stopping beside it reaches it',
+    reachesPackage(spotAhead(p), 2121, -2050, 2, true) &&
+      !reachesPackage(spotAhead(p), 2121, -1900, 2, true)
+  );
+  const picked = pickUp(p, people);
+  check(
+    'picking it up turns you for home, with it aboard',
+    picked?.progress.job.step === 'back' &&
+      destination(picked.progress, people) === 'Meadow Field' &&
+      !spotAhead(picked.progress) &&
+      cargoLabel(picked.progress, people) === 'Parcel' &&
+      picked.toast?.title === 'Parcel'
+  );
+  check('picking it up again does nothing', !pickUp(picked.progress, people));
+  const home = land(picked.progress, 'Meadow Field', r, people);
+  check(
+    'landing home finishes it with thanks',
+    !home.progress.job &&
+      doneFor(home.progress, 'Finder') === 1 &&
+      home.dialog?.[0] === 'Got it.'
+  );
+  check(
+    'a saved retrieval comes back, and one with a broken spot is dropped',
+    validProgress(p, people)?.job?.spot?.x === 2121 &&
+      validProgress({...p, job: {...p.job, spot: {x: 'a'}}}, people)?.job ===
+        null
   );
 }
 

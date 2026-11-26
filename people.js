@@ -22,8 +22,14 @@
 //             'sightseeing': fly (or drive) past one of `to`, a landmark
 //             (LANDMARKS in landmarks.js, within SIGHT_RADIUS in
 //             jobs-logic.js), and come back. No landing at the sight.
+//             'retrieval': fly out to a package lying 2.5 to 5 km from
+//             their airport, marked by a flare, pick it up with a low pass
+//             (or by stopping beside it) and bring it back. No `to`: {to}
+//             in its lines is the way it lies ("north", "southeast").
 //   to        The airports it can send you to (never their own), or for
 //             sightseeing the landmarks.
+//   where     Retrieval only, optional: 'land' or 'water' for where the
+//             package lies (either, without it).
 //   cargo     What you carry, for the HUD: on the way back for a round
 //             trip, the whole way for one way.
 //   offer     How they ask (the last line is the question).
@@ -146,6 +152,25 @@ export const PEOPLE = [
           ],
         ],
       },
+      {
+        id: 'lost-sack',
+        kind: 'retrieval',
+        cargo: 'Coffee sack',
+        offer: [
+          [
+            'A sack of beans bounced off a truck somewhere {to} of here. My beans, bud!',
+            'Look for the red flare. Could you swoop down, grab it and bring it back?',
+          ],
+          [
+            'I sent a drone out with a sample, and the drone had other plans.',
+            "It's down somewhere {to} of here with a flare going. Want to fetch it, buddy?",
+          ],
+        ],
+        thanks: [
+          ["My beans! A little dusty, but that's just extra flavor."],
+          ["You found it! That's {done} for me, buddy. Coffee's on me."],
+        ],
+      },
     ],
   },
   {
@@ -247,6 +272,26 @@ export const PEOPLE = [
         thanks: [
           ['The echo sang back! Honestly, it hit the harmony better than me.'],
           ["Natural reverb achieved! That's {done} for me. Encore!"],
+        ],
+      },
+      {
+        id: 'lost-mic',
+        kind: 'retrieval',
+        where: 'land',
+        cargo: 'Lucky mic',
+        offer: [
+          [
+            'I threw my lucky mic in the air during a power ballad, and the wind took it.',
+            "It's somewhere {to} of here. Could you follow the flare and bring it home?",
+          ],
+          [
+            'My fry delivery drone ran out of battery {to} of here.',
+            'It lit a flare, smart little guy. Want to scoop it up for me?',
+          ],
+        ],
+        thanks: [
+          ['My lucky mic! Check, check... still got it.'],
+          ["Rescued! That's {done} for me. Next song's for you."],
         ],
       },
     ],
@@ -361,6 +406,25 @@ export const PEOPLE = [
           ["Fully charged! That's {done} for me, friend. The vibes thank you."],
         ],
       },
+      {
+        id: 'moon-jar',
+        kind: 'retrieval',
+        cargo: 'Moonwater jar',
+        offer: [
+          [
+            'I left a jar out to soak up the full moon, and it rolled off somewhere {to} of here.',
+            'I lit a flare by it so the stars could find it. Could you?',
+          ],
+          [
+            'A jar of moonwater rolled off my wagon {to} of here.',
+            'Follow the smoke, friend. Could you bring it back to me?',
+          ],
+        ],
+        thanks: [
+          ['Still glowing! The universe kept it safe for you.'],
+          ["Home again! That's {done} for me, friend. The jar says thanks."],
+        ],
+      },
     ],
   },
   {
@@ -470,6 +534,25 @@ export const PEOPLE = [
           ["Data collected! That's {done} for me. Cookie?"],
         ],
       },
+      {
+        id: 'weather-probe',
+        kind: 'retrieval',
+        cargo: 'Weather probe',
+        offer: [
+          [
+            'My weather balloon popped and the probe came down somewhere {to} of here.',
+            'It fires a flare when it lands. Could you go get it? It has all my data!',
+          ],
+          [
+            'I dropped a sensor buoy {to} of here, and now I need it back.',
+            'Look for the red flare. Mind fetching it for the lab?',
+          ],
+        ],
+        thanks: [
+          ["The data's intact! This is going straight into my paper."],
+          ["Probe recovered! That's {done} for me. Science thanks you."],
+        ],
+      },
     ],
   },
   {
@@ -569,6 +652,26 @@ export const PEOPLE = [
         thanks: [
           ["Scouted! I'm calling it the hardest hole in golf."],
           ["What a view! That's {done} for me. Fore-ever grateful!"],
+        ],
+      },
+      {
+        id: 'lost-bag',
+        kind: 'retrieval',
+        where: 'water',
+        cargo: 'Golf bag',
+        offer: [
+          [
+            'I hit a drive so far it went into the water, bag and all. Long story.',
+            "It's floating somewhere {to} of here, by a flare. Could you fish it out?",
+          ],
+          [
+            'My golf bag fell off the boat {to} of here. It floats, luckily!',
+            'Could you swoop down over the flare and bring it back?',
+          ],
+        ],
+        thanks: [
+          ['My clubs! A little soggy, but my swing was always a bit wet.'],
+          ["Fished out! That's {done} for me. Fore-ever grateful!"],
         ],
       },
     ],
@@ -713,6 +816,26 @@ export const PEOPLE = [
           ["What a view to read by. That's {done} for me. Thank you!"],
         ],
       },
+      {
+        id: 'lost-books',
+        kind: 'retrieval',
+        where: 'water',
+        cargo: 'Library books',
+        offer: [
+          [
+            'A box of library books fell off the ferry {to} of here!',
+            "It's in a waterproof crate with a flare on top. Could you rescue it?",
+          ],
+          [
+            "Tim says he saw a box of books floating {to} of here. They're ours!",
+            "Could you go and pick them up before they're overdue?",
+          ],
+        ],
+        thanks: [
+          ['Not a single page wet! Returned right on time.'],
+          ["Saved from the sea! That's {done} for me. Thank you!"],
+        ],
+      },
     ],
   },
   {
@@ -831,6 +954,26 @@ export const PEOPLE = [
           ["Got it! That's {done} for me. Lauren is going to laugh so hard."],
         ],
       },
+      {
+        id: 'lost-balls',
+        kind: 'retrieval',
+        where: 'land',
+        cargo: 'Tennis balls',
+        offer: [
+          [
+            'My ball machine went rogue and fired a whole crate {to} of here.',
+            'I tied a flare to it. Could you go and pick it up?',
+          ],
+          [
+            'Lauren hit a serve so hard a whole box of balls flew off {to} of here.',
+            'Follow the smoke and bring it back for me?',
+          ],
+        ],
+        thanks: [
+          ['All here! Even the fuzzy ones.'],
+          ["Got them! That's {done} for me. Rematch time!"],
+        ],
+      },
     ],
   },
   {
@@ -939,6 +1082,25 @@ export const PEOPLE = [
         thanks: [
           ['Toasty and fluffy! It smells like adventure now.'],
           ["Warm yarn, warm heart. That's {done} for me!"],
+        ],
+      },
+      {
+        id: 'yarn-crate',
+        kind: 'retrieval',
+        cargo: 'Yarn crate',
+        offer: [
+          [
+            'A crate of yarn fell off my sled somewhere {to} of here.',
+            'I can see the flare from the window. Could you fetch it?',
+          ],
+          [
+            "Erin's birthday yarn got lost on the way, somewhere {to} of here.",
+            "Follow the red flare and bring it back? It's a surprise!",
+          ],
+        ],
+        thanks: [
+          ['Fluffy and safe! Erin will never know.'],
+          ["Found it! That's {done} for me. You're a star!"],
         ],
       },
     ],

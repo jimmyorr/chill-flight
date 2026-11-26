@@ -5,6 +5,9 @@
 // something up and back to them; a one-way job ends when you land where it
 // sends you. A sightseeing job sends you past a landmark (a sight) and back
 // to them: flying (or driving) within its pass zone counts, no landing.
+// A retrieval job sends you out to a package lying somewhere off the
+// runways (on land or water, marked by a flare) and back to them: a low pass
+// over it hooks it up, or stopping beside it.
 // Landing anywhere else on the way does nothing. Dropping a job
 // (clearing its waypoint) cancels it. Progress is who you've met, how many
 // jobs you've done for each and the job you're on.
@@ -12,7 +15,34 @@
 import {PEOPLE} from './people.js';
 import {t} from './i18n.js';
 
-export const KINDS = ['round trip', 'one way', 'sightseeing'];
+export const KINDS = ['round trip', 'one way', 'sightseeing', 'retrieval'];
+
+// Where a retrieval job's package can lie (people.js `where`): any of these
+export const WHERE = ['land', 'water'];
+// The way a package lies from the airport, for {to} in a retrieval job's
+// lines ("somewhere {to} of here"). +x is east, +z south.
+export const DIRECTIONS = [
+  'north',
+  'northeast',
+  'east',
+  'southeast',
+  'south',
+  'southwest',
+  'west',
+  'northwest',
+];
+export function directionTo(dx, dz) {
+  // 0 north, clockwise, in eighths
+  const turn = Math.atan2(dx, -dz) / (Math.PI / 4);
+  return DIRECTIONS[(Math.round(turn) + 8) % 8];
+}
+// What the waypoint and HUD call a package on the way out
+export const PACKAGE_PLACE = 'Flare';
+// Picking it up (world units): a pass within PICKUP_RADIUS across the
+// ground and PICKUP_HEIGHT above it hooks it, or stopping within STOP_RADIUS
+export const PICKUP = {RADIUS: 45, HEIGHT: 35, STOP_RADIUS: 90};
+// Packages lie this far from the person's airport (world units)
+export const SPOT_RANGE = {MIN: 2500, MAX: 5000};
 
 // How close (world units, across the ground) counts as passing a sight,
 // by its name in landmarks.js: wider for the big ones
@@ -87,6 +117,7 @@ export function destination(progress, people = PEOPLE) {
   const job = progress.job;
   if (!job) return null;
   if (job.step === 'back') return personNamed(job.person, people)?.airport;
+  if (job.spot) return PACKAGE_PLACE;
   return job.to;
 }
 
@@ -95,7 +126,8 @@ export function cargoLabel(progress, people = PEOPLE) {
   const job = progress.job;
   if (!job) return null;
   const spec = jobOf(personNamed(job.person, people), job.id);
-  if (spec?.kind === 'round trip' && job.step !== 'back') return null;
+  const fetch = spec?.kind === 'round trip' || spec?.kind === 'retrieval';
+  if (fetch && job.step !== 'back') return null;
   // (a sightseeing job's cargo rides along both ways)
   return spec?.cargo || null;
 }
@@ -107,6 +139,23 @@ export function sightAhead(progress, people = PEOPLE) {
   if (!job || job.step === 'back') return null;
   const spec = jobOf(personNamed(job.person, people), job.id);
   return spec?.kind === 'sightseeing' ? job.to : null;
+}
+
+// Where a retrieval job's package lies ({x, z}), while it's on the way
+// out: otherwise null
+export function spotAhead(progress) {
+  const job = progress.job;
+  if (!job || job.step === 'back' || !job.spot) return null;
+  return job.spot;
+}
+
+// Whether a plane (or buggy) at (x, z), `height` above the ground or water
+// under it, `stopped` or not, picks up a package lying at spot
+export function reachesPackage(spot, x, z, height, stopped) {
+  if (!spot) return false;
+  const d = Math.hypot(spot.x - x, spot.z - z);
+  if (stopped && d <= PICKUP.STOP_RADIUS) return true;
+  return d <= PICKUP.RADIUS && height <= PICKUP.HEIGHT;
 }
 
 // Where a job can send you from `field`: never there, and for sightseeing
@@ -151,12 +200,17 @@ function greet(progress, field, people, rng) {
 // job they offer (offer: answer it with accept or decline), the outfit they
 // wear for that job (or null) and a note for a toast (or null).
 // sights: the sights this world has (null for any), for sightseeing jobs.
+// findSpot(field, where, rng): a spot ({x, z}) for a retrieval job's
+// package near the airport named field, on `where` ('land', 'water' or
+// null for either), or null if there's none; without it, no retrieval job
+// is offered.
 export function land(
   progress,
   field,
   rng = Math.random,
   people = PEOPLE,
-  sights = null
+  sights = null,
+  findSpot = null
 ) {
   const none = {
     progress,
@@ -171,10 +225,29 @@ export function land(
   if (!progress.job) {
     const person = asker(progress, field, people, rng);
     if (!person) return greet(progress, field, people, rng) || none;
-    const open = person.jobs.filter((j) => places(j, field, sights).length);
+    const open = person.jobs.filter((j) =>
+      j.kind === 'retrieval' ? !!findSpot : places(j, field, sights).length
+    );
     if (!open.length) return none;
-    const job = pick(open, rng);
-    const to = pick(places(job, field, sights), rng);
+    let job = pick(open, rng);
+    let to = null;
+    let spot = null;
+    if (job.kind === 'retrieval') {
+      spot = findSpot(field, job.where || null, rng);
+      const home = ['x', 'z'].every((k) => Number.isFinite(spot?.[k]));
+      const others = open.filter((j) => j.kind !== 'retrieval');
+      if (!home && !others.length) return none;
+      if (home) {
+        const a = spot.from || {x: 0, z: 0};
+        to = directionTo(spot.x - a.x, spot.z - a.z);
+        spot = {x: spot.x, z: spot.z};
+      } else {
+        // Nowhere for a package here: something else
+        job = pick(others, rng);
+        spot = null;
+      }
+    }
+    if (!to) to = pick(places(job, field, sights), rng);
     const greeting = progress.met[person.name] ? person.hello : person.intro;
     return {
       progress,
@@ -183,7 +256,9 @@ export function land(
         ...say(person, greeting, progress, to, rng),
         ...say(person, job.offer, progress, to, rng),
       ],
-      offer: {person: person.name, id: job.id, to},
+      offer: spot
+        ? {person: person.name, id: job.id, to, spot}
+        : {person: person.name, id: job.id, to},
       outfit: job.outfit || null,
       toast: null,
     };
@@ -243,6 +318,24 @@ export function passSight(progress, sight, people = PEOPLE) {
   };
 }
 
+// Picked up a retrieval job's package: back to them. Returns the progress
+// after it and a note for a toast, or null when there's no package ahead.
+export function pickUp(progress, people = PEOPLE) {
+  if (!spotAhead(progress)) return null;
+  const job = progress.job;
+  const person = personNamed(job.person, people);
+  const spec = jobOf(person, job.id);
+  return {
+    progress: {...progress, job: {...job, step: 'back'}},
+    toast: {
+      label: t('PICKED UP'),
+      title: spec?.cargo
+        ? t(spec.cargo)
+        : t('For {name}', {name: t(person?.name || job.person)}),
+    },
+  };
+}
+
 // Yes to the job land() offered
 export function accept(progress, offer, rng = Math.random, people = PEOPLE) {
   const person = personNamed(offer.person, people);
@@ -252,7 +345,13 @@ export function accept(progress, offer, rng = Math.random, people = PEOPLE) {
     progress: {
       ...progress,
       met: {...progress.met, [person.name]: true},
-      job: {person: offer.person, id: offer.id, to: offer.to, step: 'out'},
+      job: {
+        person: offer.person,
+        id: offer.id,
+        to: offer.to,
+        step: 'out',
+        ...(offer.spot ? {spot: {x: offer.spot.x, z: offer.spot.z}} : {}),
+      },
       tipped: true,
     },
     dialog,
@@ -301,9 +400,13 @@ export function validProgress(saved, people = PEOPLE, sights = null) {
   let job = saved.job || null;
   if (job) {
     const spec = jobOf(personNamed(job.person, people), job.id);
+    const retrieval = spec?.kind === 'retrieval';
     const ok =
       spec &&
-      spec.to.includes(job.to) &&
+      (retrieval
+        ? DIRECTIONS.includes(job.to) &&
+          ['x', 'z'].every((k) => Number.isFinite(job.spot?.[k]))
+        : spec.to.includes(job.to)) &&
       ['out', 'back'].includes(job.step) &&
       (spec.kind !== 'sightseeing' || !sights || sights.includes(job.to));
     if (!ok) job = null;
@@ -373,6 +476,16 @@ export function checkPeople(people, airports, sights = []) {
       ids.add(j.id);
       if (!KINDS.includes(j.kind))
         problems.push(`${job}: unknown kind ${j.kind}`);
+      if (j.kind === 'retrieval') {
+        if (j.to) problems.push(`${job}: a retrieval job has no to`);
+        if (j.where && !WHERE.includes(j.where)) {
+          problems.push(`${job}: unknown where ${j.where}`);
+        }
+        if (!j.cargo) problems.push(`${job}: a retrieval job needs cargo`);
+        checkLines(job, 'offer', j.offer, true);
+        checkLines(job, 'thanks', j.thanks, true);
+        continue;
+      }
       const to = (j.to || []).filter((a) => a !== p.airport);
       if (!to.length) problems.push(`${job}: nowhere to go`);
       const known = j.kind === 'sightseeing' ? sights : airports;

@@ -1003,4 +1003,115 @@ export default {
   "You're on the run!": 'Firardasın!',
   '{name} is on the run': '{name} firarda',
   wanted: 'aranıyor',
+  // Retrieval jobs (people.js, jobs-logic.js)
+  'Coffee sack': 'Kahve çuvalı',
+  'A sack of beans bounced off a truck somewhere {to} of here. My beans, bud!':
+    'Bir çuval çekirdek, buranın {to} tarafında bir yerde kamyondan düştü. Çekirdeklerim, kanka!',
+  'Look for the red flare. Could you swoop down, grab it and bring it back?':
+    'Kırmızı fişeği ara. Alçalıp kapıp geri getirebilir misin?',
+  'I sent a drone out with a sample, and the drone had other plans.':
+    "Numuneyle bir drone gönderdim, drone'un başka planları varmış.",
+  "It's down somewhere {to} of here with a flare going. Want to fetch it, buddy?":
+    'Buranın {to} tarafında bir yere düştü, fişeği yanıyor. Getirir misin, kanka?',
+  "My beans! A little dusty, but that's just extra flavor.":
+    'Çekirdeklerim! Biraz tozlu ama bu sadece ekstra aroma.',
+  "You found it! That's {done} for me, buddy. Coffee's on me.":
+    'Buldun! Benim için {done} oldu, kanka. Kahveler benden.',
+  'Lucky mic': 'Uğurlu mikrofon',
+  'I threw my lucky mic in the air during a power ballad, and the wind took it.':
+    'Bir güç baladında uğurlu mikrofonumu havaya attım, rüzgar alıp götürdü.',
+  "It's somewhere {to} of here. Could you follow the flare and bring it home?":
+    'Buranın {to} tarafında bir yerde. Fişeği takip edip eve getirir misin?',
+  'My fry delivery drone ran out of battery {to} of here.':
+    "Patates kızartması teslimat drone'umun şarjı buranın {to} tarafında bitti.",
+  'It lit a flare, smart little guy. Want to scoop it up for me?':
+    'Fişek yaktı, akıllı ufaklık. Benim için alır mısın?',
+  'My lucky mic! Check, check... still got it.':
+    'Uğurlu mikrofonum! Ses, ses... hâlâ çalışıyor.',
+  "Rescued! That's {done} for me. Next song's for you.":
+    'Kurtarıldı! Benim için {done} oldu. Sıradaki şarkı senin için.',
+  'Moonwater jar': 'Ay suyu kavanozu',
+  'I left a jar out to soak up the full moon, and it rolled off somewhere {to} of here.':
+    'Dolunayı emsin diye bir kavanozu dışarıda bıraktım, buranın {to} tarafında bir yere yuvarlandı.',
+  'I lit a flare by it so the stars could find it. Could you?':
+    'Yıldızlar bulsun diye yanına bir fişek yaktım. Sen bulur musun?',
+  'A jar of moonwater rolled off my wagon {to} of here.':
+    'Bir kavanoz ay suyu, buranın {to} tarafında arabamdan düştü.',
+  'Follow the smoke, friend. Could you bring it back to me?':
+    'Dumanı takip et dostum. Bana geri getirir misin?',
+  'Still glowing! The universe kept it safe for you.':
+    'Hâlâ parlıyor! Evren onu senin için saklamış.',
+  "Home again! That's {done} for me, friend. The jar says thanks.":
+    'Yine evde! Benim için {done} oldu dostum. Kavanoz teşekkür ediyor.',
+  'Weather probe': 'Hava sondası',
+  'My weather balloon popped and the probe came down somewhere {to} of here.':
+    'Hava balonum patladı ve sonda buranın {to} tarafında bir yere düştü.',
+  'It fires a flare when it lands. Could you go get it? It has all my data!':
+    'İnince fişek atıyor. Gidip alır mısın? Bütün verilerim içinde!',
+  'I dropped a sensor buoy {to} of here, and now I need it back.':
+    'Buranın {to} tarafına bir sensör şamandırası bıraktım, şimdi geri lazım.',
+  'Look for the red flare. Mind fetching it for the lab?':
+    'Kırmızı fişeği ara. Laboratuvar için getirir misin?',
+  "The data's intact! This is going straight into my paper.":
+    'Veriler sağlam! Bu doğrudan makaleme giriyor.',
+  "Probe recovered! That's {done} for me. Science thanks you.":
+    'Sonda kurtarıldı! Benim için {done} oldu. Bilim sana teşekkür ediyor.',
+  'Golf bag': 'Golf çantası',
+  'I hit a drive so far it went into the water, bag and all. Long story.':
+    'Öyle uzun vurdum ki top suya gitti, çantasıyla birlikte. Uzun hikaye.',
+  "It's floating somewhere {to} of here, by a flare. Could you fish it out?":
+    'Buranın {to} tarafında bir yerde, bir fişeğin yanında yüzüyor. Sudan çıkarır mısın?',
+  'My golf bag fell off the boat {to} of here. It floats, luckily!':
+    'Golf çantam buranın {to} tarafında tekneden düştü. Neyse ki yüzüyor!',
+  'Could you swoop down over the flare and bring it back?':
+    'Fişeğin üstüne alçalıp geri getirebilir misin?',
+  'My clubs! A little soggy, but my swing was always a bit wet.':
+    'Sopalarım! Biraz ıslak ama vuruşum zaten hep biraz sulu.',
+  "Fished out! That's {done} for me. Fore-ever grateful!":
+    'Sudan çıktı! Benim için {done} oldu. Sonsuza dek minnettarım!',
+  'A box of library books fell off the ferry {to} of here!':
+    'Bir kasa kütüphane kitabı, buranın {to} tarafında feribottan düştü!',
+  "It's in a waterproof crate with a flare on top. Could you rescue it?":
+    'Üstünde fişek olan su geçirmez bir kasada. Kurtarabilir misin?',
+  "Tim says he saw a box of books floating {to} of here. They're ours!":
+    'Tim, buranın {to} tarafında bir kasa kitabın yüzdüğünü görmüş. Onlar bizim!',
+  "Could you go and pick them up before they're overdue?":
+    'Teslim tarihi geçmeden gidip alabilir misin?',
+  'Not a single page wet! Returned right on time.':
+    'Tek bir sayfa ıslanmamış! Tam zamanında iade edildi.',
+  "Saved from the sea! That's {done} for me. Thank you!":
+    'Denizden kurtarıldı! Benim için {done} oldu. Teşekkürler!',
+  'My ball machine went rogue and fired a whole crate {to} of here.':
+    'Top makinem çıldırdı ve koca bir kasayı buranın {to} tarafına fırlattı.',
+  'I tied a flare to it. Could you go and pick it up?':
+    'Ona bir fişek bağladım. Gidip alır mısın?',
+  'Lauren hit a serve so hard a whole box of balls flew off {to} of here.':
+    'Lauren öyle sert servis attı ki bir kutu top buranın {to} tarafına uçtu.',
+  'Follow the smoke and bring it back for me?':
+    'Dumanı takip edip bana getirir misin?',
+  'All here! Even the fuzzy ones.': 'Hepsi burada! En tüylüleri bile.',
+  "Got them! That's {done} for me. Rematch time!":
+    'Aldım! Benim için {done} oldu. Rövanş zamanı!',
+  'Yarn crate': 'Yün kasası',
+  'A crate of yarn fell off my sled somewhere {to} of here.':
+    'Bir kasa yün, buranın {to} tarafında bir yerde kızağımdan düştü.',
+  'I can see the flare from the window. Could you fetch it?':
+    'Fişeği pencereden görüyorum. Getirir misin?',
+  "Erin's birthday yarn got lost on the way, somewhere {to} of here.":
+    "Erin'in doğum günü yünü yolda kayboldu, buranın {to} tarafında bir yerde.",
+  "Follow the red flare and bring it back? It's a surprise!":
+    'Kırmızı fişeği takip edip getirir misin? Sürpriz!',
+  'Fluffy and safe! Erin will never know.':
+    'Yumuşacık ve güvende! Erin asla öğrenmeyecek.',
+  "Found it! That's {done} for me. You're a star!":
+    'Buldun! Benim için {done} oldu. Harikasın!',
+  north: 'kuzey',
+  northeast: 'kuzeydoğu',
+  east: 'doğu',
+  southeast: 'güneydoğu',
+  south: 'güney',
+  southwest: 'güneybatı',
+  west: 'batı',
+  northwest: 'kuzeybatı',
+  Flare: 'İşaret fişeği',
 };

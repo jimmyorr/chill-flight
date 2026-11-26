@@ -1001,4 +1001,116 @@ export default {
   "You're on the run!": 'Tu es en cavale !',
   '{name} is on the run': '{name} est en cavale',
   wanted: 'recherché',
+  // Retrieval jobs (people.js, jobs-logic.js)
+  'Coffee sack': 'Sac de café',
+  'A sack of beans bounced off a truck somewhere {to} of here. My beans, bud!':
+    "Un sac de grains est tombé d'un camion quelque part {to} d'ici. Mes grains, mon pote !",
+  'Look for the red flare. Could you swoop down, grab it and bring it back?':
+    "Cherche la fusée rouge. Tu peux piquer, l'attraper et le ramener ?",
+  'I sent a drone out with a sample, and the drone had other plans.':
+    "J'ai envoyé un drone avec un échantillon, et le drone avait d'autres projets.",
+  "It's down somewhere {to} of here with a flare going. Want to fetch it, buddy?":
+    "Il est tombé quelque part {to} d'ici avec une fusée allumée. Tu vas le chercher, mon pote ?",
+  "My beans! A little dusty, but that's just extra flavor.":
+    "Mes grains ! Un peu poussiéreux, mais c'est juste plus de goût.",
+  "You found it! That's {done} for me, buddy. Coffee's on me.":
+    "Tu l'as trouvé ! Ça fait {done} pour moi, mon pote. Le café, c'est pour moi.",
+  'Lucky mic': 'Micro porte-bonheur',
+  'I threw my lucky mic in the air during a power ballad, and the wind took it.':
+    "J'ai lancé mon micro porte-bonheur en l'air pendant une ballade, et le vent l'a emporté.",
+  "It's somewhere {to} of here. Could you follow the flare and bring it home?":
+    "Il est quelque part {to} d'ici. Tu peux suivre la fusée et le ramener ?",
+  'My fry delivery drone ran out of battery {to} of here.':
+    "Mon drone de livraison de frites est tombé en panne de batterie {to} d'ici.",
+  'It lit a flare, smart little guy. Want to scoop it up for me?':
+    'Il a allumé une fusée, malin le petit. Tu me le récupères ?',
+  'My lucky mic! Check, check... still got it.':
+    'Mon micro porte-bonheur ! Un, deux, un, deux... il marche encore.',
+  "Rescued! That's {done} for me. Next song's for you.":
+    'Sauvé ! Ça fait {done} pour moi. La prochaine chanson est pour toi.',
+  'Moonwater jar': "Bocal d'eau de lune",
+  'I left a jar out to soak up the full moon, and it rolled off somewhere {to} of here.':
+    "J'avais laissé un bocal dehors pour la pleine lune, et il a roulé quelque part {to} d'ici.",
+  'I lit a flare by it so the stars could find it. Could you?':
+    "J'ai allumé une fusée à côté pour que les étoiles le trouvent. Tu peux y aller ?",
+  'A jar of moonwater rolled off my wagon {to} of here.':
+    "Un bocal d'eau de lune est tombé de ma charrette {to} d'ici.",
+  'Follow the smoke, friend. Could you bring it back to me?':
+    'Suis la fumée, mon ami. Tu me le ramènes ?',
+  'Still glowing! The universe kept it safe for you.':
+    "Il brille encore ! L'univers l'a gardé pour toi.",
+  "Home again! That's {done} for me, friend. The jar says thanks.":
+    'De retour ! Ça fait {done} pour moi. Le bocal te dit merci.',
+  'Weather probe': 'Sonde météo',
+  'My weather balloon popped and the probe came down somewhere {to} of here.':
+    "Mon ballon météo a éclaté et la sonde est tombée quelque part {to} d'ici.",
+  'It fires a flare when it lands. Could you go get it? It has all my data!':
+    'Elle tire une fusée en atterrissant. Tu peux aller la chercher ? Toutes mes données sont dedans !',
+  'I dropped a sensor buoy {to} of here, and now I need it back.':
+    "J'ai posé une bouée de mesure {to} d'ici, et maintenant j'en ai besoin.",
+  'Look for the red flare. Mind fetching it for the lab?':
+    'Cherche la fusée rouge. Tu la rapportes au labo ?',
+  "The data's intact! This is going straight into my paper.":
+    'Les données sont intactes ! Ça va directement dans mon article.',
+  "Probe recovered! That's {done} for me. Science thanks you.":
+    'Sonde récupérée ! Ça fait {done} pour moi. La science te remercie.',
+  'Golf bag': 'Sac de golf',
+  'I hit a drive so far it went into the water, bag and all. Long story.':
+    "J'ai frappé un drive si loin qu'il a fini à l'eau, sac compris. Longue histoire.",
+  "It's floating somewhere {to} of here, by a flare. Could you fish it out?":
+    "Il flotte quelque part {to} d'ici, près d'une fusée. Tu peux le repêcher ?",
+  'My golf bag fell off the boat {to} of here. It floats, luckily!':
+    "Mon sac de golf est tombé du bateau {to} d'ici. Heureusement, il flotte !",
+  'Could you swoop down over the flare and bring it back?':
+    'Tu peux piquer sur la fusée et le ramener ?',
+  'My clubs! A little soggy, but my swing was always a bit wet.':
+    'Mes clubs ! Un peu trempés, mais mon swing a toujours été un peu mouillé.',
+  "Fished out! That's {done} for me. Fore-ever grateful!":
+    'Repêché ! Ça fait {done} pour moi. Reconnaissant pour toujours !',
+  'A box of library books fell off the ferry {to} of here!':
+    "Une caisse de livres de la bibliothèque est tombée du ferry {to} d'ici !",
+  "It's in a waterproof crate with a flare on top. Could you rescue it?":
+    'Elle est dans une caisse étanche avec une fusée dessus. Tu peux la sauver ?',
+  "Tim says he saw a box of books floating {to} of here. They're ours!":
+    "Tim dit avoir vu une caisse de livres flotter {to} d'ici. Ce sont les nôtres !",
+  "Could you go and pick them up before they're overdue?":
+    "Tu peux aller les chercher avant qu'ils soient en retard ?",
+  'Not a single page wet! Returned right on time.':
+    'Pas une page mouillée ! Rendus pile à temps.',
+  "Saved from the sea! That's {done} for me. Thank you!":
+    'Sauvés de la mer ! Ça fait {done} pour moi. Merci !',
+  'My ball machine went rogue and fired a whole crate {to} of here.':
+    "Ma machine à balles s'est emballée et a envoyé toute une caisse {to} d'ici.",
+  'I tied a flare to it. Could you go and pick it up?':
+    "J'y ai attaché une fusée. Tu peux aller la chercher ?",
+  'Lauren hit a serve so hard a whole box of balls flew off {to} of here.':
+    "Lauren a servi si fort qu'une caisse entière de balles s'est envolée {to} d'ici.",
+  'Follow the smoke and bring it back for me?':
+    'Tu suis la fumée et tu me la ramènes ?',
+  'All here! Even the fuzzy ones.':
+    'Elles sont toutes là ! Même les toutes duveteuses.',
+  "Got them! That's {done} for me. Rematch time!":
+    "Je les ai ! Ça fait {done} pour moi. C'est l'heure de la revanche !",
+  'Yarn crate': 'Caisse de laine',
+  'A crate of yarn fell off my sled somewhere {to} of here.':
+    "Une caisse de laine est tombée de ma luge quelque part {to} d'ici.",
+  'I can see the flare from the window. Could you fetch it?':
+    'Je vois la fusée depuis la fenêtre. Tu peux aller la chercher ?',
+  "Erin's birthday yarn got lost on the way, somewhere {to} of here.":
+    "La laine d'anniversaire d'Erin s'est perdue en route, quelque part {to} d'ici.",
+  "Follow the red flare and bring it back? It's a surprise!":
+    "Tu suis la fusée rouge et tu la ramènes ? C'est une surprise !",
+  'Fluffy and safe! Erin will never know.':
+    "Douce et en sécurité ! Erin n'en saura rien.",
+  "Found it! That's {done} for me. You're a star!":
+    'Trouvée ! Ça fait {done} pour moi. Tu es un amour !',
+  north: 'au nord',
+  northeast: 'au nord-est',
+  east: "à l'est",
+  southeast: 'au sud-est',
+  south: 'au sud',
+  southwest: 'au sud-ouest',
+  west: "à l'ouest",
+  northwest: 'au nord-ouest',
+  Flare: 'Fusée',
 };

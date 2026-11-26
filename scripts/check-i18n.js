@@ -145,7 +145,7 @@ for (const p of PEOPLE) {
   }
   for (const j of p.jobs) {
     add(j.cargo, 'people.js');
-    j.to.forEach((a) => add(a, 'people.js'));
+    (j.to || []).forEach((a) => add(a, 'people.js'));
     lines(j.offer).forEach((l) => add(l, 'people.js'));
     lines(j.thanks).forEach((l) => add(l, 'people.js'));
   }
@@ -166,6 +166,11 @@ for (const [, name] of read('chill-flight-logic.js').matchAll(
 )) {
   add(name, 'chill-flight-logic.js');
 }
+// A retrieval job's {to} and where its waypoint points
+const {DIRECTIONS, PACKAGE_PLACE} = await import(
+  path.join(rootDir, 'jobs-logic.js')
+);
+for (const word of [...DIRECTIONS, PACKAGE_PLACE]) add(word, 'jobs-logic.js');
 // Said through a constant
 add(
   'If something comes up, just clear the waypoint on the map.',

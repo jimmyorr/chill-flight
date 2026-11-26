@@ -85,6 +85,7 @@ import '../cloud-deck.js';
 import '../follow-logic.js';
 import '../flight-physics.js';
 import '../particles.js';
+import '../package-flare.js';
 import '../tire-tracks.js';
 import '../whales.js';
 import '../dolphins.js';

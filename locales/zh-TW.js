@@ -944,4 +944,113 @@ export default {
   "You're on the run!": '你正在逃亡！',
   '{name} is on the run': '{name} 正在逃亡',
   wanted: '通緝',
+  // Retrieval jobs (people.js, jobs-logic.js)
+  'Coffee sack': '咖啡豆麻袋',
+  'A sack of beans bounced off a truck somewhere {to} of here. My beans, bud!':
+    '一袋咖啡豆從卡車上掉了，就在這裡{to}的某個地方。我的豆子啊，兄弟！',
+  'Look for the red flare. Could you swoop down, grab it and bring it back?':
+    '找紅色訊號彈。能俯衝下去抓起來帶回來嗎？',
+  'I sent a drone out with a sample, and the drone had other plans.':
+    '我派了架無人機送樣品，結果無人機另有打算。',
+  "It's down somewhere {to} of here with a flare going. Want to fetch it, buddy?":
+    '它掉在這裡{to}的某個地方，訊號彈還燒著。幫我取回來好嗎，兄弟？',
+  "My beans! A little dusty, but that's just extra flavor.":
+    '我的豆子！有點灰，不過那是額外的風味。',
+  "You found it! That's {done} for me, buddy. Coffee's on me.":
+    '你找到了！你已經幫我跑了 {done}了，兄弟。咖啡我請。',
+  'Lucky mic': '幸運麥克風',
+  'I threw my lucky mic in the air during a power ballad, and the wind took it.':
+    '我唱抒情大歌時把幸運麥克風拋上天，結果被風颳走了。',
+  "It's somewhere {to} of here. Could you follow the flare and bring it home?":
+    '就在這裡{to}的某個地方。能跟著訊號彈把它帶回家嗎？',
+  'My fry delivery drone ran out of battery {to} of here.':
+    '我的薯條外送無人機在這裡{to}沒電了。',
+  'It lit a flare, smart little guy. Want to scoop it up for me?':
+    '它點了訊號彈，小傢伙挺聰明。幫我撿回來好嗎？',
+  'My lucky mic! Check, check... still got it.':
+    '我的幸運麥克風！喂喂……還能用。',
+  "Rescued! That's {done} for me. Next song's for you.":
+    '救回來了！你已經幫我跑了 {done}了。下一首歌獻給你。',
+  'Moonwater jar': '月光水罐',
+  'I left a jar out to soak up the full moon, and it rolled off somewhere {to} of here.':
+    '我把一罐水放在外面吸收滿月，結果它滾到這裡{to}的某個地方去了。',
+  'I lit a flare by it so the stars could find it. Could you?':
+    '我在旁邊點了訊號彈，好讓星星找到它。你能去找嗎？',
+  'A jar of moonwater rolled off my wagon {to} of here.':
+    '一罐月光水從我的小車上掉了，就在這裡{to}。',
+  'Follow the smoke, friend. Could you bring it back to me?':
+    '跟著煙走吧，朋友。能幫我帶回來嗎？',
+  'Still glowing! The universe kept it safe for you.':
+    '還在發光！宇宙替你守住了它。',
+  "Home again! That's {done} for me, friend. The jar says thanks.":
+    '回家啦！你已經幫我跑了 {done}了，朋友。罐子也謝謝你。',
+  'Weather probe': '氣象探空儀',
+  'My weather balloon popped and the probe came down somewhere {to} of here.':
+    '我的氣象氣球爆了，探空儀掉在這裡{to}的某個地方。',
+  'It fires a flare when it lands. Could you go get it? It has all my data!':
+    '它落地時會打出訊號彈。能去取回來嗎？我的資料都在裡面！',
+  'I dropped a sensor buoy {to} of here, and now I need it back.':
+    '我在這裡{to}放了個感測器浮標，現在得收回來。',
+  'Look for the red flare. Mind fetching it for the lab?':
+    '找紅色訊號彈。能幫實驗室取回來嗎？',
+  "The data's intact! This is going straight into my paper.":
+    '資料完好！這就寫進我的論文。',
+  "Probe recovered! That's {done} for me. Science thanks you.":
+    '探空儀找回來了！你已經幫我跑了 {done}了。科學感謝你。',
+  'Golf bag': '高爾夫球包',
+  'I hit a drive so far it went into the water, bag and all. Long story.':
+    '我一杆打得太遠，連球包一起掉進水裡了。說來話長。',
+  "It's floating somewhere {to} of here, by a flare. Could you fish it out?":
+    '它漂在這裡{to}的某個地方，旁邊有訊號彈。能撈上來嗎？',
+  'My golf bag fell off the boat {to} of here. It floats, luckily!':
+    '我的高爾夫球包從船上掉下去了，就在這裡{to}。幸好會浮！',
+  'Could you swoop down over the flare and bring it back?':
+    '能俯衝到訊號彈上方把它帶回來嗎？',
+  'My clubs! A little soggy, but my swing was always a bit wet.':
+    '我的球杆！有點溼，不過我的揮杆本來就有點水。',
+  "Fished out! That's {done} for me. Fore-ever grateful!":
+    '撈上來了！你已經幫我跑了 {done}了。永遠感激！',
+  'A box of library books fell off the ferry {to} of here!':
+    '一箱圖書館的書從渡輪上掉了，就在這裡{to}！',
+  "It's in a waterproof crate with a flare on top. Could you rescue it?":
+    '裝在一個防水箱裡，上面插著訊號彈。能救它回來嗎？',
+  "Tim says he saw a box of books floating {to} of here. They're ours!":
+    '蒂姆說他看到一箱書漂在這裡{to}。那是我們的！',
+  "Could you go and pick them up before they're overdue?":
+    '能在過期之前把它們取回來嗎？',
+  'Not a single page wet! Returned right on time.': '一頁都沒溼！按時歸還了。',
+  "Saved from the sea! That's {done} for me. Thank you!":
+    '從海里救回來了！你已經幫我跑了 {done}了。謝謝你！',
+  'My ball machine went rogue and fired a whole crate {to} of here.':
+    '我的發球機失控了，把一整箱球射到這裡{to}去了。',
+  'I tied a flare to it. Could you go and pick it up?':
+    '我在上面綁了訊號彈。能去撿回來嗎？',
+  'Lauren hit a serve so hard a whole box of balls flew off {to} of here.':
+    '勞倫發球太猛，一整箱球飛到這裡{to}去了。',
+  'Follow the smoke and bring it back for me?': '跟著煙把它帶回來好嗎？',
+  'All here! Even the fuzzy ones.': '都在！連最毛茸茸的也在。',
+  "Got them! That's {done} for me. Rematch time!":
+    '拿到了！你已經幫我跑了 {done}了。再來一局！',
+  'Yarn crate': '毛線箱',
+  'A crate of yarn fell off my sled somewhere {to} of here.':
+    '一箱毛線從我的雪橇上掉了，就在這裡{to}的某個地方。',
+  'I can see the flare from the window. Could you fetch it?':
+    '我從窗戶就能看到訊號彈。能去取回來嗎？',
+  "Erin's birthday yarn got lost on the way, somewhere {to} of here.":
+    '艾琳的生日毛線在路上丟了，就在這裡{to}的某個地方。',
+  "Follow the red flare and bring it back? It's a surprise!":
+    '跟著紅色訊號彈把它帶回來好嗎？這是個驚喜！',
+  'Fluffy and safe! Erin will never know.':
+    '軟軟的，平安無事！艾琳永遠不會知道。',
+  "Found it! That's {done} for me. You're a star!":
+    '找到了！你已經幫我跑了 {done}了。你真棒！',
+  north: '北邊',
+  northeast: '東北邊',
+  east: '東邊',
+  southeast: '東南邊',
+  south: '南邊',
+  southwest: '西南邊',
+  west: '西邊',
+  northwest: '西北邊',
+  Flare: '訊號彈',
 };

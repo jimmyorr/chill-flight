@@ -993,4 +993,115 @@ export default {
   "You're on the run!": 'Ти в бігах!',
   '{name} is on the run': '{name} у бігах',
   wanted: 'розшук',
+  // Retrieval jobs (people.js, jobs-logic.js)
+  'Coffee sack': 'Мішок кави',
+  'A sack of beans bounced off a truck somewhere {to} of here. My beans, bud!':
+    'Мішок зерен впав з вантажівки десь {to} звідси. Мої зерна, друже!',
+  'Look for the red flare. Could you swoop down, grab it and bring it back?':
+    'Шукай червоний фальшфеєр. Можеш спуститися, підхопити його й привезти?',
+  'I sent a drone out with a sample, and the drone had other plans.':
+    'Я відправив дрон із зразком, а в дрона були інші плани.',
+  "It's down somewhere {to} of here with a flare going. Want to fetch it, buddy?":
+    'Він упав десь {to} звідси, біля нього горить фальшфеєр. Привезеш його, друже?',
+  "My beans! A little dusty, but that's just extra flavor.":
+    'Мої зерна! Трохи запилені, але це просто додатковий смак.',
+  "You found it! That's {done} for me, buddy. Coffee's on me.":
+    'Знайшов! Для мене це вже {done}, друже. Кава за мій рахунок.',
+  'Lucky mic': 'Щасливий мікрофон',
+  'I threw my lucky mic in the air during a power ballad, and the wind took it.':
+    'Я підкинув свій щасливий мікрофон під час балади, і його забрав вітер.',
+  "It's somewhere {to} of here. Could you follow the flare and bring it home?":
+    'Він десь {to} звідси. Полетиш на фальшфеєр і привезеш його додому?',
+  'My fry delivery drone ran out of battery {to} of here.':
+    'У мого дрона з картоплею фрі сіла батарея {to} звідси.',
+  'It lit a flare, smart little guy. Want to scoop it up for me?':
+    'Він запалив фальшфеєр, розумник. Забереш його для мене?',
+  'My lucky mic! Check, check... still got it.':
+    'Мій щасливий мікрофон! Раз, два, раз, два... досі працює.',
+  "Rescued! That's {done} for me. Next song's for you.":
+    'Врятовано! Для мене це вже {done}. Наступна пісня для тебе.',
+  'Moonwater jar': 'Банка місячної води',
+  'I left a jar out to soak up the full moon, and it rolled off somewhere {to} of here.':
+    'Я виставила банку, щоб вона ввібрала повний місяць, а вона покотилася десь {to} звідси.',
+  'I lit a flare by it so the stars could find it. Could you?':
+    'Я запалила біля неї фальшфеєр, щоб зорі її знайшли. Знайдеш ти?',
+  'A jar of moonwater rolled off my wagon {to} of here.':
+    'Банка місячної води впала з мого візка {to} звідси.',
+  'Follow the smoke, friend. Could you bring it back to me?':
+    'Лети на дим, друже. Привезеш її мені?',
+  'Still glowing! The universe kept it safe for you.':
+    'Досі світиться! Всесвіт зберіг її для тебе.',
+  "Home again! That's {done} for me, friend. The jar says thanks.":
+    'Знову вдома! Для мене це вже {done}, друже. Банка дякує.',
+  'Weather probe': 'Метеозонд',
+  'My weather balloon popped and the probe came down somewhere {to} of here.':
+    'Мій метеозонд лопнув, і зонд упав десь {to} звідси.',
+  'It fires a flare when it lands. Could you go get it? It has all my data!':
+    'Під час приземлення він запалює фальшфеєр. Привезеш його? Там усі мої дані!',
+  'I dropped a sensor buoy {to} of here, and now I need it back.':
+    'Я поставила буй із датчиками {to} звідси, а тепер він мені потрібен.',
+  'Look for the red flare. Mind fetching it for the lab?':
+    'Шукай червоний фальшфеєр. Привезеш його для лабораторії?',
+  "The data's intact! This is going straight into my paper.":
+    'Дані цілі! Це піде прямо в мою статтю.',
+  "Probe recovered! That's {done} for me. Science thanks you.":
+    'Зонд повернуто! Для мене це вже {done}. Наука тобі дякує.',
+  'Golf bag': 'Сумка для гольфу',
+  'I hit a drive so far it went into the water, bag and all. Long story.':
+    'Я так далеко вдарив, що все опинилося у воді, разом із сумкою. Довга історія.',
+  "It's floating somewhere {to} of here, by a flare. Could you fish it out?":
+    'Вона плаває десь {to} звідси, біля фальшфеєра. Виловиш її?',
+  'My golf bag fell off the boat {to} of here. It floats, luckily!':
+    'Моя сумка для гольфу впала з човна {to} звідси. На щастя, вона плаває!',
+  'Could you swoop down over the flare and bring it back?':
+    'Можеш спуститися над фальшфеєром і привезти її?',
+  'My clubs! A little soggy, but my swing was always a bit wet.':
+    'Мої ключки! Трохи мокрі, але мій замах завжди був трохи вологий.',
+  "Fished out! That's {done} for me. Fore-ever grateful!":
+    'Виловлено! Для мене це вже {done}. Вдячний навіки!',
+  'A box of library books fell off the ferry {to} of here!':
+    'Ящик бібліотечних книжок упав з порома {to} звідси!',
+  "It's in a waterproof crate with a flare on top. Could you rescue it?":
+    'Він у водонепроникному ящику з фальшфеєром згори. Врятуєш його?',
+  "Tim says he saw a box of books floating {to} of here. They're ours!":
+    'Тім каже, що бачив ящик книжок, який плив {to} звідси. Вони наші!',
+  "Could you go and pick them up before they're overdue?":
+    'Привезеш їх, поки не минув термін повернення?',
+  'Not a single page wet! Returned right on time.':
+    'Жодної мокрої сторінки! Повернуто вчасно.',
+  "Saved from the sea! That's {done} for me. Thank you!":
+    'Врятовано з моря! Для мене це вже {done}. Дякую!',
+  'My ball machine went rogue and fired a whole crate {to} of here.':
+    "Моя машина для м'ячів збожеволіла й вистрілила цілим ящиком {to} звідси.",
+  'I tied a flare to it. Could you go and pick it up?':
+    "Я прив'язала до нього фальшфеєр. Привезеш його?",
+  'Lauren hit a serve so hard a whole box of balls flew off {to} of here.':
+    "Лорен подала так сильно, що ціла коробка м'ячів полетіла {to} звідси.",
+  'Follow the smoke and bring it back for me?':
+    'Лети на дим і привези її мені?',
+  'All here! Even the fuzzy ones.': 'Усі тут! Навіть найпухнастіші.',
+  "Got them! That's {done} for me. Rematch time!":
+    'Є! Для мене це вже {done}. Час для реваншу!',
+  'Yarn crate': 'Ящик пряжі',
+  'A crate of yarn fell off my sled somewhere {to} of here.':
+    'Ящик пряжі впав з моїх саней десь {to} звідси.',
+  'I can see the flare from the window. Could you fetch it?':
+    'Я бачу фальшфеєр із вікна. Привезеш його?',
+  "Erin's birthday yarn got lost on the way, somewhere {to} of here.":
+    'Пряжа на день народження Ерін загубилася дорогою, десь {to} звідси.',
+  "Follow the red flare and bring it back? It's a surprise!":
+    'Лети на червоний фальшфеєр і привези її? Це сюрприз!',
+  'Fluffy and safe! Erin will never know.':
+    'Пухнаста й ціла! Ерін ніколи не дізнається.',
+  "Found it! That's {done} for me. You're a star!":
+    'Знайшов! Для мене це вже {done}. Ти золото!',
+  north: 'на північ',
+  northeast: 'на північний схід',
+  east: 'на схід',
+  southeast: 'на південний схід',
+  south: 'на південь',
+  southwest: 'на південний захід',
+  west: 'на захід',
+  northwest: 'на північний захід',
+  Flare: 'Фальшфеєр',
 };

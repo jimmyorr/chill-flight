@@ -18,7 +18,8 @@ import {getElevation} from './terrain-geometry.js';
 import {Achievements} from './achievements.js';
 import {isOnWheels} from './flight-physics.js';
 import {clearWaypoint, getWaypoint, setWaypoint} from './waypoint.js';
-import {BASE_FLIGHT_SPEED} from './constants.js';
+import {BASE_FLIGHT_SPEED, WATER_LEVEL} from './constants.js';
+import {hidePackage, packageSpot, showPackage} from './package-flare.js';
 import {openDialog, closeDialog, changeOutfit} from './dialog.js';
 import {playChime} from './sfx-events.js';
 import {notificationHaptic} from './haptics.js';
@@ -35,7 +36,11 @@ import {
   land,
   newProgress,
   passSight,
+  pickUp,
+  reachesPackage,
+  SPOT_RANGE,
   sightAhead,
+  spotAhead,
   sightRadius,
   validProgress,
   visit,
@@ -89,9 +94,64 @@ function save() {
   }
 }
 
+// --- PACKAGES ---
+// A spot for a retrieval job's package near the airport named field: open,
+// gently sloping ground (where 'land') or open water away from the shore
+// (where 'water'), off the airports and roads. {x, z, from} (from: the
+// airport), or null if no try finds one.
+const SPOT_TRIES = 60;
+function isWater(x, z) {
+  return getElevation(x, z) <= WATER_LEVEL + 0.1;
+}
+function spotFits(x, z, where) {
+  if (ChillFlightLogic.isOnAirport(x, z, 800)) return false;
+  if (ChillFlightLogic.highwayDistance(x, z) < 150) return false;
+  if (ChillFlightLogic.getRoadFactor(x, z) > 0) return false;
+  const water = isWater(x, z);
+  if (where && where !== (water ? 'water' : 'land')) return false;
+  const ring = [
+    [60, 0],
+    [-60, 0],
+    [0, 60],
+    [0, -60],
+  ];
+  if (water) {
+    // Out on open water, not on the beach
+    return ring.every(([dx, dz]) => isWater(x + dx, z + dz));
+  }
+  // Fairly flat, dry land, below the snowy peaks
+  const h = getElevation(x, z);
+  if (h > WATER_LEVEL + 500) return false;
+  return ring.every(([dx, dz]) => {
+    const h2 = getElevation(x + dx * 0.4, z + dz * 0.4);
+    return h2 > WATER_LEVEL + 0.5 && Math.abs(h2 - h) < 6;
+  });
+}
+export function findSpot(field, where, rng = Math.random) {
+  const a = ChillFlightLogic.AIRPORTS.find((p) => p.name === field);
+  if (!a) return null;
+  for (let i = 0; i < SPOT_TRIES; i++) {
+    const angle = rng() * Math.PI * 2;
+    const r = SPOT_RANGE.MIN + rng() * (SPOT_RANGE.MAX - SPOT_RANGE.MIN);
+    const x = Math.round(a.x + Math.sin(angle) * r);
+    const z = Math.round(a.z - Math.cos(angle) * r);
+    if (spotFits(x, z, where)) return {x, z, from: {x: a.x, z: a.z}};
+  }
+  return null;
+}
+
+// The package shows while a retrieval job's out for it
+function syncPackage() {
+  const spot = spotAhead(progress);
+  if (spot) showPackage(spot.x, spot.z);
+  else hidePackage();
+}
+
 // --- HUD AND WAYPOINT ---
-// An airport, or a sight
+// An airport, a sight, or the package
 function placeByName(name) {
+  const spot = spotAhead(progress);
+  if (spot && name === destination(progress)) return spot;
   return (
     ChillFlightLogic.AIRPORTS.find((a) => a.name === name) ||
     SIGHTS.find((lm) => lm.name === name)
@@ -103,7 +163,7 @@ function pointToDestination() {
   if (a) {
     setWaypoint(a.x, getElevation(a.x, a.z), a.z, {
       stay: true,
-      flyby: Boolean(sightAhead(progress)),
+      flyby: Boolean(sightAhead(progress) || spotAhead(progress)),
       name: a.name,
     });
   }
@@ -143,6 +203,7 @@ function setProgress(next) {
   save();
   updateHud();
   jobAchievements(progress);
+  syncPackage();
   hooks.onJobProgress?.();
 }
 
@@ -160,6 +221,7 @@ export function cancelJob() {
 }
 
 updateHud();
+syncPackage();
 if (onJobWaypoint()) pointToDestination();
 // Earned before these achievements existed
 jobAchievements(progress);
@@ -181,7 +243,14 @@ function airportAt(x, z) {
 }
 
 function landedAt(a) {
-  const result = land(progress, a.name, Math.random, PEOPLE, SIGHT_NAMES);
+  const result = land(
+    progress,
+    a.name,
+    Math.random,
+    PEOPLE,
+    SIGHT_NAMES,
+    findSpot
+  );
   if (result.offer && state.isVRPresenting) {
     visiting = null;
     return;
@@ -235,6 +304,27 @@ function checkSight(x, z) {
   log.info(`[Jobs] Passed ${name}, next: ${destination(progress)}`);
 }
 
+// Over the package (low, or stopped beside it): picked up, on to home
+function checkPackage(x, y, z, kts) {
+  const spot = spotAhead(progress);
+  if (!spot) return;
+  const shown = packageSpot();
+  const surface = shown ? shown.y : Math.max(getElevation(x, z), WATER_LEVEL);
+  const height = y - surface;
+  // Stopped on the ground, or floating on the water
+  const stopped = kts <= STOPPED_KTS && (isOnWheels() || height < 12);
+  if (!reachesPackage(spot, x, z, height, stopped)) return;
+  const result = pickUp(progress);
+  if (!result) return;
+  hidePackage(true);
+  setProgress(result.progress);
+  pointToDestination();
+  Achievements.toast({emoji: '📦', ...result.toast});
+  playChime();
+  notificationHaptic('SUCCESS');
+  log.info(`[Jobs] Picked up the package, next: ${destination(progress)}`);
+}
+
 let wasVRPresenting = false;
 
 export function updateJobs() {
@@ -260,6 +350,7 @@ export function updateJobs() {
   const away = visiting
     ? ChillFlightLogic.airportDistance(visiting, x, z)
     : Infinity;
+  checkPackage(x, planeGroup.position.y, z, kts);
   const step = visit(visiting, away, stopped ? airportAt(x, z) : null);
   visiting = step.visiting;
   if (step.left) {
