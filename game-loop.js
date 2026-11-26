@@ -225,6 +225,7 @@ const MIST_ENABLED = ChillFlightLogic.urlParams?.get('mist') !== '0';
 // ?mist=1 forces full mist every morning (for screenshots)
 const MIST_FORCED = ChillFlightLogic.urlParams?.get('mist') === '1';
 let _mistBiome = 1;
+let _mistAlien = 0;
 let _mistBiomeTimer = 0;
 let _mistDay = null;
 let _mistDayAmount = 1;
@@ -2663,6 +2664,11 @@ function updateEnvironmentLighting(delta, now) {
       planeGroup.position.z,
       simplex
     );
+    _mistAlien = ChillFlightLogic.alienMistAt(
+      planeGroup.position.x,
+      planeGroup.position.z,
+      simplex
+    );
   }
   const mistDay = Math.floor(state.worldClockNow / DAY_CYCLE_MS);
   if (mistDay !== _mistDay) {
@@ -2674,8 +2680,15 @@ function updateEnvironmentLighting(delta, now) {
   const morningMist = ChillFlightLogic.morningFogFactor(
     (state.timeOfDay / (Math.PI * 2)) * 24
   );
+  // The east alien haze is there all day and night, a little thicker in the
+  // morning and after rain
+  const alienMist =
+    _mistAlien * (0.45 + 0.35 * Math.max(morningMist, fogAfterRain));
   const targetMist = MIST_ENABLED
-    ? _mistBiome * Math.max(morningMist * _mistDayAmount, fogAfterRain * 0.8)
+    ? Math.max(
+        _mistBiome * Math.max(morningMist * _mistDayAmount, fogAfterRain * 0.8),
+        alienMist
+      )
     : 0;
   const mistLerp = 1 - Math.pow(1 - 0.01, delta * 60);
   atmosphereUniforms.uGroundFog.value = state.snapEnvironment
@@ -2683,6 +2696,13 @@ function updateEnvironmentLighting(delta, now) {
     : THREE.MathUtils.lerp(
         atmosphereUniforms.uGroundFog.value,
         targetMist,
+        mistLerp
+      );
+  atmosphereUniforms.uGroundFogAlien.value = state.snapEnvironment
+    ? _mistAlien
+    : THREE.MathUtils.lerp(
+        atmosphereUniforms.uGroundFogAlien.value,
+        _mistAlien,
         mistLerp
       );
   // Low-lying bayou mist when flying or driving low over the swamp

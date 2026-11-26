@@ -7451,6 +7451,12 @@ export const ChillFlightLogic = {};
     return (1 - desert) * (1 - alien) * (1 - 0.5 * snow);
   }
   exports.mistBiomeAt = mistBiomeAt;
+  // The east alien land's own haze among the basalt spires, 0 to 1 (none in
+  // the western alien land, which is dry like the desert)
+  function alienMistAt(x, z, simplex) {
+    return x > 0 ? alienAt(x, z, simplex) : 0;
+  }
+  exports.alienMistAt = alienMistAt;
   exports.START_LIVERY = START_LIVERY;
   exports.PLANE_TYPES = PLANE_TYPES;
   const MAX_DIVE_ANGLE = -(75 * Math.PI) / 180;

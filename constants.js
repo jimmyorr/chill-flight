@@ -640,6 +640,9 @@ export const atmosphereUniforms = {
   // The mist's density at the water line and how fast it thins with height
   // (its scale height, in units)
   uGroundFogShape: {value: new THREE.Vector2(0.0025, 100)},
+  // How much of that mist is the east alien land's haze, 0 to 1: grey-teal,
+  // deeper (it climbs the basalt spires) and faintly glowing at night
+  uGroundFogAlien: {value: 0},
 };
 export function addAtmosphereUniforms(shader) {
   Object.assign(shader.uniforms, atmosphereUniforms);
@@ -692,10 +695,11 @@ export function withCloudShade(
 export const GROUND_FOG_GLSL = `
 uniform float uGroundFog;
 uniform vec2 uGroundFogShape;
+uniform float uGroundFogAlien;
 float groundFogAlong(vec3 cam, vec3 p) {
   if (uGroundFog <= 0.0) return 0.0;
   float DENSITY = uGroundFogShape.x;
-  float HEIGHT = uGroundFogShape.y;
+  float HEIGHT = mix(uGroundFogShape.y, 220.0, uGroundFogAlien);
   float y0 = max(cam.y - ${WATER_LEVEL.toFixed(1)}, 0.0);
   float y1 = max(p.y - ${WATER_LEVEL.toFixed(1)}, 0.0);
   float dy = y1 - y0;
@@ -716,7 +720,12 @@ vec3 groundFogColor(vec3 fogColor, vec3 cam, vec3 p) {
   float lowSun = 1.0 - smoothstep(0.1, 0.4, uSunDirection.y);
   float day = smoothstep(-0.05, 0.1, uSunDirection.y);
   vec3 lit = mix(vec3(0.92, 0.94, 0.98), vec3(1.0, 0.86, 0.68), toSun * lowSun);
-  return mix(fogColor, lit * mix(0.35, 1.0, day), 0.45 * day);
+  vec3 earth = mix(fogColor, lit * mix(0.35, 1.0, day), 0.45 * day);
+  if (uGroundFogAlien <= 0.0) return earth;
+  // Alien haze: grey-teal by day, a dim teal glow by night
+  vec3 teal = mix(vec3(0.16, 0.36, 0.38), vec3(0.58, 0.78, 0.80), day);
+  vec3 alien = mix(fogColor, teal, mix(0.75, 0.55, day));
+  return mix(earth, alien, uGroundFogAlien);
 }
 `;
 
