@@ -1541,15 +1541,17 @@ async function uploadToYouTube(
     const readBack = await page.evaluate(() => {
       const dateEl = document.querySelector('#datepicker-trigger');
       const timeEl = document.querySelector('#time-of-day-container input');
+      const doneEl = document.querySelector('#done-button');
       return {
         date: (dateEl?.innerText || dateEl?.textContent || '')
           .replace(/\s+/g, ' ')
           .trim(),
         time: (timeEl?.value || '').replace(/\s+/g, ' ').trim(),
+        doneText: (doneEl?.innerText || doneEl?.textContent || '').trim(),
       };
     });
     console.log(
-      `  Verified YouTube Schedule: ${readBack.date || '(unknown date)'} @ ${readBack.time || '(unknown time)'}`
+      `  Verified YouTube Schedule: ${readBack.date || '(unknown date)'} @ ${readBack.time || '(unknown time)'} (button: "${readBack.doneText}")`
     );
     const normTime = (s) => s.toUpperCase().replace(/\s+/g, '');
     if (
@@ -1560,6 +1562,11 @@ async function uploadToYouTube(
     ) {
       throw new Error(
         `YouTube schedule mismatch: expected "${opts.schedule.dateText} @ ${opts.schedule.timeText}", read "${readBack.date} @ ${readBack.time}"`
+      );
+    }
+    if (!/schedule/i.test(readBack.doneText)) {
+      throw new Error(
+        `Expected YouTube submit button to read "Schedule", got "${readBack.doneText}"`
       );
     }
   } else {
@@ -1662,7 +1669,15 @@ async function uploadToYouTube(
 
     if (publishedUrl) {
       shortId = shortId || extractYouTubeVideoId(publishedUrl);
-      console.log(`  YouTube Short published: ${publishedUrl}`);
+      console.log(
+        opts.schedule
+          ? `  YouTube Short scheduled: ${publishedUrl}`
+          : `  YouTube Short published: ${publishedUrl}`
+      );
+    } else if (opts.schedule) {
+      throw new Error(
+        'YouTube did not show the "Video scheduled" confirmation dialog; the video may still be a Draft.'
+      );
     } else {
       console.log('  YouTube Short publish flow completed.');
     }
