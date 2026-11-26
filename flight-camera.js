@@ -141,10 +141,6 @@ const AEROBATIC_LOCK_SECONDS = 0.25;
 let anchorLock = 0;
 let loopLock = 0;
 let maneuverCam = 0;
-// Bank camera (Settings): how far the follow camera's up has turned from
-// world up to the plane's, 0 to 1, easing over CAMERA_BANK_SECONDS
-const CAMERA_BANK_SECONDS = 0.4;
-let cameraBank = 0;
 const _planeFwd = new THREE.Vector3();
 const _planeUp = new THREE.Vector3();
 
@@ -546,19 +542,12 @@ export function updateFlightCamera(delta, nowTime) {
     _idealLookTarget_Follow.copy(_lookOffset).applyMatrix4(_cameraAnchorMatrix);
 
     // World up, or the plane's up in a loop (so the view doesn't flip as
-    // the nose passes vertical). With Bank camera on (state.cameraBank) it's
-    // the plane's up all the time, so the horizon tilts with its banks and
-    // rolls, eased so switching it (or to the buggy) doesn't snap the view
-    const bankTarget =
-      state.cameraBank && !chaseFrame && !state.isVRPresenting ? 1 : 0;
-    cameraBank +=
-      (bankTarget - cameraBank) * (1 - Math.exp(-delta / CAMERA_BANK_SECONDS));
-    const upFollow = Math.max(loopLock, cameraBank);
+    // the nose passes vertical)
     _up_Follow
       .set(0, 1, 0)
       .applyQuaternion(_cameraAnchorQuat)
-      .multiplyScalar(upFollow);
-    _up_Follow.y += 1 - upFollow;
+      .multiplyScalar(loopLock);
+    _up_Follow.y += 1 - loopLock;
     if (_up_Follow.lengthSq() < 1e-6) _up_Follow.set(0, 1, 0);
     _up_Follow.normalize();
 

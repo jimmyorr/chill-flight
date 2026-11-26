@@ -186,9 +186,6 @@ export default {
   Sharp: '민첩하게',
   'Invert y axis': 'Y축 반전',
   'Push up to dive, like a flight stick': '위로 밀면 하강 (비행 조종간처럼)',
-  'Bank camera': '카메라 기울이기',
-  'Horizon tilts with the plane in turns and rolls':
-    '선회와 롤에서 비행기와 함께 수평선이 기울어짐',
   Haptics: '진동',
   'Feel landings, gear, stalls and thunder':
     '착륙, 랜딩기어, 실속, 천둥을 진동으로 느끼기',

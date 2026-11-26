@@ -184,9 +184,6 @@ export default {
   Sharp: '灵敏',
   'Invert y axis': '反转 Y 轴',
   'Push up to dive, like a flight stick': '向上推是俯冲，像飞行摇杆一样',
-  'Bank camera': '镜头随机身倾斜',
-  'Horizon tilts with the plane in turns and rolls':
-    '转弯和横滚时地平线随飞机倾斜',
   Haptics: '触感反馈',
   'Feel landings, gear, stalls and thunder': '感受着陆、起落架、失速和雷声',
   'Your name': '你的名字',

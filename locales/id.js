@@ -195,9 +195,6 @@ export default {
   'Invert y axis': 'Balik sumbu Y',
   'Push up to dive, like a flight stick':
     'Dorong ke atas untuk menukik, seperti stik pesawat',
-  'Bank camera': 'Kamera ikut miring',
-  'Horizon tilts with the plane in turns and rolls':
-    'Cakrawala miring bersama pesawat saat berbelok dan berguling',
   Haptics: 'Getaran',
   'Feel landings, gear, stalls and thunder':
     'Rasakan pendaratan, roda, stall, dan guntur',

@@ -190,9 +190,6 @@ export default {
   Sharp: 'するどい',
   'Invert y axis': 'Y 軸を反転',
   'Push up to dive, like a flight stick': '上に押すと降下（操縦桿のように）',
-  'Bank camera': 'カメラを傾ける',
-  'Horizon tilts with the plane in turns and rolls':
-    '旋回やロールで機体と一緒に水平線が傾く',
   Haptics: '振動',
   'Feel landings, gear, stalls and thunder':
     '着陸、ギア、失速、雷を振動で感じる',

@@ -193,9 +193,6 @@ export default {
   'Invert y axis': 'Y eksenini ters çevir',
   'Push up to dive, like a flight stick':
     'Uçuş lövyesi gibi dalmak için yukarı it',
-  'Bank camera': 'Kamera yatışı',
-  'Horizon tilts with the plane in turns and rolls':
-    'Dönüşlerde ve tonolarda ufuk uçakla birlikte yatar',
   Haptics: 'Titreşim',
   'Feel landings, gear, stalls and thunder':
     'İnişleri, iniş takımını, perdövitesi ve gök gürültüsünü hisset',

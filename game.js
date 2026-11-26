@@ -326,24 +326,6 @@ if (invertYInput) {
   });
 }
 
-// The follow camera banks with the plane (flight-camera.js), off by
-// default so the horizon stays level. ?bankCam=1 or 0 overrides it
-const savedCameraBank = localStorage.getItem('chill_flight_camera_bank');
-const bankCamParam = ChillFlightLogic.urlParams?.get('bankCam');
-if (bankCamParam) {
-  state.cameraBank = !['0', 'false'].includes(bankCamParam);
-} else if (savedCameraBank !== null) {
-  state.cameraBank = savedCameraBank === 'true';
-}
-const cameraBankInput = document.getElementById('camera-bank-input');
-if (cameraBankInput) {
-  cameraBankInput.checked = state.cameraBank;
-  cameraBankInput.addEventListener('change', (e) => {
-    state.cameraBank = e.target.checked;
-    localStorage.setItem('chill_flight_camera_bank', state.cameraBank);
-  });
-}
-
 // Mouse steering (the cursor flies the plane). Stored as
 // chill_flight_disable_mouse = 'true' when off, so the old "Disable mouse"
 // choice carries over. Off by default where the switch shows from the start

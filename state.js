@@ -305,8 +305,6 @@ export const state = {
 
   // Controls settings (game.js)
   invertYAxis: false,
-  // The follow camera rolls with the plane (Settings: Bank camera)
-  cameraBank: false,
   // true = the cursor doesn't steer (the Mouse steering switch is off). Only
   // steering: scroll throttle, pinch zoom and camera drags always work.
   disableMouse: false,
