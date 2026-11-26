@@ -1031,6 +1031,9 @@ async function renderMatchCutClip(browser, clipSpec) {
     }, scriptDetail);
 
     const badgeMap = Array.isArray(seg.badges) ? new Map(seg.badges) : null;
+    const swapMap = Array.isArray(seg.planeSwaps)
+      ? new Map(seg.planeSwaps.map(([f, p, l]) => [f, [p, l]]))
+      : null;
     const midFrame = Math.floor((seg.startFrame + seg.endFrame) / 2);
     const previewFrames = new Set([seg.startFrame, midFrame, seg.endFrame - 1]);
     let prevPos = plan.portalCross
@@ -1043,6 +1046,27 @@ async function renderMatchCutClip(browser, clipSpec) {
     for (let i = 0; i < seg.endFrame; i++) {
       if (badgeMap && badgeMap.has(i)) {
         await addPostcardBadge(page, topLine, badgeMap.get(i));
+      }
+      if (swapMap && swapMap.has(i)) {
+        const [nextPlane, nextLivery] = swapMap.get(i);
+        await page.evaluate(
+          async ({p, liv}) => {
+            const {ChillFlightLogic} = await window.gameModule(
+              'chill-flight-logic.js'
+            );
+            const {state} = await window.gameModule('state.js');
+            const {setActivePlane, planeMat} =
+              await window.gameModule('airplane.js');
+            const idx = liv ? ChillFlightLogic.LIVERY_NAMES.indexOf(liv) : -1;
+            if (idx >= 0 && ChillFlightLogic.PLANE_COLORS?.[idx] != null) {
+              const hex = ChillFlightLogic.PLANE_COLORS[idx];
+              state.planeColor = hex;
+              planeMat.color.setHex(hex);
+            }
+            setActivePlane(p, true);
+          },
+          {p: nextPlane, liv: nextLivery}
+        );
       }
       if (seg.lightningFrames && seg.lightningFrames.includes(i)) {
         await page.evaluate(async () => {
@@ -2721,6 +2745,79 @@ async function renderEvolutionCutShort(browser, seed = 20261125) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Prototype 16: Single-Take 4-Plane Agility Loop Comparison (Seed 20261126)
+// ---------------------------------------------------------------------------
+async function renderAgilityLoopShort(browser, seed = 20261126) {
+  await renderMatchCutClip(browser, {
+    id: 'agility-loop',
+    banner: `Single-Take 4-Plane Agility Loop (Seed ${seed}: Anime Dawn)`,
+    seed,
+    speedMult: 0.95,
+    direct: true,
+    loopDip: true,
+    camFrame: 'yaw-lock',
+    cam:
+      'plane=biplane&livery=coral&smoke=1&style=anime&speed=0.95' +
+      '&camOffset=235,20,24&camLook=0,14,-10&fov=62',
+    // One continuous 12s flight with smooth 5th-channel speed ramps and 4 loops
+    // showcasing each plane's agility & smoke-ring size in a single unbroken take:
+    moves: [
+      [0.0, 0, 0, 0, 0.95],
+      [0.25, 0, 0, 0, 0.95],
+      [2.35, 0, 360, 0, 0.95],
+      [2.85, 0, 360, 0, 0.95],
+      [3.15, 0, 360, 0, 1.05],
+      [5.6, 0, 720, 0, 1.05],
+      [5.85, 0, 720, 0, 1.05],
+      [6.15, 0, 720, 0, 1.18],
+      [8.8, 0, 1080, 0, 1.18],
+      [8.95, 0, 1080, 0, 1.25],
+      [9.25, 0, 1080, 0, 1.65],
+      [11.55, 0, 1440, 0, 1.65],
+      [12.0, 0, 1440, 0, 1.65],
+    ],
+    segments: [
+      {
+        label: 'Biplane · Tight Loop',
+        plane: 'biplane',
+        livery: 'coral',
+        x: 600,
+        y: 620,
+        z: 18600,
+        heading: -135,
+        planeSwaps: [
+          [90, 'seaplane', 'teal'],
+          [180, 'twin', 'sand'],
+          [270, 'jet', 'slate'],
+        ],
+        badges: [
+          [90, 'Seaplane · Cruise Loop'],
+          [180, 'Twin-Prop · Wide Loop'],
+          [270, 'Swept-Wing Jet · High-G Loop'],
+        ],
+        extra: 'tod=0.268&weather=none&cloudMood=fair',
+        startFrame: 0,
+        endFrame: 360,
+      },
+    ],
+    outBaseName: `short-${seed}-agility-loop`,
+    trackSlug: 'purrple-cat-equinox',
+    musicStart: 18,
+    meta: {
+      title: '4 planes, 4 very different loops ✈️',
+      tiktokQuestion: 'Which plane has the cleanest loop?',
+      stops: [
+        '0:00 Biplane - Tight Loop (3.7°S, 0.1°E)',
+        '0:03 Seaplane - Cruise Loop (3.8°S, 0.2°E)',
+        '0:06 Twin-Prop - Wide Loop (3.9°S, 0.3°E)',
+        '0:09 Swept-Wing Jet - High-G Loop (4.0°S, 0.4°E)',
+      ],
+      trackTitle: 'Equinox',
+    },
+  });
+}
+
 async function main() {
   const cliArgs = process.argv.slice(2).filter((a) => !a.startsWith('--'));
   const isCheck = CHECK_ONLY || cliArgs[0] === 'check';
@@ -2994,6 +3091,9 @@ async function main() {
       }
       if (!filter || filter === 'evolution-cut') {
         await renderEvolutionCutShort(browser, 20261125);
+      }
+      if (!filter || filter === 'agility-loop') {
+        await renderAgilityLoopShort(browser, 20261126);
       }
       if (!filter || filter === 'daily-postcard') {
         await renderDailyPostcardShort(browser, 20261108);

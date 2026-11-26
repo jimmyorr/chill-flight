@@ -129,6 +129,8 @@ function spotCandidates(scout, spot, slot, facing = 'rear') {
     ...(plane ? {plane} : {}),
     ...(livery ? {livery} : {}),
     ...(style ? {style} : {}),
+    ...(slot.speed ? {speed: slot.speed} : {}),
+    ...(slot.moves ? {moves: slot.moves} : {}),
     ...(slot.rainbow ? {rainbow: true} : {}),
     ...(slot.lightningFrames ? {lightningFrames: slot.lightningFrames} : {}),
     ...(slot.xmas ? {xmas: slot.xmas} : {}),
@@ -679,7 +681,7 @@ function spotCandidates(scout, spot, slot, facing = 'rear') {
   return spotCandidates(scout, 'falls', slot, facing);
 }
 
-// 10 genuinely distinct visual & camera archetypes, rotated without repeats.
+// 11 genuinely distinct visual & camera archetypes, rotated without repeats.
 export const ARCHETYPE_IDS = [
   'front-evolution',
   'dolly-zoom',
@@ -691,6 +693,7 @@ export const ARCHETYPE_IDS = [
   'overhead-shadow',
   'telephoto-giants',
   'portal-clover',
+  'agility-loop',
 ];
 
 export function buildDailyShortSpec(seed, dayIndex, planSegment) {
@@ -1273,6 +1276,69 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
       title: titles[cycle % titles.length],
       question: 'Which giant landmark looks best in telephoto?',
     };
+  } else if (archetype === 'agility-loop') {
+    const tod = cycle % 2 === 0 ? '0.268' : '0.695';
+    const style = cycle % 2 === 0 ? 'anime' : 'lowpoly';
+    const titles = [
+      '4 planes, 4 very different loops ✈️',
+      'Comparing loop agility across 4 planes ✈️',
+      'Biplane vs seaplane vs twin vs jet loop ✈️',
+    ];
+    spec = {
+      id: `daily-${seed}`,
+      archetype,
+      banner: `Daily ${seed} [Single-Take 4-Plane Agility Loop (${style})]`,
+      seed,
+      speedMult: 0.95,
+      direct: true,
+      loopDip: true,
+      camFrame: 'yaw-lock',
+      cam:
+        `plane=biplane&livery=${liv(0)}&smoke=1&style=${style}&speed=0.95` +
+        '&camOffset=235,20,24&camLook=0,14,-10&fov=62',
+      moves: [
+        [0.0, 0, 0, 0, 0.95],
+        [0.25, 0, 0, 0, 0.95],
+        [2.35, 0, 360, 0, 0.95],
+        [2.85, 0, 360, 0, 0.95],
+        [3.15, 0, 360, 0, 1.05],
+        [5.6, 0, 720, 0, 1.05],
+        [5.85, 0, 720, 0, 1.05],
+        [6.15, 0, 720, 0, 1.18],
+        [8.8, 0, 1080, 0, 1.18],
+        [8.95, 0, 1080, 0, 1.25],
+        [9.25, 0, 1080, 0, 1.65],
+        [11.55, 0, 1440, 0, 1.65],
+        [12.0, 0, 1440, 0, 1.65],
+      ],
+      prebuiltSegments: [
+        {
+          label: 'Biplane · Tight Loop',
+          plane: 'biplane',
+          livery: liv(0),
+          x: 600,
+          y: 620,
+          z: 18600,
+          heading: -135,
+          planeSwaps: [
+            [90, 'seaplane', liv(2)],
+            [180, 'twin', liv(4)],
+            [270, 'jet', liv(6)],
+          ],
+          badges: [
+            [90, 'Seaplane · Cruise Loop'],
+            [180, 'Twin-Prop · Wide Loop'],
+            [270, 'Swept-Wing Jet · High-G Loop'],
+          ],
+          extra: `tod=${tod}&weather=none&cloudMood=fair`,
+          startFrame: 0,
+          endFrame: 360,
+        },
+      ],
+      slots: [],
+      title: titles[cycle % titles.length],
+      question: 'Which plane has the cleanest loop?',
+    };
   } else {
     // 'portal-clover'
     const planes = ['biplane', 'jet', 'seaplane'];
@@ -1346,33 +1412,35 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
     segments: [],
   };
   const usedSpots = new Set(spec.slots.map((s) => s.spot));
-  const segments = spec.slots.map((slot) => {
-    const primary = chooseSafeSegment(
-      clipDraft,
-      spotCandidates(scout, slot.spot, slot, spec.facing),
-      planSegment
-    );
-    if (primary) return primary;
-    for (const fb of fallbackOrder) {
-      if (usedSpots.has(fb)) continue;
-      const alt = chooseSafeSegment(
+  const segments =
+    spec.prebuiltSegments ||
+    spec.slots.map((slot) => {
+      const primary = chooseSafeSegment(
         clipDraft,
-        spotCandidates(scout, fb, {...slot, spot: fb}, spec.facing),
+        spotCandidates(scout, slot.spot, slot, spec.facing),
         planSegment
       );
-      if (alt) {
-        usedSpots.add(fb);
-        return alt;
+      if (primary) return primary;
+      for (const fb of fallbackOrder) {
+        if (usedSpots.has(fb)) continue;
+        const alt = chooseSafeSegment(
+          clipDraft,
+          spotCandidates(scout, fb, {...slot, spot: fb}, spec.facing),
+          planSegment
+        );
+        if (alt) {
+          usedSpots.add(fb);
+          return alt;
+        }
       }
-    }
-    // Last resort: safe high pass over Twin Falls
-    return spotCandidates(
-      scout,
-      'falls',
-      {...slot, altBoost: (slot.altBoost ?? 0) + 120},
-      spec.facing
-    )[1];
-  });
+      // Last resort: safe high pass over Twin Falls
+      return spotCandidates(
+        scout,
+        'falls',
+        {...slot, altBoost: (slot.altBoost ?? 0) + 120},
+        spec.facing
+      )[1];
+    });
 
   const stops = segments.map((seg, i) => {
     const tLabel = `0:0${i * 3}`;
