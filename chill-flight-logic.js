@@ -7430,6 +7430,27 @@ export const ChillFlightLogic = {};
   exports.START_CLOUD_MOOD = START_CLOUD_MOOD;
   exports.CLOUD_MOOD_NAMES = CLOUD_MOOD_NAMES;
   exports.cloudMoodForDay = cloudMoodForDay;
+
+  // How thick the valley mist is on a given in-game day (GROUND_FOG_GLSL in
+  // constants.js): about a third of mornings have none, the rest anywhere
+  // from a light veil to a thick blanket. Fixed by the world seed and the
+  // day, like the cloud mood.
+  function mistForDay(worldSeed, day) {
+    const rng = mulberry32((worldSeed * 6151 + day * 92821 + 4271) | 0);
+    return rng() < 0.33 ? 0 : 0.45 + 0.85 * rng();
+  }
+  exports.mistForDay = mistForDay;
+
+  // Where valley mist makes sense, 0 to 1: the green lowlands, lakes,
+  // forests and swamp. None in the desert (too dry) or the alien lands,
+  // half in the snow country.
+  function mistBiomeAt(x, z, simplex) {
+    const desert = desertLowlandAt(x, z, simplex);
+    const alien = Math.min(1, alienAt(x, z, simplex) * 20);
+    const snow = snowFactorAt(z, snowNoiseShift(x, z, simplex));
+    return (1 - desert) * (1 - alien) * (1 - 0.5 * snow);
+  }
+  exports.mistBiomeAt = mistBiomeAt;
   exports.START_LIVERY = START_LIVERY;
   exports.PLANE_TYPES = PLANE_TYPES;
   const MAX_DIVE_ANGLE = -(75 * Math.PI) / 180;

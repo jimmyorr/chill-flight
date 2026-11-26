@@ -69,6 +69,7 @@ const outlineMaterial = new THREE.ShaderMaterial({
     uSunDirection: terrainUniforms.uSunDirection,
     // For the valley mist, which the ink fades into like the surfaces
     uGroundFog: atmosphereUniforms.uGroundFog,
+    uGroundFogShape: atmosphereUniforms.uGroundFogShape,
     uCamPos: {value: new THREE.Vector3()},
     uCamWorld: {value: new THREE.Matrix4()},
     uInvProj: {value: new THREE.Matrix4()},

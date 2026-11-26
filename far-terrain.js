@@ -140,9 +140,9 @@ farMaterial.onBeforeCompile = (shader) => {
        // Aerial perspective: distant ranges read as soft, hazy layers. Starts
        // from none at the draw distance, to match the near terrain there.
        float haze = 0.8 * smoothstep(uRenderRadius, uFarRadius, vDistanceXZ);
+       float mistHere = groundFogAlong(cameraPosition, vFarWorldPos);
        gl_FragColor.rgb = mix(gl_FragColor.rgb,
-         groundFogColor(fogSkyColor, cameraPosition, vFarWorldPos),
-         groundFogAlong(cameraPosition, vFarWorldPos));
+         groundFogColor(fogSkyColor, cameraPosition, vFarWorldPos), mistHere);
        gl_FragColor.rgb = mix(gl_FragColor.rgb, fogSkyColor, max(max(fogFactor, haze), edgeFade));
      #endif`
   );

@@ -222,6 +222,12 @@ let _debugVirtualClockNow;
 let fogAfterRain = 0;
 // Low valley mist (morning, after rain); off with ?mist=0
 const MIST_ENABLED = ChillFlightLogic.urlParams?.get('mist') !== '0';
+// ?mist=1 forces full mist every morning (for screenshots)
+const MIST_FORCED = ChillFlightLogic.urlParams?.get('mist') === '1';
+let _mistBiome = 1;
+let _mistBiomeTimer = 0;
+let _mistDay = null;
+let _mistDayAmount = 1;
 let benchmarkComplete;
 let benchmarkStartTime;
 let benchmarkFrameTimes;
@@ -2647,20 +2653,37 @@ function updateEnvironmentLighting(delta, now) {
   });
   // Low mist in the valleys (GROUND_FOG_GLSL), with the morning fog and
   // while the air is still wet after rain
+  // Some mornings have more than others, and only where mist makes sense
+  // (the land under the plane, checked twice a second)
+  _mistBiomeTimer -= delta;
+  if (_mistBiomeTimer <= 0 || state.snapEnvironment) {
+    _mistBiomeTimer = 0.5;
+    _mistBiome = ChillFlightLogic.mistBiomeAt(
+      planeGroup.position.x,
+      planeGroup.position.z,
+      simplex
+    );
+  }
+  const mistDay = Math.floor(state.worldClockNow / DAY_CYCLE_MS);
+  if (mistDay !== _mistDay) {
+    _mistDay = mistDay;
+    _mistDayAmount = MIST_FORCED
+      ? 1
+      : ChillFlightLogic.mistForDay(ChillFlightLogic.WORLD_SEED, mistDay);
+  }
+  const morningMist = ChillFlightLogic.morningFogFactor(
+    (state.timeOfDay / (Math.PI * 2)) * 24
+  );
   const targetMist = MIST_ENABLED
-    ? Math.max(
-        ChillFlightLogic.morningFogFactor(
-          (state.timeOfDay / (Math.PI * 2)) * 24
-        ),
-        fogAfterRain * 0.8
-      )
+    ? _mistBiome * Math.max(morningMist * _mistDayAmount, fogAfterRain * 0.8)
     : 0;
+  const mistLerp = 1 - Math.pow(1 - 0.01, delta * 60);
   atmosphereUniforms.uGroundFog.value = state.snapEnvironment
     ? targetMist
     : THREE.MathUtils.lerp(
         atmosphereUniforms.uGroundFog.value,
         targetMist,
-        1 - Math.pow(1 - 0.01, delta * 60)
+        mistLerp
       );
   // Low-lying bayou mist when flying or driving low over the swamp
   const swampMist =

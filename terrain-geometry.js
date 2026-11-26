@@ -582,9 +582,9 @@ terrainMaterial.onBeforeCompile = (shader) => {
        
        float finalFogFactor = max(fogFactor, xzFogFactor);
 
+       float mistHere = groundFogAlong(cameraPosition, vWorldPosition);
        gl_FragColor.rgb = mix(gl_FragColor.rgb,
-         groundFogColor(fogSkyColor, cameraPosition, vWorldPosition),
-         groundFogAlong(cameraPosition, vWorldPosition));
+         groundFogColor(fogSkyColor, cameraPosition, vWorldPosition), mistHere);
        gl_FragColor.rgb = mix(gl_FragColor.rgb, fogSkyColor, finalFogFactor);
      #endif
     `
@@ -1093,9 +1093,9 @@ waterMaterial.onBeforeCompile = function (shader) {
        
        float finalFogFactor = max(fogFactor, xzFogFactor);
 
+       float mistHere = groundFogAlong(cameraPosition, vWorldPosition);
        gl_FragColor.rgb = mix(gl_FragColor.rgb,
-         groundFogColor(fogSkyColor, cameraPosition, vWorldPosition),
-         groundFogAlong(cameraPosition, vWorldPosition));
+         groundFogColor(fogSkyColor, cameraPosition, vWorldPosition), mistHere);
        gl_FragColor.rgb = mix(gl_FragColor.rgb, fogSkyColor, finalFogFactor);
      #endif
     `

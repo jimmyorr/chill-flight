@@ -637,6 +637,9 @@ export const atmosphereUniforms = {
   uShadowDeck: {value: 3000},
   // How much low mist lies in the valleys, 0 to 1 (morning and after rain)
   uGroundFog: {value: 0},
+  // The mist's density at the water line and how fast it thins with height
+  // (its scale height, in units)
+  uGroundFogShape: {value: new THREE.Vector2(0.0025, 100)},
 };
 export function addAtmosphereUniforms(shader) {
   Object.assign(shader.uniforms, atmosphereUniforms);
@@ -688,10 +691,11 @@ export function withCloudShade(
 // uSunDirection.
 export const GROUND_FOG_GLSL = `
 uniform float uGroundFog;
+uniform vec2 uGroundFogShape;
 float groundFogAlong(vec3 cam, vec3 p) {
   if (uGroundFog <= 0.0) return 0.0;
-  const float DENSITY = 0.005;
-  const float HEIGHT = 120.0;
+  float DENSITY = uGroundFogShape.x;
+  float HEIGHT = uGroundFogShape.y;
   float y0 = max(cam.y - ${WATER_LEVEL.toFixed(1)}, 0.0);
   float y1 = max(p.y - ${WATER_LEVEL.toFixed(1)}, 0.0);
   float dy = y1 - y0;
@@ -701,7 +705,10 @@ float groundFogAlong(vec3 cam, vec3 p) {
   float mean = abs(dy) > 0.5 ? (e0 - e1) * HEIGHT / dy : 0.5 * (e0 + e1);
   // Thicker and thinner banks
   float banks = 0.7 + 0.3 * sin(p.x * 0.0011 + p.z * 0.0007) * sin(p.z * 0.0013 - p.x * 0.0005);
-  return 1.0 - exp(-uGroundFog * DENSITY * banks * length(p - cam) * mean);
+  // Clear for the first 150 units, so the plane and what's right below
+  // it never sink into a white-out
+  float L = max(length(p - cam) - 150.0, 0.0);
+  return 1.0 - exp(-uGroundFog * DENSITY * banks * L * mean);
 }
 vec3 groundFogColor(vec3 fogColor, vec3 cam, vec3 p) {
   vec3 v = normalize(p - cam);
@@ -891,9 +898,9 @@ export function createMaterial(params) {
              if (thin > 0.0 && fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) < thin) discard;
          }
          
+         float mistHere = groundFogAlong(cameraPosition, vWorldPosition);
          gl_FragColor.rgb = mix(gl_FragColor.rgb,
-           groundFogColor(fogSkyColor, cameraPosition, vWorldPosition),
-           groundFogAlong(cameraPosition, vWorldPosition));
+           groundFogColor(fogSkyColor, cameraPosition, vWorldPosition), mistHere);
          gl_FragColor.rgb = mix(gl_FragColor.rgb, fogSkyColor, finalFogFactor);
        #endif`
     );
