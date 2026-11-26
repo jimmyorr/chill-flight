@@ -45,36 +45,42 @@
         col += vec3(0.5, 0.58, 0.75) * uMoonBright
              * (pow(moonAlign, 60.0) * 0.3 + pow(moonAlign, 8.0) * 0.06);
         
-        // The Milky Way: a soft band of light across clear night
-        // skies, built in its own sky coordinates (lon along it, lat
-        // across) so the texture isn't stretched: billowy star clouds,
-        // darker dust lanes down its middle, a warmer brighter core, and a
-        // dusting of faint stars gathered along it. Drawn before the clouds.
+        // The Milky Way: a river of tiny stars across clear night skies,
+        // in its own sky coordinates (lon along it, lat across) so nothing
+        // stretches. How many stars a patch of sky has follows the band,
+        // its clumps, a denser warmer core and a darker rift, so it reads
+        // as starlight, not haze, with only a faint glow behind.
         if (uMilkyWay > 0.001 && h > -0.05) {
             vec3 gp = normalize(vec3(0.42, 0.5, 0.76));
             float lat = dot(dir, gp);
             vec3 e1 = normalize(cross(gp, vec3(0.0, 1.0, 0.0)));
             vec3 e2 = cross(gp, e1);
             float lon = atan(dot(dir, e2), dot(dir, e1));
-            // Wavy edges: the band's middle wanders a little along it
-            float latW = lat + (noise(vec2(lon * 1.3, 3.7)) - 0.5) * 0.08;
-            float band = exp(-latW * latW * 18.0);
-            vec2 q = vec2(lon, latW) * 6.0;
-            float clouds = noise(q) * 0.5 + noise(q * 2.3 + 3.0) * 0.3 + noise(q * 5.1 + 9.0) * 0.2;
-            clouds = smoothstep(0.3, 0.85, clouds);
-            float lane = smoothstep(0.42, 0.7, noise(q * 1.7 + 11.0)) * exp(-latW * latW * 90.0);
-            float core = exp(-lon * lon * 0.8);
-            float glow = band * (0.25 + 0.95 * clouds) * (1.0 - 0.7 * lane) * (1.0 + 1.2 * core);
-            vec3 tint = mix(vec3(0.55, 0.62, 0.9), vec3(0.85, 0.78, 0.7), core * band);
-            // Faint stars, many more along the band
-            vec2 sc = vec2(lon, lat) * 260.0;
-            vec2 cell = floor(sc);
-            float sh = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
-            vec2 sp = vec2(fract(sh * 17.0), fract(sh * 29.0)) * 0.6 + 0.2;
-            float sd = length(fract(sc) - sp);
-            float star = step(1.0 - 0.25 * band * band - 0.01, sh) * smoothstep(0.35, 0.0, sd) * (0.4 + 0.6 * fract(sh * 7.0));
             float fade = smoothstep(-0.05, 0.25, h) * uMilkyWay;
-            col += (tint * glow * 0.1 + vec3(0.8, 0.85, 1.0) * star * 0.35) * fade;
+            // A river of tiny stars: how many stars a patch of sky has
+            // follows the band and its clumps, so it reads as starlight
+            // rather than haze, with only a faint glow behind
+            float latW = lat + (noise(vec2(lon * 1.1, 3.7)) - 0.5) * 0.07;
+            float core = exp(-lon * lon * 1.0);
+            float width = 0.12 * (1.0 + 0.7 * core);
+            float body = exp(-latW * latW / (width * width));
+            float clump = smoothstep(0.3, 0.8, noise(vec2(lon, latW) * 5.0) * 0.6 + noise(vec2(lon, latW) * 11.0 + 5.0) * 0.4);
+            float rift = exp(-pow(latW - 0.02 * sin(lon * 3.0), 2.0) / 0.0015) * smoothstep(-1.6, -0.2, lon) * (1.0 - smoothstep(0.4, 1.4, lon));
+            float dens = body * (0.25 + 0.75 * clump) * (1.0 + 0.6 * core) * (1.0 - 0.8 * rift);
+            float stars = 0.0;
+            // Two layers of star cells at different sizes, so no grid shows
+            for (int k = 0; k < 2; k++) {
+                float sz = k == 0 ? 450.0 : 800.0;
+                vec2 sc = vec2(lon, lat) * sz + float(k) * 17.3;
+                vec2 cell = floor(sc);
+                float sh = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
+                vec2 sp = vec2(fract(sh * 17.0), fract(sh * 29.0)) * 0.7 + 0.15;
+                float sd = length(fract(sc) - sp);
+                float on = step(1.0 - 0.8 * dens - 0.01, sh);
+                stars += on * smoothstep(0.32, 0.0, sd) * (0.35 + 0.65 * fract(sh * 7.0));
+            }
+            vec3 tint = mix(vec3(0.6, 0.66, 1.0), vec3(1.0, 0.86, 0.75), core * body);
+            col += (tint * dens * 0.05 + mix(vec3(0.85, 0.9, 1.0), tint, 0.4) * stars * 0.4) * fade;
         }
 
         // A storm far past the horizon flickering: a soft glow low in the sky
