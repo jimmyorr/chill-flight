@@ -224,6 +224,10 @@ let fogAfterRain = 0;
 const MIST_ENABLED = ChillFlightLogic.urlParams?.get('mist') !== '0';
 // ?mist=1 forces full mist every morning (for screenshots)
 const MIST_FORCED = ChillFlightLogic.urlParams?.get('mist') === '1';
+// The Milky Way, on unless ?milky=0 (live, for comparing in shots)
+export const MILKY_WAY = {
+  on: ChillFlightLogic.urlParams?.get('milky') !== '0',
+};
 let _mistBiome = 1;
 let _mistAlien = 0;
 let _mistBiomeTimer = 0;
@@ -2399,6 +2403,8 @@ function updateEnvironmentLighting(delta, now) {
   let starFactor = Math.max(0, Math.min(1, (state.sunY + 0.2) / -0.3));
   starsMat.opacity = starFactor * (1.0 - overcast);
   starsMat.visible = starsMat.opacity > 0.001;
+  // The Milky Way fades in and out with the stars
+  skyUniforms.uMilkyWay.value = MILKY_WAY.on ? starsMat.opacity : 0;
   starsMat.uniforms.uTime.value = (performance.now() * 0.001) % 1000;
 
   // --- SHOOTING STARS ---

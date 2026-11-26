@@ -67,6 +67,8 @@ export const skyUniforms = {
   uCameraPos: {value: new THREE.Vector3()},
   uMoonDir: moonlightUniforms.uMoonDir,
   uMoonBright: moonlightUniforms.uMoonBright,
+  // The Milky Way's brightness (game-loop.js)
+  uMilkyWay: {value: 0},
 };
 
 // The sky noise texture as the shaders sample it (noise() in CLOUD_GLSL):

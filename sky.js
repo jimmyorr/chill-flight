@@ -274,7 +274,12 @@ updateSkyPalette(ChillFlightLogic.START_CLOCK ?? Date.now());
 
 const skyMat = new THREE.ShaderMaterial({
   vertexShader: skyVertexShader,
-  fragmentShader: SKY_COLOR_GLSL + CLOUD_GLSL + TOWER_GLSL + skyFragmentShader,
+  fragmentShader:
+    SKY_COLOR_GLSL +
+    CLOUD_GLSL +
+    'uniform float uMilkyWay;\n' +
+    TOWER_GLSL +
+    skyFragmentShader,
   uniforms: skyUniforms,
   side: THREE.BackSide,
   depthWrite: false, // Don't block stars/celestials
