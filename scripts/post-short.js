@@ -11,9 +11,9 @@
 //   --visibility=public|unlisted|private  YouTube visibility (default: public)
 //   --related=<title|url|id|none>  YouTube Short "Related video" link
 //                                  (default: "9 months of building Chill Flight")
-//   --comment=<text|none>          First comment to auto-post and pin on YouTube
-//                                  (default: from .txt "Pinned comment:" or question + CTA)
-//   --no-comment                   Skip auto-posting/pinning a YouTube comment
+//   --no-comment                   Skip auto-posting/pinning a YouTube comment (default)
+//   --pin-comment                  Auto-post and pin the .txt "Pinned comment:" on YouTube
+//   --comment=<text|none>          Custom first comment to auto-post and pin on YouTube
 //   --publish                      Automatically click the final Publish/Post button (default)
 //   --review                       Stop on the final Publish/Post button for manual review
 //   --dry-run                      Parse and print the .txt metadata without opening Chrome
@@ -37,6 +37,9 @@ const YOUTUBE_STUDIO_URL = 'https://studio.youtube.com';
 const TIKTOK_UPLOAD_URL = 'https://www.tiktok.com/tiktokstudio/upload';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const randBetween = (min, max) =>
+  Math.floor(min + Math.random() * (max - min + 1));
+const humanSleep = (minMs, maxMs) => sleep(randBetween(minMs, maxMs));
 
 function findChrome() {
   const candidates = [
@@ -271,7 +274,7 @@ function parseArgs(argv) {
     platform: 'youtube',
     visibility: 'public',
     related: undefined,
-    comment: undefined,
+    comment: 'none',
     videoPath: null,
   };
   for (const arg of argv) {
@@ -287,6 +290,8 @@ function parseArgs(argv) {
       opts.related = arg.slice('--related='.length);
     } else if (arg === '--no-related') {
       opts.related = 'none';
+    } else if (arg === '--pin-comment') {
+      opts.comment = undefined;
     } else if (arg.startsWith('--comment=')) {
       opts.comment = arg.slice('--comment='.length);
     } else if (arg === '--no-comment') {
@@ -314,8 +319,9 @@ function printUsage() {
       '  --platform=youtube|tiktok|all  Which platform(s) to upload to (default: youtube)',
       '  --visibility=public|unlisted|private  YouTube visibility (default: public)',
       `  --related=<title|url|id|none>  YouTube Short Related video (default: "${DEFAULT_RELATED_VIDEO}")`,
-      '  --comment=<text|none>          Auto-post and pin first YouTube comment (default: .txt Pinned comment)',
-      '  --no-comment                   Skip auto-posting/pinning a YouTube comment',
+      '  --no-comment                   Skip auto-posting/pinning a YouTube comment (default)',
+      '  --pin-comment                  Auto-post and pin the .txt Pinned comment on YouTube',
+      '  --comment=<text|none>          Auto-post and pin custom first YouTube comment',
       '  --publish                      Automatically click the final Publish button (default)',
       '  --review                       Fill everything and pause on final Publish button',
       '  --dry-run                      Print parsed metadata without launching Chrome',
@@ -346,74 +352,173 @@ async function launchPersistentBrowser() {
     ignoreDefaultArgs: ['--enable-automation'],
     args: [
       '--disable-blink-features=AutomationControlled',
+      '--hide-crash-restore-bubble',
       '--no-first-run',
       '--no-default-browser-check',
     ],
   });
 }
 
-async function clearAndSetTextbox(page, selector, text) {
-  await page.waitForSelector(selector, {visible: true, timeout: 60000});
-  const selectAllMod = process.platform === 'darwin' ? 'Meta' : 'Control';
+async function findFirstVisibleHandle(root, selector) {
+  const handles = await root.$$(selector);
+  for (const handle of handles) {
+    const visible = await handle
+      .evaluate((el) => {
+        const rect = el.getBoundingClientRect();
+        const style = window.getComputedStyle(el);
+        return (
+          rect.width > 0 &&
+          rect.height > 0 &&
+          style.visibility !== 'hidden' &&
+          style.display !== 'none'
+        );
+      })
+      .catch(() => false);
+    if (visible) return handle;
+  }
+  return null;
+}
 
-  for (let attempt = 1; attempt <= 4; attempt++) {
-    await page.click(selector, {clickCount: 1});
-    await sleep(150);
-    // Select all via OS shortcut + execCommand so Polymer/Lit selection state updates
-    await page.keyboard.down(selectAllMod);
-    await page.keyboard.press('KeyA');
-    await page.keyboard.up(selectAllMod);
-    await sleep(80);
-    await page.keyboard.press('Backspace');
-    await sleep(120);
+async function humanClickHandle(page, handle) {
+  await handle
+    .evaluate((el) => el.scrollIntoView({block: 'center', inline: 'nearest'}))
+    .catch(() => {});
+  await humanSleep(280, 520);
+  const box = await handle.boundingBox();
+  if (!box || box.width <= 0 || box.height <= 0) {
+    await handle.click();
+    return;
+  }
+  const jitterX = (Math.random() - 0.5) * Math.min(box.width * 0.36, 28);
+  const jitterY = (Math.random() - 0.5) * Math.min(box.height * 0.28, 8);
+  const targetX = box.x + box.width / 2 + jitterX;
+  const baseY = box.height > 80 ? box.y + 24 : box.y + box.height / 2;
+  const targetY = baseY + jitterY;
+  await page.mouse.move(targetX, targetY, {steps: randBetween(10, 20)});
+  await humanSleep(70, 175);
+  await page.mouse.down();
+  await humanSleep(45, 105);
+  await page.mouse.up();
+}
 
-    // Fallback DOM range clear if any residual default filename text survived
-    const remaining = await page.evaluate((sel) => {
-      const el = document.querySelector(sel);
-      if (!el) return '';
-      if ((el.textContent || '').length > 0) {
-        el.focus();
-        document.execCommand('selectAll', false, null);
-        document.execCommand('delete', false, null);
-      }
-      return (el.textContent || '').trim();
-    }, selector);
-    if (remaining.length > 0) {
-      await page.keyboard.down(selectAllMod);
-      await page.keyboard.press('KeyA');
-      await page.keyboard.up(selectAllMod);
+async function humanClickSelector(page, selector, timeout = 30000) {
+  const handle = await page.waitForSelector(selector, {
+    visible: true,
+    timeout,
+  });
+  await humanClickHandle(page, handle);
+  return handle;
+}
+
+async function selectAllAndClear(page, selector) {
+  await humanClickSelector(page, selector, 60000);
+  await humanSleep(260, 480);
+
+  const cdp = await page.createCDPSession();
+  try {
+    const modifiers = process.platform === 'darwin' ? 4 : 2;
+    for (let pass = 0; pass < 3; pass++) {
+      await cdp.send('Input.dispatchKeyEvent', {
+        type: 'rawKeyDown',
+        key: 'a',
+        code: 'KeyA',
+        windowsVirtualKeyCode: 65,
+        modifiers,
+        commands: ['selectAll'],
+      });
+      await cdp.send('Input.dispatchKeyEvent', {
+        type: 'keyUp',
+        key: 'a',
+        code: 'KeyA',
+        windowsVirtualKeyCode: 65,
+      });
+      await humanSleep(90, 180);
       await page.keyboard.press('Backspace');
-      await sleep(120);
+      await humanSleep(180, 320);
+
+      const remaining = await page.evaluate(
+        (sel) => (document.querySelector(sel)?.textContent || '').length,
+        selector
+      );
+      if (remaining === 0) break;
+    }
+  } finally {
+    await cdp.detach().catch(() => {});
+  }
+}
+
+async function typeTextNaturally(page, text) {
+  const chars = Array.from(text);
+  for (let i = 0; i < chars.length; i++) {
+    const ch = chars[i];
+    if (ch === '\n') {
+      await page.keyboard.down('Shift');
+      await page.keyboard.press('Enter');
+      await page.keyboard.up('Shift');
+      await humanSleep(120, 260);
+    } else if (ch.charCodeAt(0) <= 0x7e) {
+      await page.keyboard.type(ch, {delay: randBetween(26, 72)});
+      if (ch === ' ' || ch === ',' || ch === ':' || ch === '.') {
+        await humanSleep(45, 140);
+      } else if (Math.random() < 0.07) {
+        await humanSleep(70, 165);
+      }
+    } else {
+      await page.keyboard.sendCharacter(ch);
+      await humanSleep(45, 105);
+    }
+  }
+}
+
+async function insertMultilineNaturally(page, text) {
+  const lines = text.replace(/\r\n/g, '\n').split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.length > 0) {
+      await page.keyboard.sendCharacter(line);
+      await humanSleep(85, 210);
+    }
+    if (i < lines.length - 1) {
+      await page.keyboard.down('Shift');
+      await page.keyboard.press('Enter');
+      await page.keyboard.up('Shift');
+      await humanSleep(55, 130);
+    }
+  }
+}
+
+function normalizeMultiline(s) {
+  return String(s || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\u00a0/g, ' ')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+async function clearAndSetTextbox(page, selector, text, {mode = 'type'} = {}) {
+  await page.waitForSelector(selector, {visible: true, timeout: 60000});
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    await selectAllAndClear(page, selector);
+
+    if (mode === 'paste') {
+      await insertMultilineNaturally(page, text);
+    } else {
+      await typeTextNaturally(page, text);
     }
 
-    // Insert text via execCommand so newlines and emojis stay intact without
-    // triggering hashtag autocomplete popups mid-word
-    await page.evaluate(
-      ({sel, value}) => {
-        const el = document.querySelector(sel);
-        if (!el) return;
-        el.focus();
-        document.execCommand('insertText', false, value);
-        el.dispatchEvent(new Event('input', {bubbles: true}));
-        el.dispatchEvent(new Event('change', {bubbles: true}));
-      },
-      {sel: selector, value: text}
-    );
-
-    // Wait briefly so any late YouTube filename hydration would reveal itself
-    await sleep(700);
+    await humanSleep(850, 1450);
     const actual = await page.evaluate((sel) => {
       const el = document.querySelector(sel);
-      return (el?.innerText ?? el?.textContent ?? '')
-        .replace(/\r\n/g, '\n')
-        .trim();
+      return el?.innerText ?? el?.textContent ?? '';
     }, selector);
 
-    if (actual === text.trim()) {
-      return actual;
+    if (normalizeMultiline(actual) === normalizeMultiline(text)) {
+      return normalizeMultiline(actual);
     }
     console.log(
-      `  Textbox mismatch on attempt ${attempt} (got "${actual.slice(0, 60)}"), retrying...`
+      `  Textbox mismatch on attempt ${attempt} (got "${normalizeMultiline(actual).slice(0, 60)}"), retrying...`
     );
   }
   throw new Error(`Failed to set textbox ${selector} to expected value`);
@@ -456,74 +561,54 @@ async function dismissVideoPickerDialog(page) {
 }
 
 async function readVisiblePickerCards(page) {
-  return page.evaluate(() => {
-    for (const old of document.querySelectorAll('[data-cf-picker-card]')) {
-      old.removeAttribute('data-cf-picker-card');
-    }
-    const dialog =
-      [
-        ...document.querySelectorAll(
-          'ytcp-video-pick-dialog, ytcp-dialog.ytcp-video-pick-dialog'
-        ),
-      ].find((d) => d.getBoundingClientRect().width > 0) ||
-      [...document.querySelectorAll('tp-yt-paper-dialog[opened]')].find(
-        (d) =>
-          d.getBoundingClientRect().width > 0 &&
-          d.querySelector('ytcp-entity-card, input#search-yours')
-      );
-    if (!dialog) return [];
-
-    const entityCards = [...dialog.querySelectorAll('ytcp-entity-card')].filter(
-      (el) => {
+  const handles = await page.$$(
+    'ytcp-video-pick-dialog ytcp-entity-card, ' +
+      'tp-yt-paper-dialog[opened] ytcp-entity-card, ' +
+      'ytcp-video-pick-dialog .entity-card, ' +
+      'ytcp-video-pick-dialog ytcp-video-row'
+  );
+  const cards = [];
+  for (const handle of handles) {
+    const info = await handle
+      .evaluate((el) => {
+        const dlg = el.closest(
+          'ytcp-video-pick-dialog, ytcp-dialog.ytcp-video-pick-dialog, tp-yt-paper-dialog[opened]'
+        );
+        if (!dlg) return null;
+        const dr = dlg.getBoundingClientRect();
         const r = el.getBoundingClientRect();
-        return r.width > 0 && r.height > 0;
-      }
-    );
-    const nodes =
-      entityCards.length > 0
-        ? entityCards
-        : [...dialog.querySelectorAll('.entity-card, ytcp-video-row')].filter(
-            (el) => {
-              const r = el.getBoundingClientRect();
-              return r.width > 0 && r.height > 0;
-            }
-          );
-
-    return nodes.map((el, idx) => {
-      el.setAttribute('data-cf-picker-card', String(idx));
-      const html = el.innerHTML || '';
-      const thumbMatch = html.match(
-        /\/vi(?:_webp)?\/([A-Za-z0-9_-]{11})\/|(?:watch\?v=|shorts\/|\/video\/)([A-Za-z0-9_-]{11})/
-      );
-      const videoId = thumbMatch ? thumbMatch[1] || thumbMatch[2] : null;
-      const titleEl = el.querySelector(
-        '.title, #video-title, .video-title, [id*="title"]'
-      );
-      const rawLines = (el.innerText || '')
-        .split('\n')
-        .map((s) => s.trim())
-        .filter((s) => s && !/^\d+:\d{2}(?::\d{2})?$/.test(s));
-      const title = (titleEl?.textContent || rawLines[0] || '').trim();
-      return {
-        videoId,
-        title,
-        text: (el.innerText || '').trim(),
-      };
-    });
-  });
+        if (dr.width <= 0 || r.width <= 0 || r.height <= 0) return null;
+        const html = el.innerHTML || '';
+        const thumbMatch = html.match(
+          /\/vi(?:_webp)?\/([A-Za-z0-9_-]{11})\/|(?:watch\?v=|shorts\/|\/video\/)([A-Za-z0-9_-]{11})/
+        );
+        const videoId = thumbMatch ? thumbMatch[1] || thumbMatch[2] : null;
+        const titleEl = el.querySelector(
+          '.title, #video-title, .video-title, [id*="title"]'
+        );
+        const rawLines = (el.innerText || '')
+          .split('\n')
+          .map((s) => s.trim())
+          .filter((s) => s && !/^\d+:\d{2}(?::\d{2})?$/.test(s));
+        const title = (titleEl?.textContent || rawLines[0] || '').trim();
+        return {
+          videoId,
+          title,
+          text: (el.innerText || '').trim(),
+        };
+      })
+      .catch(() => null);
+    if (info) {
+      cards.push({...info, handle});
+    }
+  }
+  return cards;
 }
 
-async function clickVisiblePickerCardAt(page, targetIndex) {
-  const chosen = await page.$(`[data-cf-picker-card="${targetIndex}"]`);
+async function clickVisiblePickerCardAt(page, cards, targetIndex) {
+  const chosen = cards[targetIndex]?.handle;
   if (!chosen) return false;
-  const vis = await chosen.evaluate((el) => {
-    const r = el.getBoundingClientRect();
-    return r.width > 0 && r.height > 0;
-  });
-  if (!vis) return false;
-  await chosen.evaluate((el) => el.scrollIntoView({block: 'center'}));
-  await sleep(150);
-  await chosen.click();
+  await humanClickHandle(page, chosen);
   return true;
 }
 
@@ -535,21 +620,14 @@ async function typeIntoPickerSearch(page, text) {
     'ytcp-video-pick-dialog input, ' +
     'tp-yt-paper-dialog[opened] input[placeholder*="video" i], ' +
     'tp-yt-paper-dialog[opened] input[placeholder*="search" i]';
-  const input = await page.$(searchSel);
+  const input = await findFirstVisibleHandle(page, searchSel);
   if (!input) return false;
-  const vis = await input.evaluate((el) => {
-    const r = el.getBoundingClientRect();
-    return r.width > 0 && r.height > 0;
-  });
-  if (!vis) return false;
 
-  await input.click({clickCount: 3});
-  await sleep(80);
-  await page.keyboard.press('Backspace');
-  await sleep(80);
-  await page.keyboard.type(text.slice(0, 50), {delay: 15});
+  await humanClickHandle(page, input);
+  await humanSleep(200, 420);
+  await typeTextNaturally(page, text.slice(0, 50));
   await page.keyboard.press('Enter').catch(() => {});
-  await sleep(1000);
+  await humanSleep(950, 1500);
   return true;
 }
 
@@ -576,7 +654,7 @@ async function selectRelatedVideoInPicker(page, spec, excludeVideoId) {
       {visible: true, timeout: 10000}
     )
     .catch(() => {});
-  await sleep(400);
+  await humanSleep(750, 1350);
 
   let cards = await readVisiblePickerCards(page);
   let bestIdx = pickBestRelatedCardIndex(cards, spec, excludeVideoId);
@@ -589,7 +667,7 @@ async function selectRelatedVideoInPicker(page, spec, excludeVideoId) {
       for (let poll = 0; poll < 6 && bestIdx < 0; poll++) {
         cards = await readVisiblePickerCards(page);
         bestIdx = pickBestRelatedCardIndex(cards, spec, excludeVideoId);
-        if (bestIdx < 0) await sleep(800);
+        if (bestIdx < 0) await humanSleep(750, 1150);
       }
     }
   }
@@ -600,7 +678,7 @@ async function selectRelatedVideoInPicker(page, spec, excludeVideoId) {
   }
 
   const matchedTitle = cards[bestIdx].title || spec.raw;
-  const clicked = await clickVisiblePickerCardAt(page, bestIdx);
+  const clicked = await clickVisiblePickerCardAt(page, cards, bestIdx);
   if (!clicked) {
     await dismissVideoPickerDialog(page);
     return null;
@@ -620,7 +698,7 @@ async function selectRelatedVideoInPicker(page, spec, excludeVideoId) {
       {timeout: 12000}
     )
     .catch(() => {});
-  await sleep(600);
+  await humanSleep(900, 1600);
   return matchedTitle;
 }
 
@@ -629,94 +707,94 @@ async function inspectAndClickRelatedTrigger(page, spec = null) {
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
-  // Tag the matching trigger element cleanly in DOM so Puppeteer can click it
-  // with trusted mouse events
-  const state = await page.evaluate((alreadyQuery) => {
-    for (const old of document.querySelectorAll('[data-cf-related-trigger]')) {
-      old.removeAttribute('data-cf-related-trigger');
-    }
-    const isVisible = (el) => {
-      if (!el) return false;
-      const r = el.getBoundingClientRect();
-      return r.width > 0 && r.height > 0;
-    };
-    const isDisabled = (el) =>
-      Boolean(
-        el.hasAttribute('disabled') ||
-        el.getAttribute('aria-disabled') === 'true' ||
-        el.closest('[disabled], [aria-disabled="true"]')
-      );
 
-    // 1. Dropdown trigger style (Details sidepanel or /video/<id>/edit page)
-    const dropdowns = [
-      ...document.querySelectorAll('ytcp-dropdown-trigger'),
-    ].filter(isVisible);
-    for (const dd of dropdowns) {
-      const fullText = (dd.innerText || '').replace(/\s+/g, ' ').trim();
-      const label = (
-        dd.querySelector('.label-text')?.textContent || fullText
-      ).trim();
-      if (/related video/i.test(label) || /related video/i.test(fullText)) {
-        if (alreadyQuery && fullText.toLowerCase().includes(alreadyQuery)) {
-          return {status: 'already-set'};
+  // 1. Dropdown trigger style (Details sidepanel or /video/<id>/edit page)
+  const dropdowns = await page.$$('ytcp-dropdown-trigger');
+  for (const dd of dropdowns) {
+    const info = await dd
+      .evaluate((el, alreadyQuery) => {
+        const r = el.getBoundingClientRect();
+        if (r.width <= 0 || r.height <= 0) return null;
+        const fullText = (el.innerText || '').replace(/\s+/g, ' ').trim();
+        const label = (
+          el.querySelector('.label-text')?.textContent || fullText
+        ).trim();
+        if (!/related video/i.test(label) && !/related video/i.test(fullText)) {
+          return null;
         }
-        if (isDisabled(dd)) return {status: 'disabled'};
-        dd.scrollIntoView({block: 'center'});
-        dd.setAttribute('data-cf-related-trigger', '1');
-        return {status: 'ready'};
-      }
+        if (alreadyQuery && fullText.toLowerCase().includes(alreadyQuery)) {
+          return 'already-set';
+        }
+        const disabled = Boolean(
+          el.hasAttribute('disabled') ||
+          el.getAttribute('aria-disabled') === 'true' ||
+          el.closest('[disabled], [aria-disabled="true"]')
+        );
+        return disabled ? 'disabled' : 'ready';
+      }, expectedQuery)
+      .catch(() => null);
+    if (info === 'already-set' || info === 'disabled') return info;
+    if (info === 'ready') {
+      await humanClickHandle(page, dd);
+      return 'clicked';
     }
+  }
 
-    // 2. Upload wizard "Video elements" row card ("Add related video" + Add button)
-    const directBtns = [
-      ...document.querySelectorAll(
-        '#related-video-button, [id*="related-video"] ytcp-button, [id*="related-video"] button, ytcp-button[aria-label*="related video" i], button[aria-label*="related video" i]'
-      ),
-    ].filter(isVisible);
-    for (const btn of directBtns) {
-      if (isDisabled(btn)) return {status: 'disabled'};
-      btn.scrollIntoView({block: 'center'});
-      btn.setAttribute('data-cf-related-trigger', '1');
-      return {status: 'ready'};
+  // 2. Upload wizard "Video elements" direct button
+  const directBtns = await page.$$(
+    '#related-video-button, [id*="related-video"] ytcp-button, [id*="related-video"] button, ytcp-button[aria-label*="related video" i], button[aria-label*="related video" i]'
+  );
+  for (const btn of directBtns) {
+    const info = await btn
+      .evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.width <= 0 || r.height <= 0) return null;
+        const disabled = Boolean(
+          el.hasAttribute('disabled') ||
+          el.getAttribute('aria-disabled') === 'true' ||
+          el.closest('[disabled], [aria-disabled="true"]')
+        );
+        return disabled ? 'disabled' : 'ready';
+      })
+      .catch(() => null);
+    if (info === 'disabled') return 'disabled';
+    if (info === 'ready') {
+      await humanClickHandle(page, btn);
+      return 'clicked';
     }
+  }
 
-    const containers = [
-      ...document.querySelectorAll(
-        'ytcp-uploads-video-elements .ytcp-uploads-video-elements, ' +
-          'ytcp-uploads-video-elements ytcp-video-elements-dialog-row, ' +
-          'ytcp-uploads-video-elements div, ' +
-          'ytcp-video-elements div'
-      ),
-    ].filter((el) => {
-      if (!isVisible(el)) return false;
-      const txt = (el.innerText || '').trim();
-      return /add related video|related video/i.test(txt) && txt.length < 320;
-    });
-    // Sort smallest container first so we grab the exact row rather than the whole step
-    containers.sort(
-      (a, b) => (a.innerText || '').length - (b.innerText || '').length
-    );
-    for (const row of containers) {
-      const btns = [
-        ...row.querySelectorAll('ytcp-button, button, [role="button"]'),
-      ].filter(isVisible);
-      if (btns.length === 0) continue;
-      const enabledBtn = btns.find((b) => !isDisabled(b));
-      if (!enabledBtn) return {status: 'disabled'};
-      enabledBtn.scrollIntoView({block: 'center'});
-      enabledBtn.setAttribute('data-cf-related-trigger', '1');
-      return {status: 'ready'};
+  // 3. Fallback row scan inside Video elements step
+  const rowBtns = await page.$$(
+    'ytcp-uploads-video-elements ytcp-button, ytcp-uploads-video-elements button, ytcp-video-elements ytcp-button, ytcp-video-elements button'
+  );
+  for (const btn of rowBtns) {
+    const info = await btn
+      .evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.width <= 0 || r.height <= 0) return null;
+        let row = el.parentElement;
+        while (row && (row.innerText || '').length < 18) {
+          row = row.parentElement;
+        }
+        const txt = (row?.innerText || '').trim();
+        if (!/related video/i.test(txt) || txt.length >= 360) return null;
+        const disabled = Boolean(
+          el.hasAttribute('disabled') ||
+          el.getAttribute('aria-disabled') === 'true' ||
+          el.closest('[disabled], [aria-disabled="true"]')
+        );
+        return disabled ? 'disabled' : 'ready';
+      })
+      .catch(() => null);
+    if (info === 'disabled') return 'disabled';
+    if (info === 'ready') {
+      await humanClickHandle(page, btn);
+      return 'clicked';
     }
+  }
 
-    return {status: 'missing'};
-  }, expectedQuery);
-
-  if (state.status !== 'ready') return state.status;
-  const handle = await page.$('[data-cf-related-trigger="1"]');
-  if (!handle) return 'missing';
-  await sleep(150);
-  await handle.click();
-  return 'clicked';
+  return 'missing';
 }
 
 async function tryAttachRelatedVideoInWizard(page, spec, excludeVideoId) {
@@ -826,26 +904,6 @@ async function attachRelatedVideoOnEditPage(page, shortId, spec) {
   } finally {
     page.off('dialog', onDialog);
   }
-}
-
-async function findFirstVisibleHandle(root, selector) {
-  const handles = await root.$$(selector);
-  for (const handle of handles) {
-    const visible = await handle
-      .evaluate((el) => {
-        const rect = el.getBoundingClientRect();
-        const style = window.getComputedStyle(el);
-        return (
-          rect.width > 0 &&
-          rect.height > 0 &&
-          style.visibility !== 'hidden' &&
-          style.display !== 'none'
-        );
-      })
-      .catch(() => false);
-    if (visible) return handle;
-  }
-  return null;
 }
 
 async function postAndPinYouTubeComment(page, shortId, commentText) {
@@ -1167,6 +1225,42 @@ async function postAndPinYouTubeComment(page, shortId, commentText) {
   }
 }
 
+async function waitForUploadAndChecks(page) {
+  console.log('  Waiting naturally for YouTube upload & Checks to finish...');
+  await humanSleep(3200, 5200);
+  const started = Date.now();
+  while (Date.now() - started < 28000) {
+    const status = await page
+      .evaluate(() => {
+        const dlg = document.querySelector('ytcp-uploads-dialog');
+        if (!dlg) return {done: true, summary: 'dialog closed'};
+        const txt = (dlg.innerText || '').replace(/\s+/g, ' ');
+        const uploading = /uploading\s+\d+%/i.test(txt);
+        const checking =
+          /checking\s+\d+%|checks running|still checking|processing\s+up\s+to\s+hd.*\d+\s*(seconds?|minutes?)\s+left/i.test(
+            txt
+          );
+        const checksComplete = /checks complete|no issues found/i.test(txt);
+        return {
+          done: !uploading && (checksComplete || !checking),
+          uploading,
+          checking,
+          checksComplete,
+        };
+      })
+      .catch(() => ({done: false}));
+    if (status.done) {
+      if (status.checksComplete) {
+        console.log('  YouTube Checks completed cleanly.');
+      }
+      await humanSleep(1200, 2200);
+      return;
+    }
+    await humanSleep(2200, 3400);
+  }
+  console.log('  Proceeding to Visibility after waiting on Checks...');
+}
+
 async function uploadToYouTube(
   browser,
   mp4Path,
@@ -1196,7 +1290,9 @@ async function uploadToYouTube(
       () => location.hostname === 'studio.youtube.com',
       {timeout: 300000}
     );
-    await sleep(3000);
+    await humanSleep(2800, 4200);
+  } else {
+    await humanSleep(1800, 3200);
   }
 
   // Click "Create" -> "Upload videos" if input[type=file] isn't already on page
@@ -1204,23 +1300,23 @@ async function uploadToYouTube(
   if (!fileInput) {
     const createBtnSel =
       'button[aria-label="Create"], button[aria-label="Upload videos"], #upload-icon';
-    const createBtn = await page.waitForSelector(createBtnSel, {
-      visible: true,
-      timeout: 30000,
-    });
-    await createBtn.click();
-    await sleep(800);
+    await humanClickSelector(page, createBtnSel, 30000);
+    await humanSleep(700, 1300);
 
-    const uploadItem = await page.$('tp-yt-paper-item#text-item-0');
+    const uploadItem = await findFirstVisibleHandle(
+      page,
+      'tp-yt-paper-item#text-item-0'
+    );
     if (uploadItem) {
-      await uploadItem.click();
-      await sleep(800);
+      await humanClickHandle(page, uploadItem);
+      await humanSleep(850, 1500);
     }
     fileInput = await page.waitForSelector('input[type="file"]', {
       timeout: 60000,
     });
   }
 
+  await humanSleep(600, 1200);
   console.log(`  Selecting file: ${path.basename(mp4Path)}`);
   await fileInput.uploadFile(mp4Path);
 
@@ -1241,14 +1337,18 @@ async function uploadToYouTube(
       titleSel
     )
     .catch(() => {});
-  await sleep(800);
+  await humanSleep(1500, 2600);
 
-  console.log('  Filling YouTube Title and Description...');
-  const verifiedTitle = await clearAndSetTextbox(page, titleSel, meta.title);
+  console.log('  Typing YouTube Title naturally...');
+  const verifiedTitle = await clearAndSetTextbox(page, titleSel, meta.title, {
+    mode: 'type',
+  });
   console.log(`  Verified YouTube Title: ${verifiedTitle}`);
-  await sleep(300);
-  await clearAndSetTextbox(page, descSel, meta.description);
-  await sleep(300);
+  await humanSleep(900, 1700);
+
+  console.log('  Pasting YouTube Description...');
+  await clearAndSetTextbox(page, descSel, meta.description, {mode: 'paste'});
+  await humanSleep(1200, 2200);
 
   // Re-verify Title right after Description in case focus change triggered hydration
   const titleCheck = await page.evaluate(
@@ -1256,25 +1356,25 @@ async function uploadToYouTube(
     titleSel
   );
   if (titleCheck !== meta.title.trim()) {
-    await clearAndSetTextbox(page, titleSel, meta.title);
+    await clearAndSetTextbox(page, titleSel, meta.title, {mode: 'type'});
   }
 
-  // Select "No, it's not made for kids"
+  // Scroll down the Details pane naturally and select "No, it's not made for kids"
+  await page.mouse.wheel({deltaY: randBetween(240, 380)}).catch(() => {});
+  await humanSleep(750, 1400);
   const notForKidsSel =
     'tp-yt-paper-radio-button[name="VIDEO_MADE_FOR_KIDS_NOT_MFK"]';
-  await page.waitForSelector(notForKidsSel, {timeout: 30000});
-  await page.click(notForKidsSel);
-  await sleep(500);
+  await humanClickSelector(page, notForKidsSel, 30000);
+  await humanSleep(1100, 1900);
 
   let shortId = await readUploadedShortId(page);
   let relatedAttached = false;
 
   // Click Next 3 times (Details -> Video elements -> Checks -> Visibility),
-  // attaching the Related video on Step 2 (Video elements) when enabled
+  // attaching Related video on Step 2 and waiting on Step 3 until Checks finish
   for (let step = 0; step < 3; step++) {
-    await page.waitForSelector('#next-button', {visible: true, timeout: 30000});
-    await page.click('#next-button');
-    await sleep(900);
+    await humanClickSelector(page, '#next-button', 30000);
+    await humanSleep(1500, 2600);
 
     if (step === 0) {
       shortId = shortId || (await readUploadedShortId(page));
@@ -1284,35 +1384,32 @@ async function uploadToYouTube(
           relatedSpec,
           shortId
         );
+        await humanSleep(900, 1600);
       }
+    } else if (step === 1) {
+      await waitForUploadAndChecks(page);
     }
   }
 
   // Select visibility radio button
   const visName = opts.visibility.toUpperCase(); // PUBLIC, UNLISTED, PRIVATE
   const visSel = `tp-yt-paper-radio-button[name="${visName}"]`;
-  await page.waitForSelector(visSel, {visible: true, timeout: 30000});
-  await page.click(visSel);
-  await sleep(600);
+  await humanClickSelector(page, visSel, 30000);
+  await humanSleep(1400, 2400);
 
   shortId = shortId || (await readUploadedShortId(page));
 
   if (opts.publish) {
     console.log('  Clicking Publish on YouTube...');
-    await page.waitForSelector('#done-button:not([disabled])', {
-      visible: true,
-      timeout: 120000,
-    });
-    await page.click('#done-button');
+    await humanClickSelector(page, '#done-button:not([disabled])', 120000);
 
-    // Poll for up to 90s: if YouTube prompts "We're still checking your video"
-    // with a "Publish anyway" confirmation button, click it; then wait until
-    // the post-publish share/processing dialog confirms the video is published
+    // Poll for up to 90s: if YouTube still prompts "Publish anyway", click it;
+    // then wait until the post-publish share dialog confirms publication
     const publishStart = Date.now();
     let clickedPublishAnyway = false;
     let publishedUrl = null;
     while (Date.now() - publishStart < 90000) {
-      await sleep(800);
+      await humanSleep(900, 1400);
 
       if (!clickedPublishAnyway) {
         const dialogButtons = await page.$$(
@@ -1338,9 +1435,10 @@ async function uploadToYouTube(
               /publish anyway/i.test(info.aria))
           ) {
             console.log('  Confirming "Publish anyway" dialog on YouTube...');
-            await btn.click();
+            await humanSleep(900, 1600);
+            await humanClickHandle(page, btn);
             clickedPublishAnyway = true;
-            await sleep(1500);
+            await humanSleep(1600, 2400);
             break;
           }
         }
@@ -1366,6 +1464,7 @@ async function uploadToYouTube(
       });
       if (shareState) {
         publishedUrl = shareState.href;
+        await humanSleep(2200, 3600);
         const closeBtns = await page.$$(
           'ytcp-video-share-dialog #close-button, ytcp-uploads-still-processing-dialog #close-button'
         );
@@ -1374,11 +1473,11 @@ async function uploadToYouTube(
             (el) => el.getBoundingClientRect().width > 0
           );
           if (vis) {
-            await closeBtn.click().catch(() => {});
+            await humanClickHandle(page, closeBtn).catch(() => {});
             break;
           }
         }
-        await sleep(2500);
+        await humanSleep(1800, 2800);
         break;
       }
     }
@@ -1614,10 +1713,15 @@ async function main() {
     }
   } catch (err) {
     console.error('\nUpload script encountered an error:', err.message);
-    console.error(
-      'Leaving Chrome open so you can finish or inspect the page state.'
-    );
-    await new Promise((resolve) => browser.on('disconnected', resolve));
+    if (!opts.publish) {
+      console.error(
+        'Leaving Chrome open so you can finish or inspect the page state.'
+      );
+      await new Promise((resolve) => browser.on('disconnected', resolve));
+    } else {
+      await browser.close().catch(() => {});
+      process.exit(1);
+    }
   }
 }
 

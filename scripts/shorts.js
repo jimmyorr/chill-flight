@@ -2605,6 +2605,117 @@ async function renderDollySkimCutShort(browser, seed = 20261123) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Prototype 15: 4-Plane Evolution Front-Hero Match-Cut (Seed 20261125)
+// ---------------------------------------------------------------------------
+async function renderEvolutionCutShort(browser, seed = 20261125) {
+  const speedMult = 1.24;
+  await renderMatchCutClip(browser, {
+    id: 'evolution-cut',
+    banner: `4-Plane Evolution Front-Hero Cut (Seed ${seed})`,
+    seed,
+    speedMult,
+    direct: true,
+    camFrame: 'yaw-lock',
+    cam:
+      `plane=biplane&livery=coral&smoke=1&speed=${speedMult}` +
+      '&camOffset=-20,9,-62&camLook=4,3,22&fov=58',
+    camMoves: [
+      [0.0, -20, 9, -62, 4, 3, 22, 58],
+      [3.0, -14, 10, -62, 3, 3, 22, 58],
+      [6.0, 20, 9, -62, -4, 3, 22, 58],
+      [9.0, 14, 10, -62, -3, 3, 22, 58],
+      [12.0, -20, 9, -62, 4, 3, 22, 58],
+    ],
+    moves: [
+      [0.0, 0, 0, 0],
+      [1.2, 22, 2, -4],
+      [2.3, -14, -2, -8],
+      [3.0, -54, 2, -8],
+      [4.5, -245, -2, -10],
+      [5.6, -360, 1, -12],
+      [6.3, -384, 2, -14],
+      [7.6, -334, -2, -12],
+      [8.6, -372, 2, -14],
+      [9.3, -348, -1, -14],
+      [10.5, -366, 0, -14],
+      [11.4, -360, 0, -14],
+      [12.0, -360, 0, -14],
+    ],
+    segments: [
+      {
+        label: 'Twin Falls · 0.9°N, 0.0°E',
+        plane: 'biplane',
+        livery: 'coral',
+        tx: 60,
+        ty: 265,
+        tz: -3750,
+        heading: 174,
+        hitFrame: 45,
+        extra: 'tod=0.285&weather=none&cloudMood=fair',
+        startFrame: 0,
+        endFrame: 90,
+      },
+      {
+        label: 'Red-Rock Canyon · 4.6°S, 0.6°E',
+        plane: 'seaplane',
+        livery: 'teal',
+        tx: 2976,
+        ty: 315,
+        tz: 23139,
+        heading: 165,
+        hitFrame: 120,
+        extra: 'tod=0.49&weather=none&cloudMood=fair',
+        startFrame: 90,
+        endFrame: 180,
+      },
+      {
+        label: 'Great Pyramids · 5.3°S, 2.0°W',
+        plane: 'twin',
+        livery: 'sand',
+        tx: -10280,
+        ty: 385,
+        tz: 25600,
+        heading: 14,
+        hitFrame: 215,
+        extra: 'tod=0.695&weather=none&cloudMood=mackerel',
+        startFrame: 180,
+        endFrame: 270,
+      },
+      {
+        label: 'Arctic Sea Arch · 3.0°N, 9.9°E',
+        plane: 'jet',
+        livery: 'black',
+        landmark: {
+          kind: 'arch',
+          archType: 'sea',
+          index: 1,
+          direction: -1,
+          heightFrac: 0.78,
+        },
+        hitFrame: 215,
+        extra: 'tod=0.755&weather=snow&headlight=1&cloudMood=high',
+        startFrame: 270,
+        endFrame: 360,
+      },
+    ],
+    outBaseName: `short-${seed}-evolution-cut`,
+    trackSlug: 'purrple-cat-transformation',
+    musicStart: 18,
+    meta: {
+      title: '4 planes, 1 seamless roll ✈️',
+      tiktokQuestion: 'Biplane, seaplane, twin-prop, or jet?',
+      stops: [
+        '0:00 Twin Falls (0.9°N, 0.0°E)',
+        '0:03 Red-Rock Canyon (4.6°S, 0.6°E)',
+        '0:06 Great Pyramids (5.3°S, 2.0°W)',
+        '0:09 Arctic Sea Arch (3.0°N, 9.9°E)',
+      ],
+      trackTitle: 'Transformation',
+    },
+  });
+}
+
 async function main() {
   const cliArgs = process.argv.slice(2).filter((a) => !a.startsWith('--'));
   const isCheck = CHECK_ONLY || cliArgs[0] === 'check';
@@ -2767,6 +2878,17 @@ async function main() {
       ],
       trackTitle: 'Moving Landscapes',
     });
+    writeShortMetadata(path.join(OUT, 'short-20261125-evolution-cut.mp4'), {
+      title: '4 planes, 1 seamless roll ✈️',
+      tiktokQuestion: 'Biplane, seaplane, twin-prop, or jet?',
+      stops: [
+        '0:00 Twin Falls (0.9°N, 0.0°E)',
+        '0:03 Red-Rock Canyon (4.6°S, 0.6°E)',
+        '0:06 Great Pyramids (5.3°S, 2.0°W)',
+        '0:09 Arctic Sea Arch (3.0°N, 9.9°E)',
+      ],
+      trackTitle: 'Transformation',
+    });
     return;
   }
   const browser = isCheck
@@ -2816,6 +2938,9 @@ async function main() {
     }
     if (!filter || filter === 'dolly-cut') {
       await renderDollySkimCutShort(browser, 20261123);
+    }
+    if (!filter || filter === 'evolution-cut') {
+      await renderEvolutionCutShort(browser, 20261125);
     }
     if (!filter || filter === 'daily-postcard') {
       await renderDailyPostcardShort(browser, 20261108);

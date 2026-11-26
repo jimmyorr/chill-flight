@@ -184,9 +184,9 @@ ffmpeg -y -loglevel error -i promo/shorts/<outBaseName>.mp4 \
   -fps_mode passthrough -frames:v 1 -update 1 -q:v 3 promo/shorts/strip-verify-cuts.jpg
 ```
 
-### Step 4: Metadata hooks & publishing to YouTube Shorts
+### Step 4: Automatic publishing to YouTube Shorts
 
-Use [scripts/post-short.js](../../../scripts/post-short.js) to upload, verify the exact read-back YouTube Title, attach the **Related video** link, confirm any `"Publish anyway"` dialog, publish to YouTube Shorts, and automatically post and pin the first comment:
+Once Step 3 visual verification passes, **automatically proceed straight to publishing** without pausing to ask the user for a second confirmation (unless the user explicitly asked to render without uploading). Use [scripts/post-short.js](../../../scripts/post-short.js) to upload with human-paced Studio interactions, verify the exact read-back YouTube Title, attach the **Related video** link, wait on **Checks**, and publish to YouTube Shorts (skipping automated self-comments by default so YouTube does not flag instant external-URL comments or `0s` self-views):
 
 ```bash
 node scripts/post-short.js promo/shorts/<outBaseName>.mp4
@@ -194,4 +194,4 @@ node scripts/post-short.js promo/shorts/<outBaseName>.mp4
 
 - **Short, punchy YouTube titles (`<= 48` chars, no URL suffix)**: Mobile YouTube Shorts truncates titles around ~`45-50` characters in the feed, and `chillflight.app` is already baked into `#short-postcard-badge` on-screen. `writeShortMetadata` does **not** append `(Play free: chillflight.app)` to `Title:`; keep `meta.title` crisp (`<= 48` chars) so the hook never cuts off mid-word.
 - **Always attach a "Related video" link (with clickable links on lines 1-2)**: YouTube Short descriptions and comments don't render clickable URLs, whereas the **Related video** field places a clickable pill right above the Short's title. Make sure any long-form video used as a Related bridge (such as `"9 months of building Chill Flight"` from [scripts/evolution.js](../../../scripts/evolution.js) or the official trailer) puts clickable `https://chillflight.app` and iOS App Store links on **lines 1 and 2** of its description so mobile viewers see them immediately without tapping `...more`. `writeShortMetadata` writes `Related video: 9 months of building Chill Flight` by default (`--related=<title|url|id|none>` overrides per upload).
-- **Auto-post and pin a visual-hook / question comment**: Always pass an engaging visual hook or question (`question` / `tiktokQuestion`, e.g., `"Spot the dragon skeleton?"` or `"Which biome should I add next?"`) or custom `pinnedComment` to `writeShortMetadata`. `writeShortMetadata` writes `Pinned comment:` combining the hook with `chillflight.app` + `"Chill Flight"` on the iOS App Store, and [scripts/post-short.js](../../../scripts/post-short.js) automatically opens the published Short, posts that first comment, and pins it (override with `--comment="<text>"` or skip with `--no-comment`).
+- **Skip automated self-comments by default**: `writeShortMetadata` still writes a ready-to-paste `Pinned comment:` in the `.txt` sidecar, while [scripts/post-short.js](../../../scripts/post-short.js) defaults to `--no-comment` so uploads never navigate to `/shorts/<id>` at `0s` or post automated external-domain comments (`--pin-comment` or `--comment="<text>"` opts in explicitly).
