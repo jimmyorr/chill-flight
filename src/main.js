@@ -82,6 +82,7 @@ import '../crash-logic.js';
 import '../crystal-rush.js';
 import '../flight-physics-logic.js';
 import '../cloud-deck.js';
+import '../cloud-shadow.js';
 import '../follow-logic.js';
 import '../flight-physics.js';
 import '../particles.js';

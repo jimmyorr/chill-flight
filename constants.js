@@ -621,6 +621,63 @@ vec4 cloudsAlong(vec3 p, vec3 dir, float cloudHeight, float density, float time,
 }
 `;
 
+// Cloud shadows. Every lit surface (terrain, water, the far
+// terrain ring, and props through createMaterial) reads these; cloud-shadow.js
+// sets them each frame.
+export const atmosphereUniforms = {
+  // The cumulus cover over a square of the cloud deck around the camera
+  // (cloud-shadow.js), 0 clear to 1 solid cloud
+  uCloudShadowTex: {value: null},
+  // xy: the square's centre in cloud-plane units (world xz / deck height),
+  // z: 1 / its width in the same units
+  uCloudShadowRect: {value: new THREE.Vector3(0, 0, 1)},
+  // How much of the direct sunlight a cloud blocks (0 turns shadows off)
+  uCloudShadow: {value: 0},
+  // The cumulus deck's height
+  uShadowDeck: {value: 3000},
+};
+export function addAtmosphereUniforms(shader) {
+  Object.assign(shader.uniforms, atmosphereUniforms);
+}
+
+// GLSL: cloudShadowAt(p), the share of direct sunlight that gets through the
+// cumulus deck to world point p: follow the ray toward the sun up to the
+// deck and read the cover there, so each shadow sits under its own cloud as
+// the sky draws it and drifts with it. Needs uSunDirection.
+export const CLOUD_SHADOW_GLSL = `
+uniform sampler2D uCloudShadowTex;
+uniform vec3 uCloudShadowRect;
+uniform float uCloudShadow;
+uniform float uShadowDeck;
+float cloudShadowAt(vec3 p) {
+  if (uCloudShadow <= 0.0) return 1.0;
+  float dist = uShadowDeck - p.y;
+  if (dist <= 0.0) return 1.0;
+  vec2 deckUV = (p.xz + uSunDirection.xz * (dist / max(uSunDirection.y, 0.05))) / uShadowDeck;
+  vec2 t = (deckUV - uCloudShadowRect.xy) * uCloudShadowRect.z + 0.5;
+  // Fades out toward the edge of the map
+  vec2 e = min(t, 1.0 - t);
+  float inMap = smoothstep(0.0, 0.08, min(e.x, e.y));
+  return 1.0 - texture2D(uCloudShadowTex, t).r * uCloudShadow * inMap;
+}
+`;
+
+// A lights_fragment_begin chunk (three.js's own by default) with each
+// directional light (the sun, and the moon at night) dimmed by the cloud
+// over the point `pos`
+export function withCloudShade(
+  chunk = THREE.ShaderChunk.lights_fragment_begin,
+  pos = 'vWorldPosition'
+) {
+  return (
+    `float cloudShade = cloudShadowAt(${pos});\n` +
+    chunk.replace(
+      'getDirectionalLightInfo( directionalLight, directLight );',
+      'getDirectionalLightInfo( directionalLight, directLight );\n\t\tdirectLight.color *= cloudShade;'
+    )
+  );
+}
+
 export const terrainUniforms = {
   uCameraPosXZ: {value: new THREE.Vector2(0, 0)},
   uRenderRadius: {value: state.RENDER_DISTANCE * CHUNK_SIZE},
@@ -683,6 +740,7 @@ export function createMaterial(params) {
 
   // Inject universal directional fog into all generated materials
   mat.onBeforeCompile = (shader) => {
+    addAtmosphereUniforms(shader);
     shader.uniforms.uCameraPosXZ = terrainUniforms.uCameraPosXZ;
     shader.uniforms.uRenderRadius = terrainUniforms.uRenderRadius;
     shader.uniforms.uNearEdgeFade = terrainUniforms.uNearEdgeFade;
@@ -721,7 +779,12 @@ export function createMaterial(params) {
       varying vec3 vWorldPosition;
     ` +
       SKY_COLOR_GLSL +
+      CLOUD_SHADOW_GLSL +
       shader.fragmentShader;
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <lights_fragment_begin>',
+      withCloudShade()
+    );
 
     if (foliage) {
       // A 3D noise splits each canopy into lit clumps with lavender gaps.

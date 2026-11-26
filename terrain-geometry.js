@@ -75,6 +75,9 @@ import {
   addRoadSurface,
   createMaterial,
   terrainUniforms,
+  CLOUD_SHADOW_GLSL,
+  addAtmosphereUniforms,
+  withCloudShade,
 } from './constants.js';
 import {scene} from './scene.js';
 import {skyUniforms} from './sky-uniforms.js';
@@ -275,6 +278,7 @@ terrainMaterial.onBeforeCompile = (shader) => {
   shader.uniforms.uTopColor = terrainUniforms.uTopColor;
   shader.uniforms.uBottomColor = terrainUniforms.uBottomColor;
   shader.uniforms.uSnowExposure = terrainUniforms.uSnowExposure;
+  addAtmosphereUniforms(shader);
 
   shader.vertexShader =
     `
@@ -338,6 +342,7 @@ terrainMaterial.onBeforeCompile = (shader) => {
   ` +
     SKY_COLOR_GLSL +
     FOG_SKY_FRAGMENT_GLSL +
+    CLOUD_SHADOW_GLSL +
     shader.fragmentShader;
 
   // The sea floor under shallow see-through water shows the sun's shadows
@@ -347,9 +352,12 @@ terrainMaterial.onBeforeCompile = (shader) => {
   // (the water's own copy stays)
   shader.fragmentShader = shader.fragmentShader.replace(
     '#include <lights_fragment_begin>',
-    THREE.ShaderChunk.lights_fragment_begin.replace(
-      'directLight.color *= ( directLight.visible && receiveShadow ) ? getShadow( directionalShadowMap[ i ], directionalLightShadow.shadowMapSize, directionalLightShadow.shadowIntensity, directionalLightShadow.shadowBias, directionalLightShadow.shadowRadius, vDirectionalShadowCoord[ i ] ) : 1.0;',
-      `directLight.color *= ( directLight.visible && receiveShadow ) ? mix( 1.0, getShadow( directionalShadowMap[ i ], directionalLightShadow.shadowMapSize, directionalLightShadow.shadowIntensity, directionalLightShadow.shadowBias, directionalLightShadow.shadowRadius, vDirectionalShadowCoord[ i ] ), 1.0 - smoothstep( 0.3, 2.5, ${WATER_LEVEL.toFixed(1)} - vWorldPosition.y ) ) : 1.0;`
+    // (and clouds shade the ground from the sun)
+    withCloudShade(
+      THREE.ShaderChunk.lights_fragment_begin.replace(
+        'directLight.color *= ( directLight.visible && receiveShadow ) ? getShadow( directionalShadowMap[ i ], directionalLightShadow.shadowMapSize, directionalLightShadow.shadowIntensity, directionalLightShadow.shadowBias, directionalLightShadow.shadowRadius, vDirectionalShadowCoord[ i ] ) : 1.0;',
+        `directLight.color *= ( directLight.visible && receiveShadow ) ? mix( 1.0, getShadow( directionalShadowMap[ i ], directionalLightShadow.shadowMapSize, directionalLightShadow.shadowIntensity, directionalLightShadow.shadowBias, directionalLightShadow.shadowRadius, vDirectionalShadowCoord[ i ] ), 1.0 - smoothstep( 0.3, 2.5, ${WATER_LEVEL.toFixed(1)} - vWorldPosition.y ) ) : 1.0;`
+      )
     )
   );
 
@@ -571,7 +579,6 @@ terrainMaterial.onBeforeCompile = (shader) => {
        float xzFogFactor = smoothstep(0.9, 0.99, distRatio) * uNearEdgeFade;
        
        float finalFogFactor = max(fogFactor, xzFogFactor);
-       
        gl_FragColor.rgb = mix(gl_FragColor.rgb, fogSkyColor, finalFogFactor);
      #endif
     `
@@ -638,6 +645,7 @@ waterMaterial.onBeforeCompile = function (shader) {
   shader.uniforms.uSunColor = waterUniforms.uSunColor;
   shader.uniforms.uTopColor = terrainUniforms.uTopColor;
   shader.uniforms.uBottomColor = terrainUniforms.uBottomColor;
+  addAtmosphereUniforms(shader);
 
   // Add time uniform declaration to the top of the vertex shader
   shader.vertexShader =
@@ -741,6 +749,7 @@ waterMaterial.onBeforeCompile = function (shader) {
     FAR_SEA_GLSL +
     FOG_SKY_FRAGMENT_GLSL +
     CLOUD_GLSL +
+    CLOUD_SHADOW_GLSL +
     `
         // Glints: finer, faster ripples that break the sun's path into
         // bright sparkles near the camera
@@ -952,7 +961,10 @@ waterMaterial.onBeforeCompile = function (shader) {
         // Low sun: the path glows gold rather than white.
         float lowSun = (1.0 - smoothstep(0.04, 0.35, uSpecularDir.y)) * uGlitterWarm;
         vec3 glitterColor = uSunColor * mix(vec3(1.0), vec3(1.0, 0.72, 0.38), lowSun);
-        gl_FragColor.rgb += glitterColor * min(glitter, 3.0);
+        // Under a cloud the water is duller and the sun's path goes out
+        float waterCloudShade = cloudShadowAt(vWorldPosition);
+        gl_FragColor.rgb *= mix(1.0, waterCloudShade, 0.6);
+        gl_FragColor.rgb += glitterColor * min(glitter, 3.0) * waterCloudShade * waterCloudShade;
 
         // Whitecaps (after NeuralSpecOcean's offshore foam): when the
         // weather whips the sea up, small patches of foam break on the
@@ -1073,7 +1085,6 @@ waterMaterial.onBeforeCompile = function (shader) {
        float xzFogFactor = smoothstep(0.9, 0.99, distRatio) * uNearEdgeFade;
        
        float finalFogFactor = max(fogFactor, xzFogFactor);
-       
        gl_FragColor.rgb = mix(gl_FragColor.rgb, fogSkyColor, finalFogFactor);
      #endif
     `

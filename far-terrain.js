@@ -24,6 +24,9 @@ import {
   SKY_COLOR_GLSL,
   WATER_LEVEL,
   terrainUniforms,
+  CLOUD_SHADOW_GLSL,
+  addAtmosphereUniforms,
+  withCloudShade,
 } from './constants.js';
 import {terrainWorkerManager} from './terrain-worker-manager.js';
 import {scene} from './scene.js';
@@ -58,6 +61,7 @@ farMaterial.onBeforeCompile = (shader) => {
   shader.uniforms.uBottomColor = terrainUniforms.uBottomColor;
   shader.uniforms.uFarRadius = farUniforms.uFarRadius;
   shader.uniforms.uFarWaterY = farUniforms.uFarWaterY;
+  addAtmosphereUniforms(shader);
 
   shader.vertexShader =
     `
@@ -106,7 +110,12 @@ farMaterial.onBeforeCompile = (shader) => {
     SKY_COLOR_GLSL +
     FAR_SEA_GLSL +
     FOG_SKY_FRAGMENT_GLSL +
+    CLOUD_SHADOW_GLSL +
     shader.fragmentShader;
+  shader.fragmentShader = shader.fragmentShader.replace(
+    '#include <lights_fragment_begin>',
+    withCloudShade(undefined, 'vFarWorldPos')
+  );
 
   shader.fragmentShader = shader.fragmentShader.replace(
     `#include <fog_fragment>`,

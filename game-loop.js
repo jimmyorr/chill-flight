@@ -175,6 +175,7 @@ import {ART_CLOUDS} from './art-style.js';
 import {updateAirportLights, updateWindsocks} from './airports.js';
 import {updateTowerSlices} from './sky-uniforms.js';
 import {updateCloudDeck, updateCloudVeil} from './cloud-deck.js';
+import {updateCloudShadows} from './cloud-shadow.js';
 import {simplex} from './noise.js';
 import {globalInstancer, processChunkQueue} from './terrain-chunks.js';
 import {FAR_RADIUS, updateFarTerrain} from './far-terrain.js';
@@ -2712,6 +2713,7 @@ function updateEnvironmentLighting(delta, now) {
   const _camWorld = getCameraWorldPosition();
   skyUniforms.uCameraPos.value.copy(_camWorld);
   updateCloudDeck(_camWorld);
+  updateCloudShadows(_camWorld);
   updateCloudVeil(scene.fog.color, _camWorld);
   // The anime towers stand on the far edge of the land and sea
   if (ART_CLOUDS) {
