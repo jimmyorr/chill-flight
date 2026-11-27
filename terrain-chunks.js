@@ -113,6 +113,12 @@ import {
   getInstancedMesh,
   penguinGeo,
   penguinMat,
+  farHouseBodyGeo,
+  farHouseRoofGeo,
+  farHouseWindowGeo,
+  farTwoStoryBodyGeo,
+  farTwoStoryRoofGeo,
+  houseAdobeBodyGeo,
   houseBodyGeo,
   houseChimneyGeo,
   houseChimneyMat,
@@ -120,6 +126,7 @@ import {
   houseDoorMat,
   houseRoofGeo,
   houseTintMat,
+  houseVertexTintMat,
   houseWindowGeo,
   houseWindowMat,
   iceFloeMainGeo,
@@ -207,6 +214,7 @@ import {
   treeTrunkGeo,
   treeTrunkMat,
   twistedDeadOakGeo,
+  twoStoryAdobeBodyGeo,
   twoStoryBodyGeo,
   twoStoryChimneyGeo,
   twoStoryRoofGeo,
@@ -1543,20 +1551,27 @@ globalInstancer.registerType(
 );
 globalInstancer.registerType('bush', bushGeo, bushBaseMat, 30000, true);
 
-// Houses: walls and roofs in one white material tinted per house, so a
-// village costs the same few draw calls as one house. Doors and windows are
-// too thin to cast a visible shadow.
+// Houses: walls and roofs in one white vertex-colored material tinted per
+// house, so a village costs the same few draw calls as one house. Doors and
+// windows are too thin to cast a visible shadow.
 globalInstancer.registerType(
   'houseBody',
   houseBodyGeo,
-  houseTintMat,
+  houseVertexTintMat,
+  30000,
+  true
+);
+globalInstancer.registerType(
+  'houseAdobeBody',
+  houseAdobeBodyGeo,
+  houseVertexTintMat,
   30000,
   true
 );
 globalInstancer.registerType(
   'houseRoof',
   houseRoofGeo,
-  houseTintMat,
+  houseVertexTintMat,
   30000,
   true
 );
@@ -1564,14 +1579,21 @@ globalInstancer.registerType('houseChimney', houseChimneyGeo, houseChimneyMat);
 globalInstancer.registerType(
   'twoStoryBody',
   twoStoryBodyGeo,
-  houseTintMat,
+  houseVertexTintMat,
+  30000,
+  true
+);
+globalInstancer.registerType(
+  'twoStoryAdobeBody',
+  twoStoryAdobeBodyGeo,
+  houseVertexTintMat,
   30000,
   true
 );
 globalInstancer.registerType(
   'twoStoryRoof',
   twoStoryRoofGeo,
-  houseTintMat,
+  houseVertexTintMat,
   30000,
   true
 );
@@ -1656,8 +1678,10 @@ function shareFarProxy(type, geo, proxy, opts = {}) {
 }
 for (const [type, geo] of [
   ['houseBody', houseBodyGeo],
+  ['houseAdobeBody', houseAdobeBodyGeo],
   ['houseChimney', houseChimneyGeo],
   ['twoStoryBody', twoStoryBodyGeo],
+  ['twoStoryAdobeBody', twoStoryAdobeBodyGeo],
   ['twoStoryChimney', twoStoryChimneyGeo],
   ['iceHutBody', iceHutGeos.body],
 ]) {
@@ -2275,15 +2299,19 @@ globalInstancer.registerType('pierPost', pierPostGeo, woodMat, 16000);
 globalInstancer.setFarGeometry('pierPost', null);
 globalInstancer.setShadowGeometry('pierPost', shadowCylinder(pierPostGeo));
 
-// Doors and chimneys aren't drawn far away; windows are, so villages still
-// twinkle on the horizon at night
+// Far away, house walls and roofs drop to 10- and 8-triangle stand-ins; doors
+// and chimneys aren't drawn, while windows become 2-triangle quads so villages
+// still twinkle on the horizon at night
+globalInstancer.setFarGeometry('houseBody', farHouseBodyGeo);
+globalInstancer.setFarGeometry('houseAdobeBody', farHouseBodyGeo);
+globalInstancer.setFarGeometry('houseRoof', farHouseRoofGeo);
+globalInstancer.setFarGeometry('twoStoryBody', farTwoStoryBodyGeo);
+globalInstancer.setFarGeometry('twoStoryAdobeBody', farTwoStoryBodyGeo);
+globalInstancer.setFarGeometry('twoStoryRoof', farTwoStoryRoofGeo);
 globalInstancer.setFarGeometry('houseDoor', null);
 globalInstancer.setFarGeometry('houseChimney', null);
 globalInstancer.setFarGeometry('twoStoryChimney', null);
-globalInstancer.setFarGeometry(
-  'houseWindow',
-  new THREE.PlaneGeometry(2, 2.5).translate(0, 0, 0.25)
-);
+globalInstancer.setFarGeometry('houseWindow', farHouseWindowGeo);
 
 // Rounded canopies and bushes cast shadows with the same fitted shapes. Palm
 // fronds cast with a flat 7-frond star (14 triangles, both faces), which keeps

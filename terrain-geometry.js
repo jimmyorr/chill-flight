@@ -8,6 +8,8 @@ import {
   HOUSE_ROOF_COLORS,
   HOUSE_WINDOW_POOLS,
   LIGHTHOUSE_PALETTES,
+  ONE_STORY_WINDOWS,
+  TWO_STORY_WINDOWS,
   WIND_DIR_X,
   WIND_DIR_Z,
   WINDMILL_ROT_Y,
@@ -19,7 +21,9 @@ import * as polyforkCottage from './third-party/polyfork/porch-front-cottage-620
 import {createAsset as createPolyforkDolphin} from './third-party/polyfork/dolphin-base.mjs';
 import * as polyforkSnowman from './third-party/polyfork/snowman-18c02d.mjs';
 import {
+  buildCastleRuinsGeo,
   buildChapelGeos,
+  buildHouseGeos,
   buildPierGeo,
   buildTentGeos,
   buildingMat,
@@ -2235,37 +2239,38 @@ export var snowmanMat = createMaterial({
   flatShading: true,
 });
 
-// Reusable house geometries
-export var houseBodyGeo = new THREE.BoxGeometry(10, 8, 10);
-houseBodyGeo.translate(0, 4, 0);
-// Gabled roofs (createGableRoof, also used for the monastery): the ridge
-// runs across the front (the door's side, +Z), with eaves overhanging the
-// 10 x 10 walls on every side
-function createHouseRoof(height, baseY) {
-  const roof = createGableRoof(10, 10, height, 1.1);
-  roof.rotateY(Math.PI / 2);
-  roof.translate(0, baseY, 0);
-  return roof;
-}
-export var houseRoofGeo = createHouseRoof(7, 8);
-export var houseWindowGeo = new THREE.BoxGeometry(2, 2.5, 0.5);
+// Reusable house & two-story house geometries (building-models.js)
+var _houseGeos = buildHouseGeos();
+export var houseBodyGeo = _houseGeos.houseBody;
+export var houseAdobeBodyGeo = _houseGeos.houseAdobeBody;
+export var houseRoofGeo = _houseGeos.houseRoof;
+export var houseWindowGeo = _houseGeos.houseWindow;
+export var houseDoorGeo = _houseGeos.houseDoor;
+export var houseChimneyGeo = _houseGeos.houseChimney;
 
-export var houseDoorGeo = new THREE.BoxGeometry(2.5, 4.5, 0.5);
-export var houseChimneyGeo = new THREE.BoxGeometry(1.5, 5, 1.5);
-houseChimneyGeo.translate(0, 11, 0);
+export var twoStoryBodyGeo = _houseGeos.twoStoryBody;
+export var twoStoryAdobeBodyGeo = _houseGeos.twoStoryAdobeBody;
+export var twoStoryRoofGeo = _houseGeos.twoStoryRoof;
+export var twoStoryChimneyGeo = _houseGeos.twoStoryChimney;
 
-export var houseDoorMat = createMaterial({color: 0x5c4033, flatShading: true});
-export var houseChimneyMat = createMaterial({
-  color: 0x8b3a3a,
+export var farHouseBodyGeo = _houseGeos.farHouseBody;
+export var farHouseRoofGeo = _houseGeos.farHouseRoof;
+export var farTwoStoryBodyGeo = _houseGeos.farTwoStoryBody;
+export var farTwoStoryRoofGeo = _houseGeos.farTwoStoryRoof;
+export var farHouseWindowGeo = _houseGeos.farHouseWindow;
+
+export var houseDoorMat = createMaterial({
+  color: 0xffffff,
+  vertexColors: true,
   flatShading: true,
+  roughness: 0.86,
 });
-
-// Two story house geometries
-export var twoStoryBodyGeo = new THREE.BoxGeometry(10, 14, 10);
-twoStoryBodyGeo.translate(0, 7, 0);
-export var twoStoryRoofGeo = createHouseRoof(8, 14);
-export var twoStoryChimneyGeo = new THREE.BoxGeometry(1.5, 5, 1.5);
-twoStoryChimneyGeo.translate(0, 17.5, 0);
+export var houseChimneyMat = createMaterial({
+  color: 0xffffff,
+  vertexColors: true,
+  flatShading: true,
+  roughness: 0.88,
+});
 
 // Straw hut geometries (vertex-colored adobe walls + doorway + tiered thatch roof)
 function buildVertexColoredGeo(parts) {
@@ -2530,14 +2535,30 @@ export function penguinWaddlePose(x, z, t, target) {
 }
 
 // House color palettes, for the model debug page; the game tints one white
-// material per house instead (houseTintMat)
+// vertex-colored material per house instead (houseVertexTintMat)
 export var houseBodyPalette = HOUSE_BODY_COLORS.map((color) =>
-  createMaterial({color, flatShading: true})
+  createMaterial({
+    color,
+    vertexColors: true,
+    flatShading: true,
+    roughness: 0.88,
+  })
 );
 export var houseRoofPalette = HOUSE_ROOF_COLORS.map((color) =>
-  createMaterial({color, flatShading: true})
+  createMaterial({
+    color,
+    vertexColors: true,
+    flatShading: true,
+    roughness: 0.85,
+  })
 );
 export var houseTintMat = createMaterial({color: 0xffffff, flatShading: true});
+export var houseVertexTintMat = createMaterial({
+  color: 0xffffff,
+  vertexColors: true,
+  flatShading: true,
+  roughness: 0.88,
+});
 
 // Window Materials (variations for staggered lighting)
 export var houseWindowMats = [];
@@ -2554,14 +2575,16 @@ for (let i = 0; i < HOUSE_WINDOW_POOLS; i++) {
 
 // Every house window in one instanced mesh (one draw a tile, not eight):
 // each instance's colour carries its pool (red = pool / 7, set in
-// terrain-gen.js), whose glow is uHouseWindowGlow[pool] (game-loop.js). The
-// instance colour isn't painted on, the glass stays houseWindowMats' blue.
+// terrain-gen.js), whose glow is uHouseWindowGlow[pool] (game-loop.js).
+// Frame, sill, and mullion vertices carry aTrimMask = 1 + aTrimColor so only
+// the recessed glass panes glow at night.
 export var houseWindowGlow = {value: new Array(HOUSE_WINDOW_POOLS).fill(0)};
 export var houseWindowMat = createMaterial({
   color: 0x4a6a8a,
   emissive: 0xffd54f,
   emissiveIntensity: 1.0,
   roughness: 0.2,
+  flatShading: true,
 });
 {
   const base = houseWindowMat.onBeforeCompile;
@@ -2572,28 +2595,60 @@ export var houseWindowMat = createMaterial({
       .replace(
         '#include <common>',
         `#include <common>
+        attribute float aTrimMask;
+        attribute vec3 aTrimColor;
+        attribute vec2 aGlassUv;
         uniform float uHouseWindowGlow[${HOUSE_WINDOW_POOLS}];
-        varying float vWindowGlow;`
+        varying float vWindowGlow;
+        varying float vTrimMask;
+        varying vec3 vTrimColor;
+        varying vec2 vGlassUv;`
+      )
+      .replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+        vTrimMask = aTrimMask;
+        vTrimColor = aTrimColor;
+        vGlassUv = aGlassUv;
+        vWindowGlow = uHouseWindowGlow[0];`
       )
       .replace(
         '#include <color_vertex>',
         `#include <color_vertex>
         #ifdef USE_INSTANCING_COLOR
         vWindowGlow = uHouseWindowGlow[int(instanceColor.r * ${(HOUSE_WINDOW_POOLS - 1).toFixed(1)} + 0.5)];
-        #else
-        vWindowGlow = uHouseWindowGlow[0];
         #endif`
       );
     shader.fragmentShader = shader.fragmentShader
       .replace(
         '#include <common>',
         `#include <common>
-        varying float vWindowGlow;`
+        varying float vWindowGlow;
+        varying float vTrimMask;
+        varying vec3 vTrimColor;
+        varying vec2 vGlassUv;`
       )
-      .replace('#include <color_fragment>', '')
+      .replace(
+        '#include <color_fragment>',
+        `float winMullion = (1.0 - vTrimMask) * max(
+          1.0 - step(0.044, abs(vGlassUv.x - 0.5)),
+          1.0 - step(0.038, abs(vGlassUv.y - 0.54))
+        );
+        float winTrim = max(vTrimMask, winMullion);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vTrimColor, winTrim);`
+      )
+      .replace(
+        '#include <roughnessmap_fragment>',
+        `#include <roughnessmap_fragment>
+        roughnessFactor = mix(roughnessFactor, 0.86, winTrim);`
+      )
       .replace(
         'vec3 totalEmissiveRadiance = emissive;',
-        'vec3 totalEmissiveRadiance = emissive * vWindowGlow;'
+        `float emissiveMullion = (1.0 - vTrimMask) * max(
+          1.0 - step(0.044, abs(vGlassUv.x - 0.5)),
+          1.0 - step(0.038, abs(vGlassUv.y - 0.54))
+        );
+        vec3 totalEmissiveRadiance = emissive * vWindowGlow * (1.0 - max(vTrimMask, emissiveMullion));`
       );
   };
 }
@@ -2617,21 +2672,6 @@ export var barnSiloRoofGeo = siloGeos.roof;
 export var barnMat = createMaterial({vertexColors: true, flatShading: true});
 export var barnSiloMat = barnMat;
 export var barnSiloRoofMat = barnMat;
-
-function createGableRoof(width, depth, height, overhang) {
-  const shape = new THREE.Shape();
-  const hw = width / 2 + overhang;
-  shape.moveTo(-hw, 0);
-  shape.lineTo(hw, 0);
-  shape.lineTo(0, height);
-  shape.lineTo(-hw, 0);
-  const geo = new THREE.ExtrudeGeometry(shape, {
-    depth: depth + overhang * 2,
-    bevelEnabled: false,
-  });
-  geo.translate(0, 0, -(depth + overhang * 2) / 2);
-  return geo;
-}
 
 // Polyfork's stone chapel stands where the monasteries were
 // (building-models.js), walls and roof
@@ -2758,145 +2798,13 @@ if (typeof window !== 'undefined')
 
 export var rockArchGrassMat = createMaterial({color: 0x7cb342});
 
-function createCastleRuinsGeometry() {
-  const geometries = [];
-  // Use seeded RNG for deterministic layout across sessions
-  const _castleRng = ChillFlightLogic.mulberry32(91827);
-
-  // Helper to add battlements to a circular tower
-  function addCircularBattlements(radius, y, cx, cz, count) {
-    for (let i = 0; i < count; i++) {
-      if (_castleRng() > 0.3) {
-        const angle = (i / count) * Math.PI * 2;
-        const b = new THREE.BoxGeometry(2, 2.5, 2);
-        b.translate(
-          Math.cos(angle) * radius + cx,
-          y + 1.25,
-          Math.sin(angle) * radius + cz
-        );
-        geometries.push(b);
-      }
-    }
-  }
-
-  // 1. Tall main tower
-  const tower1 = new THREE.CylinderGeometry(5, 6.5, 36, 8);
-  tower1.translate(0, 18, 0);
-  geometries.push(tower1);
-  addCircularBattlements(4.8, 36, 0, 0, 8);
-
-  // 2. Shorter broken tower
-  const tower2 = new THREE.CylinderGeometry(4.5, 6, 18, 8);
-  tower2.translate(24, 9, 4);
-  geometries.push(tower2);
-
-  // Broken chunks on top of tower2
-  for (let i = 0; i < 5; i++) {
-    const chunk = new THREE.BoxGeometry(3, _castleRng() * 4 + 1, 3);
-    const angle = _castleRng() * Math.PI * 2;
-    chunk.rotateY(_castleRng());
-    chunk.rotateZ(_castleRng() * 0.2);
-    chunk.translate(
-      Math.cos(angle) * 3 + 24,
-      18 + _castleRng(),
-      Math.sin(angle) * 3 + 4
-    );
-    geometries.push(chunk);
-  }
-
-  // 3. Main Gatehouse / Keep
-  const keep = new THREE.BoxGeometry(16, 22, 14);
-  keep.translate(12, 11, -12);
-  geometries.push(keep);
-
-  // Archway cutout via side pillars and top block
-  const gateLeft = new THREE.BoxGeometry(5, 14, 4);
-  gateLeft.translate(12 - 5, 7, 2);
-  geometries.push(gateLeft);
-
-  const gateRight = new THREE.BoxGeometry(5, 14, 4);
-  gateRight.translate(12 + 5, 7, 2);
-  geometries.push(gateRight);
-
-  const gateTop = new THREE.BoxGeometry(16, 6, 4);
-  gateTop.translate(12, 17, 2);
-  geometries.push(gateTop);
-
-  // Battlements on Gatehouse
-  for (let i = 0; i < 4; i++) {
-    if (_castleRng() > 0.2) {
-      const b = new THREE.BoxGeometry(2, 2.5, 4);
-      b.translate(6 + i * 4, 20 + 1.25, 2);
-      geometries.push(b);
-    }
-  }
-
-  // 4. Connecting curtain walls
-  const wall1 = new THREE.BoxGeometry(4, 12, 12);
-  wall1.translate(2, 6, -6);
-  geometries.push(wall1);
-
-  const wall2 = new THREE.BoxGeometry(8, 10, 4);
-  wall2.translate(20, 5, 0);
-  wall2.rotateY(0.1);
-  geometries.push(wall2);
-
-  // 5. Ruined wall stubs and scattered stones
-  const stub1 = new THREE.BoxGeometry(6, 4, 3);
-  stub1.rotateY(0.4);
-  stub1.translate(-6, 2, -10);
-  geometries.push(stub1);
-
-  const stub2 = new THREE.BoxGeometry(4, 6, 4);
-  stub2.rotateY(-0.2);
-  stub2.rotateZ(0.1);
-  stub2.translate(28, 3, -4);
-  geometries.push(stub2);
-
-  for (let i = 0; i < 15; i++) {
-    const block = new THREE.BoxGeometry(2, 2, 2);
-    block.rotateX(_castleRng());
-    block.rotateY(_castleRng());
-    block.rotateZ(_castleRng());
-    const angle = _castleRng() * Math.PI * 2;
-    const r = 10 + _castleRng() * 20;
-    block.translate(12 + Math.cos(angle) * r, 1, Math.sin(angle) * r);
-    geometries.push(block);
-  }
-
-  const pos = [],
-    norm = [],
-    idx = [];
-  let offset = 0;
-  for (const g of geometries) {
-    pos.push(...g.attributes.position.array);
-    if (g.attributes.normal) {
-      norm.push(...g.attributes.normal.array);
-    }
-    if (g.index) {
-      for (let i = 0; i < g.index.array.length; i++)
-        idx.push(g.index.array[i] + offset);
-    } else {
-      for (let i = 0; i < g.attributes.position.count; i++)
-        idx.push(i + offset);
-    }
-    offset += g.attributes.position.count;
-  }
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  if (norm.length === pos.length) {
-    geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-  } else {
-    geom.computeVertexNormals();
-  }
-  geom.setIndex(idx);
-  return geom;
-}
-export var castleRuinsGeo = createCastleRuinsGeometry();
+export var castleRuinsGeo = buildCastleRuinsGeo();
 export var castleRuinsMat = createMaterial({
-  color: 0x78909c,
+  color: 0xffffff,
+  vertexColors: true,
   flatShading: true,
-}); // weathered stone
+  roughness: 0.88,
+});
 
 // Bird assemblies & prop descriptors live in bird-models.js (3-mesh shared
 // vertex-color rigs across all eight species).
@@ -4261,130 +4169,44 @@ export const ModelAssembler = {
           },
         ];
       }
-      case 'house': {
-        const bodyId = (opts.bodyId || 0) % houseBodyPalette.length;
-        const roofId = (opts.roofId || 0) % houseRoofPalette.length;
-        const doorOffset = new THREE.Vector3(0, 2.25, 5.1).applyAxisAngle(
-          yAxis,
-          rotY
-        );
-        const winF1Offset = new THREE.Vector3(-3.0, 4, 5.1).applyAxisAngle(
-          yAxis,
-          rotY
-        );
-        const winF2Offset = new THREE.Vector3(3.0, 4, 5.1).applyAxisAngle(
-          yAxis,
-          rotY
-        );
-        const winBOffset = new THREE.Vector3(0, 4, -5.1).applyAxisAngle(
-          yAxis,
-          rotY
-        );
-        const chimneyOffset = new THREE.Vector3(2.5, 0, -2.5).applyAxisAngle(
-          yAxis,
-          rotY
-        );
-        return [
-          {
-            geo: houseBodyGeo,
-            mat: houseBodyPalette[bodyId],
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: houseRoofGeo,
-            mat: houseRoofPalette[roofId],
-            pos: [0, 0, 0],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: houseDoorGeo,
-            mat: houseDoorMat,
-            pos: [doorOffset.x, doorOffset.y, doorOffset.z],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: houseChimneyGeo,
-            mat: houseChimneyMat,
-            pos: [chimneyOffset.x, chimneyOffset.y, chimneyOffset.z],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: houseWindowGeo,
-            mat: houseWindowMats[0],
-            pos: [winF1Offset.x, winF1Offset.y, winF1Offset.z],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: houseWindowGeo,
-            mat: houseWindowMats[1],
-            pos: [winF2Offset.x, winF2Offset.y, winF2Offset.z],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: houseWindowGeo,
-            mat: houseWindowMats[2],
-            pos: [winBOffset.x, winBOffset.y, winBOffset.z],
-            rot: [0, rotY, 0],
-          },
-        ];
-      }
+      case 'house':
       case 'two_story_house': {
+        const twoStory = id === 'two_story_house';
         const bodyId = (opts.bodyId || 0) % houseBodyPalette.length;
-        const roofId = (opts.roofId || 0) % houseRoofPalette.length;
+        const adobe = bodyId >= 9;
+        const roofId = adobe
+          ? 6
+          : bodyId >= 6
+            ? 4 + ((opts.roofId ?? bodyId) % 2)
+            : (opts.roofId ?? bodyId) % 4;
+        const eaves = twoStory ? 14 : 8;
         const doorOffset = new THREE.Vector3(0, 2.25, 5.1).applyAxisAngle(
           yAxis,
           rotY
         );
-        const winF1Offset = new THREE.Vector3(-3.0, 4, 5.1).applyAxisAngle(
-          yAxis,
-          rotY
-        );
-        const winF2Offset = new THREE.Vector3(3.0, 4, 5.1).applyAxisAngle(
-          yAxis,
-          rotY
-        );
-        const winBOffset = new THREE.Vector3(0, 4, -5.1).applyAxisAngle(
-          yAxis,
-          rotY
-        );
-        const winF3Offset = new THREE.Vector3(0, 10, 5.1).applyAxisAngle(
-          yAxis,
-          rotY
-        );
-        const winF4Offset = new THREE.Vector3(-3.0, 10, 5.1).applyAxisAngle(
-          yAxis,
-          rotY
-        );
-        const winF5Offset = new THREE.Vector3(3.0, 10, 5.1).applyAxisAngle(
-          yAxis,
-          rotY
-        );
-        const winB2Offset = new THREE.Vector3(-3.0, 10, -5.1).applyAxisAngle(
-          yAxis,
-          rotY
-        );
-        const winB3Offset = new THREE.Vector3(3.0, 10, -5.1).applyAxisAngle(
-          yAxis,
-          rotY
-        );
-
         const chimneyOffset = new THREE.Vector3(2.5, 0, -2.5).applyAxisAngle(
           yAxis,
           rotY
         );
-        return [
+        const parts = [
           {
-            geo: twoStoryBodyGeo,
+            geo: twoStory
+              ? adobe
+                ? twoStoryAdobeBodyGeo
+                : twoStoryBodyGeo
+              : adobe
+                ? houseAdobeBodyGeo
+                : houseBodyGeo,
             mat: houseBodyPalette[bodyId],
             pos: [0, 0, 0],
             rot: [0, rotY, 0],
           },
           {
-            geo: twoStoryRoofGeo,
+            geo: twoStory ? twoStoryRoofGeo : houseRoofGeo,
             mat: houseRoofPalette[roofId],
-            pos: [0, 0, 0],
+            pos: [0, adobe ? eaves * 0.88 + 0.08 : 0, 0],
             rot: [0, rotY, 0],
+            ...(adobe ? {scale: [0.82, 0.12, 0.82]} : {}),
           },
           {
             geo: houseDoorGeo,
@@ -4392,61 +4214,35 @@ export const ModelAssembler = {
             pos: [doorOffset.x, doorOffset.y, doorOffset.z],
             rot: [0, rotY, 0],
           },
-          {
-            geo: twoStoryChimneyGeo,
+        ];
+        if (!adobe) {
+          parts.push({
+            geo: twoStory ? twoStoryChimneyGeo : houseChimneyGeo,
             mat: houseChimneyMat,
             pos: [chimneyOffset.x, chimneyOffset.y, chimneyOffset.z],
             rot: [0, rotY, 0],
-          },
-          {
+          });
+        }
+        const winList = twoStory ? TWO_STORY_WINDOWS : ONE_STORY_WINDOWS;
+        for (const [wx, wy, wz] of winList) {
+          const wOff = new THREE.Vector3(wx, wy, wz).applyAxisAngle(
+            yAxis,
+            rotY
+          );
+          const winRot =
+            wz < 0
+              ? rotY + Math.PI
+              : wz > 0
+                ? rotY
+                : rotY + Math.sign(wx) * (Math.PI / 2);
+          parts.push({
             geo: houseWindowGeo,
-            mat: houseWindowMats[0],
-            pos: [winF1Offset.x, winF1Offset.y, winF1Offset.z],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: houseWindowGeo,
-            mat: houseWindowMats[1],
-            pos: [winF2Offset.x, winF2Offset.y, winF2Offset.z],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: houseWindowGeo,
-            mat: houseWindowMats[2],
-            pos: [winBOffset.x, winBOffset.y, winBOffset.z],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: houseWindowGeo,
-            mat: houseWindowMats[0],
-            pos: [winF3Offset.x, winF3Offset.y, winF3Offset.z],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: houseWindowGeo,
-            mat: houseWindowMats[1],
-            pos: [winF4Offset.x, winF4Offset.y, winF4Offset.z],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: houseWindowGeo,
-            mat: houseWindowMats[2],
-            pos: [winF5Offset.x, winF5Offset.y, winF5Offset.z],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: houseWindowGeo,
-            mat: houseWindowMats[3],
-            pos: [winB2Offset.x, winB2Offset.y, winB2Offset.z],
-            rot: [0, rotY, 0],
-          },
-          {
-            geo: houseWindowGeo,
-            mat: houseWindowMats[4],
-            pos: [winB3Offset.x, winB3Offset.y, winB3Offset.z],
-            rot: [0, rotY, 0],
-          },
-        ];
+            mat: houseWindowMat,
+            pos: [wOff.x, wOff.y, wOff.z],
+            rot: [0, winRot, 0],
+          });
+        }
+        return parts;
       }
       case 'straw_hut':
         return [

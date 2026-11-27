@@ -91,10 +91,18 @@ import {
   barnRoofGeo,
   barnSiloBodyGeo,
   barnSiloRoofGeo,
+  farHouseBodyGeo,
+  farHouseRoofGeo,
+  farHouseWindowGeo,
+  farTwoStoryBodyGeo,
+  farTwoStoryRoofGeo,
   hayBarnBodyGeo,
   hayBarnRoofGeo,
+  houseAdobeBodyGeo,
+  houseBodyGeo,
   houseChimneyGeo,
   houseDoorGeo,
+  houseRoofGeo,
   houseWindowGeo,
   monasteryBodyGeo,
   monasteryRoofGeo,
@@ -102,7 +110,10 @@ import {
   strawHutRoofGeo,
   timberBarnBodyGeo,
   timberBarnRoofGeo,
+  twoStoryAdobeBodyGeo,
+  twoStoryBodyGeo,
   twoStoryChimneyGeo,
+  twoStoryRoofGeo,
   windmillBaseGeo,
   bridgeDeckGeo,
   bridgeDeckMat,
@@ -328,7 +339,6 @@ function cycleLod() {
   viewModel(window.currentModelType, null, window.currentColorSeed);
 }
 
-const farHouseWindowGeo = new THREE.PlaneGeometry(2, 2.5).translate(0, 0, 0.25);
 const pineFarLeavesGeo = fitToBounds(
   new THREE.ConeGeometry(1, 2, 6, 1, true),
   treeLeavesGeo
@@ -362,6 +372,14 @@ function addStructureBand(group, structure, band, xOffset = 0) {
         continue;
       } else if (geo === houseWindowGeo) {
         geo = farHouseWindowGeo;
+      } else if (geo === houseBodyGeo || geo === houseAdobeBodyGeo) {
+        geo = farHouseBodyGeo;
+      } else if (geo === twoStoryBodyGeo || geo === twoStoryAdobeBodyGeo) {
+        geo = farTwoStoryBodyGeo;
+      } else if (geo === houseRoofGeo) {
+        geo = farHouseRoofGeo;
+      } else if (geo === twoStoryRoofGeo) {
+        geo = farTwoStoryRoofGeo;
       } else if (geo === strawHutBodyGeo || geo === barnSiloBodyGeo) {
         geo = cachedFar(shadowCylinder, geo);
       } else if (geo === strawHutRoofGeo || geo === barnSiloRoofGeo) {

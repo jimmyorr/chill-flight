@@ -19,10 +19,12 @@ import {createMaterial} from '../constants.js';
 import {
   barnBodyGeo,
   barnRoofGeo,
+  houseAdobeBodyGeo,
   houseBodyGeo,
   houseChimneyGeo,
   houseRoofGeo,
   icebergMat,
+  twoStoryAdobeBodyGeo,
   twoStoryBodyGeo,
   twoStoryChimneyGeo,
   twoStoryRoofGeo,
@@ -191,7 +193,17 @@ export function startDestruction(type, previewGroup, mats = {}) {
     speedMult = 1,
     yOffset = 0.5
   ) {
-    const rGeo = geo || new THREE.BoxGeometry(1, 1, 1);
+    let rGeo = geo;
+    if (!rGeo) {
+      rGeo = new THREE.BoxGeometry(1, 1, 1);
+      if (mat?.vertexColors) {
+        const n = rGeo.attributes.position.count;
+        rGeo.setAttribute(
+          'color',
+          new THREE.Float32BufferAttribute(new Float32Array(n * 3).fill(1), 3)
+        );
+      }
+    }
     for (let i = 0; i < count; i++) {
       const m = new THREE.Mesh(rGeo, mat);
       const sz = 0.8 + Math.random();
@@ -447,7 +459,11 @@ export function startDestruction(type, previewGroup, mats = {}) {
       const isHouse = type === 'house' || type === 'two_story_house';
       const body =
         allMeshes.find(
-          (m) => m.geometry === houseBodyGeo || m.geometry === twoStoryBodyGeo
+          (m) =>
+            m.geometry === houseBodyGeo ||
+            m.geometry === houseAdobeBodyGeo ||
+            m.geometry === twoStoryBodyGeo ||
+            m.geometry === twoStoryAdobeBodyGeo
         ) || allMeshes[0];
       const roof =
         allMeshes.find(
@@ -497,14 +513,11 @@ export function startDestruction(type, previewGroup, mats = {}) {
         s) *
         0.7
     );
-    addRubble(
-      rubbleCount,
-      spread,
-      bodyMat || roofMat || createMaterial({color: 0x998877}),
-      null,
-      1.1,
-      1.0
-    );
+    const rubbleMat =
+      type === 'castle' && mats.rockMat
+        ? mats.rockMat
+        : bodyMat || roofMat || createMaterial({color: 0x998877});
+    addRubble(rubbleCount, spread, rubbleMat, null, 1.1, 1.0);
   }
 
   // 7. Trees, cactus, snowmen, mushrooms, crystals, streetlights, tents, airport props

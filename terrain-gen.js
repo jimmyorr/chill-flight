@@ -2068,19 +2068,23 @@ const _windowPools = Array.from({length: HOUSE_WINDOW_POOLS}, (_, i) => ({
 const FLAT_ROOF = 0.12;
 
 // Window spots on a house's walls (x along the ridge and y scale with the
-// house; z is the wall)
-const ONE_STORY_WINDOWS = [
-  [-3, 4, 5.1],
-  [3, 4, 5.1],
-  [0, 4, -5.1],
+// house; z is the wall, or 0 on the +-x gable ends)
+export const ONE_STORY_WINDOWS = [
+  [-2.9, 4.15, 5.1],
+  [2.9, 4.15, 5.1],
+  [-1.8, 4.15, -5.1],
+  [-5.1, 4.15, 0],
+  [5.1, 4.15, 0],
 ];
-const TWO_STORY_WINDOWS = [
+export const TWO_STORY_WINDOWS = [
   ...ONE_STORY_WINDOWS,
-  [0, 10, 5.1],
-  [-3, 10, 5.1],
-  [3, 10, 5.1],
-  [-3, 10, -5.1],
-  [3, 10, -5.1],
+  [0, 10.65, 5.1],
+  [-2.9, 10.65, 5.1],
+  [2.9, 10.65, 5.1],
+  [-2.2, 10.65, -5.1],
+  [2.2, 10.65, -5.1],
+  [-5.1, 10.65, 0],
+  [5.1, 10.65, 0],
 ];
 
 // Adds the walls, roof, door, chimney and windows of each house to the
@@ -2122,24 +2126,28 @@ function collectHouses(collector, houses, twoStory, offsetX, offsetZ) {
       collector.add(type, _matBuffer, color);
     };
 
+    const adobe = pos.style === 'adobe';
     collector.beginProp(BREAKABLE.HOUSE);
     composeMatrix(_matBuffer, 0, x, pos.y, z, sx, sy, 1, 0, pos.rotY, 0);
-    collector.add(prefix + 'Body', _matBuffer, _houseBodyColors[pos.bodyId]);
-    // Adobe: the gable squashed into a flat slab on top of the walls (its
-    // base stays put), and no chimney
-    const adobe = pos.style === 'adobe';
+    collector.add(
+      prefix + (adobe ? 'AdobeBody' : 'Body'),
+      _matBuffer,
+      _houseBodyColors[pos.bodyId]
+    );
+    // Adobe: flat clay terrace tucked inside the stepped adobe parapet, and no chimney
     if (!adobe)
       part(prefix + 'Chimney', 2.5 * sx, chimneyRise * (sy - 1), -2.5);
     const roofScale = adobe ? FLAT_ROOF : 1;
+    const roofSpan = adobe ? 0.82 : 1;
     composeMatrix(
       _matBuffer,
       0,
       x,
-      pos.y + eaves * sy * (1 - roofScale),
+      pos.y + (adobe ? (eaves * (1 - roofScale) + 0.08) * sy : 0),
       z,
-      sx,
+      sx * roofSpan,
       sy * roofScale,
-      1,
+      roofSpan,
       0,
       pos.rotY,
       0
@@ -2154,14 +2162,8 @@ function collectHouses(collector, houses, twoStory, offsetX, offsetZ) {
           : wz > 0
             ? pos.rotY
             : pos.rotY + Math.sign(wx) * (Math.PI / 2);
-      part(
-        'houseWindow',
-        wx * sx,
-        wy * sy,
-        wz,
-        _windowPools[pos.poolId],
-        winRotY
-      );
+      const lx = wz === 0 ? Math.sign(wx) * (5 * sx + 0.1) : wx * sx;
+      part('houseWindow', lx, wy * sy, wz, _windowPools[pos.poolId], winRotY);
     }
     if (pos.xmasLights && !adobe) {
       const runSx = (6 * sx) / XMAS_LIGHT_RUN;

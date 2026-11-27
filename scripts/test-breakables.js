@@ -100,7 +100,7 @@ for (let cx = -2; cx <= 2; cx++) {
         }
       }
       if (b.kinds[i] === BREAKABLE.HOUSE) {
-        if (types[0] === 'houseBody' || types[0] === 'twoStoryBody') houses++;
+        if (/^(house|twoStory)(Adobe)?Body$/.test(types[0])) houses++;
         else if (
           /^(rock|snowRock|desertRock|granite|stoneWall|stoneWallRuined|stoneWallSnow|stoneWallSnowRuined)$/.test(
             types[0]

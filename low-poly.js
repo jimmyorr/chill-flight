@@ -5,7 +5,6 @@
 // faceted lumps that follow its shape and colours, its trunk as one tapered
 // prism, dead trees as a trunk and a few bare limbs.
 import * as THREE from 'three';
-import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 // Triangle centres of `geo` with their areas and colours
 function triangles(geo) {
@@ -257,27 +256,51 @@ export function towerFarGeo(type, geo) {
   const y1 = max.y;
   const h = y1 - y0;
   if (type === 'castleRuins') {
-    const t1 = new THREE.CylinderGeometry(5, 6.5, h, 6, 1, false).translate(
-      0,
-      y0 + h * 0.5,
-      0
+    const stone = geometryBandColor(geo, 0.15, 0.65);
+    const paleStone = stone.map((v) => Math.min(1, v * 1.1));
+    const slate = new THREE.Color(0x46525d).toArray();
+    const watchtower = new THREE.CylinderGeometry(
+      5.8,
+      6.8,
+      38.5 - y0,
+      6,
+      1,
+      false
+    ).translate(-11.5, (y0 + 38.5) * 0.5, -8.5);
+    const keepWalls = new THREE.BoxGeometry(21, 18 - y0, 12.6).translate(
+      4.0,
+      (y0 + 18) * 0.5,
+      -9.5
     );
-    const keepH = Math.min(22.5, h);
-    const keep = new THREE.BoxGeometry(16, keepH, 19).translate(
-      12,
-      y0 + keepH * 0.5,
-      -5.5
+    const keepRoof = gableUnitGeo(2)
+      .scale(5.3, 4.2, 6.8)
+      .translate(-1.5, 24.2, -9.5);
+    const gatehouse = new THREE.BoxGeometry(13.5, 19 - y0, 5.4).translate(
+      -1.0,
+      (y0 + 19) * 0.5,
+      13.0
     );
-    const t2H = Math.min(20, h);
-    const t2 = new THREE.CylinderGeometry(4.5, 6, t2H, 6, 1, false).translate(
-      24,
-      y0 + t2H * 0.5,
-      4
+    const westWall = new THREE.BoxGeometry(3.0, 13 - y0, 14.4).translate(
+      -13.4,
+      (y0 + 13) * 0.5,
+      4.0
     );
-    const out = mergeGeometries([t1, keep, t2]);
-    out.computeBoundingBox();
-    out.computeBoundingSphere();
-    return out;
+    const eastTower = new THREE.CylinderGeometry(
+      4.8,
+      5.5,
+      15.5 - y0,
+      6,
+      1,
+      false
+    ).translate(14.6, (y0 + 15.5) * 0.5, 10.2);
+    return joinColored([
+      [watchtower, paleStone],
+      [keepWalls, stone],
+      [keepRoof, slate],
+      [gatehouse, paleStone],
+      [westWall, stone],
+      [eastTower, stone],
+    ]);
   }
   if (type === 'fireLookout') {
     const yCab0 = y0 + h * 0.72;

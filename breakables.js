@@ -98,7 +98,9 @@ const FLING_MAX = 35;
 // Rubble blocks thrown out of each kind of building, by its first part
 const RUBBLE = {
   houseBody: BREAK.RUBBLE.house,
+  houseAdobeBody: BREAK.RUBBLE.house,
   twoStoryBody: BREAK.RUBBLE.two_story_house,
+  twoStoryAdobeBody: BREAK.RUBBLE.two_story_house,
   strawHutBody: BREAK.RUBBLE.straw_hut,
   barnBody: BREAK.RUBBLE.barn,
   timberBarnBody: BREAK.RUBBLE.barn,
@@ -611,6 +613,7 @@ function copyColor(part) {
 function rubbleColor(part) {
   const color = copyColor(part);
   if (color) return color;
+  if (part.type === 'castleRuins') return [0.54, 0.56, 0.54];
   let mat = part.object
     ? firstMesh(part.object)?.material
     : typeInfo(part.type).mat;
