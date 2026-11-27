@@ -1057,8 +1057,8 @@ export function updateFlightCamera(delta, nowTime) {
     }
   }
 
-  // Celestial positions
-  const moonOrbitRadius = 7500;
+  // Celestial positions (beyond the 27 km far-terrain ring; paired with moonGeo = 440)
+  const moonOrbitRadius = 27500;
 
   // 1. Realistic Sun Path
   const latitude = state.currentLatRad;

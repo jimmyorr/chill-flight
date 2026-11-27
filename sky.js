@@ -518,8 +518,9 @@ new THREE.TextureLoader().load(moonMapUrl, (tex) => {
   moonUniforms.uHasMoonMap.value = 1;
 });
 
-// Moon
-const moonGeo = new THREE.SphereGeometry(120, 32, 32);
+// Moon (paired with moonOrbitRadius = 27500 in flight-camera.js so it sits
+// beyond the 27 km far-terrain ring at the same apparent size)
+const moonGeo = new THREE.SphereGeometry(440, 32, 32);
 const moonMat = new THREE.ShaderMaterial({
   vertexShader: moonVertShader,
   fragmentShader: TOWER_GLSL + moonFragShader,
@@ -550,7 +551,7 @@ for (let i = 0; i < starsCount; i++) {
   const v = _starsRng();
   const theta = u * 2.0 * Math.PI;
   const phi = Math.acos(2.0 * v - 1.0);
-  const r = 20000 + _starsRng() * 4000;
+  const r = 28200 + _starsRng() * 1200;
   starsPos[i3] = r * Math.sin(phi) * Math.cos(theta);
   starsPos[i3 + 1] = r * Math.sin(phi) * Math.sin(theta);
   starsPos[i3 + 2] = r * Math.cos(phi);
@@ -593,7 +594,7 @@ for (let i = 0; i < starsCount; i++) {
   const i3 = (starsCount - 1) * 3;
   const theta = _starsRng() * 2.0 * Math.PI;
   const elev = 0.12 + _starsRng() * 0.08;
-  const r = 21000;
+  const r = 28500;
   starsPos[i3] = r * Math.cos(elev) * Math.cos(theta);
   starsPos[i3 + 1] = r * Math.sin(elev);
   starsPos[i3 + 2] = r * Math.cos(elev) * Math.sin(theta);

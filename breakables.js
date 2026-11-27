@@ -1213,7 +1213,7 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
           Math.min(120, Math.round(40 + height * 0.4)),
           Math.max(3, height * 0.07)
         );
-        if (mine) startTrip(height / 150);
+        if (mine) startTrip((height - 10) / 200);
       }
     }
     propPuffs(x, base, z, 2, 2, dust, 6, 4, 2);

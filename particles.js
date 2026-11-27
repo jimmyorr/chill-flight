@@ -928,13 +928,6 @@ export function setSmokeTint(livery) {
   smokeColor(livery, smokeTint);
 }
 
-// A rainbow trail while a knocked-over mushroom has the player tripping
-// (mushroom-trip.js sets its colour each frame, or null when it's over)
-let tripTrail = null;
-export function setTripTrail(color) {
-  tripTrail = color;
-}
-
 /** Whether the player's airshow smoke is on. */
 export function isSmokeOn() {
   return smokeOn || !!state.mpForceSmoke;
@@ -1497,12 +1490,12 @@ export function updateParticles(delta) {
   // Ignore the spawn and teleports settling
   settleTime += delta;
   if (!state.isFreeCamera && !state.isCrashed) {
-    const trail = isSmokeOn() || rushTrail() || tripTrail;
+    const trail = isSmokeOn() || rushTrail();
     if (isSmokeOn()) {
       smokeTrail(planeGroup, smokeLast, speed, tinted ? smokeTint : SMOKE);
-    } else if (rushTrail() || tripTrail) {
-      // (a shattered crystal's rush, crystal-rush.js, or a mushroom trip)
-      smokeTrail(planeGroup, smokeLast, speed, rushTrail() || tripTrail);
+    } else if (rushTrail()) {
+      // (a shattered crystal's rush, crystal-rush.js)
+      smokeTrail(planeGroup, smokeLast, speed, rushTrail());
     } else {
       smokeLast.valid = false;
     }
