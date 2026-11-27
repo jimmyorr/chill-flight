@@ -48,10 +48,12 @@ import {
   buildAppleTreeGeos,
   buildBirchGeos,
   buildBroadleafOakGeos,
+  buildCactusGeos,
   buildCherryBlossomGeos,
   buildDeadCottonwoodGeo,
   buildFruitTreeGeos,
   buildJapaneseMapleGeos,
+  buildJoshuaTreeGeos,
   buildMagnoliaGeos,
   buildMountainRowanGeos,
   buildOakGeos,
@@ -1356,63 +1358,6 @@ function createDeadTreeGeometry() {
 }
 export var deadTreeGeo = createDeadTreeGeometry();
 
-// Joshua tree (the desert): a shaggy trunk forking into a few crooked arms,
-// each ending in a spiky tuft of leaves. Trunk and tufts are separate
-// geometries so the tufts take the per-instance leaf colour.
-function createJoshuaTreeGeometry() {
-  const wood = [];
-  const tufts = [];
-  // A spiky tuft: two octahedra a quarter turn apart, so its points stick
-  // out all round like a ball of dagger leaves
-  const tuftAt = (x, y, z, r) => {
-    for (const turn of [0, Math.PI / 4]) {
-      const t = new THREE.OctahedronGeometry(r, 0);
-      t.rotateY(turn);
-      t.rotateX(turn * 0.6);
-      t.translate(x, y, z);
-      tufts.push(t);
-    }
-  };
-  const trunk = new THREE.CylinderGeometry(1.1, 1.6, 8, 5);
-  trunk.translate(0, 4, 0);
-  wood.push(trunk);
-  // [lean from upright, direction, length, fork]
-  const arms = [
-    [1.05, 0.4, 9, true],
-    [1.2, 2.5, 7.5, false],
-    [0.8, 4.3, 10, true],
-  ];
-  const tipOf = (lean, dir, len) => [
-    Math.sin(lean) * Math.cos(dir) * len,
-    Math.cos(lean) * len,
-    -Math.sin(lean) * Math.sin(dir) * len,
-  ];
-  const branch = (x, y, z, lean, dir, len, r0, r1) => {
-    const g = new THREE.CylinderGeometry(r1, r0, len, 5);
-    g.translate(0, len / 2, 0);
-    g.rotateZ(-lean);
-    g.rotateY(dir);
-    g.translate(x, y, z);
-    wood.push(g);
-    const [tx, ty, tz] = tipOf(lean, dir, len);
-    return [x + tx, y + ty, z + tz];
-  };
-  for (const [lean, dir, len, fork] of arms) {
-    // Each arm crooks upward halfway along
-    const mid = branch(0, 7.5, 0, lean, dir, len * 0.55, 0.8, 0.65);
-    const end = branch(...mid, lean * 0.25, dir, len * 0.45, 0.65, 0.55);
-    tuftAt(end[0], end[1] + 1.2, end[2], 2);
-    if (fork) {
-      const f = branch(...mid, 0.75, dir + 1.4, 4.5, 0.5, 0.45);
-      tuftAt(f[0], f[1] + 1, f[2], 1.7);
-    }
-  }
-  return {
-    trunk: mergeGeometries(wood),
-    leaves: paintGeometry(mergeGeometries(tufts)),
-  };
-}
-
 export var treeTrunkMat = createMaterial({
   color: 0xffffff,
   vertexColors: true,
@@ -1461,127 +1406,17 @@ export var graniteGeo = graniteBoulderGeometry(1); // 80 triangles
 export var graniteFarGeo = graniteBoulderGeometry(0); // 20 triangles
 export var graniteMat = createMaterial({color: 0x9c8b77, flatShading: true});
 
-// Cactus geometries and materials
-// `simple`: 4-sided, without the rounded caps and elbows, for its shadow
-function createCactusGeometry(simple = false) {
-  const sides = simple ? 4 : 8;
-  const geometries = [];
-
-  // Main trunk
-  const mainRadius = 1.4;
-  const mainHeight = 14;
-  const trunk = new THREE.CylinderGeometry(
-    mainRadius * 0.9,
-    mainRadius,
-    mainHeight,
-    sides
-  );
-  trunk.translate(0, mainHeight / 2, 0);
-  geometries.push(trunk);
-
-  // Trunk top cap (hemisphere)
-  if (!simple) {
-    const trunkCap = new THREE.SphereGeometry(
-      mainRadius * 0.9,
-      8,
-      4,
-      0,
-      Math.PI * 2,
-      0,
-      Math.PI / 2
-    );
-    trunkCap.translate(0, mainHeight, 0);
-    geometries.push(trunkCap);
-  }
-
-  // Helper function to create an arm
-  function createArm(direction, startY, horizontalLen, verticalHeight) {
-    const armRadius = 1.0;
-
-    // Horizontal connecting piece
-    const hPiece = new THREE.CylinderGeometry(
-      armRadius,
-      armRadius,
-      horizontalLen,
-      sides
-    );
-    hPiece.rotateZ(Math.PI / 2);
-    const hCenterX = direction * (mainRadius + horizontalLen / 2 - 0.5);
-    hPiece.translate(hCenterX, startY, 0);
-    geometries.push(hPiece);
-
-    // Elbow sphere to round the joint
-    const elbowX = direction * (mainRadius + horizontalLen - 0.5);
-    if (!simple) {
-      const elbow = new THREE.SphereGeometry(armRadius, 8, 4);
-      elbow.translate(elbowX, startY, 0);
-      geometries.push(elbow);
-    }
-
-    // Vertical piece
-    const vPiece = new THREE.CylinderGeometry(
-      armRadius * 0.9,
-      armRadius,
-      verticalHeight,
-      sides
-    );
-    vPiece.translate(elbowX, startY + verticalHeight / 2, 0);
-    geometries.push(vPiece);
-
-    // Top cap
-    if (simple) return;
-    const cap = new THREE.SphereGeometry(
-      armRadius * 0.9,
-      8,
-      4,
-      0,
-      Math.PI * 2,
-      0,
-      Math.PI / 2
-    );
-    cap.translate(elbowX, startY + verticalHeight, 0);
-    geometries.push(cap);
-  }
-
-  // Right arm (lower, longer)
-  createArm(1, 6, 3, 6);
-
-  // Left arm (higher, shorter)
-  createArm(-1, 9, 2.5, 4);
-
-  let pos = [],
-    norm = [],
-    idx = [];
-  let offset = 0;
-  for (const g of geometries) {
-    pos.push(...g.attributes.position.array);
-    if (g.attributes.normal) {
-      norm.push(...g.attributes.normal.array);
-    }
-    const count = g.attributes.position.count;
-    if (g.index) {
-      for (let i = 0; i < g.index.array.length; i++) {
-        idx.push(g.index.array[i] + offset);
-      }
-    } else {
-      for (let i = 0; i < count; i++) idx.push(i + offset);
-    }
-    offset += count;
-  }
-
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  if (norm.length === pos.length) {
-    geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-  } else {
-    geom.computeVertexNormals();
-  }
-  geom.setIndex(idx);
-  return geom;
-}
-export var cactusGeo = createCactusGeometry();
-export var cactusShadowGeo = createCactusGeometry(true);
-export var cactusMat = createMaterial({color: 0x4caf50, flatShading: true});
+// Sonoran saguaro cactus geometries and vertex-colored material (tree-models.js)
+var _cactusGeos = buildCactusGeos();
+export var cactusGeo = _cactusGeos.cactusGeo;
+export var cactusShadowGeo = _cactusGeos.cactusShadowGeo;
+export var cactusFarGeo = _cactusGeos.cactusFarGeo;
+export var cactusMat = createMaterial({
+  color: 0xffffff,
+  vertexColors: true,
+  flatShading: true,
+  roughness: 0.82,
+});
 
 // Round hay bale, lying on its side (its axis along x), 5.2 units across
 export var hayBaleGeo = (() => {
@@ -2035,10 +1870,12 @@ export var iceHutRoofMat = createMaterial({
   flatShading: true,
   roughness: 0.86,
 });
-export var joshuaGeos = createJoshuaTreeGeometry();
+export var joshuaGeos = buildJoshuaTreeGeos();
 export var joshuaTrunkMat = createMaterial({
-  color: 0x9c8669,
+  color: 0xffffff,
+  vertexColors: true,
   flatShading: true,
+  roughness: 0.9,
 });
 
 // Mushroom geometry and materials, shaped like the cap on Polyfork's

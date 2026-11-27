@@ -131,6 +131,7 @@ import {
   bridgeRailGeo,
   bushGeo,
   cactusGeo,
+  cactusFarGeo,
   cactusMat,
   joshuaGeos,
   joshuaTrunkMat,
@@ -352,7 +353,6 @@ const palmFarTrunkGeo = fitToBounds(
   new THREE.CylinderGeometry(0.6, 1, 2, 6, 1, true),
   palmGeos.trunk
 );
-const cactusFarGeo = fitToBounds(new THREE.BoxGeometry(2, 2, 2), cactusGeo);
 const farGeoCache = new WeakMap();
 function cachedFar(fn, geo) {
   let map = farGeoCache.get(fn);
@@ -1388,7 +1388,11 @@ function viewModel(type, e, colorSeed = 0) {
             band === 'far'
               ? cachedFar(farCanopy, joshuaGeos.leaves)
               : joshuaGeos.leaves,
-            createMaterial({color: JOSHUA_LEAF_COLOR})
+            createMaterial({
+              color: JOSHUA_LEAF_COLOR,
+              vertexColors: true,
+              flatShading: true,
+            })
           );
           trunk.position.x = xOffset;
           leaves.position.x = xOffset;

@@ -64,6 +64,7 @@ import {
   bushGeo,
   cactusGeo,
   cactusShadowGeo,
+  cactusFarGeo,
   cactusMat,
   joshuaGeos,
   joshuaTrunkMat,
@@ -2026,11 +2027,7 @@ for (const [deadType, deadGeo, deadMat] of [
   const farDead = shareFarTrunk(deadType, deadGeo, deadMat);
   globalInstancer.setShadowGeometry(deadType, farDead);
 }
-// Far cacti: a slim post the trunk's height, not a box round the arms too
-// (a wide green block from afar, worst on the big standouts). Same 12
-// triangles.
-const cactusFarGeo = new THREE.BoxGeometry(3.2, 14.5, 3.2);
-cactusFarGeo.translate(0, 7.25, 0);
+// Far cacti: a slim 12-triangle tapered post matching the saguaro column
 globalInstancer.setFarGeometry('cactus', cactusFarGeo, screenSized);
 // Bushes (480 triangles each) are a fitted shape past the detail radius, and
 // not drawn at all past TREE_LOD_CHUNK_RADIUS

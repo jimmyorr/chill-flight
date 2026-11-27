@@ -439,9 +439,9 @@ export const GOAT_COLORS = [0xece6da, 0xd8c8a8, 0x8a6a4a, 0x47403a, 0xb0a79c];
 export const DEER_COLORS = [0xa0703f, 0x8f6239, 0xb2804d, 0x7d5634];
 // The share of the ice floes with a seal or two lying on them
 const SEAL_FLOE_CHANCE = 0.45;
-// Joshua trees: share of the desert's trees, and their tufts' colour
+// Joshua trees: share of the desert's trees, and neutral multi-tone leaf tint
 const JOSHUA_SHARE = 0.65;
-export const JOSHUA_LEAF_COLOR = 0x6f8a3c;
+export const JOSHUA_LEAF_COLOR = 0xf2f2f2;
 const ENABLE_BARNS = true;
 const ENABLE_MONASTERIES = true;
 const ENABLE_CASTLE_RUINS = true;
