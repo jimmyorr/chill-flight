@@ -19,7 +19,9 @@ import {simplex} from '../noise.js';
 import {
   CROP_KIND,
   LIGHTHOUSE_PALETTES,
+  carveGrassRoadSegment,
   fieldAt,
+  forEachTownStreetNear,
   generateChunkData,
   getFamineWallRoutes,
   lighthouseChunkWins,
@@ -1807,6 +1809,128 @@ console.log(
 }
 console.log(
   '  Passed: Procedural waterfalls align lip handoffs with 2D cliff normals, dress desert springs as palm oases, and stay out of snow and alien lands'
+);
+
+// --- TOWN STREET GRASS MASK ACROSS ALL CAMERA ANGLES ---
+{
+  useSeed(20261127);
+  const ep = {WATER_LEVEL: 40, MOUNTAIN_LEVEL: 180};
+  const N = 128;
+  const data = new Uint8Array(N * N);
+  const camX = -44575;
+  const camZ = 375;
+  const radius = 130;
+  const span = (radius + 24) * 2;
+  const reach = span * 0.72 + 40;
+
+  const sampleBilinear = (ox, oz, wx, wz) => {
+    const fx = Math.max(0, Math.min(N - 1, ((wx - ox) / span) * N - 0.5));
+    const fz = Math.max(0, Math.min(N - 1, ((wz - oz) / span) * N - 0.5));
+    const i0 = Math.floor(fx);
+    const j0 = Math.floor(fz);
+    const i1 = Math.min(N - 1, i0 + 1);
+    const j1 = Math.min(N - 1, j0 + 1);
+    const tx = fx - i0;
+    const tz = fz - j0;
+    const v00 = data[j0 * N + i0];
+    const v10 = data[j0 * N + i1];
+    const v01 = data[j1 * N + i0];
+    const v11 = data[j1 * N + i1];
+    return (
+      ((v00 * (1 - tx) + v10 * tx) * (1 - tz) +
+        (v01 * (1 - tx) + v11 * tx) * tz) /
+      255
+    );
+  };
+
+  for (let hdg = -180; hdg < 180; hdg += 30) {
+    const yaw = (hdg * Math.PI) / 180;
+    const cx = camX - Math.sin(yaw) * radius * 0.45;
+    const cz = camZ - Math.cos(yaw) * radius * 0.45;
+    const ox = cx - span * 0.5;
+    const oz = cz - span * 0.5;
+    data.fill(255);
+    for (let z = -600; z <= 1200; z += 30) {
+      carveGrassRoadSegment(
+        data,
+        N,
+        ox,
+        oz,
+        span,
+        ChillFlightLogic.getRoadCenterX(z, 4),
+        z,
+        ChillFlightLogic.getRoadCenterX(z + 30, 4),
+        z + 30,
+        ChillFlightLogic.ROAD_WIDTH + 2
+      );
+    }
+    for (let x = -45500; x <= -43800; x += 30) {
+      carveGrassRoadSegment(
+        data,
+        N,
+        ox,
+        oz,
+        span,
+        x,
+        ChillFlightLogic.getRoadCenterZ(x),
+        x + 30,
+        ChillFlightLogic.getRoadCenterZ(x + 30),
+        ChillFlightLogic.ROAD_WIDTH + 2
+      );
+    }
+    for (const s of ChillFlightLogic.slipRoads(simplex, ep)) {
+      if (s.maxX < cx - 500 || s.minX > cx + 500) continue;
+      for (let i = 0; i < s.pts.length - 1; i++) {
+        carveGrassRoadSegment(
+          data,
+          N,
+          ox,
+          oz,
+          span,
+          s.pts[i].x,
+          s.pts[i].z,
+          s.pts[i + 1].x,
+          s.pts[i + 1].z,
+          ChillFlightLogic.SLIP.HALF + 2
+        );
+      }
+    }
+    forEachTownStreetNear(cx, cz, reach, ep, (x0, z0, x1, z1, hw) =>
+      carveGrassRoadSegment(data, N, ox, oz, span, x0, z0, x1, z1, hw + 2.5)
+    );
+
+    let checkedPoints = 0;
+    forEachTownStreetNear(cx, cz, radius, ep, (x0, z0, x1, z1, hw) => {
+      const len = Math.hypot(x1 - x0, z1 - z0);
+      const ux = (x1 - x0) / len;
+      const uz = (z1 - z0) / len;
+      for (let k = 0; k <= 16; k++) {
+        for (const sideOff of [-hw * 0.9, 0, hw * 0.9]) {
+          const wx = x0 + (x1 - x0) * (k / 16) - uz * sideOff;
+          const wz = z0 + (z1 - z0) * (k / 16) + ux * sideOff;
+          if (Math.hypot(wx - cx, wz - cz) >= radius) continue;
+          checkedPoints++;
+          const density = sampleBilinear(ox, oz, wx, wz);
+          if (density > 0) {
+            console.error(
+              `FAIL: grass road mask leaked density ${density.toFixed(4)} onto town street at (${wx.toFixed(1)}, ${wz.toFixed(1)}) for hdg=${hdg}`
+            );
+            process.exit(1);
+          }
+        }
+      }
+    });
+    if (checkedPoints === 0) {
+      console.error(
+        `FAIL: expected town street points within grass radius at Westgate (hdg=${hdg})`
+      );
+      process.exit(1);
+    }
+  }
+  useSeed(20260101);
+}
+console.log(
+  '  Passed: Grass road mask clears all town streets across 360-degree camera headings at highway/slip-road junctions'
 );
 
 console.log('All terrain invariant tests passed successfully!');

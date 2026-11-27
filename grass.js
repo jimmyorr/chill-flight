@@ -42,6 +42,7 @@ import {ChillFlightLogic} from './chill-flight-logic.js';
 import {simplex} from './noise.js';
 import {
   CROP_KIND,
+  carveGrassRoadSegment,
   forEachTownStreetNear,
   sampleFarmlandCrop,
 } from './terrain-gen.js';
@@ -58,8 +59,11 @@ const FIELD = {
 const BLADES_PER_TUFT = 3;
 // Terrain vertices around the field centre in the ground grid
 const GRID = 12;
-// Road segments and push points the shader looks at
-const MAX_ROADS = 12;
+// Road clearance mask covering the grass field (plus margin so camera turns
+// and small moves don't rebuild it every frame), and push points
+const ROAD_MASK_SIZE = 128;
+const ROAD_MASK_MARGIN = 24;
+const ROAD_MASK_STEP_UPDATE = 12;
 const MAX_PUSH = 10;
 // The camera's height above the ground where the grass fades out
 const FADE_LOW = 70;
@@ -90,6 +94,25 @@ const fieldTex = new THREE.DataTexture(
 fieldTex.magFilter = THREE.NearestFilter;
 fieldTex.minFilter = THREE.NearestFilter;
 
+// Rasterized road, slip-road, village-street and stream clearance (255 clear,
+// 0 on paving), so junctions with dozens of segments never overflow a fixed
+// uniform array
+const roadMaskData = new Uint8Array(ROAD_MASK_SIZE * ROAD_MASK_SIZE);
+roadMaskData.fill(255);
+const roadMaskTex = new THREE.DataTexture(
+  roadMaskData,
+  ROAD_MASK_SIZE,
+  ROAD_MASK_SIZE,
+  THREE.RedFormat,
+  THREE.UnsignedByteType
+);
+roadMaskTex.magFilter = THREE.LinearFilter;
+roadMaskTex.minFilter = THREE.LinearFilter;
+roadMaskTex.wrapS = THREE.ClampToEdgeWrapping;
+roadMaskTex.wrapT = THREE.ClampToEdgeWrapping;
+roadMaskTex.unpackAlignment = 1;
+roadMaskTex.needsUpdate = true;
+
 const uniforms = {
   uGrassCenter: {value: new THREE.Vector2()},
   uGrassRadius: {value: 85},
@@ -99,8 +122,9 @@ const uniforms = {
   uField: {value: fieldTex},
   uGroundOrigin: {value: new THREE.Vector2()},
   uGroundStep: {value: 50},
-  uRoads: {value: Array.from({length: MAX_ROADS}, () => new THREE.Vector4())},
-  uRoadWidth: {value: new Float32Array(MAX_ROADS)},
+  uRoadMask: {value: roadMaskTex},
+  uRoadMaskOrigin: {value: new THREE.Vector2()},
+  uRoadMaskSpan: {value: 218},
   // Nearest airport: x, z, cos and sin of its runway's angle (w 0: none)
   uAirport: {value: new THREE.Vector4(0, 0, 1, 0)},
   uAirportOn: {value: 0},
@@ -124,8 +148,9 @@ const VERTEX_PARS = `
   uniform sampler2D uField;
   uniform vec2 uGroundOrigin;
   uniform float uGroundStep;
-  uniform vec4 uRoads[${MAX_ROADS}];
-  uniform float uRoadWidth[${MAX_ROADS}];
+  uniform sampler2D uRoadMask;
+  uniform vec2 uRoadMaskOrigin;
+  uniform float uRoadMaskSpan;
   uniform vec4 uAirport;
   uniform float uAirportOn;
   uniform vec4 uPush[${MAX_PUSH}];
@@ -133,11 +158,6 @@ const VERTEX_PARS = `
   uniform vec2 uTrampleCenter;
   uniform float uTrampleSpan;
   ${GRASS_WAVE_GLSL}
-  float grassSegDist(vec2 p, vec4 s) {
-    vec2 a = s.xy, ab = s.zw - s.xy;
-    float t = clamp(dot(p - a, ab) / max(dot(ab, ab), 1e-3), 0.0, 1.0);
-    return length(p - a - ab * t);
-  }
 `;
 
 // Sets bladePos (world), bladeNormal (the ground's) and vColor
@@ -235,10 +255,8 @@ const VERTEX_MAIN = `
   float density = loaded;
   density *= step(${(WATER_LEVEL + 1.5).toFixed(1)}, ground.x);
   density *= smoothstep(0.62, 0.8, groundN.y);
-  for (int i = 0; i < ${MAX_ROADS}; i++) {
-    float w = uRoadWidth[i];
-    if (w > 0.0) density *= smoothstep(w, w + 4.0, grassSegDist(wxz, uRoads[i]));
-  }
+  vec2 ruv = (wxz - uRoadMaskOrigin) / uRoadMaskSpan;
+  density *= textureLod(uRoadMask, ruv, 0.0).r;
   if (uAirportOn > 0.5) {
     vec2 d = wxz - uAirport.xy;
     float u = d.x * uAirport.z + d.y * uAirport.w;
@@ -252,7 +270,7 @@ const VERTEX_MAIN = `
   float dC = length(wxz - uGrassCenter);
   float edge = smoothstep(uGrassRadius, uGrassRadius * 0.4, dC);
   float cover = max(max(grass, wheat), max(cCorn, max(cTulip, cWild)));
-  float keepHash = mix(fract(rnd * 7.13 + bladeIdx * 0.29), fract(rnd * 7.13), sharedStem);
+  float keepHash = max(1e-4, mix(fract(rnd * 7.13 + bladeIdx * 0.29), fract(rnd * 7.13), sharedStem));
   float keep = step(keepHash, cover * density * edge);
 
   // Heights: grass ~1.4-2.8, tulips ~2.1-2.6, wheat ~3.0-3.8, corn ~5.2-6.5
@@ -598,24 +616,82 @@ function updateGround(cx, cz) {
   return true;
 }
 
-// Roads, access roads and the runway near the field, so no grass grows on them
-const _roadPick = [];
+// Roads, slip roads, village streets, streams and the runway near the field,
+// rasterized into roadMaskTex so dense town junctions never run out of slots
 const _elevParams = {WATER_LEVEL, MOUNTAIN_LEVEL};
+let lastRoadCx = Infinity;
+let lastRoadCz = Infinity;
+let lastRoadField = null;
+let lastRoadChunksMask = -1;
+let lastRoadCenterChunk = null;
+let lastRoadSeed = null;
+let roadMaskAllClear = true;
+
 function updateRoads(cx, cz) {
-  const reach = field.radius + 80;
-  _roadPick.length = 0;
   const ccx = Math.round(cx / CHUNK_SIZE);
   const ccz = Math.round(cz / CHUNK_SIZE);
+  let chunksMask = 0;
+  let bit = 1;
+  for (let i = ccx - 1; i <= ccx + 1; i++) {
+    for (let j = ccz - 1; j <= ccz + 1; j++) {
+      if (chunks.has(`${i},${j}`)) chunksMask |= bit;
+      bit <<= 1;
+    }
+  }
+  const centerChunk = chunks.get(`${ccx},${ccz}`) || null;
+  if (
+    field === lastRoadField &&
+    chunksMask === lastRoadChunksMask &&
+    centerChunk === lastRoadCenterChunk &&
+    ChillFlightLogic.WORLD_SEED === lastRoadSeed &&
+    Math.abs(cx - lastRoadCx) < ROAD_MASK_STEP_UPDATE &&
+    Math.abs(cz - lastRoadCz) < ROAD_MASK_STEP_UPDATE
+  ) {
+    return;
+  }
+  lastRoadCx = cx;
+  lastRoadCz = cz;
+  lastRoadField = field;
+  lastRoadChunksMask = chunksMask;
+  lastRoadCenterChunk = centerChunk;
+  lastRoadSeed = ChillFlightLogic.WORLD_SEED;
+
+  const span = (field.radius + ROAD_MASK_MARGIN) * 2;
+  const ox = cx - span * 0.5;
+  const oz = cz - span * 0.5;
+  const reach = span * 0.72 + 40;
+  let cleared = false;
+  let carvedAny = false;
   const consider = (x0, z0, x1, z1, hw) => {
-    const dx = x1 - x0;
-    const dz = z1 - z0;
-    const len2 = dx * dx + dz * dz || 1;
-    const t = Math.min(
-      1,
-      Math.max(0, ((cx - x0) * dx + (cz - z0) * dz) / len2)
-    );
-    const d = Math.hypot(cx - x0 - dx * t, cz - z0 - dz * t) - hw;
-    if (d < reach) _roadPick.push({d, x0, z0, x1, z1, hw});
+    const outer = hw + 6;
+    if (
+      Math.max(x0, x1) + outer < ox ||
+      Math.min(x0, x1) - outer > ox + span ||
+      Math.max(z0, z1) + outer < oz ||
+      Math.min(z0, z1) - outer > oz + span
+    ) {
+      return;
+    }
+    if (!cleared) {
+      roadMaskData.fill(255);
+      cleared = true;
+    }
+    if (
+      carveGrassRoadSegment(
+        roadMaskData,
+        ROAD_MASK_SIZE,
+        ox,
+        oz,
+        span,
+        x0,
+        z0,
+        x1,
+        z1,
+        hw
+      )
+    ) {
+      carvedAny = true;
+    }
   };
   for (let i = ccx - 1; i <= ccx + 1; i++) {
     for (let j = ccz - 1; j <= ccz + 1; j++) {
@@ -645,16 +721,13 @@ function updateRoads(cx, cz) {
     const r = roads[i];
     if (Math.abs(cz - r.z) > reach + 20) continue;
     if (cx < r.minX - reach || cx > r.maxX + reach) continue;
-    const ends = ChillFlightLogic.accessRoadEnds(i, simplex, {
-      WATER_LEVEL,
-      MOUNTAIN_LEVEL,
-    });
+    const ends = ChillFlightLogic.accessRoadEnds(i, simplex, _elevParams);
     if (!ends?.built) continue;
     consider(r.minX, r.z, r.maxX, r.z, ChillFlightLogic.ACCESS_ROAD_WIDTH + 2);
   }
   // Town streets, between the blocks of houses, and the towns' civic plazas
   forEachTownStreetNear(cx, cz, reach, _elevParams, (x0, z0, x1, z1, hw) =>
-    consider(x0, z0, x1, z1, hw + 2)
+    consider(x0, z0, x1, z1, hw + 2.5)
   );
   for (const plaza of ChillFlightLogic.townPlazaSites(simplex, _elevParams)) {
     if (Math.hypot(plaza.x - cx, plaza.z - cz) >= reach + 65) continue;
@@ -672,11 +745,16 @@ function updateRoads(cx, cz) {
       consider(plaza.x - dx, plaza.z - dz, plaza.x + dx, plaza.z + dz, 21);
     }
   }
-  _roadPick.sort((a, b) => a.d - b.d);
-  for (let i = 0; i < MAX_ROADS; i++) {
-    const r = _roadPick[i];
-    uniforms.uRoadWidth.value[i] = r ? r.hw : 0;
-    if (r) uniforms.uRoads.value[i].set(r.x0, r.z0, r.x1, r.z1);
+
+  uniforms.uRoadMaskOrigin.value.set(ox, oz);
+  uniforms.uRoadMaskSpan.value = span;
+  if (carvedAny) {
+    roadMaskAllClear = false;
+    roadMaskTex.needsUpdate = true;
+  } else if (!roadMaskAllClear) {
+    if (!cleared) roadMaskData.fill(255);
+    roadMaskAllClear = true;
+    roadMaskTex.needsUpdate = true;
   }
 
   uniforms.uAirportOn.value = 0;
@@ -799,7 +877,8 @@ export function updateGrass(delta) {
   // Tyre tracks flattening it, in a map just wider than the field
   drawTrample(renderer, cx, cz, field.radius * 2 + 16);
   uniforms.uTrampleSpan.value = trample.live ? trample.span : 0;
-  if (updateGround(cx, cz)) updateRoads(cx, cz);
+  updateGround(cx, cz);
+  updateRoads(cx, cz);
 }
 
 // For the loading screen's warm-up (hooks.warmUps): build and compile the

@@ -1784,6 +1784,69 @@ export function forEachTownStreetNear(x, z, reach, elevParams, fn) {
   }
 }
 
+// Carves a capsule road/street/stream clearance (0 inside hw, smoothstep to
+// 255 over hw..hw+4) into an N x N R8 road-mask grid covering [ox, ox + span]
+// x [oz, oz + span]. Returns true if any texel overlapped the grid.
+export function carveGrassRoadSegment(
+  data,
+  size,
+  ox,
+  oz,
+  span,
+  x0,
+  z0,
+  x1,
+  z1,
+  hw
+) {
+  const cell = span / size;
+  const invCell = size / span;
+  const inner = Math.max(hw, cell * 0.85);
+  const outer = inner + 4;
+  const i0 = Math.max(0, Math.floor((Math.min(x0, x1) - outer - ox) * invCell));
+  const i1 = Math.min(
+    size - 1,
+    Math.floor((Math.max(x0, x1) + outer - ox) * invCell)
+  );
+  if (i0 > i1) return false;
+  const j0 = Math.max(0, Math.floor((Math.min(z0, z1) - outer - oz) * invCell));
+  const j1 = Math.min(
+    size - 1,
+    Math.floor((Math.max(z0, z1) + outer - oz) * invCell)
+  );
+  if (j0 > j1) return false;
+  const dx = x1 - x0;
+  const dz = z1 - z0;
+  const invLen2 = 1 / Math.max(dx * dx + dz * dz, 1e-3);
+  const inner2 = inner * inner;
+  const outer2 = outer * outer;
+  for (let j = j0; j <= j1; j++) {
+    const wz = oz + (j + 0.5) * cell;
+    const row = j * size;
+    for (let i = i0; i <= i1; i++) {
+      const cur = data[row + i];
+      if (cur === 0) continue;
+      const wx = ox + (i + 0.5) * cell;
+      const t = Math.min(
+        1,
+        Math.max(0, ((wx - x0) * dx + (wz - z0) * dz) * invLen2)
+      );
+      const ex = wx - x0 - dx * t;
+      const ez = wz - z0 - dz * t;
+      const d2 = ex * ex + ez * ez;
+      if (d2 >= outer2) continue;
+      if (d2 <= inner2) {
+        data[row + i] = 0;
+      } else {
+        const u = (Math.sqrt(d2) - inner) * 0.25;
+        const v = (u * u * (3 - 2 * u) * 255) | 0;
+        if (v < cur) data[row + i] = v;
+      }
+    }
+  }
+  return true;
+}
+
 // Whether (x, z) is on a town's street, plus margin
 export function isOnTownStreet(x, z, margin, elevParams) {
   const reach = TOWN_STREET_HALF_WIDTH + margin;
