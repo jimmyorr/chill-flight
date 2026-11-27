@@ -6,10 +6,8 @@
 // cap on the great one. They use the terrain's material, so they light,
 // fog and fade into the distance with the land.
 import * as THREE from 'three';
-import {ChillFlightLogic} from './chill-flight-logic.js';
-import {WATER_LEVEL} from './constants.js';
-import {simplex} from './noise.js';
-import {scene} from './scene.js';
+import {standaloneProps} from './airports.js';
+import {BREAK, sweptFerrisHit} from './breakables-logic.js';
 import {
   FERRIS_PERIOD_SEC,
   buildingMesh,
@@ -17,7 +15,12 @@ import {
   ferrisWheelGroup,
   portalGroup,
 } from './building-models.js';
+import {ChillFlightLogic} from './chill-flight-logic.js';
+import {WATER_LEVEL} from './constants.js';
+import {simplex} from './noise.js';
+import {scene} from './scene.js';
 import {getCameraWorldPosition} from './sky.js';
+import {BREAKABLE} from './terrain-gen.js';
 import {terrainMaterial} from './terrain-geometry.js';
 
 // Each course of stone is this tall (units), every other one a shade
@@ -137,6 +140,7 @@ if (portals && ChillFlightLogic.SHOW_OBJECTS !== false) {
 const ferrisSite = ChillFlightLogic.ferrisWheelSite(simplex, {WATER_LEVEL});
 let ferrisNear = null;
 let ferrisFar = null;
+let ferrisBroken = false;
 if (ferrisSite && ChillFlightLogic.SHOW_OBJECTS !== false) {
   ferrisNear = ferrisWheelGroup('sandtray', {withGondolas: true});
   ferrisFar = ferrisWheelGroup('sandtray', {withGondolas: false});
@@ -147,13 +151,61 @@ if (ferrisSite && ChillFlightLogic.SHOW_OBJECTS !== false) {
   lod.addLevel(new THREE.Group(), FERRIS_DRAW_DISTANCE);
   lod.position.set(ferrisSite.x, ferrisSite.base, ferrisSite.z);
   lod.rotation.y = ferrisSite.yaw;
+  ferrisNear.userData.animateFerris(0, 0.7, 0);
   lod.updateMatrixWorld(true);
   scene.add(lod);
+
+  const nearParts = ferrisNear.userData.parts;
+  const farParts = ferrisFar.userData.parts;
+  standaloneProps.push({
+    userData: {
+      breakables: {kinds: []},
+      instanceData: {},
+      meshProps: [
+        {
+          kind: BREAKABLE.HOUSE,
+          radius: 45,
+          rubble: BREAK.RUBBLE.ferris_wheel,
+          parts: [
+            {
+              type: 'obj',
+              object: nearParts.frameStructure,
+              role: 'fold',
+              rubbleColor: [0.38, 0.61, 0.68],
+            },
+            {
+              type: 'obj',
+              object: nearParts.wheelRim,
+              role: 'fling',
+              discYaw: ferrisSite.yaw,
+              rubbleColor: [0.92, 0.9, 0.86],
+            },
+            ...nearParts.gondolas.map((g) => ({
+              type: 'obj',
+              object: g,
+              role: 'fling',
+              radial: true,
+            })),
+          ],
+          hit: (b, r, a = b, wing = null) =>
+            sweptFerrisHit(a, b, r, ferrisSite, wing),
+          onBreak: () => {
+            ferrisBroken = true;
+            farParts.frameStructure.visible = false;
+            farParts.wheelRim.visible = false;
+          },
+        },
+      ],
+      chunkX: 'ferris',
+      chunkZ: 0,
+      standalone: true,
+    },
+  });
 }
 
 const _camPos = new THREE.Vector3();
 export function updateFerrisWheel(timeSec, windStrength = 0.7) {
-  if (!ferrisSite || !ferrisNear) return;
+  if (!ferrisSite || !ferrisNear || ferrisBroken) return;
   getCameraWorldPosition(_camPos);
   const dx = _camPos.x - ferrisSite.x;
   const dz = _camPos.z - ferrisSite.z;

@@ -54,6 +54,7 @@ import {
   STONE_WALL_HEIGHT,
   STONE_WALL_RUINED_HEIGHT,
 } from './farm-models.js';
+import {buildingMat} from './building-models.js';
 import {playShatter, playSmash, playStoneWallSmash} from './sfx-events.js';
 import {smashHaptic} from './haptics.js';
 import {recordPropCrashStrain} from './crash.js';
@@ -332,6 +333,9 @@ function addPiece(type, m, color, group, source) {
 // parts
 function addObjectPiece(m, group, source) {
   const object = source.object.clone();
+  object.traverse((o) => {
+    if (o.userData?.goesDark) o.material = buildingMat;
+  });
   object.matrixAutoUpdate = false;
   object.matrix.fromArray(m);
   object.visible = true;
@@ -539,14 +543,19 @@ function chunkIndex(group) {
     if (critter) {
       top = base + (sheep ? BREAK.SHEEP_SCARE_HEIGHT : SCARE_HEIGHT);
     }
-    const radius = sheep
-      ? BREAK.SHEEP_PLANE_SCARE
-      : critter
-        ? SCARE_RADIUS
-        : /^stoneWall/.test(parts[0].type)
-          ? reach + 0.5
-          : reach *
-            (kind === BREAKABLE.HOUSE ? BREAK.HOUSE_REACH : BREAK.TREE_REACH);
+    const spec = propSpec(ud, i);
+    const radius =
+      spec?.radius ??
+      (sheep
+        ? BREAK.SHEEP_PLANE_SCARE
+        : critter
+          ? SCARE_RADIUS
+          : /^stoneWall/.test(parts[0].type)
+            ? reach + 0.5
+            : reach *
+              (kind === BREAKABLE.HOUSE
+                ? BREAK.HOUSE_REACH
+                : BREAK.TREE_REACH));
     index.x[i] = first[12];
     index.z[i] = first[14];
     index.cx[i] = cx;
@@ -612,6 +621,7 @@ function copyColor(part) {
 
 // A part's colour as rubble: its own, or its material's
 function rubbleColor(part) {
+  if (part.rubbleColor) return part.rubbleColor;
   const color = copyColor(part);
   if (color) return color;
   if (part.type === 'castleRuins') return [0.54, 0.56, 0.54];
@@ -755,8 +765,8 @@ function collapse(group, parts, x, base, z, top, radius, dx, dz, kts, spec) {
       moving.add(piece);
     } else if (role === 'fling') {
       const color = copyColor(part);
-      const roof = type.endsWith('Roof') || !!part.object;
-      if (roof) roofColor = rubbleColor(part);
+      const roof = type.endsWith('Roof') || (!!part.object && !part.radial);
+      if (roof && !roofColor) roofColor = rubbleColor(part);
       const m = copyMatrix(part);
       // A sail stops where it had turned to
       if (type === 'windmillBlades') {
@@ -768,22 +778,77 @@ function collapse(group, parts, x, base, z, top, radius, dx, dz, kts, spec) {
       const box = part.object
         ? _box.setFromObject(part.object)
         : partBox(type, m, 0);
+      const cx = (box.min.x + box.max.x) / 2;
+      const cy = (box.min.y + box.max.y) / 2;
+      const cz = (box.min.z + box.max.z) / 2;
       const piece = addPiece(type, m, color, group, source);
-      const tumble = roof || type === 'windmillBlades' || ROLLS.test(type);
-      fling(
-        piece,
-        (box.min.x + box.max.x) / 2,
-        (box.min.y + box.max.y) / 2,
-        (box.min.z + box.max.z) / 2,
-        dx * fwd * rand(0.4, 0.8) + rand(-3, 3),
-        rand(2, 6),
-        dz * fwd * rand(0.4, 0.8) + rand(-3, 3),
-        tumble
-          ? axis
-          : new THREE.Vector3(rand(-1, 1), 0, rand(-1, 1)).normalize(),
-        tumble ? rand(0.6, 1.2) : rand(3, 6),
-        base + (roof ? Math.max(2.5, (box.max.y - box.min.y) * 0.25) : 1)
-      );
+      if (part.radial) {
+        let rx = cx - x;
+        let rz = cz - z;
+        const rl = Math.hypot(rx, rz);
+        if (rl > 0.5) {
+          rx /= rl;
+          rz /= rl;
+        } else {
+          const ang = rand(0, Math.PI * 2);
+          rx = Math.cos(ang);
+          rz = Math.sin(ang);
+        }
+        const outSpd = rand(9, 18);
+        fling(
+          piece,
+          cx,
+          cy,
+          cz,
+          rx * outSpd + dx * fwd * rand(0.35, 0.75) + rand(-3, 3),
+          rand(4, 11),
+          rz * outSpd + dz * fwd * rand(0.35, 0.75) + rand(-3, 3),
+          new THREE.Vector3(
+            rand(-1, 1),
+            rand(-0.4, 0.4),
+            rand(-1, 1)
+          ).normalize(),
+          rand(2.2, 4.8),
+          Math.max(getElevation(cx, cz), base) + 2.5
+        );
+      } else if (part.discYaw !== undefined) {
+        const cyaw = Math.cos(part.discYaw);
+        const syaw = Math.sin(part.discYaw);
+        const sign = dx * syaw + dz * cyaw >= 0 ? 1 : -1;
+        const tipAxis = new THREE.Vector3(
+          cyaw * sign + rand(-0.18, 0.18),
+          0,
+          -syaw * sign + rand(-0.18, 0.18)
+        ).normalize();
+        fling(
+          piece,
+          cx,
+          cy,
+          cz,
+          dx * fwd * rand(0.45, 0.75) + syaw * sign * 6,
+          5,
+          dz * fwd * rand(0.45, 0.75) + cyaw * sign * 6,
+          tipAxis,
+          rand(0.88, 0.96),
+          base + 6
+        );
+      } else {
+        const tumble = roof || type === 'windmillBlades' || ROLLS.test(type);
+        fling(
+          piece,
+          cx,
+          cy,
+          cz,
+          dx * fwd * rand(0.4, 0.8) + rand(-3, 3),
+          rand(2, 6),
+          dz * fwd * rand(0.4, 0.8) + rand(-3, 3),
+          tumble
+            ? axis
+            : new THREE.Vector3(rand(-1, 1), 0, rand(-1, 1)).normalize(),
+          tumble ? rand(0.6, 1.2) : rand(3, 6),
+          base + (roof ? Math.max(2.5, (box.max.y - box.min.y) * 0.25) : 1)
+        );
+      }
     } else if (role === 'rubble') {
       if (/^stoneWallSnow/.test(type)) {
         bodyColor = [0.36, 0.39, 0.43];
@@ -1932,7 +1997,7 @@ function sweep(a, b, r, mine, buggy) {
             // Some props have gaps you can pass through (a rock arch) or thin
             // sloped runs (an Irish dry-stone pasture wall)
             const spec = propSpec(group.userData, i);
-            if (spec?.hit && !spec.hit(b, r)) continue;
+            if (spec?.hit && !spec.hit(b, r, a, wing)) continue;
             const firstPart = propParts(group, i)[0];
             if (
               firstPart &&

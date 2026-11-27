@@ -21,6 +21,7 @@ import {
   stepSheepPunt,
   stepSink,
   stepTopple,
+  sweptFerrisHit,
   sweptHit,
   sweptWallHit,
   toppleSpin,
@@ -417,6 +418,84 @@ check(
   'the plane never stops dead',
   speedKept('house', false) > 0.5 && BREAK.KEEP.house.buggy > 0.3
 );
+
+// --- Crossroads Ferris wheel narrowphase hit ---
+{
+  const ferris = {x: 1000, z: -500, base: 150, yaw: Math.PI / 3};
+  const c = Math.cos(ferris.yaw);
+  const s = Math.sin(ferris.yaw);
+  const worldPt = (lx, ly, lz) => ({
+    x: ferris.x + lx * c + lz * s,
+    y: ferris.base + ly,
+    z: ferris.z - lx * s + lz * c,
+  });
+  const localRight = {x: c, y: 0, z: -s};
+
+  check(
+    'sweptFerrisHit catches impacts on wheel rim, fast disc slice, A-frame leg, and boarding deck',
+    sweptFerrisHit(
+      worldPt(38, 53.3, -25),
+      worldPt(38, 53.3, 25),
+      BREAK.PLANE_RADIUS,
+      ferris
+    ) &&
+      sweptFerrisHit(
+        worldPt(0, 75, -130),
+        worldPt(0, 75, 130),
+        BREAK.PLANE_RADIUS,
+        ferris
+      ) &&
+      sweptFerrisHit(
+        worldPt(-26, 8, -20),
+        worldPt(-26, 8, 20),
+        BREAK.BUGGY_RADIUS,
+        ferris
+      ) &&
+      sweptFerrisHit(
+        worldPt(0, 4, 24),
+        worldPt(0, 4, 15),
+        BREAK.BUGGY_RADIUS,
+        ferris
+      )
+  );
+  check(
+    'sweptFerrisHit catches a wingtip clipping the wheel rim while fuselage passes clear',
+    sweptFerrisHit(
+      worldPt(52, 53.3, -20),
+      worldPt(52, 53.3, 20),
+      BREAK.PLANE_RADIUS,
+      ferris,
+      {right: localRight, halfSpan: 14.5}
+    ) &&
+      !sweptFerrisHit(
+        worldPt(52, 53.3, -20),
+        worldPt(52, 53.3, 20),
+        BREAK.PLANE_RADIUS,
+        ferris
+      )
+  );
+  check(
+    'sweptFerrisHit ignores planes flying parallel beside the wheel face, past upper corners, or buggies on the outer pad',
+    !sweptFerrisHit(
+      worldPt(-40, 60, 22),
+      worldPt(40, 60, 22),
+      BREAK.PLANE_RADIUS,
+      ferris
+    ) &&
+      !sweptFerrisHit(
+        worldPt(36, 90, -20),
+        worldPt(36, 90, 20),
+        BREAK.PLANE_RADIUS,
+        ferris
+      ) &&
+      !sweptFerrisHit(
+        worldPt(28, 2, 17),
+        worldPt(22, 2, 17),
+        BREAK.BUGGY_RADIUS,
+        ferris
+      )
+  );
+}
 
 if (failed) {
   console.log('Breakable prop tests FAILED.');

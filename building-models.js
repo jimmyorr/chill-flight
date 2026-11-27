@@ -369,15 +369,23 @@ const _ferrisGeos = new Map();
 export function ferrisWheelGeos(colorway = 'sandtray') {
   if (!_ferrisGeos.has(colorway)) {
     const asset = ferrisWheelModel.createAsset({...FERRIS_OPTS, colorway});
+    const preset =
+      ferrisWheelModel.presets[colorway] || ferrisWheelModel.presets.sandtray;
+    const baseHex = new THREE.Color(preset.base).getHexString();
     const frameMesh = asset.getObjectByName('frame-static');
     const wheelObj = asset.getObjectByName('wheel');
     const wheelFrame = asset.getObjectByName('wheel-frame');
-    const frameStatic = scaleNonIndexedGeo(
+    const framePad = scaleNonIndexedGeo(
       frameMesh.geometry,
       FERRIS_SCALE,
-      null,
+      (hex) => hex === baseHex,
       null,
       2
+    );
+    const frameStructure = scaleNonIndexedGeo(
+      frameMesh.geometry,
+      FERRIS_SCALE,
+      (hex) => hex !== baseHex
     );
     const wheelBody = scaleNonIndexedGeo(
       wheelFrame.geometry,
@@ -408,7 +416,8 @@ export function ferrisWheelGeos(colorway = 'sandtray') {
     }
     _ferrisGeos.set(colorway, {
       hubY: wheelObj.position.y * FERRIS_SCALE,
-      frameStatic,
+      framePad,
+      frameStructure,
       wheelBody,
       wheelGlow,
       gondolaGeos,
@@ -425,15 +434,24 @@ export function ferrisWheelGroup(
   const geos = ferrisWheelGeos(colorway);
   const group = new THREE.Group();
   group.name = 'ferris-wheel';
-  group.add(buildingMesh(geos.frameStatic));
+  const framePad = buildingMesh(geos.framePad);
+  framePad.name = 'frame-pad';
+  group.add(framePad);
+  const frameStructure = buildingMesh(geos.frameStructure);
+  frameStructure.name = 'frame-structure';
+  group.add(frameStructure);
 
   const wheel = new THREE.Group();
   wheel.name = 'wheel';
   wheel.position.set(0, geos.hubY, 0);
-  wheel.add(buildingMesh(geos.wheelBody));
+  const wheelRim = new THREE.Group();
+  wheelRim.name = 'wheel-rim';
+  wheelRim.add(buildingMesh(geos.wheelBody));
   const bulbMesh = new THREE.Mesh(geos.wheelGlow, ferrisGlowMat);
   bulbMesh.name = 'wheel-bulbs';
-  wheel.add(bulbMesh);
+  bulbMesh.userData.goesDark = true;
+  wheelRim.add(bulbMesh);
+  wheel.add(wheelRim);
   group.add(wheel);
 
   const gondolas = [];
@@ -448,6 +466,7 @@ export function ferrisWheelGroup(
     }
   }
 
+  group.userData.parts = {framePad, frameStructure, wheelRim, gondolas};
   group.userData.animateFerris = (angle, wind = 0, timeSec = 0) => {
     wheel.rotation.z = angle;
     for (let k = 0; k < gondolas.length; k++) {

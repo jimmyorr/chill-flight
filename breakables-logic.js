@@ -87,6 +87,7 @@ export const BREAK = {
     stone_wall: 10,
     iceberg: 10,
     iceFloe: 6,
+    ferris_wheel: 28,
   },
 };
 
@@ -266,6 +267,77 @@ export function sweptWallHit(a, b, r, m, halfWidth = 1.0, height = 2.95) {
   const wy = my + (bestV - 0.5) * dy;
   const wTop = wy + height * sy;
   return vy - r < wTop && vy + r > wy - 1.0;
+}
+
+// Squared distance in local Ferris wheel space (lx, ly, lz) to the solid parts
+// of the Crossroads Ferris wheel (wheel disc + gondolas, tapered steel A-frame
+// legs, and wooden boarding platform + steps, excluding the ground-level pad)
+export function ferrisPointDistSq(lx, ly, lz) {
+  // 1. Spoked wheel disc and 12 hanging gondolas in the local XY plane
+  const dWheelR = Math.max(0, Math.hypot(lx, ly - 53.3) - 43.5);
+  const dWheelZ = Math.max(0, Math.abs(lz) - 9.0);
+  const wheelSq = dWheelR * dWheelR + dWheelZ * dWheelZ;
+
+  // 2. Tapered steel A-frame support legs from pad to axle hub
+  const t = Math.min(1, Math.max(0, (ly - 1.0) / 52.3));
+  const hx = 31.7 * (1 - t) + 3.5 * t;
+  const dLegX = Math.max(0, Math.abs(lx) - hx);
+  const dLegY = ly < 1.0 ? 1.0 - ly : ly > 55.0 ? ly - 55.0 : 0;
+  const dLegZ = Math.max(0, Math.abs(lz) - 11.5);
+  const legSq = dLegX * dLegX + dLegY * dLegY + dLegZ * dLegZ;
+
+  // 3. Wooden boarding platform, railings, and front steps (+z)
+  const dDeckX = Math.max(0, Math.abs(lx) - 10.6);
+  const dDeckY = ly < 1.4 ? 1.4 - ly : ly > 10.5 ? ly - 10.5 : 0;
+  const dDeckZ = lz < -14.9 ? -14.9 - lz : lz > 17.1 ? lz - 17.1 : 0;
+  const deckSq = dDeckX * dDeckX + dDeckY * dDeckY + dDeckZ * dDeckZ;
+
+  return Math.min(wheelSq, legSq, deckSq);
+}
+
+const FERRIS_WING_SAMPLES = [-1, -0.5, 0.5, 1];
+
+// Whether a vehicle of radius r (and optional plane wing {right, halfSpan})
+// moving from a to b ({x, y, z}) hits the Ferris wheel at `site` ({x, z, base,
+// yaw}), so flying alongside the flat wheel face or outside the circular rim
+// passes cleanly without hitting an oversized bounding cylinder.
+export function sweptFerrisHit(a, b, r, site, wing = null) {
+  if (!site) return false;
+  const cos = Math.cos(site.yaw || 0);
+  const sin = Math.sin(site.yaw || 0);
+  const step = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
+  const n = Math.min(96, Math.max(1, Math.ceil(step / 3)));
+  const rSq = r * r;
+  const wingSq = BREAK.WING_THICK * BREAK.WING_THICK;
+  const useWing = Boolean(wing && wing.halfSpan > 0 && wing.right);
+
+  for (let k = 0; k <= n; k++) {
+    const u = k / n;
+    const px = a.x + (b.x - a.x) * u;
+    const py = a.y + (b.y - a.y) * u;
+    const pz = a.z + (b.z - a.z) * u;
+    const dx = px - site.x;
+    const dz = pz - site.z;
+    const lx = dx * cos - dz * sin;
+    const ly = py - site.base;
+    const lz = dx * sin + dz * cos;
+    if (ferrisPointDistSq(lx, ly, lz) <= rSq) return true;
+
+    if (useWing) {
+      const rx = wing.right.x * wing.halfSpan;
+      const ry = wing.right.y * wing.halfSpan;
+      const rz = wing.right.z * wing.halfSpan;
+      for (const s of FERRIS_WING_SAMPLES) {
+        const wdx = dx + rx * s;
+        const wdz = dz + rz * s;
+        const wlx = wdx * cos - wdz * sin;
+        const wly = ly + ry * s;
+        const wlz = wdx * sin + wdz * cos;
+        if (ferrisPointDistSq(wlx, wly, wlz) <= wingSq) return true;
+      }
+    }
+  }
+  return false;
 }
 
 // The speed kept after hitting a 'tree', 'house' or 'snowman' in the plane or

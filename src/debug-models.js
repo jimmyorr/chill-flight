@@ -422,7 +422,7 @@ function toggleDestruction() {
     activeDestruction = startDestruction(
       window.currentModelType,
       window.currentModel,
-      {rockMat, woodMat}
+      {rockMat, woodMat, buildingMat}
     );
   }
 }
@@ -1833,15 +1833,17 @@ function animate() {
   animationUniforms.uTime.value = time;
   waterUniforms.uTime.value = time;
   stepPoliceStrobes(collectPoliceStrobeMaterials(viewScene), time);
-  viewScene.traverse((o) => {
-    if (o.userData?.animateFerris) {
-      o.userData.animateFerris(
-        ((time % FERRIS_PERIOD_SEC) / FERRIS_PERIOD_SEC) * Math.PI * 2,
-        0.7,
-        time
-      );
-    }
-  });
+  if (!activeDestruction) {
+    viewScene.traverse((o) => {
+      if (o.userData?.animateFerris) {
+        o.userData.animateFerris(
+          ((time % FERRIS_PERIOD_SEC) / FERRIS_PERIOD_SEC) * Math.PI * 2,
+          0.7,
+          time
+        );
+      }
+    });
+  }
 
   if (activeDestruction) {
     activeDestruction.update(delta);

@@ -75,6 +75,7 @@ export const destructibleTypes = new Set([
   'streetlight',
   'tent',
   'campfire',
+  'ferris_wheel',
   // Other
   'sailboat',
   'iceberg',
@@ -365,6 +366,7 @@ export function startDestruction(type, previewGroup, mats = {}) {
       'windmill',
       'hangar',
       'lighthouse',
+      'ferris_wheel',
     ].includes(type)
   ) {
     const allMeshes = [];
@@ -374,7 +376,46 @@ export function startDestruction(type, previewGroup, mats = {}) {
     const bodyMat = allMeshes[0]?.material;
     const roofMat = allMeshes[1]?.material;
 
-    if (type === 'lighthouse') {
+    if (type === 'ferris_wheel') {
+      previewGroup.updateMatrixWorld(true);
+      let ferrisParts = null;
+      previewGroup.traverse((c) => {
+        if (c.userData?.parts) ferrisParts = c.userData.parts;
+      });
+      if (ferrisParts) {
+        const {frameStructure, wheelRim, gondolas} = ferrisParts;
+        wheelRim.traverse((o) => {
+          if (o.userData?.goesDark && mats.buildingMat) {
+            o.material = mats.buildingMat;
+          }
+        });
+        previewGroup.attach(frameStructure);
+        addFold(frameStructure, new THREE.Vector3(0, localGroundY, 0));
+        previewGroup.attach(wheelRim);
+        addFling(
+          wheelRim,
+          (dx * 10) / s,
+          5 / s,
+          (dz * 10 - 6) / s,
+          0.92 / Math.sqrt(s),
+          localGroundY + 6 / s,
+          new THREE.Vector3(-1, 0, 0.16).normalize()
+        );
+        gondolas.forEach((g, idx) => {
+          previewGroup.attach(g);
+          const ang = (idx / Math.max(1, gondolas.length)) * Math.PI * 2;
+          const out = (10 + Math.random() * 7) / s;
+          addFling(
+            g,
+            Math.cos(ang) * out + (dx * 8) / s,
+            (5 + Math.random() * 6) / s,
+            Math.sin(ang) * out + (dz * 8) / s,
+            2.5 + Math.random() * 2,
+            localGroundY + 2.5 / s
+          );
+        });
+      }
+    } else if (type === 'lighthouse') {
       const tower = allMeshes.filter((m) => Math.abs(m.position.x) < 2);
       const keeperHouse = allMeshes.filter((m) => m.position.x > 10);
       const flag = allMeshes.filter((m) => m.position.x < -10);
@@ -516,7 +557,14 @@ export function startDestruction(type, previewGroup, mats = {}) {
     const rubbleMat =
       type === 'castle' && mats.rockMat
         ? mats.rockMat
-        : bodyMat || roofMat || createMaterial({color: 0x998877});
+        : bodyMat && !bodyMat.vertexColors
+          ? bodyMat
+          : roofMat && !roofMat.vertexColors
+            ? roofMat
+            : createMaterial({
+                color: type === 'ferris_wheel' ? 0x619cad : 0x998877,
+                flatShading: true,
+              });
     addRubble(rubbleCount, spread, rubbleMat, null, 1.1, 1.0);
   }
 
