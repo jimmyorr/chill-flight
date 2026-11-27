@@ -69,6 +69,7 @@ import {
   ferrisWheelGroup,
   PORTAL_COLORWAYS,
   portalGroup,
+  HANGAR_COLORWAYS,
   LANDMARK_HOUSES,
   LANDMARK_SMALL,
   buildTentGeos,
@@ -439,6 +440,8 @@ function viewModel(type, e, colorSeed = 0) {
   const supportsColors = [
     'house',
     'two_story_house',
+    'control_tower',
+    'hangar',
     'lighthouse',
     'tent',
     'sailboat',
@@ -623,10 +626,16 @@ function viewModel(type, e, colorSeed = 0) {
       }
 
       case 'control_tower':
-        previewGroup.add(createControlTower());
+        previewGroup.add(
+          createControlTower(
+            HANGAR_COLORWAYS[colorSeed % HANGAR_COLORWAYS.length]
+          )
+        );
         break;
       case 'hangar':
-        previewGroup.add(createHangar());
+        previewGroup.add(
+          createHangar(HANGAR_COLORWAYS[colorSeed % HANGAR_COLORWAYS.length])
+        );
         break;
       case 'windsock':
         previewGroup.add(createWindsock());

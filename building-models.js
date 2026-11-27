@@ -2986,3 +2986,1243 @@ export function buildCastleRuinsGeo() {
 
   return B.build();
 }
+
+// --- AIRFIELD HANGAR ---
+// Three regional colorways matching controlTowerGeo ('raf-brick', 'desert-tan',
+// 'winter-ash'), split into 3 breakable meshes: walls ('fold'), arched roof
+// ('fling'), and telescopic sliding doors + glazing ('fling').
+export const HANGAR_COLORWAYS = ['raf-brick', 'desert-tan', 'winter-ash'];
+const _hangarGeos = new Map();
+
+function hangarPalette(colorway) {
+  if (colorway === 'desert-tan') {
+    return {
+      plinth: hexRgb(0x7c7163),
+      dado: hexRgb(0xa67b56),
+      sill: hexRgb(0xc9b89b),
+      sidingA: hexRgb(0xd9c6a5),
+      sidingB: hexRgb(0xccb895),
+      pilaster: hexRgb(0x6e6459),
+      roofA: hexRgb(0x6d6962),
+      roofB: hexRgb(0x79746c),
+      skylight: hexRgb(0x5c7d8e),
+      trim: hexRgb(0x47413b),
+      doorA: hexRgb(0x7c7367),
+      doorB: hexRgb(0x887f72),
+      accentA: hexRgb(0xc2522b),
+      accentB: hexRgb(0xf2e6d0),
+      glass: hexRgb(0x283a48),
+      drumA: hexRgb(0x9e3b28),
+      drumB: hexRgb(0x3a647a),
+    };
+  }
+  if (colorway === 'winter-ash') {
+    return {
+      plinth: hexRgb(0x5c646c),
+      dado: hexRgb(0x6e7882),
+      sill: hexRgb(0xaeb6be),
+      sidingA: hexRgb(0xd2d8de),
+      sidingB: hexRgb(0xc3cad2),
+      pilaster: hexRgb(0x4d5660),
+      roofA: hexRgb(0x3b444e),
+      roofB: hexRgb(0x46505c),
+      skylight: hexRgb(0x5b7c93),
+      trim: hexRgb(0x2f3740),
+      doorA: hexRgb(0x5d6873),
+      doorB: hexRgb(0x697580),
+      accentA: hexRgb(0xd95826),
+      accentB: hexRgb(0xf2f5f8),
+      glass: hexRgb(0x243646),
+      drumA: hexRgb(0xc94f24),
+      drumB: hexRgb(0x2f5873),
+    };
+  }
+  return {
+    plinth: hexRgb(0x6f7270),
+    dado: hexRgb(0x8f4c3e),
+    sill: hexRgb(0xb8b2a4),
+    sidingA: hexRgb(0xc8c4b8),
+    sidingB: hexRgb(0xbbb7ab),
+    pilaster: hexRgb(0x58626a),
+    roofA: hexRgb(0x4a5661),
+    roofB: hexRgb(0x55626e),
+    skylight: hexRgb(0x5b798e),
+    trim: hexRgb(0x394149),
+    doorA: hexRgb(0x66727b),
+    doorB: hexRgb(0x727f89),
+    accentA: hexRgb(0xb8372b),
+    accentB: hexRgb(0xede8dc),
+    glass: hexRgb(0x293c4c),
+    drumA: hexRgb(0xa63429),
+    drumB: hexRgb(0x2e5b75),
+  };
+}
+
+export function hangarGeos(colorway = 'raf-brick') {
+  const key = HANGAR_COLORWAYS.includes(colorway) ? colorway : 'raf-brick';
+  if (_hangarGeos.has(key)) return _hangarGeos.get(key);
+
+  const P = hangarPalette(key);
+  const W = createColoredBuilder();
+  const R = createColoredBuilder();
+  const D = createColoredBuilder();
+
+  const hx = 17.0;
+  const zBack = -13.0;
+  const zFront = 12.6;
+  const yGround = -0.8;
+  const yApron = 0.65;
+  const yDado = 3.85;
+  const ySill = 4.15;
+  const yEave = 10.4;
+  const archRise = 7.1;
+  const archSegs = 12;
+
+  const recessDark = hexRgb(0x1b1f24);
+  const recessFloor = hexRgb(0x383b3e);
+  const hazardYellow = hexRgb(0xd9a326);
+  const hazardDark = hexRgb(0x272b30);
+  const beaconRed = hexRgb(0xd92b2b);
+
+  // 1. Foundation plinth around perimeter + front door track apron curb
+  W.box(
+    -hx - 0.22,
+    -13.2,
+    yGround,
+    yApron,
+    zFront - 0.5,
+    zFront + 0.2,
+    P.plinth
+  );
+  W.box(13.2, hx + 0.22, yGround, yApron, zFront - 0.5, zFront + 0.2, P.plinth);
+  W.box(-13.2, 13.2, yGround, yApron, zBack - 0.22, zFront + 0.45, P.plinth, {
+    topRgb: recessFloor,
+  });
+  // Dark steel floor guide rails across the front threshold
+  W.box(
+    -18.2,
+    18.2,
+    yApron,
+    yApron + 0.08,
+    zFront + 0.12,
+    zFront + 0.78,
+    P.trim
+  );
+
+  // Side walls (x = -hx and x = +hx), partitioned cleanly around 3 clerestory windows
+  const winSpans = [
+    [-10.2, -5.0],
+    [-2.6, 2.6],
+    [5.0, 10.2],
+  ];
+  const wallRunsZ = [
+    [zBack, -10.2],
+    [-5.0, -2.6],
+    [2.6, 5.0],
+    [10.2, zFront],
+  ];
+  const wy0 = 6.75;
+  const wy1 = 9.15;
+
+  for (const side of [-1, 1]) {
+    const xIn = side > 0 ? hx - 0.45 : -hx;
+    const xOut = side > 0 ? hx : -hx + 0.45;
+    const pOut = side > 0 ? hx + 0.22 : -hx - 0.22;
+    const dOut = side > 0 ? hx + 0.1 : -hx - 0.1;
+    const sOut = side > 0 ? hx + 0.18 : -hx - 0.18;
+
+    // Plinth, brick/stone dado, and belt sill along full side wall
+    W.box(
+      Math.min(xIn, pOut),
+      Math.max(xOut, pOut),
+      yGround,
+      yApron,
+      zBack - 0.22,
+      zFront + 0.15,
+      P.plinth
+    );
+    W.box(
+      Math.min(xIn, dOut),
+      Math.max(xOut, dOut),
+      yApron,
+      yDado,
+      zBack,
+      zFront,
+      P.dado,
+      {bottom: false}
+    );
+    W.box(
+      Math.min(xIn, sOut),
+      Math.max(xOut, sOut),
+      yDado,
+      ySill,
+      zBack - 0.08,
+      zFront + 0.08,
+      P.sill,
+      {bottom: false}
+    );
+
+    // Mid-wall below clerestory windows & header band above clerestory windows
+    W.box(xIn, xOut, ySill, wy0, zBack, zFront, P.sidingA, {bottom: false});
+    W.box(xIn, xOut, wy1, yEave, zBack, zFront, P.sidingB, {bottom: false});
+
+    // Piers between clerestory windows
+    for (let i = 0; i < wallRunsZ.length; i++) {
+      const [za, zb] = wallRunsZ[i];
+      W.box(xIn, xOut, wy0, wy1, za, zb, i % 2 === 0 ? P.sidingA : P.sidingB, {
+        bottom: false,
+        top: false,
+      });
+    }
+
+    // 5 structural steel buttress pilasters along each side wall
+    for (const pz of [-12.55, -6.3, 0, 6.3, 12.2]) {
+      const bx0 = side > 0 ? hx : -hx - 0.46;
+      const bx1 = side > 0 ? hx + 0.46 : -hx;
+      W.box(bx0, bx1, yApron, yEave, pz - 0.38, pz + 0.38, P.pilaster, {
+        bottom: false,
+        left: side < 0,
+        right: side > 0,
+      });
+    }
+
+    // Clerestory window frames, sills & 3-pane dark factory glazing in `doors` mesh
+    for (const [za, zb] of winSpans) {
+      const sx0 = side > 0 ? hx - 0.05 : -hx - 0.18;
+      const sx1 = side > 0 ? hx + 0.18 : -hx + 0.05;
+      D.box(sx0, sx1, wy0 - 0.18, wy0, za - 0.12, zb + 0.12, P.sill);
+      D.box(sx0, sx1, wy1, wy1 + 0.14, za - 0.1, zb + 0.1, P.trim);
+      // Recessed glass plane + 2 vertical mullions
+      const gx = side > 0 ? hx - 0.12 : -hx + 0.12;
+      if (side > 0) {
+        D.quad(
+          [gx, wy0, zb],
+          [gx, wy0, za],
+          [gx, wy1, za],
+          [gx, wy1, zb],
+          P.glass
+        );
+      } else {
+        D.quad(
+          [gx, wy0, za],
+          [gx, wy0, zb],
+          [gx, wy1, zb],
+          [gx, wy1, za],
+          P.glass
+        );
+      }
+      const mSpan = (zb - za) / 3;
+      for (let m = 1; m <= 2; m++) {
+        const mz = za + m * mSpan;
+        const mx0 = side > 0 ? hx - 0.14 : -hx - 0.04;
+        const mx1 = side > 0 ? hx + 0.04 : -hx + 0.14;
+        D.box(mx0, mx1, wy0, wy1, mz - 0.09, mz + 0.09, P.trim, {
+          bottom: false,
+          top: false,
+        });
+      }
+    }
+  }
+
+  // 2. Rear (-Z) service wall with framed double cargo doors
+  W.box(-hx, hx, yApron, yDado, zBack - 0.1, zBack + 0.4, P.dado, {
+    bottom: false,
+  });
+  W.box(-hx - 0.1, hx + 0.1, yDado, ySill, zBack - 0.18, zBack + 0.4, P.sill, {
+    bottom: false,
+  });
+  W.box(-hx, -3.2, ySill, yEave, zBack, zBack + 0.45, P.sidingA, {
+    bottom: false,
+  });
+  W.box(3.2, hx, ySill, yEave, zBack, zBack + 0.45, P.sidingA, {bottom: false});
+  W.box(-3.2, 3.2, 6.6, yEave, zBack, zBack + 0.45, P.sidingB);
+  // Rear service door surround, canopy & twin leaves
+  D.box(-3.55, 3.55, 6.55, 6.95, zBack - 0.85, zBack + 0.05, P.trim);
+  D.box(-3.45, -3.15, yApron, 6.55, zBack - 0.22, zBack + 0.05, P.trim, {
+    bottom: false,
+  });
+  D.box(3.15, 3.45, yApron, 6.55, zBack - 0.22, zBack + 0.05, P.trim, {
+    bottom: false,
+  });
+  D.box(-3.15, -0.06, yApron, 6.55, zBack - 0.08, zBack + 0.15, P.doorA, {
+    bottom: false,
+  });
+  D.box(0.06, 3.15, yApron, 6.55, zBack - 0.08, zBack + 0.15, P.doorB, {
+    bottom: false,
+  });
+
+  // 3. Front (+Z) hangar portal piers, shadowed interior bay & striped door-track valance
+  for (const s of [-1, 1]) {
+    const px0 = s < 0 ? -hx : 13.2;
+    const px1 = s < 0 ? -13.2 : hx;
+    W.box(px0, px1, yApron, yDado, zFront - 0.5, zFront + 0.1, P.dado, {
+      bottom: false,
+    });
+    W.box(px0, px1, yDado, ySill, zFront - 0.5, zFront + 0.18, P.sill, {
+      bottom: false,
+    });
+    W.box(px0, px1, ySill, yEave, zFront - 0.5, zFront, P.sidingA, {
+      bottom: false,
+    });
+  }
+
+  // Deep shadowed interior hangar bay visible between the parted sliding doors
+  const bayZ0 = 9.0;
+  // Back interior bulkhead (facing +Z)
+  W.quad(
+    [-13.2, yApron, bayZ0],
+    [13.2, yApron, bayZ0],
+    [13.2, 9.5, bayZ0],
+    [-13.2, 9.5, bayZ0],
+    recessDark
+  );
+  // Left & right interior cheek walls
+  W.quad(
+    [-13.2, yApron, zFront],
+    [-13.2, yApron, bayZ0],
+    [-13.2, 9.5, bayZ0],
+    [-13.2, 9.5, zFront],
+    scaleRgb(recessDark, 1.25)
+  );
+  W.quad(
+    [13.2, yApron, bayZ0],
+    [13.2, yApron, zFront],
+    [13.2, 9.5, zFront],
+    [13.2, 9.5, bayZ0],
+    scaleRgb(recessDark, 1.25)
+  );
+  // Interior bay ceiling soffit + overhead yellow safety hoist girder
+  W.quad(
+    [-13.2, 9.48, bayZ0],
+    [13.2, 9.48, bayZ0],
+    [13.2, 9.48, zFront],
+    [-13.2, 9.48, zFront],
+    recessDark
+  );
+  W.box(-8.0, 8.0, 8.75, 9.15, 10.1, 10.55, hazardYellow, {top: false});
+
+  // Outboard sliding-door pocket outrigger posts + overhead track girder + warning stripes
+  for (const s of [-1, 1]) {
+    const ox0 = s < 0 ? -18.25 : 17.65;
+    const ox1 = s < 0 ? -17.65 : 18.25;
+    W.box(ox0, ox1, yGround, 9.5, zFront + 0.15, zFront + 0.72, P.pilaster);
+    // Safety bollard protecting each door corner
+    const bx = s * 14.85;
+    W.box(
+      bx - 0.24,
+      bx + 0.24,
+      yGround,
+      yApron + 1.05,
+      zFront + 0.95,
+      zFront + 1.43,
+      hazardYellow
+    );
+    W.box(
+      bx - 0.25,
+      bx + 0.25,
+      yApron + 1.05,
+      yApron + 1.32,
+      zFront + 0.94,
+      zFront + 1.44,
+      hazardDark
+    );
+  }
+  // Overhead door track box-girder casing (without front face, which gets warning stripes)
+  W.box(-18.35, 18.35, 9.45, 10.52, zFront, zFront + 0.86, P.trim, {
+    front: false,
+    bottom: true,
+  });
+  const stripeCount = 12;
+  const sxMin = -18.35;
+  const sxStep = 36.7 / stripeCount;
+  const zValance = zFront + 0.86;
+  for (let i = 0; i < stripeCount; i++) {
+    const xa = sxMin + i * sxStep;
+    const xb = xa + sxStep;
+    W.quad(
+      [xa, 9.45, zValance],
+      [xb, 9.45, zValance],
+      [xb, 10.52, zValance],
+      [xa, 10.52, zValance],
+      i % 2 === 0 ? P.accentA : P.accentB
+    );
+  }
+
+  // 4. Curved barrel-arch tympanum end-walls on front (+Z) and rear (-Z)
+  for (let k = 0; k < archSegs; k++) {
+    const t0 = (k / archSegs) * Math.PI;
+    const t1 = ((k + 1) / archSegs) * Math.PI;
+    const xR = hx * Math.cos(t0);
+    const xL = hx * Math.cos(t1);
+    const yR = yEave + archRise * Math.sin(t0);
+    const yL = yEave + archRise * Math.sin(t1);
+    const col = k % 2 === 0 ? P.sidingA : P.sidingB;
+    // Front tympanum (+Z normal: bl=left, br=right, tr=topRight, tl=topLeft)
+    W.quad(
+      [xL, yEave, zFront],
+      [xR, yEave, zFront],
+      [xR, yR, zFront],
+      [xL, yL, zFront],
+      col
+    );
+    // Rear tympanum (-Z normal)
+    W.quad(
+      [xR, yEave, zBack],
+      [xL, yEave, zBack],
+      [xL, yL, zBack],
+      [xR, yR, zBack],
+      scaleRgb(col, 0.9)
+    );
+  }
+  // Upper gable louver vent on front & back tympanums
+  D.box(-1.5, 1.5, 13.0, 15.2, zFront - 0.05, zFront + 0.22, P.trim, {
+    back: false,
+  });
+  D.quad(
+    [-1.2, 13.25, zFront + 0.23],
+    [1.2, 13.25, zFront + 0.23],
+    [1.2, 14.95, zFront + 0.23],
+    [-1.2, 14.95, zFront + 0.23],
+    recessDark
+  );
+
+  // 5. Left side mechanics' office / radio annex (x in [-21.2, -17.0], z in [-7.2, 5.2])
+  const ax0 = -21.2;
+  const ax1 = -hx;
+  const az0 = -7.2;
+  const az1 = 5.2;
+  W.box(ax0 - 0.18, ax1, yGround, yApron, az0 - 0.18, az1 + 0.18, P.plinth);
+  W.box(ax0 - 0.08, ax1, yApron, 3.1, az0, az1, P.dado, {
+    right: false,
+    bottom: false,
+  });
+  // Sloped monopitch annex walls (y = 6.1 at outer ax0 rising to y = 7.35 at ax1)
+  W.quad(
+    [ax0, 3.1, az1],
+    [ax1, 3.1, az1],
+    [ax1, 7.35, az1],
+    [ax0, 6.1, az1],
+    P.sidingA
+  );
+  W.quad(
+    [ax1, 3.1, az0],
+    [ax0, 3.1, az0],
+    [ax0, 6.1, az0],
+    [ax1, 7.35, az0],
+    scaleRgb(P.sidingA, 0.88)
+  );
+  W.quad(
+    [ax0, 3.1, az0],
+    [ax0, 3.1, az1],
+    [ax0, 6.1, az1],
+    [ax0, 6.1, az0],
+    P.sidingB
+  );
+  // Annex personnel door on +Z (az1) + 2 workshop windows on -X (ax0) + fuel drums
+  D.box(-19.8, -18.1, yApron, 4.8, az1 - 0.05, az1 + 0.18, P.trim, {
+    back: false,
+    bottom: false,
+  });
+  D.quad(
+    [-19.58, yApron, az1 + 0.19],
+    [-18.32, yApron, az1 + 0.19],
+    [-18.32, 4.6, az1 + 0.19],
+    [-19.58, 4.6, az1 + 0.19],
+    P.doorA
+  );
+  D.box(-20.05, -17.85, 4.8, 5.1, az1 - 0.05, az1 + 0.75, P.roofA);
+  for (const wz of [-4.2, 0.8]) {
+    D.box(ax0 - 0.16, ax0 + 0.04, 3.45, 5.15, wz - 1.05, wz + 1.05, P.sill, {
+      right: false,
+    });
+    D.quad(
+      [ax0 - 0.17, 3.65, wz - 0.85],
+      [ax0 - 0.17, 3.65, wz + 0.85],
+      [ax0 - 0.17, 4.95, wz + 0.85],
+      [ax0 - 0.17, 4.95, wz - 0.85],
+      P.glass
+    );
+  }
+  // Two aviation fuel drums behind the annex
+  for (const [dx, dz, col] of [
+    [-19.6, -8.35, P.drumA],
+    [-18.2, -8.55, P.drumB],
+  ]) {
+    W.box(
+      dx - 0.55,
+      dx + 0.55,
+      yGround,
+      yApron + 1.55,
+      dz - 0.55,
+      dz + 0.55,
+      col
+    );
+  }
+
+  // 6. Roof mesh (`R`): overhanging 12-segment corrugated barrel vault + annex roof + ridge monitor
+  const rOutX = 17.85;
+  const rOutY = 7.45;
+  const rBaseY = 10.22;
+  const rZ0 = -13.75;
+  const rZ1 = 13.55;
+  const zBays = 8;
+  const zStep = (rZ1 - rZ0) / zBays;
+
+  for (let bz = 0; bz < zBays; bz++) {
+    const za = rZ0 + bz * zStep;
+    const zb = za + zStep;
+    const isSkylightBay = bz === 2 || bz === 5;
+    for (let k = 0; k < archSegs; k++) {
+      const t0 = (k / archSegs) * Math.PI;
+      const t1 = ((k + 1) / archSegs) * Math.PI;
+      const x0 = rOutX * Math.cos(t0);
+      const y0 = rBaseY + rOutY * Math.sin(t0);
+      const x1 = rOutX * Math.cos(t1);
+      const y1 = rBaseY + rOutY * Math.sin(t1);
+      const isSkySector =
+        isSkylightBay && (k === 4 || k === 5 || k === 6 || k === 7);
+      const panelCol = isSkySector
+        ? P.skylight
+        : bz % 2 === 0
+          ? P.roofA
+          : P.roofB;
+      // Outward (+Y/+X/-X) normal
+      R.quad([x0, y0, zb], [x0, y0, za], [x1, y1, za], [x1, y1, zb], panelCol);
+    }
+  }
+
+  // Curved front & rear roof fascia bargeboards + underside soffit
+  const rThick = 0.34;
+  for (let k = 0; k < archSegs; k++) {
+    const t0 = (k / archSegs) * Math.PI;
+    const t1 = ((k + 1) / archSegs) * Math.PI;
+    const x0 = rOutX * Math.cos(t0);
+    const y0 = rBaseY + rOutY * Math.sin(t0);
+    const x1 = rOutX * Math.cos(t1);
+    const y1 = rBaseY + rOutY * Math.sin(t1);
+    const xi0 = (rOutX - rThick) * Math.cos(t0);
+    const yi0 = rBaseY + (rOutY - rThick) * Math.sin(t0);
+    const xi1 = (rOutX - rThick) * Math.cos(t1);
+    const yi1 = rBaseY + (rOutY - rThick) * Math.sin(t1);
+    // Front (+Z) fascia
+    R.quad(
+      [xi1, yi1, rZ1],
+      [xi0, yi0, rZ1],
+      [x0, y0, rZ1],
+      [x1, y1, rZ1],
+      P.trim
+    );
+    // Rear (-Z) fascia
+    R.quad(
+      [xi0, yi0, rZ0],
+      [xi1, yi1, rZ0],
+      [x1, y1, rZ0],
+      [x0, y0, rZ0],
+      P.trim
+    );
+  }
+  // Eave soffit strips along +-X
+  R.quad(
+    [hx, rBaseY, rZ0],
+    [hx, rBaseY, rZ1],
+    [rOutX, rBaseY, rZ1],
+    [rOutX, rBaseY, rZ0],
+    scaleRgb(P.trim, 0.75)
+  );
+  R.quad(
+    [-hx, rBaseY, rZ1],
+    [-hx, rBaseY, rZ0],
+    [-rOutX, rBaseY, rZ0],
+    [-rOutX, rBaseY, rZ1],
+    scaleRgb(P.trim, 0.75)
+  );
+
+  // 5 raised exterior structural arch ribs
+  for (const rz of [-13.4, -6.7, 0, 6.7, 13.2]) {
+    for (let k = 0; k < archSegs; k++) {
+      const t0 = (k / archSegs) * Math.PI;
+      const t1 = ((k + 1) / archSegs) * Math.PI;
+      const x0 = (rOutX + 0.22) * Math.cos(t0);
+      const y0 = rBaseY + (rOutY + 0.22) * Math.sin(t0);
+      const x1 = (rOutX + 0.22) * Math.cos(t1);
+      const y1 = rBaseY + (rOutY + 0.22) * Math.sin(t1);
+      R.quad(
+        [x0, y0, rz + 0.26],
+        [x0, y0, rz - 0.26],
+        [x1, y1, rz - 0.26],
+        [x1, y1, rz + 0.26],
+        P.trim
+      );
+    }
+  }
+
+  // Raised ridge louver ventilator monitor + front aviation obstruction beacon
+  R.box(-2.0, 2.0, 17.45, 18.45, -7.6, 7.6, P.trim, {
+    bottom: false,
+    topRgb: P.roofB,
+  });
+  R.box(-2.35, 2.35, 18.45, 18.7, -8.0, 8.0, P.roofA);
+  R.box(-0.14, 0.14, 17.6, 19.3, 12.85, 13.13, P.trim);
+  R.box(-0.32, 0.32, 19.3, 19.85, 12.71, 13.27, beaconRed);
+
+  // Annex monopitch roof slab (in `R` so it flings with the roof)
+  R.quad(
+    [ax0 - 0.45, 6.02, az1 + 0.45],
+    [ax1 + 0.05, 7.38, az1 + 0.45],
+    [ax1 + 0.05, 7.38, az0 - 0.45],
+    [ax0 - 0.45, 6.02, az0 - 0.45],
+    P.roofB
+  );
+  R.quad(
+    [ax0 - 0.45, 5.78, az0 - 0.45],
+    [ax0 - 0.45, 5.78, az1 + 0.45],
+    [ax0 - 0.45, 6.02, az1 + 0.45],
+    [ax0 - 0.45, 6.02, az0 - 0.45],
+    P.trim
+  );
+
+  // 7. Telescopic multi-leaf sliding hangar doors in `D` (parted 6.8 units in center!)
+  const leafSpecs = [
+    [-14.3, -10.5, zFront + 0.18, P.doorA],
+    [-10.7, -6.9, zFront + 0.42, P.doorB],
+    [-7.1, -3.3, zFront + 0.66, P.doorA],
+    [10.5, 14.3, zFront + 0.18, P.doorA],
+    [6.9, 10.7, zFront + 0.42, P.doorB],
+    [3.3, 7.1, zFront + 0.66, P.doorA],
+  ];
+  for (const [lx0, lx1, lz, lCol] of leafSpecs) {
+    // Leaf steel body
+    D.box(lx0, lx1, yApron + 0.08, 9.42, lz, lz + 0.2, lCol);
+    // Perimeter stiles & mid rail proud by 0.05 on +Z (non-overlapping bands)
+    const fz = lz + 0.25;
+    D.box(lx0, lx0 + 0.26, yApron + 0.08, 9.42, lz + 0.2, fz, P.trim, {
+      back: false,
+    });
+    D.box(lx1 - 0.26, lx1, yApron + 0.08, 9.42, lz + 0.2, fz, P.trim, {
+      back: false,
+    });
+    D.box(lx0 + 0.26, lx1 - 0.26, 4.85, 5.18, lz + 0.2, fz, P.trim, {
+      back: false,
+      left: false,
+      right: false,
+    });
+    // Hazard yellow kickplate band along bottom
+    D.quad(
+      [lx0 + 0.26, yApron + 0.08, lz + 0.21],
+      [lx1 - 0.26, yApron + 0.08, lz + 0.21],
+      [lx1 - 0.26, yApron + 0.52, lz + 0.21],
+      [lx0 + 0.26, yApron + 0.52, lz + 0.21],
+      hazardYellow
+    );
+    // Upper glazed transom window on each door leaf
+    const wxA = lx0 + 0.52;
+    const wxB = lx1 - 0.52;
+    const wxMid = (wxA + wxB) * 0.5;
+    D.quad(
+      [wxA, 5.65, lz + 0.21],
+      [wxMid - 0.08, 5.65, lz + 0.21],
+      [wxMid - 0.08, 8.35, lz + 0.21],
+      [wxA, 8.35, lz + 0.21],
+      P.glass
+    );
+    D.quad(
+      [wxMid + 0.08, 5.65, lz + 0.21],
+      [wxB, 5.65, lz + 0.21],
+      [wxB, 8.35, lz + 0.21],
+      [wxMid + 0.08, 8.35, lz + 0.21],
+      P.glass
+    );
+  }
+
+  const out = {
+    walls: W.build(),
+    roof: R.build(),
+    doors: D.build(),
+  };
+  _hangarGeos.set(key, out);
+  return out;
+}
+
+// --- CLASSIC SLOOP SAILBOAT ---
+// Six geometries matching terrain-chunks.js's instanced watercraft slots
+// (hull, rim, deck/cabin/cockpit, mast/bowsprit/spreaders, boom/vang, sails).
+// Bow points toward -Z, stern toward +Z, waterline near y = 0.08.
+export function buildSailboatGeos() {
+  // Hull longitudinal stations: [z, hxGunwale, yGunwale, hxWaterline, yWaterline, hxChine, yChine, yKeelLine]
+  const STATIONS = [
+    [-8.85, 0.04, 2.42, 0.02, 0.55, 0.02, 0.35, 0.32], // Clipper stem
+    [-6.9, 0.96, 2.24, 0.68, 0.16, 0.32, -0.18, -0.26],
+    [-4.4, 1.72, 2.04, 1.44, 0.1, 0.78, -0.34, -0.44],
+    [-1.5, 2.08, 1.9, 1.84, 0.08, 1.04, -0.4, -0.52], // Max beam
+    [1.2, 1.98, 1.88, 1.74, 0.08, 0.96, -0.36, -0.46],
+    [3.3, 1.66, 1.95, 1.38, 0.12, 0.68, -0.22, -0.3],
+    [4.75, 1.28, 2.05, 0.96, 0.26, 0.42, 0.04, 0.0], // Counter transom
+  ];
+
+  // 1. Hull (`boatHullGeo` - tinted by `boatHullPalette[i]` with vertex-shaded strakes)
+  const H = createColoredBuilder();
+  const topStrake = [1.05, 1.05, 1.05];
+  const midStrake = [0.9, 0.9, 0.9];
+  const bilgeStrake = [0.68, 0.68, 0.68];
+  const keelShade = [0.54, 0.54, 0.54];
+
+  for (let i = 0; i < STATIONS.length - 1; i++) {
+    const [zA, gxA, gyA, wxA, wyA, cxA, cyA, kyA] = STATIONS[i];
+    const [zB, gxB, gyB, wxB, wyB, cxB, cyB, kyB] = STATIONS[i + 1];
+    // Rake the bow stem (station 0) from z = -9.1 at sheer back to -7.85 at forefoot
+    const gzA = i === 0 ? -9.1 : zA;
+    const wzA = i === 0 ? -8.35 : zA;
+    const czA = i === 0 ? -7.9 : zA;
+    const kzA = i === 0 ? -7.8 : zA;
+    const wyA0 = i === 0 ? 0.22 : wyA;
+    const cyA0 = i === 0 ? -0.04 : cyA;
+    const kyA0 = i === 0 ? -0.1 : kyA;
+
+    // Starboard (+X outward normal)
+    H.quad(
+      [wxB, wyB, zB],
+      [wxA, wyA0, wzA],
+      [gxA, gyA, gzA],
+      [gxB, gyB, zB],
+      topStrake
+    );
+    H.quad(
+      [cxB, cyB, zB],
+      [cxA, cyA0, czA],
+      [wxA, wyA0, wzA],
+      [wxB, wyB, zB],
+      midStrake
+    );
+    H.quad(
+      [0, kyB, zB],
+      [0, kyA0, kzA],
+      [cxA, cyA0, czA],
+      [cxB, cyB, zB],
+      bilgeStrake
+    );
+
+    // Port (-X outward normal)
+    H.quad(
+      [-wxA, wyA0, wzA],
+      [-wxB, wyB, zB],
+      [-gxB, gyB, zB],
+      [-gxA, gyA, gzA],
+      topStrake
+    );
+    H.quad(
+      [-cxA, cyA0, czA],
+      [-cxB, cyB, zB],
+      [-wxB, wyB, zB],
+      [-wxA, wyA0, wzA],
+      midStrake
+    );
+    H.quad(
+      [0, kyA0, kzA],
+      [0, kyB, zB],
+      [-cxB, cyB, zB],
+      [-cxA, cyA0, czA],
+      bilgeStrake
+    );
+  }
+
+  // Raked wineglass transom (+Z normal)
+  const [, gxT, gyT, wxT, wyT, cxT, cyT, kyT] = STATIONS[STATIONS.length - 1];
+  const zTrans = STATIONS[STATIONS.length - 1][0];
+  H.quad(
+    [-wxT, wyT, zTrans],
+    [wxT, wyT, zTrans],
+    [gxT, gyT, zTrans + 0.14],
+    [-gxT, gyT, zTrans + 0.14],
+    midStrake
+  );
+  H.quad(
+    [-cxT, cyT, zTrans - 0.1],
+    [cxT, cyT, zTrans - 0.1],
+    [wxT, wyT, zTrans],
+    [-wxT, wyT, zTrans],
+    bilgeStrake
+  );
+  H.tri(
+    [0, kyT, zTrans - 0.16],
+    [cxT, cyT, zTrans - 0.1],
+    [-cxT, cyT, zTrans - 0.1],
+    keelShade
+  );
+
+  // Hydrodynamic fin keel + lower rudder blade
+  H.frustum(0, -0.55, 0.1, 0.95, -1.35, 0.16, 1.55, -0.35, keelShade, {
+    bottom: true,
+  });
+  H.box(-0.08, 0.08, -0.65, 1.88, zTrans + 0.04, zTrans + 0.56, midStrake, {
+    bottom: true,
+  });
+
+  // 2. White gunwale rub-rail & sheer trim (`boatRimGeo`)
+  const RIM = createColoredBuilder();
+  const rimWhite = [1, 1, 1];
+  const rimSide = [0.94, 0.95, 0.97];
+  for (let i = 0; i < STATIONS.length - 1; i++) {
+    const [zA, gxA, gyA] = STATIONS[i];
+    const [zB, gxB, gyB] = STATIONS[i + 1];
+    const ozA = i === 0 ? -9.2 : zA;
+    const ozB = i === STATIONS.length - 2 ? zB + 0.16 : zB;
+    const oxA = gxA + 0.09;
+    const oxB = gxB + 0.09;
+    const ixA = Math.max(0, gxA - 0.12);
+    const ixB = Math.max(0, gxB - 0.12);
+
+    // Starboard outer rail, top cap & inner coaming lip
+    RIM.quad(
+      [oxB, gyB - 0.14, ozB],
+      [oxA, gyA - 0.14, ozA],
+      [oxA, gyA + 0.1, ozA],
+      [oxB, gyB + 0.1, ozB],
+      rimSide
+    );
+    RIM.quad(
+      [ixB, gyB + 0.1, ozB],
+      [oxB, gyB + 0.1, ozB],
+      [oxA, gyA + 0.1, ozA],
+      [ixA, gyA + 0.1, ozA],
+      rimWhite
+    );
+    // Port outer rail & top cap
+    RIM.quad(
+      [-oxA, gyA - 0.14, ozA],
+      [-oxB, gyB - 0.14, ozB],
+      [-oxB, gyB + 0.1, ozB],
+      [-oxA, gyA + 0.1, ozA],
+      rimSide
+    );
+    RIM.quad(
+      [-oxB, gyB + 0.1, ozB],
+      [-ixB, gyB + 0.1, ozB],
+      [-ixA, gyA + 0.1, ozA],
+      [-oxA, gyA + 0.1, ozA],
+      rimWhite
+    );
+  }
+  // Transom rail cap
+  RIM.box(
+    -gxT - 0.09,
+    gxT + 0.09,
+    gyT - 0.12,
+    gyT + 0.1,
+    zTrans + 0.02,
+    zTrans + 0.22,
+    rimWhite
+  );
+
+  // 3. Teak deck, recessed cockpit, cabin coachroof, tinted windshield/portholes & tiller (`boatDeckGeo`)
+  const DK = createColoredBuilder();
+  const teak = hexRgb(0xc89d6c);
+  const teakBench = hexRgb(0xb88b5a);
+  const teakSole = hexRgb(0x8c6239);
+  const mahogany = hexRgb(0x6b3d22);
+  const cabinWhite = hexRgb(0xf3f0e6);
+  const cabinRoof = hexRgb(0xfaf8f2);
+  const marineGlass = hexRgb(0x1f3140);
+
+  // Cambered foredeck, side walkways, and aft lazarette deck
+  for (let i = 0; i < STATIONS.length - 1; i++) {
+    const [zA0, gxA, gyA] = STATIONS[i];
+    const zA = i === 0 ? -9.05 : zA0;
+    const [zB, gxB, gyB] = STATIONS[i + 1];
+    const dxA = Math.max(0, gxA - 0.06);
+    const dxB = Math.max(0, gxB - 0.06);
+    const dyA = gyA - 0.02;
+    const dyB = gyB - 0.02;
+    // Leave cockpit opening in stations 4..5 (z in [1.2, 3.3] -> extended to 4.0 below)
+    if (i === 4) {
+      // Side decks flanking the recessed cockpit (z = 1.2..3.3, cockpit x in [-1.1, 1.1])
+      DK.quad(
+        [1.1, dyB, zB],
+        [dxB, dyB, zB],
+        [dxA, dyA, zA],
+        [1.1, dyA, zA],
+        teak
+      );
+      DK.quad(
+        [-dxB, dyB, zB],
+        [-1.1, dyB, zB],
+        [-1.1, dyA, zA],
+        [-dxA, dyA, zA],
+        teak
+      );
+    } else if (i === 5) {
+      // Split station 5 (z = 3.3..4.75) at z = 4.05 so aft deck closes behind cockpit
+      const zMid = 4.05;
+      const t = (zMid - zA) / (zB - zA);
+      const dxM = dxA + (dxB - dxA) * t;
+      const dyM = dyA + (dyB - dyA) * t;
+      DK.quad(
+        [1.1, dyM, zMid],
+        [dxM, dyM, zMid],
+        [dxA, dyA, zA],
+        [1.1, dyA, zA],
+        teak
+      );
+      DK.quad(
+        [-dxM, dyM, zMid],
+        [-1.1, dyM, zMid],
+        [-1.1, dyA, zA],
+        [-dxA, dyA, zA],
+        teak
+      );
+      DK.quad(
+        [-dxB, dyB, zB + 0.08],
+        [dxB, dyB, zB + 0.08],
+        [dxM, dyM, zMid],
+        [-dxM, dyM, zMid],
+        teak
+      );
+    } else {
+      DK.quad(
+        [-dxB, dyB, zB],
+        [dxB, dyB, zB],
+        [dxA, dyA, zA],
+        [-dxA, dyA, zA],
+        i % 2 === 0 ? teak : scaleRgb(teak, 0.96)
+      );
+    }
+  }
+
+  // True 3D recessed self-bailing cockpit (z in [1.2, 4.05], x in [-1.1, 1.1])
+  const cz0 = 1.2;
+  const cz1 = 4.05;
+  const yDeck = 1.9;
+  const yBench = 1.56;
+  const ySole = 1.22;
+  // Port & starboard benches + footwell walls + grated sole
+  DK.quad(
+    [0.54, yBench, cz1],
+    [1.1, yBench, cz1],
+    [1.1, yBench, cz0],
+    [0.54, yBench, cz0],
+    teakBench
+  );
+  DK.quad(
+    [-1.1, yBench, cz1],
+    [-0.54, yBench, cz1],
+    [-0.54, yBench, cz0],
+    [-1.1, yBench, cz0],
+    teakBench
+  );
+  DK.quad(
+    [-0.54, ySole, cz1],
+    [0.54, ySole, cz1],
+    [0.54, ySole, cz0],
+    [-0.54, ySole, cz0],
+    teakSole
+  );
+  // Inner bench risers & upper cockpit walls (facing inward into the cockpit)
+  DK.quad(
+    [0.54, ySole, cz0],
+    [0.54, ySole, cz1],
+    [0.54, yBench, cz1],
+    [0.54, yBench, cz0],
+    scaleRgb(teakBench, 0.82)
+  );
+  DK.quad(
+    [-0.54, ySole, cz1],
+    [-0.54, ySole, cz0],
+    [-0.54, yBench, cz0],
+    [-0.54, yBench, cz1],
+    scaleRgb(teakBench, 0.82)
+  );
+  DK.quad(
+    [1.1, yBench, cz0],
+    [1.1, yBench, cz1],
+    [1.1, yDeck, cz1],
+    [1.1, yDeck, cz0],
+    mahogany
+  );
+  DK.quad(
+    [-1.1, yBench, cz1],
+    [-1.1, yBench, cz0],
+    [-1.1, yDeck, cz0],
+    [-1.1, yDeck, cz1],
+    mahogany
+  );
+  // Aft cockpit bulkhead (-Z normal facing forward) & forward bulkhead (+Z normal facing aft)
+  DK.quad(
+    [1.1, ySole, cz1],
+    [-1.1, ySole, cz1],
+    [-1.1, yDeck + 0.08, cz1],
+    [1.1, yDeck + 0.08, cz1],
+    mahogany
+  );
+  DK.quad(
+    [-1.1, ySole, cz0],
+    [1.1, ySole, cz0],
+    [1.1, yDeck, cz0],
+    [-1.1, yDeck, cz0],
+    mahogany
+  );
+  // Raised mahogany cockpit coaming lips
+  DK.box(-1.22, -1.06, yDeck - 0.02, yDeck + 0.24, cz0, cz1 + 0.08, mahogany, {
+    bottom: false,
+  });
+  DK.box(1.06, 1.22, yDeck - 0.02, yDeck + 0.24, cz0, cz1 + 0.08, mahogany, {
+    bottom: false,
+  });
+  DK.box(-1.22, 1.22, yDeck - 0.02, yDeck + 0.2, cz1, cz1 + 0.14, mahogany, {
+    bottom: false,
+  });
+
+  // Streamlined cabin coachroof (z in [-4.2, 1.2]), tapered forward with raked dark windshield
+  const cabZ0 = -4.2;
+  const cabZMid = -2.85;
+  const cabZ1 = 1.2;
+  const cabY0 = 1.88;
+  const cabY1 = 2.66;
+  // Aft main cabin body (z in [-2.85, 1.2], x in [-1.22, 1.22] -> [-1.08, 1.08] at roof)
+  DK.quad(
+    [1.22, cabY0, cabZ1],
+    [1.16, cabY0, cabZMid],
+    [1.04, cabY1, cabZMid],
+    [1.1, cabY1, cabZ1],
+    cabinWhite
+  );
+  DK.quad(
+    [-1.16, cabY0, cabZMid],
+    [-1.22, cabY0, cabZ1],
+    [-1.1, cabY1, cabZ1],
+    [-1.04, cabY1, cabZMid],
+    cabinWhite
+  );
+  DK.quad(
+    [-1.1, cabY1, cabZ1],
+    [1.1, cabY1, cabZ1],
+    [1.04, cabY1, cabZMid],
+    [-1.04, cabY1, cabZMid],
+    cabinRoof
+  );
+  // Aft cabin bulkhead + dark companionway hatchway
+  DK.quad(
+    [-1.22, cabY0, cabZ1],
+    [1.22, cabY0, cabZ1],
+    [1.1, cabY1, cabZ1],
+    [-1.1, cabY1, cabZ1],
+    scaleRgb(cabinWhite, 0.92)
+  );
+  DK.box(
+    -0.42,
+    0.42,
+    cabY0 + 0.06,
+    cabY1 - 0.06,
+    cabZ1 - 0.02,
+    cabZ1 + 0.08,
+    mahogany,
+    {back: false}
+  );
+  // Raked forward cabin brow & wraparound dark windshield (z in [-4.2, -2.85])
+  DK.quad(
+    [1.16, cabY0, cabZMid],
+    [0.82, cabY0 + 0.08, cabZ0],
+    [0.74, cabY0 + 0.42, cabZ0 + 0.35],
+    [1.04, cabY1, cabZMid],
+    cabinWhite
+  );
+  DK.quad(
+    [-0.82, cabY0 + 0.08, cabZ0],
+    [-1.16, cabY0, cabZMid],
+    [-1.04, cabY1, cabZMid],
+    [-0.74, cabY0 + 0.42, cabZ0 + 0.35],
+    cabinWhite
+  );
+  DK.quad(
+    [0.82, cabY0 + 0.08, cabZ0],
+    [-0.82, cabY0 + 0.08, cabZ0],
+    [-0.74, cabY0 + 0.42, cabZ0 + 0.35],
+    [0.74, cabY0 + 0.42, cabZ0 + 0.35],
+    cabinWhite
+  );
+  DK.quad(
+    [0.74, cabY0 + 0.42, cabZ0 + 0.35],
+    [-0.74, cabY0 + 0.42, cabZ0 + 0.35],
+    [-1.04, cabY1, cabZMid],
+    [1.04, cabY1, cabZMid],
+    marineGlass
+  );
+  // Twin side portlights on port & starboard coachroof + teak roof grab-rails
+  for (const [pzA, pzB] of [
+    [-2.45, -1.05],
+    [-0.65, 0.75],
+  ]) {
+    DK.quad(
+      [1.19, 2.12, pzB],
+      [1.17, 2.12, pzA],
+      [1.11, 2.48, pzA],
+      [1.13, 2.48, pzB],
+      marineGlass
+    );
+    DK.quad(
+      [-1.17, 2.12, pzA],
+      [-1.19, 2.12, pzB],
+      [-1.13, 2.48, pzB],
+      [-1.11, 2.48, pzA],
+      marineGlass
+    );
+  }
+  DK.box(-0.92, -0.8, cabY1, cabY1 + 0.11, -2.6, 0.85, mahogany, {
+    bottom: false,
+  });
+  DK.box(0.8, 0.92, cabY1, cabY1 + 0.11, -2.6, 0.85, mahogany, {bottom: false});
+  // Foredeck skylight hatch + varnished tiller handle
+  DK.box(-0.46, 0.46, 2.02, 2.2, -5.75, -4.85, mahogany, {
+    bottom: false,
+    topRgb: marineGlass,
+  });
+  DK.box(-0.07, 0.07, 2.06, 2.19, 2.95, zTrans + 0.25, mahogany);
+
+  // 4. Mast, crosstree spreaders & bowsprit (`boatMastGeo` - drawn with `woodMat`)
+  const mastParts = [];
+  const mast = new THREE.CylinderGeometry(0.1, 0.18, 13.1, 8);
+  mast.translate(0, 8.45, -1.35);
+  mastParts.push(mast);
+  const mastCap = new THREE.BoxGeometry(0.3, 0.14, 0.42);
+  mastCap.translate(0, 15.02, -1.32);
+  mastParts.push(mastCap);
+  const spreader = new THREE.BoxGeometry(2.5, 0.09, 0.14);
+  spreader.translate(0, 9.1, -1.35);
+  mastParts.push(spreader);
+  const bowsprit = new THREE.CylinderGeometry(0.08, 0.13, 2.55, 6);
+  bowsprit.rotateX(Math.PI / 2 - 0.08);
+  bowsprit.translate(0, 2.46, -9.05);
+  mastParts.push(bowsprit);
+
+  // 5. Main boom & diagonal boom vang (`boatBoomGeo` - drawn with `woodMat`)
+  const boomParts = [];
+  const boom = new THREE.CylinderGeometry(0.09, 0.12, 6.7, 6);
+  boom.rotateX(Math.PI / 2);
+  boom.translate(0, 3.12, 2.05);
+  boomParts.push(boom);
+  const vang = new THREE.CylinderGeometry(0.06, 0.06, 1.95, 5);
+  vang.rotateX(1.18);
+  vang.translate(0, 2.68, -0.35);
+  boomParts.push(vang);
+
+  const mergePlain = (geos) => {
+    const pos = [];
+    const norm = [];
+    const idx = [];
+    let off = 0;
+    for (const g of geos) {
+      pos.push(...g.attributes.position.array);
+      norm.push(...g.attributes.normal.array);
+      for (let i = 0; i < g.index.array.length; i++) {
+        idx.push(g.index.array[i] + off);
+      }
+      off += g.attributes.position.count;
+    }
+    const out = new THREE.BufferGeometry();
+    out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    out.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+    out.setIndex(idx);
+    out.computeBoundingBox();
+    out.computeBoundingSphere();
+    return out;
+  };
+
+  // 6. Aerodynamic roached mainsail + raked forestay genoa jib (`boatSailGeo`)
+  const SL = createColoredBuilder();
+  const sailCreamA = hexRgb(0xfaf7ef);
+  const sailCreamB = hexRgb(0xf1ece0);
+  const sailPatch = hexRgb(0xe2d8c3);
+
+  // Mainsail (rows from foot y=3.24 up to head y=14.65, roached leech)
+  const mRows = 6;
+  const mCols = 4;
+  const mGrid = [];
+  for (let r = 0; r <= mRows; r++) {
+    const v = r / mRows;
+    const y = 3.24 + v * (14.65 - 3.24);
+    const zLuff = -1.2;
+    const roach = Math.sin(v * Math.PI) * 0.65;
+    const zLeech = zLuff + (1 - v * 0.94) * (5.32 - zLuff) + roach;
+    const row = [];
+    for (let c = 0; c <= mCols; c++) {
+      const u = c / mCols;
+      const z = zLuff + u * (zLeech - zLuff);
+      const draft =
+        Math.sin(Math.pow(u, 0.78) * Math.PI) *
+        Math.sin((1 - v * 0.62) * Math.PI) *
+        0.66;
+      const twistX = u * v * 0.24;
+      row.push([draft + twistX, y, z]);
+    }
+    mGrid.push(row);
+  }
+  for (let r = 0; r < mRows; r++) {
+    for (let c = 0; c < mCols; c++) {
+      const isCorner =
+        (r === 0 && (c === 0 || c === mCols - 1)) ||
+        (r === mRows - 1 && c === 0);
+      const col = isCorner ? sailPatch : r % 2 === 0 ? sailCreamA : sailCreamB;
+      SL.quad(
+        mGrid[r][c],
+        mGrid[r][c + 1],
+        mGrid[r + 1][c + 1],
+        mGrid[r + 1][c],
+        col
+      );
+    }
+  }
+
+  // Forestay Jib: straight luff along forestay from bowsprit tip (0, 2.58, -10.15)
+  // up to mast hound (0, 12.85, -1.48), sheeted aft to leeward clew (0.44, 2.86, -1.72)
+  const jRows = 6;
+  const jCols = 4;
+  const jTack = [0, 2.58, -10.15];
+  const jHead = [0, 12.85, -1.48];
+  const jClew = [0.44, 2.86, -1.72];
+  const jGrid = [];
+  for (let r = 0; r <= jRows; r++) {
+    const v = r / jRows;
+    const lx = jTack[0] + v * (jHead[0] - jTack[0]);
+    const ly = jTack[1] + v * (jHead[1] - jTack[1]);
+    const lz = jTack[2] + v * (jHead[2] - jTack[2]);
+    const ex = jClew[0] + v * (jHead[0] - jClew[0]);
+    const ey = jClew[1] + v * (jHead[1] - jClew[1]);
+    const ez = jClew[2] + v * (jHead[2] - jClew[2]);
+    const row = [];
+    for (let c = 0; c <= jCols; c++) {
+      const u = c / jCols;
+      const camber =
+        Math.sin(Math.pow(u, 0.75) * Math.PI) *
+        Math.sin((1 - v * 0.55) * Math.PI) *
+        0.52;
+      row.push([
+        lx + u * (ex - lx) + camber,
+        ly + u * (ey - ly),
+        lz + u * (ez - lz),
+      ]);
+    }
+    jGrid.push(row);
+  }
+  for (let r = 0; r < jRows; r++) {
+    for (let c = 0; c < jCols; c++) {
+      const isCorner =
+        (r === 0 && (c === 0 || c === jCols - 1)) ||
+        (r === jRows - 1 && c === 0);
+      const col = isCorner ? sailPatch : r % 2 === 0 ? sailCreamB : sailCreamA;
+      SL.quad(
+        jGrid[r][c],
+        jGrid[r][c + 1],
+        jGrid[r + 1][c + 1],
+        jGrid[r + 1][c],
+        col
+      );
+    }
+  }
+
+  return {
+    hull: H.build(),
+    rim: RIM.build(),
+    deck: DK.build(),
+    mast: mergePlain(mastParts),
+    boom: mergePlain(boomParts),
+    sail: SL.build(),
+  };
+}

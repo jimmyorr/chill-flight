@@ -25,6 +25,7 @@ import {hooks} from './hooks.js';
 import {
   buildingMesh,
   controlTowerGeo,
+  hangarGeos,
   windsockMastGeo,
   windsockSockGeo,
   WINDSOCK_SWIVEL_Y,
@@ -63,8 +64,6 @@ const concreteMat = addRoadSnow(
   )
 );
 const markingMat = createMaterial({color: 0xf2f0e6, flatShading: true});
-const hangarMat = createMaterial({color: 0x8a9aa6, flatShading: true});
-const doorMat = createMaterial({color: 0x4a5560, flatShading: true});
 
 function box(w, h, d, x, y, z) {
   const g = new THREE.BoxGeometry(w, h, d);
@@ -97,60 +96,14 @@ const TOWER_COLORS = {
   'Frost Field': 'winter-ash',
 };
 
-// The hangar: a long shed with a barrel-arched roof, structural side
-// buttresses, and multi-panel sliding doors on its front (+Z)
-export function createHangar() {
+// The hangar: barrel-vaulted airfield hangar with side workshop annex,
+// skylights, ridge ventilator, and parted telescopic sliding doors on +Z
+export function createHangar(colorway) {
+  const {walls, roof, doors} = hangarGeos(colorway);
   const group = new THREE.Group();
-  const walls = [
-    box(34, 10, 26, 0, 5, 0),
-    // Front & rear doorway header/frame fascia
-    box(26.4, 1.2, 1.2, 0, 9.2, 12.8),
-    box(1.2, 9.2, 1.2, -12.6, 4.6, 12.8),
-    box(1.2, 9.2, 1.2, 12.6, 4.6, 12.8),
-  ];
-  // Structural side wall pilasters along the length of the hangar
-  for (const x of [-15.5, -7.8, 0, 7.8, 15.5]) {
-    walls.push(box(1.1, 10.2, 27.0, x, 5.1, 0));
-  }
-  group.add(mesh(walls, hangarMat));
-
-  const roof = new THREE.CylinderGeometry(13, 13, 34, 16, 1, false, 0, Math.PI);
-  // On its side along X; theta 0..PI is then the upper half
-  roof.rotateZ(Math.PI / 2);
-  roof.scale(1, 0.55, 1);
-  roof.translate(0, 10, 0);
-  const roofParts = [roof];
-  // Arched roof ribs at ends and mid-span
-  for (const x of [-16.6, 0, 16.6]) {
-    const rib = new THREE.CylinderGeometry(
-      13.35,
-      13.35,
-      0.9,
-      16,
-      1,
-      false,
-      0,
-      Math.PI
-    );
-    rib.rotateZ(Math.PI / 2);
-    rib.scale(1, 0.56, 1);
-    rib.translate(x, 10, 0);
-    roofParts.push(rib);
-  }
-  group.add(mesh(roofParts, hangarMat));
-
-  // Multi-panel sliding hangar doors (+Z) + side clerestory windows
-  const doors = [
-    box(24, 8.5, 0.5, 0, 4.25, 13.0),
-    // Recessed vertical sliding door panel dividers & horizontal transom Mullion
-    box(0.45, 8.6, 0.85, -6.0, 4.3, 13.05),
-    box(0.45, 8.6, 0.85, 0.0, 4.3, 13.05),
-    box(0.45, 8.6, 0.85, 6.0, 4.3, 13.05),
-    box(24.2, 0.4, 0.8, 0, 6.8, 13.05),
-    // Clerestory window bands along both side walls
-    box(34.5, 1.8, 20.0, 0, 7.6, 0),
-  ];
-  group.add(mesh(doors, doorMat));
+  group.add(buildingMesh(walls));
+  group.add(buildingMesh(roof));
+  group.add(buildingMesh(doors));
   return group;
 }
 
@@ -648,7 +601,7 @@ function createAirport(a, index) {
   const tower = createControlTower(TOWER_COLORS[a.name]);
   tower.position.set(-55, 0, 86);
   group.add(tower);
-  const hangar = createHangar();
+  const hangar = createHangar(TOWER_COLORS[a.name]);
   hangar.position.set(45, 0, 85);
   hangar.rotation.y = Math.PI;
   group.add(hangar);

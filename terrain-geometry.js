@@ -25,6 +25,7 @@ import {
   buildChapelGeos,
   buildHouseGeos,
   buildPierGeo,
+  buildSailboatGeos,
   buildTentGeos,
   buildingMat,
 } from './building-models.js';
@@ -3708,85 +3709,18 @@ var smokeShaderInject = (shader, isChimney) => {
 smokeMat.onBeforeCompile = (shader) => smokeShaderInject(shader, false);
 whiteSmokeMat.onBeforeCompile = (shader) => smokeShaderInject(shader, true);
 
-// Sailboat geometries
-// Sailboat geometries
-function createBoatHullBaseGeometry() {
-  const main = new THREE.BoxGeometry(3.6, 2, 8);
-
-  const prow = new THREE.BoxGeometry(3.6, 2, 4);
-  prow.translate(0, 0, -6); // from -4 to -8
-  const prowPos = prow.attributes.position.array;
-  for (let i = 0; i < prowPos.length; i += 3) {
-    if (prowPos[i + 2] < -5) {
-      // front face at -8
-      prowPos[i] = 0; // pinch X to 0
-    }
-  }
-  prow.computeVertexNormals();
-
-  const pos = [
-    ...main.attributes.position.array,
-    ...prow.attributes.position.array,
-  ];
-  const norm = [
-    ...main.attributes.normal.array,
-    ...prow.attributes.normal.array,
-  ];
-  const idx = [...main.index.array];
-  let offset = main.attributes.position.count;
-  for (let i = 0; i < prow.index.array.length; i++)
-    idx.push(prow.index.array[i] + offset);
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-  geom.setIndex(idx);
-  return geom;
-}
-export var boatHullGeo = createBoatHullBaseGeometry();
-boatHullGeo.translate(0, 0.5, 0);
-
-function createBoatRimGeometry() {
-  const main = new THREE.BoxGeometry(4.0, 0.4, 8.2);
-
-  const prow = new THREE.BoxGeometry(4.0, 0.4, 4.2);
-  prow.translate(0, 0, -6.2); // from -4.1 to -8.3
-  const prowPos = prow.attributes.position.array;
-  for (let i = 0; i < prowPos.length; i += 3) {
-    if (prowPos[i + 2] < -5.2) {
-      // front face at -8.3
-      prowPos[i] = 0; // pinch X to 0
-    }
-  }
-  prow.computeVertexNormals();
-
-  const pos = [
-    ...main.attributes.position.array,
-    ...prow.attributes.position.array,
-  ];
-  const norm = [
-    ...main.attributes.normal.array,
-    ...prow.attributes.normal.array,
-  ];
-  const idx = [...main.index.array];
-  let offset = main.attributes.position.count;
-  for (let i = 0; i < prow.index.array.length; i++)
-    idx.push(prow.index.array[i] + offset);
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-  geom.setIndex(idx);
-  return geom;
-}
-export var boatRimGeo = createBoatRimGeometry();
-boatRimGeo.translate(0, 1.7, 0);
-// The rim with a ring of foam merged in round the hull (3.6 wide, z -8 to
-// 4) where it meets the water, both white, so the boat sits in the water
-// rather than over its shadow in clear shallows. Drawn in the rim's mesh,
-// so it bobs with the boat (boat units, 1.8 times smaller than the world).
+// Sailboat geometries (building-models.js)
+var _sailboatGeos = buildSailboatGeos();
+export var boatHullGeo = _sailboatGeos.hull;
+export var boatRimGeo = _sailboatGeos.rim;
+// The rim with a ring of foam merged in round the hull where it meets the
+// water, both white, so the boat sits in the water rather than over its
+// shadow in clear shallows. Drawn in the rim's mesh, so it bobs with the boat
+// (boat units, 1.8 times smaller than the world).
 export var boatRimFoamGeo = (() => {
-  const rim = boatRimGeo.toNonIndexed();
+  const rim = boatRimGeo.index ? boatRimGeo.toNonIndexed() : boatRimGeo;
   const pos = Array.from(rim.attributes.position.array).concat(
-    foamRing(1.8, -8, 4, 0.07, 0.5)
+    foamRing(1.92, -8.5, 4.6, 0.08, 0.55)
   );
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -3794,114 +3728,10 @@ export var boatRimFoamGeo = (() => {
   return geo;
 })();
 
-function createBoatDeckGeometry() {
-  const main = new THREE.BoxGeometry(3.2, 0.2, 7.8);
-
-  const prow = new THREE.BoxGeometry(3.2, 0.2, 4.0);
-  prow.translate(0, 0, -5.9); // from -3.9 to -7.9
-  const prowPos = prow.attributes.position.array;
-  for (let i = 0; i < prowPos.length; i += 3) {
-    if (prowPos[i + 2] < -4.9) {
-      prowPos[i] = 0;
-    }
-  }
-  prow.computeVertexNormals();
-
-  // Low cabin trunk / coaming ahead of the cockpit
-  const cabin = new THREE.BoxGeometry(1.9, 0.55, 3.2);
-  cabin.translate(0, 0.28, -1.8);
-  const cabPos = cabin.attributes.position.array;
-  for (let i = 0; i < cabPos.length; i += 3) {
-    if (cabPos[i + 2] < -2.5) cabPos[i] *= 0.65;
-  }
-  cabin.computeVertexNormals();
-
-  const geos = [main, prow, cabin];
-  const pos = [],
-    norm = [],
-    idx = [];
-  let offset = 0;
-  for (const g of geos) {
-    pos.push(...g.attributes.position.array);
-    norm.push(...g.attributes.normal.array);
-    for (let i = 0; i < g.index.array.length; i++)
-      idx.push(g.index.array[i] + offset);
-    offset += g.attributes.position.count;
-  }
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-  geom.setIndex(idx);
-  return geom;
-}
-export var boatDeckGeo = createBoatDeckGeometry();
-boatDeckGeo.translate(0, 1.91, 0); // slightly above the white rim (1.7 + 0.2)
-
-export var boatMastGeo = new THREE.CylinderGeometry(0.14, 0.18, 12.6, 6);
-boatMastGeo.translate(0, 6.3, -1);
-export var boatBoomGeo = new THREE.CylinderGeometry(0.1, 0.1, 6.6, 6);
-boatBoomGeo.rotateX(Math.PI / 2);
-boatBoomGeo.translate(0, 2.7, 2.3);
-
-function createBoatSailGeometry() {
-  // Billowed triangular mainsail (behind mast) + forward jib sail (ahead of mast)
-  const buildTriSail = (zLuff, zFoot, yFoot, yHead, billowX) => {
-    const rows = 5;
-    const cols = 4;
-    const pos = [];
-    const idx = [];
-    for (let r = 0; r <= rows; r++) {
-      const v = r / rows; // 0 at foot, 1 at head
-      const y = yFoot + v * (yHead - yFoot);
-      const zEnd = zLuff + (1 - v) * (zFoot - zLuff);
-      for (let c = 0; c <= cols; c++) {
-        const u = c / cols; // 0 at luff, 1 at leech
-        const z = zLuff + u * (zEnd - zLuff);
-        const camber =
-          Math.sin(u * Math.PI) * Math.sin((1 - v * 0.65) * Math.PI) * billowX;
-        pos.push(camber, y, z);
-      }
-    }
-    const stride = cols + 1;
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const i0 = r * stride + c;
-        const i1 = i0 + 1;
-        const i2 = i0 + stride;
-        const i3 = i2 + 1;
-        idx.push(i0, i1, i2, i1, i3, i2);
-      }
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    g.setIndex(idx);
-    g.computeVertexNormals();
-    return g;
-  };
-
-  const mainSail = buildTriSail(-0.85, 5.4, 2.8, 12.1, 0.65);
-  const jibSail = buildTriSail(-1.25, -7.4, 2.4, 10.6, 0.48);
-
-  const pos = [
-    ...mainSail.attributes.position.array,
-    ...jibSail.attributes.position.array,
-  ];
-  const norm = [
-    ...mainSail.attributes.normal.array,
-    ...jibSail.attributes.normal.array,
-  ];
-  const idx = [...mainSail.index.array];
-  const offset = mainSail.attributes.position.count;
-  for (let i = 0; i < jibSail.index.array.length; i++) {
-    idx.push(jibSail.index.array[i] + offset);
-  }
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-  geom.setIndex(idx);
-  return geom;
-}
-export var boatSailGeo = createBoatSailGeometry();
+export var boatDeckGeo = _sailboatGeos.deck;
+export var boatMastGeo = _sailboatGeos.mast;
+export var boatBoomGeo = _sailboatGeos.boom;
+export var boatSailGeo = _sailboatGeos.sail;
 
 // A steady hash of a boat's index in its chunk, so its drift and look stay
 // the same frame to frame (flight-camera.js animates boats with it)
@@ -3918,25 +3748,47 @@ export function sailboatMoored(x, z) {
 }
 
 // The sails of a moored boat, multiplied after the boat's matrix: squashed
-// flat down to just above the boom (y 2.7) and drawn in toward it along the
+// flat down to just above the boom (y 3.12) and drawn in toward it along the
 // boat, so the jib bundles onto the cabin roof instead of reaching the bow
-const SAIL_FURL_Y = 2.75;
-const SAIL_FURL_Z = 2.3;
+const SAIL_FURL_Y = 3.18;
+const SAIL_FURL_Z = 2.1;
 export const SAIL_FURL = new THREE.Matrix4()
   .makeTranslation(0, SAIL_FURL_Y, SAIL_FURL_Z)
-  .multiply(new THREE.Matrix4().makeScale(0.6, 0.06, 0.55))
+  .multiply(new THREE.Matrix4().makeScale(0.5, 0.05, 0.48))
   .multiply(new THREE.Matrix4().makeTranslation(0, -SAIL_FURL_Y, -SAIL_FURL_Z));
 
 export var boatHullPalette = [
-  createMaterial({color: 0xaa0000, flatShading: true}), // Dark Red
-  createMaterial({color: 0x004400, flatShading: true}), // Dark Green
-  createMaterial({color: 0x000055, flatShading: true}), // Dark Blue
+  createMaterial({
+    color: 0x9e2426,
+    vertexColors: true,
+    flatShading: true,
+    roughness: 0.72,
+  }), // Claret Red
+  createMaterial({
+    color: 0x1b5241,
+    vertexColors: true,
+    flatShading: true,
+    roughness: 0.72,
+  }), // Classic Racing Green
+  createMaterial({
+    color: 0x1b365d,
+    vertexColors: true,
+    flatShading: true,
+    roughness: 0.72,
+  }), // Oxford Navy
 ];
-export var boatRimMat = createMaterial({color: 0xffffff, flatShading: true});
-export var boatDeckMat = createMaterial({color: 0xd2b48c, flatShading: true});
+export var boatRimMat = createMaterial({color: 0xf7f6f2, flatShading: true});
+export var boatDeckMat = createMaterial({
+  color: 0xffffff,
+  vertexColors: true,
+  flatShading: true,
+  roughness: 0.82,
+});
 export var boatSailMat = createMaterial({
   color: 0xffffff,
+  vertexColors: true,
   flatShading: true,
+  roughness: 0.78,
   side: THREE.DoubleSide,
 });
 
