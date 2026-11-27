@@ -105,6 +105,7 @@ export function simulatePilotTrajectory({
   headingDeg = 0,
   speedMult = 1,
   pilotMoves = null,
+  pilotOverride = null,
   endFrame = 0,
   prerollSec = 1.5,
   fps = 30,
@@ -191,7 +192,17 @@ export function simulatePilotTrajectory({
     const pilot =
       frame <= 0
         ? {steerX: 0, steerY: 0, throttle: null, stunt: null}
-        : pilotAt(pilotMoves, t);
+        : pilotOverride
+          ? pilotOverride(frame, t, {
+              x: px,
+              y: py,
+              z: pz,
+              roll,
+              pitch,
+              yaw,
+              speed,
+            })
+          : pilotAt(pilotMoves, t);
 
     const effMouseX = clamp(pilot.steerX || 0, -1, 1);
     const effMouseY = clamp(pilot.steerY || 0, -1, 1);
@@ -733,4 +744,122 @@ export function solvePilotStartCoords({
         headingDeg: Number(spawnHeading.toFixed(2)),
       }
     : {x: sx, y: sy, z: sz, headingDeg: spawnHeading};
+}
+
+// Simulates an independent human-style wingman loosely flying alongside a lead
+// plane (`leadSamples`). Reacts with realistic ~0.65s human lag, weaves gently
+// inside a wide breathing pocket (45..75u separation), and executes optional
+// uncoordinated stunts (e.g., an independent barrel roll mid-flight) through
+// the exact same PLANE_HANDLING physics as a player.
+export function simulateWingmanPursuit({
+  leadSamples,
+  planeType = 'biplane',
+  relOffset = [-46, 12, 36],
+  stunts = [],
+  speedMult = 1.22,
+  prerollSec = 1.5,
+  fps = 30,
+}) {
+  const prerollSteps = Math.round(prerollSec * fps);
+  const endFrame = leadSamples[leadSamples.length - 1].frame;
+  const leadAt0 = leadSamples[prerollSteps] || leadSamples[0];
+  const [baseOx, baseOy, baseOz] = relOffset;
+  const leadYaw0 = leadAt0.yaw;
+  const wAt0X =
+    leadAt0.x + baseOx * Math.cos(leadYaw0) + baseOz * Math.sin(leadYaw0);
+  const wAt0Y = leadAt0.y + baseOy;
+  const wAt0Z =
+    leadAt0.z - baseOx * Math.sin(leadYaw0) + baseOz * Math.cos(leadYaw0);
+  const wPrerollDist = speedMult * BASE_FLIGHT_SPEED * 60 * prerollSec;
+  const startX = wAt0X + Math.sin(leadYaw0) * wPrerollDist;
+  const startY = wAt0Y;
+  const startZ = wAt0Z + Math.cos(leadYaw0) * wPrerollDist;
+
+  let smoothSteerX = 0;
+  let smoothSteerY = 0;
+
+  const samples = simulatePilotTrajectory({
+    planeType,
+    x: startX,
+    y: startY,
+    z: startZ,
+    headingDeg: leadYaw0 / DEG,
+    speedMult,
+    endFrame,
+    prerollSec,
+    fps,
+    pilotOverride: (frame, t, cur) => {
+      let activeStunt = null;
+      for (const s of stunts) {
+        if (t >= s[0] && t <= s[1]) {
+          activeStunt = s[2];
+          break;
+        }
+      }
+      const curLeadIdx = Math.min(leadSamples.length - 1, prerollSteps + frame);
+      const nowLead = leadSamples[curLeadIdx];
+
+      // Loose breathing pocket (38..78u separation, weaving out of phase with
+      // lead in lateral X, altitude Y, and trail Z so both planes bank, climb,
+      // and descend on completely independent human rhythms)
+      const ox = baseOx + 12 * Math.sin(0.85 * t);
+      const oy = baseOy + 10 * Math.sin(0.9 * t + 1.2);
+      const oz = baseOz + 8 * Math.sin(0.75 * t + 0.4);
+      const cy = Math.cos(nowLead.yaw);
+      const sy = Math.sin(nowLead.yaw);
+      const pocketX = nowLead.x + ox * cy + oz * sy;
+      const pocketY = nowLead.y + oy;
+      const pocketZ = nowLead.z - ox * sy + oz * cy;
+
+      // Cross-track & along-track errors in lead's heading frame
+      const relPx = pocketX - cur.x;
+      const relPz = pocketZ - cur.z;
+      let rightErr = relPx * cy - relPz * sy;
+      const fwdErr = -relPx * sy - relPz * cy;
+
+      // Keep generous breathing room: push outward if ever closer than 48u to lead
+      const toLeadX = cur.x - nowLead.x;
+      const toLeadZ = cur.z - nowLead.z;
+      const horizToLead = Math.hypot(toLeadX, toLeadZ);
+      if (horizToLead < 48 && horizToLead > 0.1) {
+        const pushSign = toLeadX * cy - toLeadZ * sy >= 0 ? 1 : -1;
+        rightErr += pushSign * (48 - horizToLead) * 1.6;
+      }
+
+      // Critically damped cross-track + roll-damper PD guidance
+      const interceptYaw = clamp(-rightErr / 115, -0.34, 0.34);
+      const desiredYaw = nowLead.yaw + interceptYaw;
+      let yawErr = desiredYaw - cur.yaw;
+      while (yawErr > Math.PI) yawErr -= TWO_PI;
+      while (yawErr < -Math.PI) yawErr += TWO_PI;
+
+      const altErr = pocketY - cur.y;
+
+      const rawSteerX = activeStunt
+        ? 0
+        : clamp(-yawErr * 1.45 + cur.roll * 0.55, -0.48, 0.48);
+      const rawSteerY = activeStunt ? 0 : clamp(altErr / 55, -0.38, 0.38);
+      smoothSteerX += (rawSteerX - smoothSteerX) * 0.28;
+      smoothSteerY += (rawSteerY - smoothSteerY) * 0.24;
+
+      const throttle = clamp(
+        nowLead.speed * (1 + clamp(fwdErr / 90, -0.28, 0.36)),
+        0.78,
+        Math.max(2.15, nowLead.speed * 1.35)
+      );
+
+      return {
+        steerX: smoothSteerX,
+        steerY: smoothSteerY,
+        throttle,
+        stunt: activeStunt,
+      };
+    },
+  });
+
+  return {
+    start: {x: startX, y: startY, z: startZ},
+    headingDeg: leadYaw0 / DEG,
+    samples,
+  };
 }

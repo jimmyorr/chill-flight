@@ -455,27 +455,27 @@ function spotCandidates(scout, spot, slot, facing = 'rear') {
       {
         ...common,
         label,
-        tx: Math.round(o.x + 260),
-        ty: 170 + boost,
-        tz: Math.round(o.z + 240),
+        tx: Math.round(o.x + 390),
+        ty: 245 + boost,
+        tz: Math.round(o.z + 360),
         heading: facing === 'front' ? -132 : 48,
         hitFrame: oakHit,
       },
       {
         ...common,
         label,
-        tx: Math.round(o.x - 260),
-        ty: 200 + boost,
-        tz: Math.round(o.z + 240),
+        tx: Math.round(o.x - 390),
+        ty: 260 + boost,
+        tz: Math.round(o.z + 360),
         heading: facing === 'front' ? 132 : -48,
         hitFrame: oakHit,
       },
       {
         ...common,
         label,
-        tx: Math.round(o.x + 280),
-        ty: 290 + boost,
-        tz: Math.round(o.z - 220),
+        tx: Math.round(o.x + 410),
+        ty: 345 + boost,
+        tz: Math.round(o.z - 340),
         heading: 135,
         hitFrame: oakHit,
       },
@@ -690,9 +690,9 @@ export const ARCHETYPE_IDS = [
   'ghibli-anime',
   'aerobatic-loop',
   'weather-moods',
-  'overhead-shadow',
+  'canyon-aerobatics',
   'telephoto-giants',
-  'portal-clover',
+  'sunset-chase',
   'agility-loop',
 ];
 
@@ -715,10 +715,11 @@ export function buildDailyShortSpec(
     const speedMult = 1.24;
     // Biplane always anchors Segment 1 (3.0s..6.0s) so its snappy rollRate
     // completes a full player barrel roll + settle cleanly inside the 3s window.
+    // Never uses `twin`; rotates across biplane, seaplane, and jet.
     const planeOrder =
       cycle % 2 === 0
-        ? ['seaplane', 'biplane', 'twin', 'jet']
-        : ['twin', 'biplane', 'seaplane', 'jet'];
+        ? ['seaplane', 'biplane', 'jet', 'seaplane']
+        : ['seaplane', 'biplane', 'jet', 'biplane'];
     const spotSets = [
       ['falls', 'canyon', 'pyramids', 'arctic-arch'],
       ['falls', 'sea-arch', 'volcano', 'basalt-arch'],
@@ -732,14 +733,14 @@ export function buildDailyShortSpec(
       'tod=0.755&weather=snow&headlight=1&cloudMood=high',
     ];
     const titles = [
-      '4 planes, 1 seamless roll ✈️',
+      '3 planes, 1 seamless roll ✈️',
       'Plane evolution across 4 biomes ✈️',
       'Switching aircraft mid-barrel roll ✈️',
     ];
     spec = {
       id: `daily-${seed}`,
       archetype,
-      banner: `Daily ${seed} [Front-Hero 4-Plane Evolution]`,
+      banner: `Daily ${seed} [Front-Hero 3-Plane Evolution]`,
       seed,
       speedMult,
       camFrame: 'yaw',
@@ -761,10 +762,10 @@ export function buildDailyShortSpec(
           [6.1, 0.0, 0.02, speedMult],
           [7.4, -0.36, 0.05, speedMult],
           [8.75, 0.0, 0.02, speedMult],
-          [9.2, 0.0, 0.06, 1.65],
-          [10.5, 0.32, 0.06, 1.7],
-          [11.8, 0.0, 0.0, 1.7],
-          [12.0, 0.0, 0.0, 1.7],
+          [9.2, 0.0, 0.06, 1.38],
+          [10.5, 0.32, 0.06, 1.38],
+          [11.8, 0.0, 0.0, 1.38],
+          [12.0, 0.0, 0.0, 1.38],
         ],
         stunts: [[3.1, 4.95, 'roll-left']],
       },
@@ -778,10 +779,10 @@ export function buildDailyShortSpec(
         endFrame: (i + 1) * 90,
       })),
       title: titles[cycle % titles.length],
-      question: 'Biplane, seaplane, twin-prop, or jet?',
+      question: 'Biplane, seaplane, or jet?',
     };
   } else if (archetype === 'dolly-zoom') {
-    const planes = ['twin', 'seaplane', 'jet'];
+    const planes = ['biplane', 'seaplane', 'jet'];
     const plane = planes[cycle % planes.length];
     const speedMult = plane === 'jet' ? 1.48 : 1.22;
     const spotSets = [
@@ -908,86 +909,89 @@ export function buildDailyShortSpec(
       question: 'Would you fly inverted through that arch?',
     };
   } else if (archetype === 'orbit-2ship') {
-    const planes = ['jet', 'biplane', 'twin'];
+    const planes = ['jet', 'biplane', 'seaplane'];
+    const wingPlanes = ['jet', 'seaplane', 'biplane'];
     const plane = planes[cycle % planes.length];
+    const wingPlane = wingPlanes[cycle % wingPlanes.length];
     const speedMult = plane === 'jet' ? 1.48 : 1.22;
+    const wingSpeed = wingPlane === 'jet' ? 1.48 : 1.22;
+    const wingRollHold =
+      wingPlane === 'biplane' ? 1.95 : wingPlane === 'jet' ? 2.25 : 2.55;
+    // Open panoramic landmarks so two widely spaced planes (55..75u apart)
+    // never crowd each other or squeeze through narrow rock doorways.
     const spotSets = [
-      ['portal', 'falls', 'sea-arch', 'xmas'],
-      ['portal', 'volcano', 'gorge-arch', 'pyramids'],
-      ['portal', 'canyon', 'arctic-arch', 'lighthouse'],
+      ['falls', 'pyramids', 'dragon', 'xmas'],
+      ['volcano', 'canyon', 'pyramids', 'lighthouse'],
+      ['falls', 'canyon', 'volcano', 'lighthouse'],
     ];
     const spots = spotSets[cycle % spotSets.length];
     const extras = [
-      'tod=0.34&weather=none&cloudMood=busy',
       'tod=0.31&weather=none&cloudMood=fair',
-      'tod=0.52&weather=none&cloudMood=fair',
-      'tod=0.78&headlight=1&weather=snow&cloudMood=high',
+      'tod=0.50&weather=none&cloudMood=fair',
+      'tod=0.69&weather=none&cloudMood=mackerel',
+      'tod=0.77&headlight=1&weather=snow&cloudMood=high',
     ];
     const titles = [
-      '2-ship 360 orbit through a wormhole ✈️',
-      'Staggered formation into another biome ✈️',
+      '2-ship 360 orbit across 4 biomes ✈️',
+      'Loose 2-ship flight over 4 landmarks ✈️',
       '360 camera orbit around 2 planes ✈️',
     ];
     spec = {
       id: `daily-${seed}`,
       archetype,
-      banner: `Daily ${seed} [2-Ship 360 Orbit + Wormhole (${plane})]`,
+      banner: `Daily ${seed} [Independent 2-Ship 360 Orbit (${plane} + ${wingPlane})]`,
       seed,
       speedMult,
       camFrame: 'yaw',
       cam:
         `plane=${plane}&livery=${liv(0)}&smoke=1&speed=${speedMult}` +
-        '&camOffset=0,18,86&camLook=0,-1,11&fov=54',
+        '&camOffset=0,28,156&camLook=22,7,14&fov=64',
       camMoves: [
-        [0.0, 0, 18, 86, 0, -1, 11, 54, 0, 0],
-        [12.0, 0, 18, 86, 0, -1, 11, 54, 360, 0],
+        [0.0, 0, 28, 156, 22, 7, 14, 64, 0, 0],
+        [12.0, 0, 28, 156, 22, 7, 14, 64, 360, 0],
       ],
       wingmen: [
         {
-          plane,
+          plane: wingPlane,
           livery: liv(4),
           smoke: 'white',
-          frame: 'yaw',
-          offset: [-11, 4, 24],
-          offsetMoves: [
-            [0.0, -11, 4, 24, 0, 0, 0],
-            [1.6, -10, 5, 23, 2, 0.5, 0],
-            [3.6, -15, 1, 27, 22, 2, -2],
-            [6.4, 12, -3, 24, -22, -1, 2],
-            [9.2, 6, 5, 25, 18, 2, -2],
-            [12.0, -11, 4, 24, 0, 0, 0],
-          ],
+          followLead: true,
+          relOffset: [48, 15, 32],
+          speed: wingSpeed,
+          stunts: [[5.2, 5.2 + wingRollHold, 'roll-right']],
         },
       ],
       pilotMoves: {
         stick: [
           [0.0, 0.0, 0.0, speedMult],
-          [1.5, 0.0, 0.0, speedMult],
-          [3.5, -0.34, 0.05, speedMult],
-          [6.2, 0.36, 0.04, speedMult],
-          [9.0, -0.32, 0.05, speedMult],
-          [11.4, 0.0, 0.0, speedMult],
+          [1.4, -0.24, 0.04, speedMult],
+          [3.6, 0.0, 0.02, speedMult],
+          [8.0, 0.0, 0.02, speedMult],
+          [9.6, 0.24, 0.04, speedMult],
+          [11.3, 0.0, 0.0, speedMult],
           [12.0, 0.0, 0.0, speedMult],
         ],
       },
       facing: 'rear',
       slots: spots.map((spot, i) => ({
         spot,
+        altBoost: 60,
         extra: extras[i],
         startFrame: i * 90,
         endFrame: (i + 1) * 90,
       })),
       title: titles[cycle % titles.length],
-      question: 'Wait for the wormhole warp at 0:01!',
+      question: 'Which biome would you fly with a wingman?',
     };
   } else if (archetype === 'ghibli-anime') {
-    const planes = ['biplane', 'seaplane', 'twin'];
+    const planes = ['biplane', 'seaplane', 'jet'];
     const plane = planes[cycle % planes.length];
-    const speedMult = 1.2;
+    const speedMult = plane === 'jet' ? 1.5 : 1.24;
+    const rollHold = plane === 'biplane' ? 1.95 : plane === 'jet' ? 2.25 : 2.55;
     const spotSets = [
       ['falls', 'falls', 'pyramids', 'lighthouse'],
-      ['volcano', 'volcano', 'sea-arch', 'basalt-arch'],
-      ['swamp-oak', 'swamp-oak', 'dragon', 'xmas'],
+      ['volcano', 'volcano', 'sea-arch', 'pyramids'],
+      ['falls', 'falls', 'dragon', 'xmas'],
     ];
     const spots = spotSets[cycle % spotSets.length];
     const extras = [
@@ -1000,31 +1004,37 @@ export function buildDailyShortSpec(
     const titles = [
       'Low-poly vs anime shader side-by-side ✈️',
       'Same flight in low-poly and anime style ✈️',
-      'Ghibli silhouette: low-poly vs anime ✈️',
+      'Low-poly vs anime shader aerobatics ✈️',
     ];
     spec = {
       id: `daily-${seed}`,
       archetype,
-      banner: `Daily ${seed} [Ghibli Side-Profile Anime Swap (${plane})]`,
+      banner: `Daily ${seed} [Low-Poly vs Anime Shader Swap (${plane})]`,
       seed,
       speedMult,
       camFrame: 'yaw',
       cam:
         `plane=${plane}&livery=${liv(3)}&smoke=1&speed=${speedMult}` +
-        '&camOffset=80,-8,6&camLook=0,2,-4&fov=50',
+        '&camOffset=36,11,56&camLook=-5,2,-54&fov=60',
       pilotMoves: {
         stick: [
           [0.0, 0.0, 0.02, speedMult],
-          [2.4, 0.12, 0.08, speedMult],
-          [5.2, -0.12, -0.05, speedMult],
-          [8.0, 0.12, 0.07, speedMult],
-          [10.5, -0.08, -0.03, speedMult],
+          [1.6, -0.42, 0.08, speedMult],
+          [3.1, 0.0, 0.04, speedMult],
+          [6.5, 0.44, 0.06, speedMult],
+          [9.4, -0.36, -0.04, speedMult],
+          [11.4, 0.0, 0.0, speedMult],
           [12.0, 0.0, 0.0, speedMult],
         ],
+        stunts: [
+          [3.2, 3.2 + rollHold, 'roll-right'],
+          [7.1, 8.6, 'climb'],
+        ],
       },
-      facing: 'side-left',
+      facing: 'rear',
       slots: spots.map((spot, i) => ({
         spot,
+        altBoost: 70,
         style: styles[i],
         extra: extras[i],
         startFrame: i * 90,
@@ -1096,11 +1106,10 @@ export function buildDailyShortSpec(
       question: 'Which biome would you loop over first?',
     };
   } else if (archetype === 'weather-moods') {
-    const planes = ['seaplane', 'twin', 'biplane'];
+    const planes = ['seaplane', 'jet', 'biplane'];
     const plane = planes[cycle % planes.length];
-    const speedMult = plane === 'twin' ? 1.35 : 1.22;
-    const rollHold =
-      plane === 'biplane' ? 1.95 : plane === 'seaplane' ? 2.55 : 2.95;
+    const speedMult = plane === 'jet' ? 1.5 : 1.22;
+    const rollHold = plane === 'biplane' ? 1.95 : plane === 'jet' ? 2.25 : 2.55;
     const spotSets = [
       ['falls', 'sea-arch', 'lighthouse', 'dragon'],
       ['swamp-oak', 'gorge-arch', 'lighthouse', 'arctic-arch'],
@@ -1170,66 +1179,75 @@ export function buildDailyShortSpec(
       title: titles[cycle % titles.length],
       question: 'Mist, rainbow, lightning storm, or blizzard?',
     };
-  } else if (archetype === 'overhead-shadow') {
-    const planes = ['seaplane', 'biplane', 'jet'];
+  } else if (archetype === 'canyon-aerobatics') {
+    const planes = ['biplane', 'jet', 'seaplane'];
     const plane = planes[cycle % planes.length];
-    const speedMult = plane === 'jet' ? 1.48 : 1.22;
+    const speedMult = plane === 'jet' ? 1.75 : 1.24;
+    const loopEnd = plane === 'seaplane' ? 8.1 : 7.85;
+    const rollEnd = plane === 'seaplane' ? 5.65 : plane === 'jet' ? 5.35 : 5.05;
     const spotSets = [
-      ['sea-arch', 'canyon', 'dragon', 'falls'],
-      ['swamp-oak', 'pyramids', 'arctic-arch', 'basalt-arch'],
-      ['falls', 'gorge-arch', 'dragon', 'sea-arch'],
+      ['falls', 'canyon', 'dragon', 'pyramids'],
+      ['volcano', 'sea-arch', 'xmas', 'lighthouse'],
+      ['canyon', 'pyramids', 'volcano', 'falls'],
     ];
     const spots = spotSets[cycle % spotSets.length];
     const extras = [
-      'tod=0.46&weather=none&cloudMood=fair',
-      'tod=0.56&weather=none&cloudMood=fair',
-      'tod=0.42&weather=snow&cloudMood=high',
-      'tod=0.69&weather=none&cloudMood=mackerel',
+      'tod=0.285&weather=none&cloudMood=fair',
+      'tod=0.52&weather=none&cloudMood=fair',
+      'tod=0.43&weather=snow&cloudMood=high',
+      'tod=0.715&weather=none&cloudMood=mackerel',
     ];
     const titles = [
-      'Chill Flight from straight above ✈️',
-      'Top-down view of 4 hidden spots ✈️',
-      'Bird-eye flight over 4 biomes ✈️',
+      'Canyon carve and loop across 4 biomes ✈️',
+      'Barrel roll and vertical loop over 4 giants ✈️',
+      'Aerobatic pass through 4 landscapes ✈️',
     ];
+    const altBoosts = [110, 140, 260, 260];
     spec = {
       id: `daily-${seed}`,
       archetype,
-      banner: `Daily ${seed} [Overhead Shadow-Chase (${plane})]`,
+      banner: `Daily ${seed} [Canyon Carve & Loop (${plane})]`,
       seed,
       speedMult,
       camFrame: 'yaw',
       cam:
         `plane=${plane}&livery=${liv(0)}&smoke=1&speed=${speedMult}` +
-        (cycle % 2 === 0 ? '&trip=1' : '') +
-        '&camOffset=0,70,26&camLook=0,-12,-24&fov=58',
+        '&camOffset=-32,11,56&camLook=4,2,-58&fov=62',
       pilotMoves: {
         stick: [
           [0.0, 0.0, 0.0, speedMult],
-          [1.8, 0.56, 0.05, speedMult],
-          [4.2, -0.58, 0.05, speedMult],
-          [6.8, 0.54, 0.05, speedMult],
-          [9.4, -0.48, 0.04, speedMult],
-          [11.5, 0.0, 0.0, speedMult],
+          [1.2, -0.45, 0.04, speedMult],
+          [2.85, 0.0, 0.02, speedMult],
+          [6.1, 0.0, 0.0, speedMult],
+          [9.4, 0.36, -0.05, speedMult],
+          [11.3, 0.0, 0.0, speedMult],
           [12.0, 0.0, 0.0, speedMult],
+        ],
+        stunts: [
+          [0.6, 2.3, 'sharp-left'],
+          [3.1, rollEnd, 'roll-right'],
+          [6.2, loopEnd, 'loop'],
+          [9.5, 10.9, 'dive'],
         ],
       },
       facing: 'rear',
       slots: spots.map((spot, i) => ({
         spot,
+        altBoost: altBoosts[i],
         extra: extras[i],
         startFrame: i * 90,
         endFrame: (i + 1) * 90,
       })),
       title: titles[cycle % titles.length],
-      question: 'Spot the hidden landmark from above?',
+      question: 'Which landscape looks best from the cockpit?',
     };
   } else if (archetype === 'telephoto-giants') {
-    const planes = ['twin', 'jet', 'biplane'];
+    const planes = ['biplane', 'jet', 'seaplane'];
     const plane = planes[cycle % planes.length];
-    const speedMult = plane === 'jet' ? 1.52 : plane === 'twin' ? 1.32 : 1.22;
-    const rollHold = plane === 'biplane' ? 1.95 : plane === 'jet' ? 2.3 : 2.95;
+    const speedMult = plane === 'jet' ? 1.52 : 1.22;
+    const rollHold = plane === 'biplane' ? 1.95 : plane === 'jet' ? 2.25 : 2.55;
     const spotSets = [
-      ['volcano', 'pyramids', 'gorge-arch', 'basalt-arch'],
+      ['volcano', 'pyramids', 'gorge-arch', 'lighthouse'],
       ['falls', 'swamp-oak', 'pyramids', 'lighthouse'],
       ['volcano', 'canyon', 'arctic-arch', 'xmas'],
     ];
@@ -1281,16 +1299,16 @@ export function buildDailyShortSpec(
     const tod = cycle % 2 === 0 ? '0.268' : '0.695';
     const style = cycle % 2 === 0 ? 'anime' : 'lowpoly';
     const titles = [
-      '4 planes, 4 very different loops ✈️',
-      'Comparing loop agility across 4 planes ✈️',
-      'Biplane vs seaplane vs twin vs jet loop ✈️',
+      '3 planes, 3 very different loops ✈️',
+      'Comparing loop agility across 3 planes ✈️',
+      'Biplane vs seaplane vs jet loop ✈️',
     ];
     spec = {
       id: `daily-${seed}`,
       archetype,
-      banner: `Daily ${seed} [Single-Take 4-Plane Agility Loop (${style})]`,
+      banner: `Daily ${seed} [Single-Take 3-Plane Agility Loop (${style})]`,
       seed,
-      durationSec: 15,
+      durationSec: 12,
       speedMult: 1.0,
       camFrame: 'yaw',
       cam:
@@ -1299,16 +1317,14 @@ export function buildDailyShortSpec(
       pilotMoves: {
         stick: [
           [0.0, 0.0, 0.0, 1.0],
-          [3.5, 0.0, 0.0, 1.2],
-          [7.2, 0.0, 0.0, 1.45],
-          [11.5, 0.0, 0.0, 2.15],
-          [15.0, 0.0, 0.0, 2.15],
+          [3.7, 0.0, 0.0, 1.2],
+          [7.8, 0.0, 0.0, 2.1],
+          [12.0, 0.0, 0.0, 2.1],
         ],
         stunts: [
-          [0.2, 1.75, 'loop'],
-          [3.65, 5.45, 'loop'],
-          [7.25, 9.55, 'loop'],
-          [11.65, 13.2, 'loop'],
+          [0.2, 1.8, 'loop'],
+          [3.85, 5.7, 'loop'],
+          [7.95, 9.55, 'loop'],
         ],
       },
       prebuiltSegments: [
@@ -1321,18 +1337,16 @@ export function buildDailyShortSpec(
           z: 18600,
           heading: -135,
           planeSwaps: [
-            [105, 'seaplane', liv(2)],
-            [216, 'twin', liv(4)],
-            [345, 'jet', liv(6)],
+            [112, 'seaplane', liv(2)],
+            [234, 'jet', liv(6)],
           ],
           badges: [
-            [105, 'Seaplane · Cruise Loop'],
-            [216, 'Twin-Prop · Wide Loop'],
-            [345, 'Swept-Wing Jet · High-G Loop'],
+            [112, 'Seaplane · Cruise Loop'],
+            [234, 'Swept-Wing Jet · High-G Loop'],
           ],
           extra: `tod=${tod}&weather=none&cloudMood=fair`,
           startFrame: 0,
-          endFrame: 450,
+          endFrame: 360,
         },
       ],
       slots: [],
@@ -1340,57 +1354,58 @@ export function buildDailyShortSpec(
       question: 'Which plane has the cleanest loop?',
     };
   } else {
-    // 'portal-clover'
+    // 'sunset-chase': clean rear-quarter wormhole warp + aerobatic roll across 3 open vistas (no trip=1)
     const planes = ['biplane', 'jet', 'seaplane'];
     const plane = planes[cycle % planes.length];
-    const speedMult = plane === 'jet' ? 1.48 : 1.22;
-    const rollHold = plane === 'biplane' ? 1.95 : plane === 'jet' ? 2.3 : 2.55;
+    const speedMult = plane === 'jet' ? 1.54 : 1.24;
+    const rollHold = plane === 'biplane' ? 1.95 : plane === 'jet' ? 2.25 : 2.55;
     const spotSets = [
-      ['portal', 'gorge-arch', 'dragon', 'pyramids'],
-      ['portal', 'sea-arch', 'volcano', 'xmas'],
-      ['portal', 'swamp-oak', 'basalt-arch', 'falls'],
+      ['portal', 'pyramids', 'dragon', 'lighthouse'],
+      ['portal', 'volcano', 'falls', 'xmas'],
+      ['portal', 'canyon', 'pyramids', 'falls'],
     ];
     const spots = spotSets[cycle % spotSets.length];
     const extras = [
       'tod=0.35&weather=none&cloudMood=busy',
-      'tod=0.50&weather=none&cloudMood=fair',
+      'tod=0.68&weather=none&cloudMood=mackerel',
       'tod=0.43&weather=snow&cloudMood=high',
-      'tod=0.71&headlight=1&weather=none&cloudMood=mackerel',
+      'tod=0.725&headlight=1&weather=none&cloudMood=fair',
     ];
     const titles = [
-      'Tail-cam warp through a wormhole ✈️',
-      'Rainbow smoke into an alien portal ✈️',
-      'Cockpit-over-tail wormhole jump ✈️',
+      'Wormhole warp into 3 sunset biomes ✈️',
+      'Alien portal jump and roll across 4 skies ✈️',
+      'Through the wormhole into 3 landmarks ✈️',
     ];
     spec = {
       id: `daily-${seed}`,
       archetype,
-      banner: `Daily ${seed} [Tail-Fin Portal & Rainbow Smoke (${plane})]`,
+      banner: `Daily ${seed} [Wormhole Jump & Sunset Chase (${plane})]`,
       seed,
       speedMult,
-      camFrame: 'plane',
+      camFrame: 'yaw',
       cam:
-        `plane=${plane}&livery=${liv(4)}&smoke=1&trip=1&speed=${speedMult}` +
-        '&camOffset=0,7.2,15.0&camLook=0,0.4,-28&fov=68',
+        `plane=${plane}&livery=${liv(4)}&smoke=1&speed=${speedMult}` +
+        '&camOffset=28,11,60&camLook=-4,2,-64&fov=62',
       pilotMoves: {
         stick: [
           [0.0, 0.0, 0.0, speedMult],
-          [1.5, 0.0, 0.0, speedMult],
-          [2.5, -0.45, 0.16, speedMult],
+          [1.6, 0.0, 0.0, speedMult],
+          [2.6, -0.38, 0.1, speedMult],
           [3.15, 0.0, 0.02, speedMult],
-          [6.5, 0.35, 0.05, speedMult],
-          [9.5, -0.32, 0.04, speedMult],
-          [11.5, 0.0, 0.0, speedMult],
+          [6.4, 0.36, 0.05, speedMult],
+          [9.4, -0.32, 0.04, speedMult],
+          [11.4, 0.0, 0.0, speedMult],
           [12.0, 0.0, 0.0, speedMult],
         ],
         stunts: [
           [3.25, 3.25 + rollHold, 'roll-left'],
-          [6.6, 8.4, 'sharp-right'],
+          [6.5, 8.2, 'climb'],
         ],
       },
       facing: 'rear',
       slots: spots.map((spot, i) => ({
         spot,
+        altBoost: i === 0 ? 0 : 80,
         extra: extras[i],
         startFrame: i * 90,
         endFrame: (i + 1) * 90,

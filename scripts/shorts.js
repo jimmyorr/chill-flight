@@ -30,10 +30,15 @@ import {
   waitForPromoChunks,
 } from './dev-browser.js';
 import {ChillFlightLogic} from '../chill-flight-logic.js';
+import {BASE_FLIGHT_SPEED} from '../constants.js';
 import {simplex} from '../noise.js';
 import {ARCH, archBlocks, archCeiling, archSites} from '../arches-logic.js';
 import {solveStartCoords, traceScriptedTrajectory} from '../promo-script.js';
-import {simulatePilotTrajectory, solvePilotStartCoords} from './pilot-sim.js';
+import {
+  simulatePilotTrajectory,
+  simulateWingmanPursuit,
+  solvePilotStartCoords,
+} from './pilot-sim.js';
 import {
   DEFAULT_RELATED_VIDEO,
   buildDefaultPinnedComment,
@@ -583,10 +588,148 @@ export function buildSegmentQuery(
 
 function resolveWingmenSpecs(
   wingmen,
-  {prerollSec = PREROLL, fps = FPS, defaultSpeed = 1} = {}
+  {
+    prerollSec = PREROLL,
+    fps = FPS,
+    defaultSpeed = 1,
+    leadStart = null,
+    leadHeading = 0,
+    leadPilotMoves = null,
+    endFrame = 360,
+    defaultPlane = 'seaplane',
+  } = {}
 ) {
   if (!Array.isArray(wingmen) || wingmen.length === 0) return null;
+  const DEG = Math.PI / 180;
+  const RAD_TO_DEG = 180 / Math.PI;
+  const TWO_PI = Math.PI * 2;
+  let cachedLeadSamples = null;
   return wingmen.map((w) => {
+    // Independent human-style wingman: either loosely follows the lead plane
+    // with ~0.65s human reaction lag + breathing pocket + optional independent
+    // stunts (`w.followLead`), or runs an open-loop `w.pilotMoves` trajectory.
+    if ((w.followLead || w.pilotMoves) && leadStart) {
+      const wPlane = w.plane || defaultPlane;
+      const wSpeed = w.speed ?? defaultSpeed;
+      let wx;
+      let wy;
+      let wz;
+      let wHeading;
+      let sim;
+      if (w.followLead && leadPilotMoves) {
+        if (!cachedLeadSamples) {
+          cachedLeadSamples = simulatePilotTrajectory({
+            planeType: defaultPlane,
+            x: leadStart.x,
+            y: leadStart.y,
+            z: leadStart.z,
+            headingDeg: leadHeading,
+            speedMult: defaultSpeed,
+            pilotMoves: leadPilotMoves,
+            endFrame: endFrame + 2,
+            prerollSec,
+            fps,
+          });
+        }
+        const pursued = simulateWingmanPursuit({
+          leadSamples: cachedLeadSamples,
+          planeType: wPlane,
+          relOffset: w.relOffset || [-46, 12, 36],
+          stunts: w.stunts || [],
+          speedMult: wSpeed,
+          prerollSec,
+          fps,
+        });
+        wx = pursued.start.x;
+        wy = pursued.start.y;
+        wz = pursued.start.z;
+        wHeading = pursued.headingDeg;
+        sim = pursued.samples;
+      } else {
+        const [ox = -48, oy = 12, oz = 42] = w.relOffset || [-48, 12, 42];
+        const leadYaw = leadHeading * DEG;
+        wHeading = leadHeading + (w.relHeading ?? 0);
+        const wYaw = wHeading * DEG;
+        const leadPrerollDist =
+          defaultSpeed * BASE_FLIGHT_SPEED * 60 * prerollSec;
+        const wPrerollDist = wSpeed * BASE_FLIGHT_SPEED * 60 * prerollSec;
+        const leadAt0X = leadStart.x - Math.sin(leadYaw) * leadPrerollDist;
+        const leadAt0Y = leadStart.y;
+        const leadAt0Z = leadStart.z - Math.cos(leadYaw) * leadPrerollDist;
+        const wAt0X =
+          leadAt0X + ox * Math.cos(leadYaw) + oz * Math.sin(leadYaw);
+        const wAt0Y = leadAt0Y + oy;
+        const wAt0Z =
+          leadAt0Z - ox * Math.sin(leadYaw) + oz * Math.cos(leadYaw);
+        wx = wAt0X + Math.sin(wYaw) * wPrerollDist;
+        wy = wAt0Y;
+        wz = wAt0Z + Math.cos(wYaw) * wPrerollDist;
+        sim = simulatePilotTrajectory({
+          planeType: wPlane,
+          x: wx,
+          y: wy,
+          z: wz,
+          headingDeg: wHeading,
+          speedMult: wSpeed,
+          pilotMoves: w.pilotMoves,
+          endFrame: endFrame + 2,
+          prerollSec,
+          fps,
+        });
+      }
+
+      const wYaw = wHeading * DEG;
+      const moves = [];
+      let prevRoll = null;
+      let prevYaw = null;
+      let unwrappedRoll = 0;
+      let unwrappedYaw = wYaw;
+      for (let i = 0; i < sim.length; i++) {
+        const s = sim[i];
+        if (s.frame < 0) continue;
+        if (prevRoll === null) {
+          unwrappedRoll = s.roll;
+          unwrappedYaw = s.yaw;
+        } else {
+          let dr = s.roll - prevRoll;
+          while (dr > Math.PI) dr -= TWO_PI;
+          while (dr < -Math.PI) dr += TWO_PI;
+          unwrappedRoll += dr;
+          let dy = s.yaw - prevYaw;
+          while (dy > Math.PI) dy -= TWO_PI;
+          while (dy < -Math.PI) dy += TWO_PI;
+          unwrappedYaw += dy;
+        }
+        prevRoll = s.roll;
+        prevYaw = s.yaw;
+        if (s.frame % 2 === 0 || i === sim.length - 1) {
+          moves.push([
+            Number(s.t.toFixed(4)),
+            Number((unwrappedRoll * RAD_TO_DEG).toFixed(2)),
+            Number((s.pitch * RAD_TO_DEG).toFixed(2)),
+            Number(((unwrappedYaw - wYaw) * RAD_TO_DEG).toFixed(2)),
+            Number(s.speed.toFixed(4)),
+          ]);
+        }
+      }
+      const rest = {...w};
+      delete rest.followLead;
+      delete rest.stunts;
+      delete rest.pilotMoves;
+      delete rest.relOffset;
+      delete rest.relHeading;
+      return {
+        ...rest,
+        plane: wPlane,
+        x: Math.round(wx * 100) / 100,
+        y: Math.round(wy * 100) / 100,
+        z: Math.round(wz * 100) / 100,
+        heading: wHeading,
+        speed: wSpeed,
+        moves,
+        direct: true,
+      };
+    }
     if (
       w.x === undefined &&
       w.tx !== undefined &&
@@ -714,8 +857,29 @@ export function verifySegmentCorridor({
   let minSurfFrame = samples[0]?.frame ?? 0;
   let minArchMargin = Infinity;
 
-  const floorMargin = surface ? -3.0 : minClearance;
+  const floorMargin = surface ? -3.0 : Math.max(minClearance, 22);
+  const approachFloorMargin = surface ? -3.0 : Math.max(minClearance, 14);
+  const lateralOffsets = surface
+    ? [[0, 0]]
+    : [
+        [0, 0],
+        [32, 0],
+        [-32, 0],
+        [0, 32],
+        [0, -32],
+        [23, 23],
+        [-23, 23],
+        [23, -23],
+        [-23, -23],
+      ];
+  const swampOak = ChillFlightLogic.giantSwampOak();
+  const swampOakGround = Math.max(
+    WATER_LEVEL,
+    ChillFlightLogic.getElevation(swampOak.x, swampOak.z, simplex, elevOpts)
+  );
   for (const s of samples) {
+    const onCamera = s.frame >= startFrame - 12;
+    const reqFloor = onCamera ? floorMargin : approachFloorMargin;
     const ground = ChillFlightLogic.getElevation(s.x, s.z, simplex, elevOpts);
     const surf = Math.max(WATER_LEVEL, ground);
     const clear = s.y - surf;
@@ -723,31 +887,61 @@ export function verifySegmentCorridor({
       minSurfClearance = clear;
       minSurfFrame = s.frame;
     }
-    if (clear < floorMargin && violations.length < 3) {
-      const phase = s.frame < startFrame ? 'approach' : 'on-camera';
-      violations.push(
-        `[${label}] ${phase} frame ${s.frame} (${s.t.toFixed(2)}s): ` +
-          `altitude Y = ${s.y.toFixed(1)} is ${clear.toFixed(1)} units above surface ` +
-          `(surface = ${surf.toFixed(1)}, min = ${floorMargin}) at ${formatWorldLocation(s.x, s.z)}`
-      );
-    }
 
-    const ceiling = archCeiling(arches, s.x, s.z, s.y);
-    if (ceiling !== null) {
-      const archMargin = ceiling - s.y;
-      if (archMargin < minArchMargin) minArchMargin = archMargin;
-      if (archMargin < ARCH.CEILING_MARGIN && violations.length < 3) {
+    for (const [dx, dz] of lateralOffsets) {
+      const px = s.x + dx;
+      const pz = s.z + dz;
+      const pGround =
+        dx === 0 && dz === 0
+          ? ground
+          : ChillFlightLogic.getElevation(px, pz, simplex, elevOpts);
+      const pSurf = Math.max(WATER_LEVEL, pGround);
+      const pClear = s.y - pSurf;
+      if (pClear < reqFloor && violations.length < 3) {
+        const phase = s.frame < startFrame ? 'approach' : 'on-camera';
+        const tag = dx === 0 && dz === 0 ? '' : ' (wingtip/wall ring)';
+        violations.push(
+          `[${label}] ${phase} frame ${s.frame} (${s.t.toFixed(2)}s)${tag}: ` +
+            `altitude Y = ${s.y.toFixed(1)} is ${pClear.toFixed(1)} units above surface ` +
+            `(surface = ${pSurf.toFixed(1)}, min = ${reqFloor}) at ${formatWorldLocation(px, pz)}`
+        );
+        break;
+      }
+
+      const ceiling = archCeiling(arches, px, pz, s.y);
+      if (ceiling !== null) {
+        const archMargin = ceiling - s.y;
+        if (archMargin < minArchMargin) minArchMargin = archMargin;
+        const reqArchCeil = Math.max(ARCH.CEILING_MARGIN, surface ? 6 : 16);
+        if (archMargin < reqArchCeil && violations.length < 3) {
+          violations.push(
+            `[${label}] frame ${s.frame} (${s.t.toFixed(2)}s): ` +
+              `hits arch ceiling (Y = ${s.y.toFixed(1)}, underside = ${ceiling.toFixed(1)}) ` +
+              `at ${formatWorldLocation(px, pz)}`
+          );
+          break;
+        }
+      }
+      if (archBlocks(arches, px, pz, s.y - 8, 16, 2) && violations.length < 3) {
         violations.push(
           `[${label}] frame ${s.frame} (${s.t.toFixed(2)}s): ` +
-            `hits arch ceiling (Y = ${s.y.toFixed(1)}, underside = ${ceiling.toFixed(1)}) ` +
-            `at ${formatWorldLocation(s.x, s.z)}`
+            `hits solid arch rock/leg (Y = ${s.y.toFixed(1)}) at ${formatWorldLocation(px, pz)}`
         );
+        break;
       }
     }
-    if (archBlocks(arches, s.x, s.z, s.y - 2, 4, 2) && violations.length < 3) {
+
+    if (
+      !surface &&
+      onCamera &&
+      Math.hypot(s.x - swampOak.x, s.z - swampOak.z) < 285 &&
+      s.y < swampOakGround + 310 &&
+      violations.length < 3
+    ) {
       violations.push(
         `[${label}] frame ${s.frame} (${s.t.toFixed(2)}s): ` +
-          `hits solid arch rock (Y = ${s.y.toFixed(1)}) at ${formatWorldLocation(s.x, s.z)}`
+          `clips Giant Swamp Oak canopy (Y = ${s.y.toFixed(1)}, canopy top ~ ${(swampOakGround + 310).toFixed(0)}) ` +
+          `at ${formatWorldLocation(s.x, s.z)}`
       );
     }
   }
@@ -888,6 +1082,11 @@ export function planSegment(clipSpec, seg) {
     prerollSec: segPreroll,
     fps: FPS,
     defaultSpeed: segSpeed,
+    leadStart: start,
+    leadHeading: heading,
+    leadPilotMoves: pilotMoves,
+    endFrame: seg.endFrame,
+    defaultPlane: planeType,
   });
   const query = buildSegmentQuery(
     clipSpec,
@@ -2810,14 +3009,14 @@ async function renderEvolutionCutShort(browser, seed = 20261125) {
 }
 
 // ---------------------------------------------------------------------------
-// Prototype 16: Single-Take 4-Plane Agility Loop Comparison (Seed 20261126)
+// Prototype 16: Single-Take 3-Plane Agility Loop Comparison (Seed 20261126)
 // ---------------------------------------------------------------------------
 async function renderAgilityLoopShort(browser, seed = 20261126) {
   await renderMatchCutClip(browser, {
     id: 'agility-loop',
-    banner: `Single-Take 4-Plane Agility Loop (Seed ${seed}: Anime Dawn)`,
+    banner: `Single-Take 3-Plane Agility Loop (Seed ${seed}: Anime Dawn)`,
     seed,
-    durationSec: 15,
+    durationSec: 12,
     speedMult: 1.0,
     camFrame: 'yaw',
     cam:
@@ -2826,16 +3025,14 @@ async function renderAgilityLoopShort(browser, seed = 20261126) {
     pilotMoves: {
       stick: [
         [0.0, 0.0, 0.0, 1.0],
-        [3.5, 0.0, 0.0, 1.2],
-        [7.2, 0.0, 0.0, 1.45],
-        [11.5, 0.0, 0.0, 2.15],
-        [15.0, 0.0, 0.0, 2.15],
+        [3.7, 0.0, 0.0, 1.2],
+        [7.8, 0.0, 0.0, 2.1],
+        [12.0, 0.0, 0.0, 2.1],
       ],
       stunts: [
-        [0.2, 1.75, 'loop'],
-        [3.65, 5.45, 'loop'],
-        [7.25, 9.55, 'loop'],
-        [11.65, 13.2, 'loop'],
+        [0.2, 1.8, 'loop'],
+        [3.85, 5.7, 'loop'],
+        [7.95, 9.55, 'loop'],
       ],
     },
     segments: [
@@ -2848,31 +3045,28 @@ async function renderAgilityLoopShort(browser, seed = 20261126) {
         z: 18600,
         heading: -135,
         planeSwaps: [
-          [105, 'seaplane', 'teal'],
-          [216, 'twin', 'sand'],
-          [345, 'jet', 'slate'],
+          [112, 'seaplane', 'teal'],
+          [234, 'jet', 'slate'],
         ],
         badges: [
-          [105, 'Seaplane · Cruise Loop'],
-          [216, 'Twin-Prop · Wide Loop'],
-          [345, 'Swept-Wing Jet · High-G Loop'],
+          [112, 'Seaplane · Cruise Loop'],
+          [234, 'Swept-Wing Jet · High-G Loop'],
         ],
         extra: 'tod=0.268&weather=none&cloudMood=fair',
         startFrame: 0,
-        endFrame: 450,
+        endFrame: 360,
       },
     ],
     outBaseName: `short-${seed}-agility-loop`,
     trackSlug: 'purrple-cat-equinox',
     musicStart: 18,
     meta: {
-      title: '4 planes, 4 very different loops ✈️',
+      title: '3 planes, 3 very different loops ✈️',
       tiktokQuestion: 'Which plane has the cleanest loop?',
       stops: [
         '0:00 Biplane - Tight Loop (3.7°S, 0.1°E)',
-        '0:03 Seaplane - Cruise Loop (3.8°S, 0.2°E)',
-        '0:07 Twin-Prop - Wide Loop (3.9°S, 0.3°E)',
-        '0:11 Swept-Wing Jet - High-G Loop (4.0°S, 0.4°E)',
+        '0:04 Seaplane - Cruise Loop (3.8°S, 0.2°E)',
+        '0:08 Swept-Wing Jet - High-G Loop (4.0°S, 0.4°E)',
       ],
       trackTitle: 'Equinox',
     },
@@ -2880,14 +3074,14 @@ async function renderAgilityLoopShort(browser, seed = 20261126) {
 }
 
 // ---------------------------------------------------------------------------
-// Prototype 17: Single-Take 4-Plane Barrel Roll Comparison (Seed 20261127)
+// Prototype 17: Single-Take 3-Plane Barrel Roll Comparison (Seed 20261127)
 // ---------------------------------------------------------------------------
 async function renderAgilityRollShort(browser, seed = 20261127) {
   await renderMatchCutClip(browser, {
     id: 'agility-roll',
-    banner: `Single-Take 4-Plane Barrel Roll (Seed ${seed}: Golden Pyramids)`,
+    banner: `Single-Take 3-Plane Barrel Roll (Seed ${seed}: Golden Pyramids)`,
     seed,
-    durationSec: 15,
+    durationSec: 12,
     speedMult: 1.05,
     camFrame: 'yaw',
     cam:
@@ -2897,19 +3091,16 @@ async function renderAgilityRollShort(browser, seed = 20261127) {
       stick: [
         [0.0, 0.0, 0.0, 1.05],
         [2.9, 0.24, 0.03, 1.12],
-        [3.5, 0.0, 0.0, 1.22],
-        [6.6, -0.24, 0.03, 1.32],
-        [7.2, 0.0, 0.0, 1.45],
-        [10.9, 0.22, 0.03, 1.65],
-        [11.5, 0.0, 0.0, 2.05],
-        [14.4, -0.2, 0.02, 2.05],
-        [15.0, 0.0, 0.0, 2.05],
+        [3.7, 0.0, 0.0, 1.24],
+        [6.9, -0.24, 0.03, 1.38],
+        [7.8, 0.0, 0.0, 2.05],
+        [11.2, 0.22, 0.03, 2.05],
+        [12.0, 0.0, 0.0, 2.05],
       ],
       stunts: [
-        [0.25, 2.1, 'roll-left'],
-        [3.6, 5.9, 'roll-right'],
-        [7.35, 10.25, 'roll-left'],
-        [11.6, 13.75, 'roll-right'],
+        [0.25, 2.15, 'roll-left'],
+        [3.85, 6.2, 'roll-right'],
+        [7.95, 10.15, 'roll-left'],
       ],
     },
     segments: [
@@ -2922,31 +3113,28 @@ async function renderAgilityRollShort(browser, seed = 20261127) {
         z: 21750,
         heading: 38,
         planeSwaps: [
-          [105, 'seaplane', 'teal'],
-          [216, 'twin', 'sand'],
-          [345, 'jet', 'slate'],
+          [112, 'seaplane', 'teal'],
+          [234, 'jet', 'slate'],
         ],
         badges: [
-          [105, 'Seaplane · Cruise Roll'],
-          [216, 'Twin-Prop · Heavy Roll'],
-          [345, 'Swept-Wing Jet · High-Speed Roll'],
+          [112, 'Seaplane · Cruise Roll'],
+          [234, 'Swept-Wing Jet · High-Speed Roll'],
         ],
         extra: 'tod=0.715&weather=none&cloudMood=fair',
         startFrame: 0,
-        endFrame: 450,
+        endFrame: 360,
       },
     ],
     outBaseName: `short-${seed}-agility-roll`,
     trackSlug: 'purrple-cat-golden-hour',
     musicStart: 12,
     meta: {
-      title: '4 planes, 4 very different barrel rolls ✈️',
+      title: '3 planes, 3 very different barrel rolls ✈️',
       tiktokQuestion: 'Which plane has the cleanest barrel roll?',
       stops: [
         '0:00 Biplane - Snappy Roll (4.35°S, 1.73°W)',
-        '0:03 Seaplane - Cruise Roll (4.26°S, 1.80°W)',
-        '0:07 Twin-Prop - Heavy Roll (4.16°S, 1.88°W)',
-        '0:11 Swept-Wing Jet - High-Speed Roll (4.03°S, 1.98°W)',
+        '0:04 Seaplane - Cruise Roll (4.26°S, 1.80°W)',
+        '0:08 Swept-Wing Jet - High-Speed Roll (4.10°S, 1.94°W)',
       ],
       trackTitle: 'Golden Hour',
     },
@@ -2954,14 +3142,14 @@ async function renderAgilityRollShort(browser, seed = 20261127) {
 }
 
 // ---------------------------------------------------------------------------
-// Prototype 18: Single-Take 4-Plane Immelmann Turn (Seed 20261128)
+// Prototype 18: Single-Take 3-Plane Immelmann Turn (Seed 20261128)
 // ---------------------------------------------------------------------------
 async function renderAgilityImmelmannShort(browser, seed = 20261128) {
   await renderMatchCutClip(browser, {
     id: 'agility-immelmann',
-    banner: `Single-Take 4-Plane Immelmann Turn (Seed ${seed}: Dawn Twin Falls)`,
+    banner: `Single-Take 3-Plane Immelmann Turn (Seed ${seed}: Dawn Twin Falls)`,
     seed,
-    durationSec: 15,
+    durationSec: 12,
     speedMult: 1.05,
     camFrame: 'world-track',
     cam:
@@ -2969,24 +3157,21 @@ async function renderAgilityImmelmannShort(browser, seed = 20261128) {
       '&camX=-40&camY=560&camZ=-3900&camLook=0,0,-8&fov=58',
     camMoves: [
       [0.0, -40, 560, -3900, 0, 0, -8, 58],
-      [3.5, -90, 660, -3900, 0, 0, -8, 58],
-      [7.2, -30, 820, -3900, 0, 0, -8, 58],
-      [11.5, -110, 1060, -3900, 0, 0, -8, 58],
-      [15.0, -40, 1260, -3900, 0, 0, -8, 58],
+      [3.73, -90, 680, -3900, 0, 0, -8, 58],
+      [7.8, -30, 860, -3900, 0, 0, -8, 58],
+      [12.0, -100, 1080, -3900, 0, 0, -8, 58],
     ],
     pilotMoves: {
       stick: [
         [0.0, 0.0, 0.0, 1.05],
-        [3.5, 0.0, 0.0, 1.25],
-        [7.2, 0.0, 0.0, 1.5],
-        [11.5, 0.0, 0.0, 2.15],
-        [15.0, 0.0, 0.0, 2.15],
+        [3.73, 0.0, 0.0, 1.25],
+        [7.8, 0.0, 0.0, 2.15],
+        [12.0, 0.0, 0.0, 2.15],
       ],
       stunts: [
         [0.3, 0.6, 'immelmann'],
-        [3.8, 4.1, 'immelmann'],
-        [7.5, 7.8, 'immelmann'],
-        [11.8, 12.1, 'immelmann'],
+        [4.0, 4.3, 'immelmann'],
+        [8.1, 8.4, 'immelmann'],
       ],
     },
     segments: [
@@ -2999,31 +3184,28 @@ async function renderAgilityImmelmannShort(browser, seed = 20261128) {
         z: -4150,
         heading: 90,
         planeSwaps: [
-          [105, 'seaplane', 'teal'],
-          [216, 'twin', 'sand'],
-          [345, 'jet', 'slate'],
+          [112, 'seaplane', 'teal'],
+          [234, 'jet', 'slate'],
         ],
         badges: [
-          [105, 'Seaplane · Cruise Immelmann'],
-          [216, 'Twin-Prop · Wide Immelmann'],
-          [345, 'Swept-Wing Jet · High-G Immelmann'],
+          [112, 'Seaplane · Cruise Immelmann'],
+          [234, 'Swept-Wing Jet · High-G Immelmann'],
         ],
         extra: 'tod=0.28&weather=none&cloudMood=fair',
         startFrame: 0,
-        endFrame: 450,
+        endFrame: 360,
       },
     ],
     outBaseName: `short-${seed}-agility-immelmann`,
     trackSlug: 'purrple-cat-morning-dew',
     musicStart: 14,
     meta: {
-      title: '4 planes, 4 Immelmann turns in 1 take ✈️',
+      title: '3 planes, 3 Immelmann turns in 1 take ✈️',
       tiktokQuestion: 'Which plane flips heading cleanest?',
       stops: [
         '0:00 Biplane - Tight Immelmann (0.83°N, 0.03°E)',
-        '0:03 Seaplane - Cruise Immelmann (0.83°N, 0.01°W)',
-        '0:07 Twin-Prop - Wide Immelmann (0.83°N, 0.04°E)',
-        '0:11 Swept-Wing Jet - High-G Immelmann (0.83°N, 0.02°W)',
+        '0:04 Seaplane - Cruise Immelmann (0.83°N, 0.01°W)',
+        '0:08 Swept-Wing Jet - High-G Immelmann (0.83°N, 0.03°E)',
       ],
       trackTitle: 'Morning Dew',
     },
@@ -3031,14 +3213,14 @@ async function renderAgilityImmelmannShort(browser, seed = 20261128) {
 }
 
 // ---------------------------------------------------------------------------
-// Prototype 19: Single-Take 4-Plane Clover Loop (Seed 20261129)
+// Prototype 19: Single-Take 3-Plane Clover Loop (Seed 20261129)
 // ---------------------------------------------------------------------------
 async function renderAgilityCloverShort(browser, seed = 20261129) {
   await renderMatchCutClip(browser, {
     id: 'agility-clover',
-    banner: `Single-Take 4-Plane Clover Loop (Seed ${seed}: Snowy Dragon)`,
+    banner: `Single-Take 3-Plane Clover Loop (Seed ${seed}: Snowy Dragon)`,
     seed,
-    durationSec: 15,
+    durationSec: 12,
     speedMult: 1.05,
     camFrame: 'yaw',
     cam:
@@ -3049,22 +3231,18 @@ async function renderAgilityCloverShort(browser, seed = 20261129) {
         [0.0, 0.0, 0.0, 1.05],
         [0.9, -0.78, 0.0, 1.05],
         [2.1, 0.0, 0.0, 1.05],
-        [3.5, 0.0, 0.0, 1.25],
-        [4.6, -0.85, 0.0, 1.25],
-        [6.0, 0.0, 0.0, 1.25],
-        [7.2, 0.0, 0.0, 1.5],
-        [8.6, -0.95, 0.0, 1.5],
-        [10.4, 0.0, 0.0, 1.5],
-        [11.5, 0.0, 0.0, 2.1],
-        [12.5, -0.88, 0.0, 2.1],
-        [13.9, 0.0, 0.0, 2.1],
-        [15.0, 0.0, 0.0, 2.1],
+        [3.73, 0.0, 0.0, 1.25],
+        [4.8, -0.85, 0.0, 1.25],
+        [6.2, 0.0, 0.0, 1.25],
+        [7.8, 0.0, 0.0, 2.1],
+        [8.8, -0.88, 0.0, 2.1],
+        [10.3, 0.0, 0.0, 2.1],
+        [12.0, 0.0, 0.0, 2.1],
       ],
       stunts: [
-        [0.2, 1.75, 'loop'],
-        [3.65, 5.45, 'loop'],
-        [7.25, 9.55, 'loop'],
-        [11.65, 13.2, 'loop'],
+        [0.2, 1.8, 'loop'],
+        [3.85, 5.7, 'loop'],
+        [7.95, 9.55, 'loop'],
       ],
     },
     segments: [
@@ -3077,31 +3255,28 @@ async function renderAgilityCloverShort(browser, seed = 20261129) {
         z: -18620,
         heading: 45,
         planeSwaps: [
-          [105, 'seaplane', 'teal'],
-          [216, 'twin', 'sand'],
-          [345, 'jet', 'slate'],
+          [112, 'seaplane', 'teal'],
+          [234, 'jet', 'slate'],
         ],
         badges: [
-          [105, 'Seaplane · Cruise Clover Petal'],
-          [216, 'Twin-Prop · Wide Clover Petal'],
-          [345, 'Swept-Wing Jet · High-G Petal'],
+          [112, 'Seaplane · Cruise Clover Petal'],
+          [234, 'Swept-Wing Jet · High-G Petal'],
         ],
         extra: 'tod=0.75&weather=snow&cloudMood=fair',
         startFrame: 0,
-        endFrame: 450,
+        endFrame: 360,
       },
     ],
     outBaseName: `short-${seed}-agility-clover`,
     trackSlug: 'purrple-cat-aurora',
     musicStart: 16,
     meta: {
-      title: '4 planes draw a 3D clover in the sky ✈️',
+      title: '3 planes draw a 3D clover in the sky ✈️',
       tiktokQuestion: 'Which plane carves the sharpest clover petal?',
       stops: [
         '0:00 Biplane - Tight Clover Petal (3.72°N, 2.68°W)',
-        '0:03 Seaplane - Cruise Clover Petal (3.74°N, 2.70°W)',
-        '0:07 Twin-Prop - Wide Clover Petal (3.75°N, 2.71°W)',
-        '0:11 Swept-Wing Jet - High-G Petal (3.73°N, 2.69°W)',
+        '0:04 Seaplane - Cruise Clover Petal (3.74°N, 2.70°W)',
+        '0:08 Swept-Wing Jet - High-G Petal (3.73°N, 2.69°W)',
       ],
       trackTitle: 'Aurora',
     },
@@ -3109,14 +3284,14 @@ async function renderAgilityCloverShort(browser, seed = 20261129) {
 }
 
 // ---------------------------------------------------------------------------
-// Prototype 20: Single-Take 4-Plane Half-Cuban 8 (Seed 20261130)
+// Prototype 20: Single-Take 3-Plane Half-Cuban 8 (Seed 20261130)
 // ---------------------------------------------------------------------------
 async function renderAgilityCuban8Short(browser, seed = 20261130) {
   await renderMatchCutClip(browser, {
     id: 'agility-cuban8',
-    banner: `Single-Take 4-Plane Half-Cuban 8 (Seed ${seed}: Sunset Lighthouse)`,
+    banner: `Single-Take 3-Plane Half-Cuban 8 (Seed ${seed}: Sunset Lighthouse)`,
     seed,
-    durationSec: 15,
+    durationSec: 12,
     speedMult: 1.0,
     direct: true,
     loopDip: true,
@@ -3125,21 +3300,18 @@ async function renderAgilityCuban8Short(browser, seed = 20261130) {
       'plane=biplane&livery=coral&smoke=1&style=anime&speed=1.0' +
       '&camOffset=-235,24,26&camLook=0,14,-12&fov=58',
     // Continuous Fritsch-Carlson monotone cubic spline with authentic per-plane
-    // durations (Biplane 3.5s, Seaplane 3.7s, Twin 4.3s, Jet 3.5s) and zero stops.
+    // durations (Biplane 3.7s, Seaplane 4.1s, Jet 4.2s) and zero mid-roll stops.
     moves: [
       [0.0, 0, 0, 0, 1.0],
       [1.9, 0, 225, 0, 1.0],
       [2.85, 180, 180, 0, 1.0],
-      [3.5, 180, 180, 0, 1.2],
-      [5.75, 180, -45, 0, 1.2],
-      [6.75, 360, 0, 0, 1.2],
-      [7.2, 360, 0, 0, 1.45],
-      [9.85, 360, 225, 0, 1.45],
-      [11.0, 540, 180, 0, 1.45],
-      [11.5, 540, 180, 0, 2.05],
-      [13.65, 540, -45, 0, 2.05],
-      [14.55, 720, 0, 0, 2.05],
-      [15.0, 720, 0, 0, 2.05],
+      [3.73, 180, 180, 0, 1.2],
+      [6.0, 180, -45, 0, 1.2],
+      [7.05, 360, 0, 0, 1.2],
+      [7.8, 360, 0, 0, 2.05],
+      [9.9, 360, 225, 0, 2.05],
+      [10.95, 540, 180, 0, 2.05],
+      [12.0, 540, 180, 0, 2.05],
     ],
     segments: [
       {
@@ -3151,31 +3323,28 @@ async function renderAgilityCuban8Short(browser, seed = 20261130) {
         z: 3000,
         heading: 180,
         planeSwaps: [
-          [105, 'seaplane', 'teal'],
-          [216, 'twin', 'sand'],
-          [345, 'jet', 'slate'],
+          [112, 'seaplane', 'teal'],
+          [234, 'jet', 'slate'],
         ],
         badges: [
-          [105, 'Seaplane · Cruise Half-Cuban 8'],
-          [216, 'Twin-Prop · Wide Half-Cuban 8'],
-          [345, 'Swept-Wing Jet · High-G Cuban 8'],
+          [112, 'Seaplane · Cruise Half-Cuban 8'],
+          [234, 'Swept-Wing Jet · High-G Cuban 8'],
         ],
         extra: 'tod=0.735&weather=none&cloudMood=fair',
         startFrame: 0,
-        endFrame: 450,
+        endFrame: 360,
       },
     ],
     outBaseName: `short-${seed}-agility-cuban8`,
     trackSlug: 'purrple-cat-lighthouse',
     musicStart: 16,
     meta: {
-      title: '4 planes carve a giant figure-8 at sunset ✈️',
+      title: '3 planes carve a giant figure-8 at sunset ✈️',
       tiktokQuestion: 'Which plane nails the Half-Cuban 8?',
       stops: [
         '0:00 Biplane - Tight Half-Cuban 8 (0.60°S, 1.57°E)',
-        '0:03 Seaplane - Cruise Half-Cuban 8 (0.60°S, 1.57°E)',
-        '0:07 Twin-Prop - Wide Half-Cuban 8 (0.60°S, 1.57°E)',
-        '0:11 Swept-Wing Jet - High-G Cuban 8 (0.60°S, 1.57°E)',
+        '0:04 Seaplane - Cruise Half-Cuban 8 (0.60°S, 1.57°E)',
+        '0:08 Swept-Wing Jet - High-G Cuban 8 (0.60°S, 1.57°E)',
       ],
       trackTitle: 'Lighthouse',
     },
