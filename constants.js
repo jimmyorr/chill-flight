@@ -175,6 +175,52 @@ export const PLANE_HANDLING = {
   },
 };
 
+// Height of each plane's origin above the water surface when floating at rest:
+// the seaplane rests on its lowered pontoons (~0.5 m keel draft), while wheeled
+// planes float low on their fuselage/nacelle bellies (retractable gear stowed,
+// fixed biplane gear submerged).
+export const PLANE_WATER_HEIGHT = {
+  seaplane: 4.55,
+  biplane: 1.15,
+  twin: 1.1,
+  jet: 0.75,
+};
+
+function swellSmoothstep(v, min, max) {
+  if (v <= min) return 0;
+  if (v >= max) return 1;
+  const u = (v - min) / (max - min);
+  return u * u * (3 - 2 * u);
+}
+
+const _defaultSwell = {height: 0, slopeX: 0, slopeZ: 0, calm: 1};
+
+// CPU mirror of WATER_SWELL_GLSL (terrain-geometry.js), calmed in shallow water
+// (depth = WATER_LEVEL - terrainHeight) over 1..6 units just like the water
+// vertex shader so floating planes and their shadows ride the drawn waves.
+export function waterSwell(x, z, t, depth = Infinity, out = _defaultSwell) {
+  const calm = depth >= 6 ? 1 : swellSmoothstep(depth, 1, 6);
+  out.calm = calm;
+  if (calm <= 0) {
+    out.height = 0;
+    out.slopeX = 0;
+    out.slopeZ = 0;
+    return out;
+  }
+  const amp = (0.8 + Math.sin(x * 0.0002) * Math.cos(z * 0.00025) * 0.4) * calm;
+  const p1 = (x * 0.944 + z * 0.33) * 0.018 + t;
+  const p2 = (x * -0.371 + z * 0.928) * 0.013 + t * 0.8;
+  const p3 = (x * 0.664 + z * -0.747) * 0.031 + t * 1.3;
+  out.height =
+    (0.8 * Math.sin(p1) + 0.6 * Math.sin(p2) + 0.35 * Math.sin(p3)) * amp;
+  const g1 = 0.8 * 0.018 * Math.cos(p1);
+  const g2 = 0.6 * 0.013 * Math.cos(p2);
+  const g3 = 0.35 * 0.031 * Math.cos(p3);
+  out.slopeX = (g1 * 0.944 + g2 * -0.371 + g3 * 0.664) * amp;
+  out.slopeZ = (g1 * 0.33 + g2 * 0.928 + g3 * -0.747) * amp;
+  return out;
+}
+
 // Feature Flags
 export const ENABLE_BARNS = true;
 export const ENABLE_MONASTERIES = true;

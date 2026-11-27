@@ -8,6 +8,7 @@ import {
   WATER_LEVEL,
   getCachedElement,
   updateUrlParams,
+  waterSwell,
 } from './constants.js';
 import {log} from './logger.js';
 import {
@@ -27,7 +28,12 @@ import {
   showCloudsEnabled,
   weatherType,
 } from './weather-manager.js';
-import {chunks, getElevation, waterMaterial} from './terrain-geometry.js';
+import {
+  chunks,
+  getElevation,
+  waterMaterial,
+  waterUniforms,
+} from './terrain-geometry.js';
 import {scene} from './scene.js';
 import {
   HEADLIGHT_GLOW_INTENSITY,
@@ -448,8 +454,17 @@ export function initDebugUI() {
     const spawnIsWater = spawnElev <= WATER_LEVEL + 0.1;
     const gearStart = ChillFlightLogic.START_GEAR;
     const wheelDepth = state.airplaneModel?.wheelDepth;
+    const waterDepth = state.airplaneModel?.waterDepth ?? 4.8;
+    const spawnSwell = spawnIsWater
+      ? waterSwell(
+          planeGroup.position.x,
+          planeGroup.position.z,
+          waterUniforms.uTime.value,
+          WATER_LEVEL - spawnElev
+        ).height
+      : 0;
     const spawnRestingHeight = spawnIsWater
-      ? WATER_LEVEL + 4.8
+      ? WATER_LEVEL + spawnSwell + waterDepth
       : gearStart === true && wheelDepth !== undefined
         ? spawnElev + wheelDepth
         : spawnElev + 12.0;
@@ -461,10 +476,11 @@ export function initDebugUI() {
       state.gearExtension = gearStart ? 1 : 0;
       poseGear(state.gearExtension);
     } else if (spawnIsWater && state.targetFlightSpeed === 0) {
-      // Starting stopped on the water: floats already down
-      state.gearWanted = true;
-      state.gearExtension = 1;
-      poseGear(1);
+      // Starting stopped on the water: seaplane floats down, retractable wheels stowed
+      const wantPontoons = Boolean(state.airplaneModel?.pontoonGroup);
+      state.gearWanted = wantPontoons;
+      state.gearExtension = wantPontoons ? 1 : 0;
+      poseGear(state.gearExtension);
     }
   };
 
@@ -1075,8 +1091,12 @@ export function applyViewParams(input) {
     const elev = getElevation(px, pz);
     const onWater = elev <= WATER_LEVEL + 0.1;
     const wheelDepth = state.airplaneModel?.wheelDepth;
+    const waterDepth = state.airplaneModel?.waterDepth ?? 4.8;
+    const swellY = onWater
+      ? waterSwell(px, pz, waterUniforms.uTime.value, WATER_LEVEL - elev).height
+      : 0;
     const floor = onWater
-      ? WATER_LEVEL + 4.8
+      ? WATER_LEVEL + swellY + waterDepth
       : gear === true && wheelDepth !== undefined
         ? elev + wheelDepth
         : activePlaneType === 'buggy'
@@ -1086,6 +1106,11 @@ export function applyViewParams(input) {
     if (gear !== null) {
       state.gearWanted = gear;
       state.gearExtension = gear ? 1 : 0;
+      poseGear(state.gearExtension);
+    } else if (onWater && planeGroup.position.y <= floor + 0.1) {
+      const wantPontoons = Boolean(state.airplaneModel?.pontoonGroup);
+      state.gearWanted = wantPontoons;
+      state.gearExtension = wantPontoons ? 1 : 0;
       poseGear(state.gearExtension);
     }
   };

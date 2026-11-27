@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import {ChillFlightLogic} from './chill-flight-logic.js';
-import {getElevation, sampleGround} from './terrain-geometry.js';
+import {getElevation, sampleGround, waterUniforms} from './terrain-geometry.js';
 import {breakwaterTop, sampleRoad} from './terrain-chunks.js';
 import {ARCH, archCeiling, archGround} from './arches-logic.js';
 import {arches} from './arches.js';
 import {planeGroup, planeHandling} from './airplane.js';
-import {BASE_FLIGHT_SPEED, WATER_LEVEL} from './constants.js';
+import {BASE_FLIGHT_SPEED, WATER_LEVEL, waterSwell} from './constants.js';
 import {manualCloudHeight, precipitation} from './weather-manager.js';
 import {state} from './state.js';
 import {
@@ -31,6 +31,7 @@ const TOUCHDOWN_SLOPE = Math.tan((15 * Math.PI) / 180);
 const ROLLING_SLOPE = Math.tan((30 * Math.PI) / 180);
 const _ground = {height: 0, slopeX: 0, slopeZ: 0};
 const _road = {height: 0, slopeX: 0, slopeZ: 0};
+const _swell = {height: 0, slopeX: 0, slopeZ: 0, calm: 0};
 let isRolling = false;
 // Whether the plane is over the highway this frame, at or above its deck
 // (flying under a bridge goes on by): the deck is then the ground, for
@@ -51,12 +52,11 @@ export let underArch = false;
 // the surface drag lowers it on its own
 let throttleOpenedOnSurface = false;
 let lastTargetSpeed = 0;
-// The model's tilt to the slope under its wheels (pitch, roll), kept apart
-// from the water bob and the in-flight turbulence so it eases back to level
-// after takeoff instead of snapping
+// The model's tilt to the slope under its wheels or swell (pitch, roll), kept
+// apart from turbulence so it eases back to level after takeoff instead of snapping
 let groundTiltPitch = 0;
 let groundTiltRoll = 0;
-// How slowly the model levels out after leaving the ground (seconds)
+// How slowly the model levels out after leaving the ground or water (seconds)
 const TILT_LEVEL_SECONDS = 0.5;
 // The ride height on the wheels, following the ground under them: it rises
 // quickly so the wheels never sink into a bump, and falls more slowly so a dip
@@ -67,6 +67,9 @@ const RIDE_FALL_SECONDS = 0.3;
 const RIDE_LAG = 3;
 // The smoothed ride height while rolling, or null when not rolling
 let rideHeight = null;
+// Smoothed ride height while afloat on the water's swell, or null when airborne
+const WATER_RIDE_SECONDS = 0.1;
+let waterRideHeight = null;
 // Over land the plane keeps this far above the ground (units) unless it
 // can land there. Leaving the wheels (rolling onto ground too steep for
 // them, say) it grows back from 0 at GROUND_CUSHION_RISE units a second,
@@ -114,6 +117,25 @@ function wheelRestHeight(wheelDepth) {
   );
 }
 
+// Resting height on the water at (x, z): rides the GPU wave swell, and in
+// shallow surf lets lowered wheels or pontoons roll onto gentle sandbars
+function waterRestHeightAt(x, z, waterDepth, wheelDepth, gearDown) {
+  const elev = getElevation(x, z);
+  waterSwell(x, z, waterUniforms.uTime.value, WATER_LEVEL - elev, _swell);
+  let h = WATER_LEVEL + _swell.height + waterDepth;
+  if (
+    gearDown &&
+    wheelDepth !== undefined &&
+    elev + wheelDepth + 2 >= WATER_LEVEL
+  ) {
+    sampleSurface(x, z);
+    if (Math.hypot(_ground.slopeX, _ground.slopeZ) < ROLLING_SLOPE) {
+      h = Math.max(h, wheelRestHeight(wheelDepth));
+    }
+  }
+  return h;
+}
+
 // Whether the plane is rolling on its wheels on the ground (jobs.js counts
 // a landing by it)
 export function isOnWheels() {
@@ -131,6 +153,7 @@ export function updateFlightPhysics(delta, nowTime) {
   if (planeGroup.position.distanceTo(_lastPosition) > TELEPORT_DISTANCE) {
     isRolling = false;
     rideHeight = null;
+    waterRideHeight = null;
     groundCushion = GROUND_CUSHION;
   }
   // --- FLIGHT PHYSICS & SPEED ---
@@ -167,32 +190,41 @@ export function updateFlightPhysics(delta, nowTime) {
     isWater = false;
   }
 
-  // Ground avoidance heights:
-  // Over water, avoidance and resting heights are anchored to WATER_LEVEL (surface)
-  // rather than terrainHeight (the seabed below the water).
-  let minFlightHeight = isWater
-    ? WATER_LEVEL + 2.8
-    : terrainHeight + groundCushion;
-  let restingHeight = minFlightHeight + 2.0;
-
-  // Planes with their gear down (wheels, or the seaplane's pontoons) can
-  // come down onto gentle ground and roll on it, on the ground as
-  // drawn (sampleGround), or on the highway deck. Elsewhere, and with the gear up, the cushion above
-  // stays, so there's no landing on a mountainside.
+  // Ground and water resting heights:
+  // Over water, the seaplane rests on its lowered pontoons while wheeled planes
+  // float low on their hulls (retractable gear stowed), riding the wave swell.
+  // Planes with their gear down can come down onto gentle ground or the highway
+  // deck; elsewhere, and with the gear up, the cushion above stays.
   const wheelDepth = state.airplaneModel?.wheelDepth;
-  const retracts =
-    state.airplaneModel?.gearGroups || state.airplaneModel?.pontoonGroup;
+  const waterDepth = state.airplaneModel?.waterDepth ?? 4.8;
+  const hasPontoons = Boolean(state.airplaneModel?.pontoonGroup);
+  const retracts = state.airplaneModel?.gearGroups || hasPontoons;
   const gearDown =
     wheelDepth !== undefined && (!retracts || state.gearExtension >= 1);
   let onLandableGround = false;
-  if (!isWater && !onArch && gearDown) {
-    sampleSurface(planeGroup.position.x, planeGroup.position.z);
-    onLandableGround =
-      Math.hypot(_ground.slopeX, _ground.slopeZ) <
-      (isRolling ? ROLLING_SLOPE : TOUCHDOWN_SLOPE);
-    if (onLandableGround) {
-      restingHeight = wheelRestHeight(wheelDepth);
-      minFlightHeight = restingHeight - 2.0;
+  let minFlightHeight;
+  let restingHeight;
+  if (isWater) {
+    restingHeight = waterRestHeightAt(
+      planeGroup.position.x,
+      planeGroup.position.z,
+      waterDepth,
+      wheelDepth,
+      gearDown
+    );
+    minFlightHeight = restingHeight - 2.0;
+  } else {
+    minFlightHeight = terrainHeight + groundCushion;
+    restingHeight = minFlightHeight + 2.0;
+    if (!onArch && gearDown) {
+      sampleSurface(planeGroup.position.x, planeGroup.position.z);
+      onLandableGround =
+        Math.hypot(_ground.slopeX, _ground.slopeZ) <
+        (isRolling ? ROLLING_SLOPE : TOUCHDOWN_SLOPE);
+      if (onLandableGround) {
+        restingHeight = wheelRestHeight(wheelDepth);
+        minFlightHeight = restingHeight - 2.0;
+      }
     }
   }
 
@@ -253,7 +285,7 @@ export function updateFlightPhysics(delta, nowTime) {
     planeGroup.rotation.x >= 0.05 &&
     canLiftOff(currentKTS, planeGroup.rotation.x, handling);
   const followingGround = isRolling && onLandableGround && !liftingOff;
-  // Afloat, the water holds the plane the same way
+  // Afloat, the water holds the plane on its swell the same way
   const heldByWater = state.isOnWater && isWater && !liftingOff;
 
   // Apply forward movement
@@ -275,7 +307,8 @@ export function updateFlightPhysics(delta, nowTime) {
   const airborne =
     !state.isFreeCamera &&
     planeGroup.position.y > restingHeight &&
-    !followingGround;
+    !followingGround &&
+    !heldByWater;
   fallAmount = fallAmountAt(fallAmount, airborne, currentKTS, handling, delta);
   const isAerobatic = state.isLooping || state.isDoingImmelmann;
   if (airborne && !isAerobatic) {
@@ -333,18 +366,22 @@ export function updateFlightPhysics(delta, nowTime) {
     1 - Math.exp(-delta / FLIGHT.SINK_EASE_SECONDS)
   );
 
-  // Off the wheels, their ride height starts again from wherever they next
-  // touch
+  // Off the wheels or water, their ride heights start again from wherever they
+  // next touch
   if (!followingGround) rideHeight = null;
+  if (!isWater) waterRideHeight = null;
   if (
     !state.isFreeCamera &&
-    (planeGroup.position.y <= restingHeight + 0.1 || followingGround)
+    (planeGroup.position.y <= restingHeight + 0.1 ||
+      followingGround ||
+      heldByWater)
   ) {
     if (
       !state.scriptedFlight &&
       !state.isOnGround &&
       !state.isOnWater &&
-      !followingGround
+      !followingGround &&
+      !heldByWater
     ) {
       if (
         hooks.checkDiveCrash?.(
@@ -356,12 +393,13 @@ export function updateFlightPhysics(delta, nowTime) {
         return;
       }
     }
-    state.isOnWater = isWater && planeGroup.position.y <= restingHeight + 0.1;
+    state.isOnWater =
+      isWater && (heldByWater || planeGroup.position.y <= restingHeight + 0.1);
     state.isOnGround = !state.isOnWater;
 
-    // Grounded - rest flat peacefully, kill vertical velocity. On land the
-    // plane stays level (so the flight model and controls work as on water)
-    // and only the model tilts to the slope, below.
+    // Grounded - rest flat peacefully, kill vertical velocity. On land and
+    // water the plane group stays level (so controls work uniformly) and only
+    // the model tilts to the ground or wave slope below.
     state.verticalVelocity = 0;
     if (!state.scriptedFlight) {
       state.targetPitch = 0;
@@ -391,17 +429,29 @@ export function updateFlightPhysics(delta, nowTime) {
       // now (it has moved since the top of the frame)
       sampleSurface(planeGroup.position.x, planeGroup.position.z);
       const target = wheelRestHeight(wheelDepth);
-      const seconds =
-        target > rideHeight ? RIDE_RISE_SECONDS : RIDE_FALL_SECONDS;
+      const base = rideHeight ?? planeGroup.position.y;
+      const seconds = target > base ? RIDE_RISE_SECONDS : RIDE_FALL_SECONDS;
       // From where the wheels touched, which can be up to RIDE_LAG above
       // the ground, so touching down doesn't drop it there in one frame
-      rideHeight =
-        rideHeight === null
-          ? planeGroup.position.y
-          : rideHeight +
-            (target - rideHeight) * (1 - Math.exp(-delta / seconds));
+      rideHeight = base + (target - base) * (1 - Math.exp(-delta / seconds));
       planeGroup.position.y = rideHeight;
+    } else if (state.isOnWater) {
+      // Riding the water's swell where the plane is now (after moving)
+      const target = waterRestHeightAt(
+        planeGroup.position.x,
+        planeGroup.position.z,
+        waterDepth,
+        wheelDepth,
+        gearDown
+      );
+      restingHeight = target;
+      minFlightHeight = target - 2.0;
+      const base = waterRideHeight ?? planeGroup.position.y;
+      waterRideHeight =
+        base + (target - base) * (1 - Math.exp(-delta / WATER_RIDE_SECONDS));
+      planeGroup.position.y = waterRideHeight;
     } else {
+      waterRideHeight = null;
       // Smooth landing
       planeGroup.position.y = THREE.MathUtils.lerp(
         planeGroup.position.y,
@@ -411,14 +461,29 @@ export function updateFlightPhysics(delta, nowTime) {
     }
 
     if (state.airplaneModel) {
-      if (isWater && planeGroup.position.y <= restingHeight + 0.1) {
+      if (state.isOnWater) {
+        // Pitch and roll with the wave swell, plus a tiny ripple on calm ponds
+        const yaw = planeGroup.rotation.y;
+        const swellPitch = Math.atan(
+          -Math.sin(yaw) * _swell.slopeX - Math.cos(yaw) * _swell.slopeZ
+        );
+        const swellRoll = Math.atan(
+          Math.cos(yaw) * _swell.slopeX - Math.sin(yaw) * _swell.slopeZ
+        );
+        const ease = 1 - Math.exp(-delta / 0.18);
+        groundTiltPitch = THREE.MathUtils.lerp(
+          groundTiltPitch,
+          swellPitch,
+          ease
+        );
+        groundTiltRoll = THREE.MathUtils.lerp(groundTiltRoll, swellRoll, ease);
         const bobTime = performance.now() * 0.001 * 1.2;
-        levelGroundTilt(delta);
-        state.airplaneModel.position.y = Math.sin(bobTime) * 0.15;
+        const calmRipple = 1 - _swell.calm * 0.75;
+        state.airplaneModel.position.y = Math.sin(bobTime) * 0.08 * calmRipple;
         state.airplaneModel.rotation.x =
-          Math.cos(bobTime * 1.1) * 0.03 + groundTiltPitch;
+          Math.cos(bobTime * 1.1) * 0.018 * calmRipple + groundTiltPitch;
         state.airplaneModel.rotation.z =
-          Math.sin(bobTime * 0.8) * 0.04 + groundTiltRoll;
+          Math.sin(bobTime * 0.8) * 0.024 * calmRipple + groundTiltRoll;
       } else if (onLandableGround) {
         // Tilt the model to the slope under its wheels
         const yaw = planeGroup.rotation.y;
@@ -450,6 +515,7 @@ export function updateFlightPhysics(delta, nowTime) {
   } else {
     state.isOnWater = false;
     state.isOnGround = false;
+    waterRideHeight = null;
     if (state.airplaneModel) {
       // In-flight turbulence bobbing (increases in rain/storms)
       const t = performance.now() * 0.001;
@@ -479,28 +545,35 @@ export function updateFlightPhysics(delta, nowTime) {
   // Apply Ground avoidance - soft cushion + hard clamp + kill velocity on impact
   const softBuffer = 2.0;
   if (planeGroup.position.y < minFlightHeight + softBuffer) {
-    // Smoothly push up if we're in the "soft" buffer zone
-    planeGroup.position.y = THREE.MathUtils.lerp(
-      planeGroup.position.y,
-      minFlightHeight + softBuffer,
-      0.1 * delta * 60
-    );
+    if (!state.isOnWater && !followingGround) {
+      // Smoothly push up if we're in the "soft" buffer zone
+      planeGroup.position.y = THREE.MathUtils.lerp(
+        planeGroup.position.y,
+        minFlightHeight + softBuffer,
+        0.1 * delta * 60
+      );
+    }
 
-    // Hard clamp at the actual minimum
-    if (planeGroup.position.y < minFlightHeight) {
-      planeGroup.position.y = minFlightHeight;
+    // Hard clamp at the actual minimum (on water, limit splashdown dip so the
+    // cabin stays above the surface)
+    const hardMinHeight = isWater ? restingHeight - 0.8 : minFlightHeight;
+    if (planeGroup.position.y < hardMinHeight) {
+      planeGroup.position.y = hardMinHeight;
+      if (waterRideHeight !== null && waterRideHeight < hardMinHeight) {
+        waterRideHeight = hardMinHeight;
+      }
       state.verticalVelocity = 0; // Kill accumulated gravity immediately on ground impact
     }
   }
 
   if (
-    (isWater || onLandableGround) &&
-    (planeGroup.position.y <= restingHeight + 0.1 || followingGround)
+    state.isOnWater ||
+    (onLandableGround &&
+      (followingGround || planeGroup.position.y <= restingHeight + 0.1))
   ) {
-    if (isWater && !state.isFreeCamera) {
+    if (state.isOnWater && !state.isFreeCamera) {
       Achievements.unlock('splash_down');
     }
-    if (isWater) state.gearWanted = true;
     // Water (or rolling) drag: after touching down the throttle eases back
     // to idle, so the plane slows to a gentle stop. Once it's opened again
     // on the surface, it stays open for the takeoff run.
@@ -566,17 +639,26 @@ export function updateFlightPhysics(delta, nowTime) {
   if (ChillFlightLogic.START_GEAR !== null) {
     state.gearWanted = ChillFlightLogic.START_GEAR;
   } else {
-    // Pontoons and retractable wheels come down approaching water (and, for
-    // wheels, any ground) and go up climbing away, by height above the surface
-    // (units: down within 60, about 30 m, and up past 80)
+    // Pontoons come down approaching water or land; retractable wheels come
+    // down over land only and stay stowed for belly landings on water.
+    const waterLevelHere = WATER_LEVEL + (isWater ? _swell.height : 0);
     const surfaceAlt =
-      planeGroup.position.y - (isWater ? WATER_LEVEL : terrainHeight);
+      planeGroup.position.y - (isWater ? waterLevelHere : terrainHeight);
     if (surfaceAlt >= 80) state.gearWanted = false;
 
-    // Low and coming down, or low and slow (an approach can hold its height
-    // over rising ground)
-    if (
-      (isWater || wheelDepth !== undefined) &&
+    if (isWater) {
+      if (hasPontoons) {
+        if (
+          state.isOnWater ||
+          (surfaceAlt < 60 && (isDescending || currentKTS < 100))
+        ) {
+          state.gearWanted = true;
+        }
+      } else if (state.isOnWater || (isDescending && surfaceAlt < 20)) {
+        state.gearWanted = false;
+      }
+    } else if (
+      wheelDepth !== undefined &&
       surfaceAlt < 60 &&
       (isDescending || currentKTS < 100)
     ) {

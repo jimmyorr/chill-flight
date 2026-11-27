@@ -8,12 +8,12 @@
 // live 256x256 silhouette is projected onto a small surface-conforming mesh
 // instead, so the player never loses their ground-proximity cue.
 import * as THREE from 'three';
-import {CHUNK_SIZE, WATER_LEVEL} from './constants.js';
+import {CHUNK_SIZE, WATER_LEVEL, waterSwell} from './constants.js';
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {scene} from './scene.js';
 import {renderer, dirLight, hemiLight} from './sky.js';
 import {planeGroup} from './airplane.js';
-import {getElevation} from './terrain-geometry.js';
+import {getElevation, waterUniforms} from './terrain-geometry.js';
 import {breakwaterTop, sampleRoad} from './terrain-chunks.js';
 import {state} from './state.js';
 import {hooks} from './hooks.js';
@@ -181,7 +181,15 @@ const _castDir = new THREE.Vector3();
 const _right = new THREE.Vector3();
 const _up = new THREE.Vector3();
 const _road = {height: 0, slopeX: 0, slopeZ: 0};
-const _hit = {x: 0, z: 0, terrain: 0, surface: 0, agl: 0, along: 0};
+const _hit = {
+  x: 0,
+  z: 0,
+  terrain: 0,
+  surface: 0,
+  onBase: false,
+  agl: 0,
+  along: 0,
+};
 const _yAxis = new THREE.Vector3(0, 1, 0);
 const _clear = new THREE.Color();
 
@@ -259,10 +267,18 @@ function findAirportNear(x, z, margin) {
   return null;
 }
 
+function waterSurfaceAt(x, z, terrain) {
+  if (terrain >= WATER_LEVEL) return WATER_LEVEL;
+  return (
+    WATER_LEVEL +
+    waterSwell(x, z, waterUniforms.uTime.value, WATER_LEVEL - terrain).height
+  );
+}
+
 // Surface height at (x, z) at or below vehicleY (so flying under a highway
 // bridge leaves the shadow on the water or valley floor below, not on the deck)
 function surfaceFromTerrain(x, z, terrain, vehicleY, checkAll = false) {
-  let y = Math.max(terrain, WATER_LEVEL);
+  let y = Math.max(terrain, waterSurfaceAt(x, z, terrain));
   const ceiling = vehicleY + 2.0;
   if (checkAll || nearBreakwater) {
     const rocks = breakwaterTop(x, z);
@@ -335,6 +351,8 @@ function traceToSurface(p, castDir) {
   _hit.z = z;
   _hit.terrain = terrain;
   _hit.surface = surface;
+  _hit.onBase =
+    surface <= Math.max(terrain, waterSurfaceAt(x, z, terrain)) + 0.01;
   _hit.agl = Math.max(0, p.y - surface);
   _hit.along = _hit.agl / castDir.y;
 }
@@ -374,20 +392,22 @@ function updateDecalMesh(cx, cz, side, vehicleY) {
     }
   }
 
-  // Deep open water fast path: flat quad grid with zero elevation queries
+  // Deep open water fast path: swell-conforming quad grid with zero elevation queries
   if (
     _hit.terrain < WATER_LEVEL - 25 &&
     !nearAirport &&
     !nearRoad &&
     !nearBreakwater
   ) {
-    const wy = WATER_LEVEL + LIFT;
+    const tWater = waterUniforms.uTime.value;
     let idx = 0;
     for (let j = 0; j <= GRID; j++) {
       const wz = cz - half + j * cell;
       for (let i = 0; i <= GRID; i++) {
-        decalPositions[idx * 3] = cx - half + i * cell;
-        decalPositions[idx * 3 + 1] = wy;
+        const wx = cx - half + i * cell;
+        decalPositions[idx * 3] = wx;
+        decalPositions[idx * 3 + 1] =
+          WATER_LEVEL + waterSwell(wx, wz, tWater).height + LIFT;
         decalPositions[idx * 3 + 2] = wz;
         decalDecks[idx] = 0;
         idx++;
@@ -405,7 +425,7 @@ function updateDecalMesh(cx, cz, side, vehicleY) {
       const wx = cx - half + i * cell;
       const terrain = sampleGroundFast(wx, wz);
       const surface = surfaceFromTerrain(wx, wz, terrain, vehicleY, false);
-      const base = Math.max(terrain, WATER_LEVEL);
+      const base = Math.max(terrain, waterSurfaceAt(wx, wz, terrain));
       decalPositions[idx * 3] = wx;
       decalPositions[idx * 3 + 2] = wz;
       rawHeights[idx] = surface;
@@ -533,7 +553,7 @@ export function updatePlaneShadow() {
 
   const worldShadows = dirLight.castShadow;
   overWater =
-    _hit.surface <= WATER_LEVEL + 0.01 &&
+    _hit.onBase &&
     _hit.terrain < WATER_LEVEL + (overWater ? COAST_EXIT : COAST_ENTER);
   lowLand = !overWater && _hit.agl < (lowLand ? LOW_LAND_EXIT : LOW_LAND_ENTER);
 

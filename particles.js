@@ -15,6 +15,7 @@ import {
   BASE_FLIGHT_SPEED,
   CONTRAILS_BELOW_CEILING,
   WATER_LEVEL,
+  waterSwell,
 } from './constants.js';
 import {
   VOLCANO_X,
@@ -558,17 +559,29 @@ function rainOnVehicle(delta) {
   }
 }
 
-// A sheet of spray thrown up and out from both pontoons, and a low mist
+function waterSurfaceYAt(x, z) {
+  const elev = getElevation(x, z);
+  return (
+    WATER_LEVEL +
+    waterSwell(x, z, waterUniforms.uTime.value, WATER_LEVEL - elev).height
+  );
+}
+
+// A sheet of spray thrown up and out from both pontoons (or the hull), and a low mist
 function splash(strength) {
   const half = GEAR_HALF_TRACK[activePlaneType] ?? 3;
   const sides = half > 0 ? [-1, 1] : [0];
   const fwd = planeVelocity(_v).clone().multiplyScalar(0.35);
+  const surfaceY = waterSurfaceYAt(
+    planeGroup.position.x,
+    planeGroup.position.z
+  );
   const count = Math.round(14 + strength * 26);
   for (const side of sides) {
     for (let i = 0; i < count; i++) {
       const stern = sternOf(activePlaneType);
       const along = rand(-stern, stern);
-      planePoint(side * half, along, WATER_LEVEL + 0.5, _p);
+      planePoint(side * half, along, surfaceY + 0.5, _p);
       const out = rand(4, 14) * (0.5 + strength);
       const h = planeGroup.rotation.y;
       spawn(
@@ -588,7 +601,7 @@ function splash(strength) {
     }
   }
   for (let i = 0; i < 6 + strength * 6; i++) {
-    planePoint(rand(-half - 2, half + 2), rand(-6, 8), WATER_LEVEL + 1.5, _p);
+    planePoint(rand(-half - 2, half + 2), rand(-6, 8), surfaceY + 1.5, _p);
     spawn(
       _p,
       {x: fwd.x * 0.5, y: rand(1, 3), z: fwd.z * 0.5},
@@ -611,6 +624,10 @@ function wake(delta, speed) {
   const sides = half > 0 ? [-1, 1] : [0];
   const fast = THREE.MathUtils.clamp(speed / 1.2, 0, 1);
   const h = planeGroup.rotation.y;
+  const surfaceY = waterSurfaceYAt(
+    planeGroup.position.x,
+    planeGroup.position.z
+  );
   sides.forEach((side, i) => {
     const stern = planePoint(
       side * half,
@@ -644,7 +661,7 @@ function wake(delta, speed) {
     // Spray thrown off the bow, more of it the faster
     if (Math.random() < fast * delta * 20) {
       const bow = sternOf(activePlaneType);
-      planePoint(side * half, rand(-0.8, -0.27) * bow, WATER_LEVEL + 0.5, _q);
+      planePoint(side * half, rand(-0.8, -0.27) * bow, surfaceY + 0.5, _q);
       const out = rand(3, 8);
       spawn(
         _q,
@@ -819,8 +836,19 @@ function slideSmoke(delta) {
 // plane and leave a faint line of foam, both fading out by SKIM_HEIGHT
 function skim(delta, speed) {
   const {x, y, z} = planeGroup.position;
-  const height = y - WATER_LEVEL - (state.airplaneModel?.wheelDepth ?? 4);
-  if (height > SKIM_HEIGHT || getElevation(x, z) > WATER_LEVEL + 0.1) {
+  const elev = getElevation(x, z);
+  if (elev > WATER_LEVEL + 0.1) {
+    skimLast.valid = false;
+    return;
+  }
+  const surfaceY =
+    WATER_LEVEL +
+    waterSwell(x, z, waterUniforms.uTime.value, WATER_LEVEL - elev).height;
+  const height =
+    y -
+    surfaceY -
+    (state.airplaneModel?.waterDepth ?? state.airplaneModel?.wheelDepth ?? 4);
+  if (height > SKIM_HEIGHT) {
     skimLast.valid = false;
     return;
   }
@@ -859,7 +887,7 @@ function skim(delta, speed) {
   // with the plane
   const count = Math.floor(strength * delta * 90 + Math.random());
   for (let i = 0; i < count; i++) {
-    planePoint(rand(-3, 3), rand(2, 8), WATER_LEVEL + 0.3, _p);
+    planePoint(rand(-3, 3), rand(2, 8), surfaceY + 0.3, _p);
     const out = rand(-6, 6);
     spawn(
       _p,

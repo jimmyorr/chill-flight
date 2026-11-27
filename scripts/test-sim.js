@@ -14,6 +14,8 @@ import {
   WATER_LEVEL,
   MOUNTAIN_LEVEL,
   PLANE_HANDLING,
+  PLANE_WATER_HEIGHT,
+  waterSwell,
 } from '../constants.js';
 import {canLiftOff} from '../flight-physics-logic.js';
 import {arrivalAt, LANDMARKS} from '../landmarks.js';
@@ -815,6 +817,66 @@ function wrapAngle(a) {
   );
   console.log(
     '  Passed: Job distance distributions and round-trip/one-way mechanics verified'
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 7. WATER RESTING HEIGHTS & WAVE SWELL MATCHING
+// ---------------------------------------------------------------------------
+{
+  const wheeled = ['biplane', 'twin', 'jet'];
+  if (
+    PLANE_WATER_HEIGHT.seaplane < 4.0 ||
+    PLANE_WATER_HEIGHT.seaplane > 5.0 ||
+    !wheeled.every(
+      (p) => PLANE_WATER_HEIGHT[p] > 0.5 && PLANE_WATER_HEIGHT[p] < 2.0
+    )
+  ) {
+    console.error(
+      `FAIL: Unexpected PLANE_WATER_HEIGHT values: ${JSON.stringify(PLANE_WATER_HEIGHT)}`
+    );
+    process.exit(1);
+  }
+
+  // Shallow water (< 1 m deep) calms swell completely
+  const calmOut = waterSwell(-5440, -1645, 12.5, 0.8, {});
+  if (
+    calmOut.height !== 0 ||
+    calmOut.slopeX !== 0 ||
+    calmOut.slopeZ !== 0 ||
+    calmOut.calm !== 0
+  ) {
+    console.error(
+      `FAIL: Shallow water swell did not calm to zero: ${JSON.stringify(calmOut)}`
+    );
+    process.exit(1);
+  }
+
+  // Deep water analytical gradient matches finite differences of height
+  const eps = 1e-3;
+  const x = -5440;
+  const z = -1645;
+  const t = 12.5;
+  const center = waterSwell(x, z, t, 15, {});
+  const hx1 = waterSwell(x + eps, z, t, 15, {}).height;
+  const hx0 = waterSwell(x - eps, z, t, 15, {}).height;
+  const hz1 = waterSwell(x, z + eps, t, 15, {}).height;
+  const hz0 = waterSwell(x, z - eps, t, 15, {}).height;
+  // Hold spatial envelope nearly constant over 2e-3 units
+  const fdSlopeX = (hx1 - hx0) / (2 * eps);
+  const fdSlopeZ = (hz1 - hz0) / (2 * eps);
+  if (
+    center.calm !== 1 ||
+    Math.abs(center.slopeX - fdSlopeX) > 2e-4 ||
+    Math.abs(center.slopeZ - fdSlopeZ) > 2e-4
+  ) {
+    console.error(
+      `FAIL: waterSwell gradient mismatch: analytical=(${center.slopeX}, ${center.slopeZ}) vs fd=(${fdSlopeX}, ${fdSlopeZ})`
+    );
+    process.exit(1);
+  }
+  console.log(
+    '  Passed: Per-plane hull water heights and wave swell gradients verified'
   );
 }
 

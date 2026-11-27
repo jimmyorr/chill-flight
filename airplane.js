@@ -8,6 +8,7 @@ import {
   MAP_HEIGHT_SCALE,
   MAP_WORLD_SIZE,
   PLANE_HANDLING,
+  PLANE_WATER_HEIGHT,
   UNITS_TO_M,
   WATER_LEVEL,
   createMaterial,
@@ -908,10 +909,11 @@ export function setActivePlane(
   }
 
   // Switching from another plane, rather than the game loading
-  const switching = !!state.airplaneModel && !sameChassis;
+  const prevModel = state.airplaneModel;
+  const switching = !!prevModel && !sameChassis;
   // Remove existing model from planeGroup
-  if (state.airplaneModel && planeGroup) {
-    planeGroup.remove(state.airplaneModel);
+  if (prevModel && planeGroup) {
+    planeGroup.remove(prevModel);
   }
 
   const buildOpts = {
@@ -943,16 +945,28 @@ export function setActivePlane(
   newModel.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(newModel);
   newModel.wheelDepth = -box.min.y;
+  newModel.waterDepth = PLANE_WATER_HEIGHT[planeType] ?? 4.8;
   // How far the wingtips and the nose reach, for scraping walls
   // (wall-scrape.js)
   newModel.halfSpan = Math.max(-box.min.x, box.max.x);
   newModel.noseLength = -box.min.z;
-  if (planeType === 'seaplane') poseGear(state.gearExtension);
 
   // The buggy drops from where the plane was (buggy.js)
   newModel.switchedTo = switching;
   newModel.sameChassis = sameChassis;
   state.airplaneModel = newModel;
+  if (switching && state.isOnWater && planeType !== 'buggy') {
+    const prevWaterDepth = prevModel.isBuggy
+      ? -ChillFlightLogic.BUGGY_HOVER.FLOAT_DEPTH
+      : (prevModel.waterDepth ?? 4.8);
+    planeGroup.position.y += newModel.waterDepth - prevWaterDepth;
+    if (ChillFlightLogic.START_GEAR === null) {
+      const wantPontoons = Boolean(newModel.pontoonGroup);
+      state.gearWanted = wantPontoons;
+      state.gearExtension = wantPontoons ? 1 : 0;
+    }
+  }
+  poseGear(state.gearExtension);
   // Active vehicle class for styling
   document.body.classList.toggle('vehicle-buggy', planeType === 'buggy');
   // The jet and the buggy have no prop

@@ -1462,7 +1462,10 @@ export function updateFlightCamera(delta, nowTime) {
       Math.abs(lonVal).toFixed(3) + '\u00b0 ' + (lonVal >= 0 ? 'E' : 'W');
     updateDOM('cockpit-coords', `${latStr} ${lonStr}`);
   }
-  const altM = Math.max(0, hudTarget.position.y - 45.5) * UNITS_TO_M;
+  const altM =
+    !state.isFreeCamera && state.isOnWater
+      ? 0
+      : Math.max(0, hudTarget.position.y - 45.5) * UNITS_TO_M;
   const altStr = IMPERIAL
     ? `${Math.round(altM * M_TO_FT)} FT`
     : `${Math.round(altM)} M`;
