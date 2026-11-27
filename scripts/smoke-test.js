@@ -527,7 +527,7 @@ async function exerciseControls(page, tag, onDebugEnabled) {
 
   // Headless frame rates vary, so poll the debug readouts for a few seconds
   // instead of reading them once after a fixed delay.
-  const readUntil = async (check, timeoutMs = 4000) => {
+  const readUntil = async (check, timeoutMs = 10000) => {
     const end = Date.now() + timeoutMs;
     let s = await readDebug();
     while (!check(s) && Date.now() < end) {
@@ -548,31 +548,26 @@ async function exerciseControls(page, tag, onDebugEnabled) {
     fail(`plane is not moving (${JSON.stringify(a)} -> ${JSON.stringify(b)})`);
   }
 
-  // Controls are ignored during the intro camera transition, which can run
-  // long on a busy machine, so give input a few attempts before failing.
-  let c = b;
-  for (let i = 0; i < 3 && !(c.target > b.target); i++) {
-    await page.keyboard.down('Shift'); // Shift+Up: throttle up
-    await page.keyboard.down('ArrowUp');
-    c = await readUntil((s) => s.target > b.target, 3000);
-    await page.keyboard.up('ArrowUp');
-    await page.keyboard.up('Shift');
-  }
+  // Controls are ignored during the intro camera transition, and under
+  // software WebGL (~4s/frame) banking from wings-level takes 3-4 frames
+  // before the smoothed follow-camera yaw crosses 1 degree.
+  await page.keyboard.down('Shift'); // Shift+Up: throttle up
+  await page.keyboard.down('ArrowUp');
+  const c = await readUntil((s) => s.target > b.target, 15000);
+  await page.keyboard.up('ArrowUp');
+  await page.keyboard.up('Shift');
   if (!(c.target > b.target)) {
     fail(`throttle up did not raise target speed (${b.target} -> ${c.target})`);
   }
 
-  let d = c;
-  for (let i = 0; i < 3 && d.heading === c.heading; i++) {
-    await page.keyboard.down('ArrowLeft'); // bank left
-    d = await readUntil((s) => s.heading !== c.heading, 3000);
-    await page.keyboard.up('ArrowLeft');
-  }
+  await page.keyboard.down('ArrowLeft'); // bank left
+  const d = await readUntil((s) => s.heading !== c.heading, 25000);
+  await page.keyboard.up('ArrowLeft');
   if (d.heading === c.heading) fail(`steering did not change heading`);
 
   const cameraMoved = (s) => Boolean(s.camMode && s.camMode !== d.camMode);
   await page.keyboard.press('c'); // camera mode
-  const e = await readUntil(cameraMoved, 5000);
+  const e = await readUntil(cameraMoved, 10000);
   if (!cameraMoved(e)) {
     fail(`camera toggle did not move the camera relative to the plane`);
   }

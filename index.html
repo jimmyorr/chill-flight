@@ -1513,13 +1513,37 @@
           </div>
         </div>
         <script>
-          // Loading watchdog: if loading hasn't finished after 20 seconds on
+          // Loading watchdog: if loading hasn't finished after 40 seconds on
           // screen (a stuck load, or a phone that ran out of memory and
-          // reloaded), offer a reload on low graphics. Plain script so it
-          // still works if the game's modules fail to load.
+          // reloaded), offer a reload on low graphics unless already on low.
+          // Plain script so it still works if the game's modules fail to load.
           (() => {
-            const LIMIT_MS = 20000;
+            const LIMIT_MS = 40000;
             const STEP_MS = 1000;
+            const isLowGraphics = () => {
+              const p = new URLSearchParams(location.search);
+              const raw = (
+                p.get('preset') ??
+                p.get('graphics') ??
+                ''
+              ).toLowerCase();
+              if (['low', 'mid', 'high', 'ultra'].includes(raw)) {
+                return raw === 'low';
+              }
+              try {
+                const saved = localStorage.getItem(
+                  'chill_flight_graphics_preset'
+                );
+                if (saved) return saved === 'low';
+                const quality = parseInt(
+                  localStorage.getItem('chill_flight_quality') ?? '',
+                  10
+                );
+                return quality <= 20;
+              } catch {
+                return false;
+              }
+            };
             let shownFor = 0;
             const timer = setInterval(() => {
               const overlay = document.getElementById('loading-overlay');
@@ -1538,22 +1562,36 @@
               shownFor += STEP_MS;
               if (shownFor < LIMIT_MS) return;
               clearInterval(timer);
+              if (isLowGraphics()) return;
               const stuck = document.getElementById('splash-stuck');
               if (stuck) stuck.hidden = false;
             }, STEP_MS);
             document
               .getElementById('splash-stuck-btn')
               ?.addEventListener('click', () => {
+                let saved = false;
                 try {
                   localStorage.setItem('chill_flight_graphics_preset', 'low');
                   localStorage.setItem(
                     'chill_flight_graphics_preset_manual',
                     '1'
                   );
+                  saved = true;
                 } catch {
-                  /* reload anyway */
+                  /* fall back to URL param */
                 }
-                location.reload();
+                const url = new URL(location.href);
+                if (
+                  !saved ||
+                  url.searchParams.has('preset') ||
+                  url.searchParams.has('graphics')
+                ) {
+                  url.searchParams.delete('graphics');
+                  url.searchParams.set('preset', 'low');
+                  location.replace(url.href);
+                } else {
+                  location.reload();
+                }
               });
           })();
         </script>
