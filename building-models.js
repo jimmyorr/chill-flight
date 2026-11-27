@@ -35,6 +35,7 @@ import * as farmhouse from './third-party/polyfork/gabled-farmhouse-c7534f.mjs';
 import * as dragonSkeleton from './third-party/polyfork/dragon-skeleton-88de43.mjs';
 import * as dinosaurSkull from './third-party/polyfork/dinosaur-skull-4c3a3c.mjs';
 import * as portalModel from './third-party/polyfork/portal-60d5e6.mjs';
+import * as ferrisWheelModel from './third-party/polyfork/ferris-wheel-ca5b0b.mjs';
 
 export const buildingMat = createMaterial({
   vertexColors: true,
@@ -227,6 +228,234 @@ export function portalGroup(colorway = 'black-basalt') {
   group.add(runeMesh);
   const veilMesh = new THREE.Mesh(veil, portalVeilMat);
   group.add(veilMesh);
+  return group;
+}
+
+// The Crossroads fairground Ferris wheel: Polyfork's Ferris Wheel scaled to
+// ~95 units tall so its spoked rings and pastel gondolas crown the easternmost
+// market town's skyline, with counter-rotating level gondolas and warm/cool
+// carnival rim bulbs that come on with the streetlights at dusk.
+export const FERRIS_SCALE = 4.75;
+export const FERRIS_PERIOD_SEC = 60;
+export const FERRIS_COLORWAYS = ['sandtray', 'sweet-shop', 'harbour-dusk'];
+const FERRIS_BULB_WARM = '#ffb84d';
+const FERRIS_BULB_COOL = '#5cd6ff';
+const FERRIS_BULB_HEXES = new Set([
+  new THREE.Color(FERRIS_BULB_WARM).getHexString(),
+  new THREE.Color(FERRIS_BULB_COOL).getHexString(),
+]);
+const FERRIS_OPTS = {
+  wheelSize: 1.15,
+  gondolas: 12,
+  legSplay: 0.55,
+  deck: true,
+  roofs: true,
+  bulbA: FERRIS_BULB_WARM,
+  bulbB: FERRIS_BULB_COOL,
+};
+
+export const ferrisGlowMat = createMaterial({
+  vertexColors: true,
+  emissive: 0xffffff,
+  emissiveIntensity: 0,
+  flatShading: true,
+  roughness: 0.55,
+});
+{
+  const base = ferrisGlowMat.onBeforeCompile;
+  ferrisGlowMat.onBeforeCompile = (shader, renderer) => {
+    base(shader, renderer);
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <emissivemap_fragment>',
+      `#include <emissivemap_fragment>
+      totalEmissiveRadiance *= vColor.rgb;`
+    );
+  };
+}
+
+function scaleNonIndexedGeo(
+  srcGeo,
+  scale,
+  keepTri = null,
+  extraTris = null,
+  sinkBottom = 0
+) {
+  const g = srcGeo.index ? srcGeo.toNonIndexed() : srcGeo;
+  const p = g.attributes.position;
+  const c = g.attributes.color;
+  const pos = [];
+  const col = [];
+  const tmpColor = new THREE.Color();
+  for (let t = 0; t < p.count; t += 3) {
+    if (keepTri) {
+      const hex = c ? tmpColor.fromBufferAttribute(c, t).getHexString() : '';
+      if (!keepTri(hex)) continue;
+    }
+    for (let i = t; i < t + 3; i++) {
+      const rawY = p.getY(i);
+      const y = sinkBottom > 0 && rawY <= 1e-4 ? -sinkBottom : rawY * scale;
+      pos.push(p.getX(i) * scale, y, p.getZ(i) * scale);
+      if (c) col.push(c.getX(i), c.getY(i), c.getZ(i));
+      else col.push(1, 1, 1);
+    }
+  }
+  if (extraTris) extraTris(pos, col);
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  out.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  out.computeVertexNormals();
+  out.computeBoundingSphere();
+  return out;
+}
+
+function appendOuterRimBulbs(pos, col, scale) {
+  const warm = new THREE.Color(FERRIS_BULB_WARM);
+  const cool = new THREE.Color(FERRIS_BULB_COOL);
+  const rimR = 7.005 * FERRIS_OPTS.wheelSize * scale;
+  const bulbR = 0.34 * scale;
+  const pushOcta = (color, cx, cy, cz, r) => {
+    const top = [cx, cy, cz + r];
+    const bot = [cx, cy, cz - r];
+    const ring = [
+      [cx + r, cy, cz],
+      [cx, cy + r, cz],
+      [cx - r, cy, cz],
+      [cx, cy - r, cz],
+    ];
+    for (let k = 0; k < 4; k++) {
+      const p0 = ring[k];
+      const p1 = ring[(k + 1) % 4];
+      pos.push(...top, ...p0, ...p1);
+      pos.push(...bot, ...p1, ...p0);
+      for (let i = 0; i < 6; i++) col.push(color.r, color.g, color.b);
+    }
+  };
+  for (const zs of [-1, 1]) {
+    const zRim = zs * 1.66 * scale;
+    const zSpoke = zs * 1.56 * scale;
+    // 24 outer-rim bulbs per face
+    for (let m = 0; m < 24; m++) {
+      const a = (m / 24) * Math.PI * 2;
+      pushOcta(
+        m % 2 ? cool : warm,
+        Math.sin(a) * rimR,
+        Math.cos(a) * rimR,
+        zRim,
+        bulbR
+      );
+    }
+    // 2 radial spoke bulbs along each of the 12 spokes per face
+    for (let s = 0; s < FERRIS_OPTS.gondolas; s++) {
+      const a = (s / FERRIS_OPTS.gondolas) * Math.PI * 2;
+      pushOcta(
+        warm,
+        Math.sin(a) * rimR * 0.36,
+        Math.cos(a) * rimR * 0.36,
+        zSpoke,
+        bulbR * 0.85
+      );
+      pushOcta(
+        cool,
+        Math.sin(a) * rimR * 0.74,
+        Math.cos(a) * rimR * 0.74,
+        zSpoke,
+        bulbR * 0.85
+      );
+    }
+  }
+}
+
+const _ferrisGeos = new Map();
+export function ferrisWheelGeos(colorway = 'sandtray') {
+  if (!_ferrisGeos.has(colorway)) {
+    const asset = ferrisWheelModel.createAsset({...FERRIS_OPTS, colorway});
+    const frameMesh = asset.getObjectByName('frame-static');
+    const wheelObj = asset.getObjectByName('wheel');
+    const wheelFrame = asset.getObjectByName('wheel-frame');
+    const frameStatic = scaleNonIndexedGeo(
+      frameMesh.geometry,
+      FERRIS_SCALE,
+      null,
+      null,
+      2
+    );
+    const wheelBody = scaleNonIndexedGeo(
+      wheelFrame.geometry,
+      FERRIS_SCALE,
+      (hex) => !FERRIS_BULB_HEXES.has(hex)
+    );
+    const wheelGlow = scaleNonIndexedGeo(
+      wheelFrame.geometry,
+      FERRIS_SCALE,
+      (hex) => FERRIS_BULB_HEXES.has(hex),
+      (pos, col) => appendOuterRimBulbs(pos, col, FERRIS_SCALE)
+    );
+    const gondolaGeos = [];
+    const gondolaSlots = [];
+    const count = FERRIS_OPTS.gondolas;
+    for (let k = 0; k < count; k++) {
+      const gp = asset.getObjectByName(`gondola-${k}`);
+      const slotColor = Math.min(k, count - k) % 4;
+      if (!gondolaGeos[slotColor]) {
+        const gm = gp.children[0];
+        gondolaGeos[slotColor] = scaleNonIndexedGeo(gm.geometry, FERRIS_SCALE);
+      }
+      gondolaSlots.push({
+        x: gp.position.x * FERRIS_SCALE,
+        y: gp.position.y * FERRIS_SCALE,
+        slotColor,
+      });
+    }
+    _ferrisGeos.set(colorway, {
+      hubY: wheelObj.position.y * FERRIS_SCALE,
+      frameStatic,
+      wheelBody,
+      wheelGlow,
+      gondolaGeos,
+      gondolaSlots,
+    });
+  }
+  return _ferrisGeos.get(colorway);
+}
+
+export function ferrisWheelGroup(
+  colorway = 'sandtray',
+  {withGondolas = true} = {}
+) {
+  const geos = ferrisWheelGeos(colorway);
+  const group = new THREE.Group();
+  group.name = 'ferris-wheel';
+  group.add(buildingMesh(geos.frameStatic));
+
+  const wheel = new THREE.Group();
+  wheel.name = 'wheel';
+  wheel.position.set(0, geos.hubY, 0);
+  wheel.add(buildingMesh(geos.wheelBody));
+  const bulbMesh = new THREE.Mesh(geos.wheelGlow, ferrisGlowMat);
+  bulbMesh.name = 'wheel-bulbs';
+  wheel.add(bulbMesh);
+  group.add(wheel);
+
+  const gondolas = [];
+  if (withGondolas) {
+    for (let k = 0; k < geos.gondolaSlots.length; k++) {
+      const slot = geos.gondolaSlots[k];
+      const gm = buildingMesh(geos.gondolaGeos[slot.slotColor]);
+      gm.name = `gondola-${k}`;
+      gm.position.set(slot.x, slot.y, 0);
+      wheel.add(gm);
+      gondolas.push(gm);
+    }
+  }
+
+  group.userData.animateFerris = (angle, wind = 0, timeSec = 0) => {
+    wheel.rotation.z = angle;
+    for (let k = 0; k < gondolas.length; k++) {
+      const sway =
+        Math.sin(timeSec * 1.6 + k * 1.15) * 0.032 * (0.35 + wind * 0.65);
+      gondolas[k].rotation.z = -angle + sway;
+    }
+  };
   return group;
 }
 

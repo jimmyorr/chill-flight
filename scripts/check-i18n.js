@@ -166,6 +166,12 @@ for (const [, name] of read('chill-flight-logic.js').matchAll(
 )) {
   add(name, 'chill-flight-logic.js');
 }
+const {ChillFlightLogic} = await import(
+  path.join(rootDir, 'chill-flight-logic.js')
+);
+for (const name of ChillFlightLogic.TOWN_NAMES) {
+  add(name, 'chill-flight-logic.js');
+}
 // A retrieval job's {to} and where its waypoint points
 const {DIRECTIONS, PACKAGE_PLACE} = await import(
   path.join(rootDir, 'jobs-logic.js')

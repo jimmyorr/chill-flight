@@ -287,14 +287,8 @@ export function getFireworkVenues() {
     waterLevel: WATER_LEVEL,
     getElev: getElevation,
     highwayCrossing: ChillFlightLogic.highwayCrossing,
-    townExists: (n, c) =>
-      ChillFlightLogic.highwayRunsAt(n, c.z, simplex, _elevParams) &&
-      ChillFlightLogic.highwayRunsAt(
-        ChillFlightLogic.ROAD_EW,
-        c.x,
-        simplex,
-        _elevParams
-      ),
+    townExists: (n) =>
+      Boolean(ChillFlightLogic.townAt(n, simplex, _elevParams)),
     fallsX: ChillFlightLogic.FALLS_X,
     fallsLipZ: ChillFlightLogic.FALLS_LIP_Z,
     xmasSite: ChillFlightLogic.XMAS

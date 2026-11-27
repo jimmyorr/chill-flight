@@ -765,6 +765,12 @@ export default {
   'Christmas village': '聖誕村',
   'East portal': '東傳送門',
   'West portal': '西傳送門',
+  Crossroads: '十字鎮',
+  Millbrook: '磨溪鎮',
+  Oakridge: '橡嶺鎮',
+  Clearwater: '清水鎮',
+  Westgate: '西門鎮',
+  Redstone: '紅石鎮',
   'If something comes up, just clear the waypoint on the map.':
     '如果有事，在地圖上清除航點就行。',
   'ACHIEVEMENT UNLOCKED': '成就解鎖',

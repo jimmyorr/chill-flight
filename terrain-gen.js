@@ -1432,11 +1432,9 @@ function roadVillageHouses(v) {
 // the biggest, reaching TOWN_RADIUS from the crossing, and the rest are
 // smaller, down to TOWN_RADIUS_MIN.
 const TOWN_ROADS = Array.from(
-  {length: ChillFlightLogic.ROAD_LAST + 1},
+  {length: ChillFlightLogic.TOWN_NAMES.length},
   (_, n) => n
 );
-const TOWN_RADIUS = 650;
-const TOWN_RADIUS_MIN = 380;
 // Streets run across the grid's v every TOWN_BLOCK; each block holds two
 // rows of houses back to back, facing the streets either side
 const TOWN_BLOCK = 80;
@@ -1449,54 +1447,9 @@ const TOWN_STREET_END = 0.85;
 // reach 40), so the front row faces the highway like a village's
 const TOWN_ROAD_CLEAR = 52;
 
-// Where the cross-country highway crosses highway n, if both run there
-// (cached per seed)
-const _townCache = new Map();
+// Where the cross-country highway crosses highway n, if a town stands there
 function townAt(n, elevParams) {
-  const key = ChillFlightLogic.WORLD_SEED + ':' + n;
-  if (_townCache.has(key)) return _townCache.get(key);
-  let x = ChillFlightLogic.ROAD_BASE_X + n * ChillFlightLogic.ROAD_SPACING;
-  let z;
-  // Each road's centre at the other's: settles on the crossing in a few steps
-  for (let i = 0; i < 20; i++) {
-    z = ChillFlightLogic.getRoadCenterZ(x);
-    x = ChillFlightLogic.getRoadCenterX(z, n);
-  }
-  z = ChillFlightLogic.getRoadCenterZ(x);
-  const runs =
-    ChillFlightLogic.highwayRunsAt(n, z, simplex, elevParams) &&
-    ChillFlightLogic.highwayRunsAt(
-      ChillFlightLogic.ROAD_EW,
-      x,
-      simplex,
-      elevParams
-    );
-  let town = null;
-  if (runs) {
-    // The grid lines up with the north-south road through the crossing
-    const dxdz =
-      (ChillFlightLogic.getRoadCenterX(z + 50, n) -
-        ChillFlightLogic.getRoadCenterX(z - 50, n)) /
-      100;
-    town = {
-      n,
-      x,
-      z,
-      angle: Math.atan(dxdz),
-      seed: Math.floor(
-        fieldHash(ChillFlightLogic.WORLD_SEED | 0, n, 8101) * 4294967296
-      ),
-      radius:
-        n === 0
-          ? TOWN_RADIUS
-          : TOWN_RADIUS_MIN +
-            fieldHash(ChillFlightLogic.WORLD_SEED | 0, n, 8102) *
-              (TOWN_RADIUS - 60 - TOWN_RADIUS_MIN),
-    };
-  }
-  if (_townCache.size > 64) _townCache.clear();
-  _townCache.set(key, town);
-  return town;
+  return ChillFlightLogic.townAt(n, simplex, elevParams);
 }
 
 // Distance from (x, z) to the nearer of the two highways through a town
@@ -1514,7 +1467,8 @@ const TOWN_STREET_STEP = 15;
 const TOWN_STREET_HALF_WIDTH = 7;
 const _townHouses = new Map();
 function townHouses(t) {
-  const key = t.seed + ':' + t.x;
+  const ferris = t.n === 0 ? ChillFlightLogic.ferrisWheelSite(simplex) : null;
+  const key = `${t.seed}:${t.x}:${ferris ? ferris.x.toFixed(0) : ''}`;
   if (_townHouses.has(key)) return _townHouses.get(key);
   // Each street's reach along u, from the houses facing it
   const streetReach = new Map();
@@ -1567,7 +1521,11 @@ function townHouses(t) {
         const gap = rand() < 0.08 ? 14 + rand() * 8 : 2 + rand() * 4;
         if (keep && !onCrossStreet(u, halfW)) {
           const p = toWorld(u, v + (jitter - 0.5) * 3);
-          if (townRoadDistance(t, p.x, p.z) > TOWN_ROAD_CLEAR) {
+          const clearFerris =
+            !ferris ||
+            Math.hypot(p.x - ferris.x, p.z - ferris.z) >=
+              ChillFlightLogic.FERRIS_CLEAR_RADIUS + halfW;
+          if (townRoadDistance(t, p.x, p.z) > TOWN_ROAD_CLEAR && clearFerris) {
             const street = row + (facing > 0 ? 1 : 0);
             const reach = streetReach.get(street) || {u0: u, u1: u};
             reach.u0 = Math.min(reach.u0, u - halfW);
@@ -1615,7 +1573,10 @@ function townHouses(t) {
         va + ((vb - va) * (i + 1)) / pieces
       );
       const mid = {x: (a.x + b.x) / 2, z: (a.z + b.z) / 2};
-      if (townRoadDistance(t, mid.x, mid.z) < 34) {
+      if (
+        townRoadDistance(t, mid.x, mid.z) < 34 ||
+        (ferris && Math.hypot(mid.x - ferris.x, mid.z - ferris.z) < 46)
+      ) {
         run = null;
         continue;
       }
@@ -7644,8 +7605,8 @@ export function generateChunkData({
       }
     }
 
-    // Nothing grows or stands on the pyramids, the dragon skeleton or (in
-    // the season) the Christmas village's ground
+    // Nothing grows or stands on the pyramids, the dragon skeleton, the
+    // Crossroads Ferris wheel green or (in the season) the Christmas village
     const keepOffPyramids = (arr) => {
       let kept = 0;
       for (const p of arr) {
@@ -7658,6 +7619,8 @@ export function generateChunkData({
             PYRAMID_PROP_CLEAR &&
           ChillFlightLogic.portalFootAt(wx, wz, simplex, elevParams) >=
             PYRAMID_PROP_CLEAR &&
+          ChillFlightLogic.ferrisWheelDistance(wx, wz, simplex, elevParams) >=
+            ChillFlightLogic.FERRIS_CLEAR_RADIUS &&
           ChillFlightLogic.xmasVillageDistance(wx, wz, simplex, elevParams) >=
             XMAS_CLEAR
         ) {

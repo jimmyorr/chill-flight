@@ -188,7 +188,8 @@ import {simplex} from './noise.js';
 import {globalInstancer, processChunkQueue} from './terrain-chunks.js';
 import {FAR_RADIUS, updateFarTerrain} from './far-terrain.js';
 import {hooks} from './hooks.js';
-import {portalVeilMat} from './building-models.js';
+import {ferrisGlowMat, portalVeilMat} from './building-models.js';
+import {updateFerrisWheel} from './pyramids.js';
 import {state} from './state.js';
 import {updateSfx} from './sfx.js';
 import {playPortalWarp, updateSfxEvents} from './sfx-events.js';
@@ -1060,8 +1061,10 @@ function updateDayNightCycle(delta) {
   streetlightBulbMat.emissiveIntensity = Math.min(2.0, slNightValue * 2.0);
   // The lighthouse lantern comes on at dusk, like its beam
   lighthouseLampMat.emissiveIntensity = Math.min(1.0, slNightValue);
-  // The Christmas village's lights come on with the streetlights
+  // The Christmas village's and Crossroads Ferris wheel's lights come on with
+  // the streetlights
   xmasGlowMat.emissiveIntensity = Math.min(1.6, slNightValue * 1.6);
+  ferrisGlowMat.emissiveIntensity = Math.min(1.8, slNightValue * 1.8);
 
   streetlightDecalMat.opacity = Math.min(1.0, slNightValue);
   fireGlowMat.opacity = Math.min(1.0, slNightValue);
@@ -2941,8 +2944,12 @@ function updateEnvironmentLighting(delta, now) {
 
     // Wind in the trees: a breeze, gustier as the weather turns
     windUniforms.uWindStrength.value = 0.7 + overcast * 0.9;
-    // And in the airport windsocks
+    // And in the airport windsocks and Crossroads' Ferris wheel
     updateWindsocks(now * 0.001);
+    updateFerrisWheel(
+      (state.worldClockNow || now) * 0.001,
+      windUniforms.uWindStrength.value
+    );
     // Whitecaps on the open sea: none on fair days, some as the clouds
     // thicken, the most in rain (both already eased)
     waterUniforms.uWhitecaps.value = THREE.MathUtils.clamp(

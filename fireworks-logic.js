@@ -156,11 +156,7 @@ export function buildFireworkVenues(seed, helpers = {}) {
   };
 
   // 1-3. Heartland & western highway-crossing market towns (`n = 0, 1, 2`)
-  const townNames = [
-    'Crossroads town',
-    'West valley town',
-    'Sagebrush crossing',
-  ];
+  const townNames = ['Crossroads', 'Millbrook', 'Oakridge'];
   for (let n = 0; n <= 2; n++) {
     const c = helpers.highwayCrossing
       ? helpers.highwayCrossing(n)

@@ -811,6 +811,12 @@ export default {
   'Christmas village': 'Noel köyü',
   'East portal': 'Doğu geçidi',
   'West portal': 'Batı geçidi',
+  Crossroads: 'Dörtyol',
+  Millbrook: 'Değirmendere',
+  Oakridge: 'Meşesırtı',
+  Clearwater: 'Durusu',
+  Westgate: 'Batıkapı',
+  Redstone: 'Kızıltaş',
   'If something comes up, just clear the waypoint on the map.':
     'Bir işin çıkarsa haritadaki rota noktasını kaldırman yeterli.',
   'ACHIEVEMENT UNLOCKED': 'BAŞARIM AÇILDI',

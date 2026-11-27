@@ -63,6 +63,10 @@ import {
   dinoSkullGeo,
   DRAGON_COLORWAYS,
   dragonSkeletonGeo,
+  FERRIS_COLORWAYS,
+  FERRIS_PERIOD_SEC,
+  ferrisGlowMat,
+  ferrisWheelGroup,
   PORTAL_COLORWAYS,
   portalGroup,
   LANDMARK_HOUSES,
@@ -451,6 +455,7 @@ function viewModel(type, e, colorSeed = 0) {
     'police_vehicles',
     'dragon_skeleton',
     'portal',
+    'ferris_wheel',
     'dinosaur_skull',
     'birch',
     'broadleaf_oak',
@@ -1567,6 +1572,12 @@ function viewModel(type, e, colorSeed = 0) {
         previewGroup.add(portalGroup(colorway));
         break;
       }
+      case 'ferris_wheel': {
+        const colorway = FERRIS_COLORWAYS[colorSeed % FERRIS_COLORWAYS.length];
+        ferrisGlowMat.emissiveIntensity = 0.85;
+        previewGroup.add(ferrisWheelGroup(colorway));
+        break;
+      }
       case 'pier':
         previewGroup.add(new THREE.Mesh(pierDeckGeo, pierDeckMat));
         break;
@@ -1789,6 +1800,15 @@ function animate() {
   animationUniforms.uTime.value = time;
   waterUniforms.uTime.value = time;
   stepPoliceStrobes(collectPoliceStrobeMaterials(viewScene), time);
+  viewScene.traverse((o) => {
+    if (o.userData?.animateFerris) {
+      o.userData.animateFerris(
+        ((time % FERRIS_PERIOD_SEC) / FERRIS_PERIOD_SEC) * Math.PI * 2,
+        0.7,
+        time
+      );
+    }
+  });
 
   if (activeDestruction) {
     activeDestruction.update(delta);

@@ -812,6 +812,12 @@ export default {
   'Christmas village': 'Villaggio di Natale',
   'East portal': 'Portale est',
   'West portal': 'Portale ovest',
+  Crossroads: 'Crocevia',
+  Millbrook: 'Rio del Mulino',
+  Oakridge: 'Poggio Quercia',
+  Clearwater: 'Acquachiara',
+  Westgate: 'Porta Ovest',
+  Redstone: 'Pietrarossa',
   'If something comes up, just clear the waypoint on the map.':
     'Se hai un imprevisto, ti basta rimuovere la tappa sulla mappa.',
   'ACHIEVEMENT UNLOCKED': 'OBIETTIVO SBLOCCATO',

@@ -768,6 +768,12 @@ export default {
   'Christmas village': '圣诞村',
   'East portal': '东传送门',
   'West portal': '西传送门',
+  Crossroads: '十字镇',
+  Millbrook: '磨溪镇',
+  Oakridge: '橡岭镇',
+  Clearwater: '清水镇',
+  Westgate: '西门镇',
+  Redstone: '红石镇',
   'If something comes up, just clear the waypoint on the map.':
     '如果有事，在地图上清除航点就行。',
   // Tap help (tap-moves.js, tap-help.js)

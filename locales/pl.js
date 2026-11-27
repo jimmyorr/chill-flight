@@ -809,6 +809,12 @@ export default {
   'Christmas village': 'Wioska świąteczna',
   'East portal': 'Portal wschodni',
   'West portal': 'Portal zachodni',
+  Crossroads: 'Rozdroże',
+  Millbrook: 'Młyński Potok',
+  Oakridge: 'Dębowy Grzbiet',
+  Clearwater: 'Czysta Woda',
+  Westgate: 'Zachodnia Brama',
+  Redstone: 'Czerwony Kamień',
   'If something comes up, just clear the waypoint on the map.':
     'Jeśli coś ci wypadnie, po prostu usuń punkt trasy na mapie.',
   'ACHIEVEMENT UNLOCKED': 'ODBLOKOWANO OSIĄGNIĘCIE',

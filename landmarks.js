@@ -6,19 +6,22 @@
 import {ChillFlightLogic} from './chill-flight-logic.js';
 import {simplex} from './noise.js';
 
-// The pyramids', dragon skeleton's, alien portals' and Christmas village's
-// places depend on the world (chill-flight-logic.js)
+// The pyramids', dragon skeleton's, alien portals', crossroads towns' and
+// Christmas village's places depend on the world (chill-flight-logic.js)
 const pyramids = ChillFlightLogic.pyramidSite(simplex, {WATER_LEVEL: 40});
 const dragon = ChillFlightLogic.dragonSite(simplex, {WATER_LEVEL: 40});
 const portals = ChillFlightLogic.portalSites(simplex, {WATER_LEVEL: 40});
+const towns = ChillFlightLogic.townSites(simplex, {WATER_LEVEL: 40});
 // The Christmas village beside Pinewood Field, only in the season
 const xmasVillage = ChillFlightLogic.XMAS
   ? ChillFlightLogic.xmasVillageSite(simplex, {WATER_LEVEL: 40})
   : null;
 
-// Map pin colours: orange for sightseeing landmarks, aviation blue for
-// airports, leaving gold (#ffd700) for the player arrow and waypoint
+// Map pin colours: orange for sightseeing landmarks, violet for crossroads
+// towns, aviation blue for airports, leaving gold (#ffd700) for the player
+// arrow and waypoint
 export const LANDMARK_COLOR = '#f07828';
+export const TOWN_COLOR = '#9b5de5';
 export const AIRPORT_COLOR = '#2589f5';
 
 export const LANDMARKS = [
@@ -122,6 +125,16 @@ export const LANDMARKS = [
         },
       ]
     : []),
+  // The crossroads market towns (chill-flight-logic.js)
+  ...towns.map((t) => ({
+    name: t.name,
+    x: t.x,
+    z: t.z,
+    n: t.n,
+    town: true,
+    color: TOWN_COLOR,
+    symbol: '⌂',
+  })),
   // The airports (chill-flight-logic.js)
   ...ChillFlightLogic.AIRPORTS.map((a) => ({
     name: a.name,
@@ -258,6 +271,7 @@ export const BUGGY_VIEW = {
   'Rock Arch': 300,
   Falls: 800,
   Canyon: 250,
+  ...Object.fromEntries(ChillFlightLogic.TOWN_NAMES.map((name) => [name, 480])),
 };
 // Landmarks seen best from one side, whichever way it's coming from (x, z
 // of that side): the Falls pour from the south wall of their table mountain

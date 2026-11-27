@@ -812,6 +812,12 @@ export default {
   'Christmas village': 'Village de Noël',
   'East portal': 'Portail est',
   'West portal': 'Portail ouest',
+  Crossroads: 'Croisée',
+  Millbrook: 'Ruisseau-du-Moulin',
+  Oakridge: 'Crête-aux-Chênes',
+  Clearwater: 'Eau-Claire',
+  Westgate: 'Porte-Ouest',
+  Redstone: 'Pierre-Rouge',
   'If something comes up, just clear the waypoint on the map.':
     'Si un imprévu arrive, efface simplement le point de passage sur la carte.',
   'ACHIEVEMENT UNLOCKED': 'SUCCÈS DÉBLOQUÉ',

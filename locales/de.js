@@ -812,6 +812,12 @@ export default {
   'Christmas village': 'Weihnachtsdorf',
   'East portal': 'Ostportal',
   'West portal': 'Westportal',
+  Crossroads: 'Kreuzung',
+  Millbrook: 'Mühlbach',
+  Oakridge: 'Eichenkamm',
+  Clearwater: 'Klarwasser',
+  Westgate: 'Westtor',
+  Redstone: 'Rotstein',
   'If something comes up, just clear the waypoint on the map.':
     'Wenn etwas dazwischenkommt, lösch einfach den Wegpunkt auf der Karte.',
   'ACHIEVEMENT UNLOCKED': 'ERFOLG FREIGESCHALTET',

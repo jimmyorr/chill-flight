@@ -808,6 +808,12 @@ export default {
   'Christmas village': 'Різдвяне селище',
   'East portal': 'Східний портал',
   'West portal': 'Західний портал',
+  Crossroads: 'Перехрестя',
+  Millbrook: 'Млинів Потік',
+  Oakridge: 'Дубовий Гребінь',
+  Clearwater: 'Чиста Вода',
+  Westgate: 'Західна Брама',
+  Redstone: 'Червоний Камінь',
   'If something comes up, just clear the waypoint on the map.':
     'Якщо зміняться плани, просто прибери точку маршруту на карті.',
   'ACHIEVEMENT UNLOCKED': 'ДОСЯГНЕННЯ ВІДКРИТО',

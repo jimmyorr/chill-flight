@@ -11,10 +11,13 @@ import {WATER_LEVEL} from './constants.js';
 import {simplex} from './noise.js';
 import {scene} from './scene.js';
 import {
+  FERRIS_PERIOD_SEC,
   buildingMesh,
   dragonSkeletonGeo,
+  ferrisWheelGroup,
   portalGroup,
 } from './building-models.js';
+import {getCameraWorldPosition} from './sky.js';
 import {terrainMaterial} from './terrain-geometry.js';
 
 // Each course of stone is this tall (units), every other one a shade
@@ -24,6 +27,8 @@ const CAP_HEIGHT = 690;
 const STONE = new THREE.Color(0xd8b07a);
 const CAP = new THREE.Color(0xf0e6cc);
 const DRAGON_DRAW_DISTANCE = 12000;
+const FERRIS_GONDOLA_DISTANCE = 3500;
+const FERRIS_DRAW_DISTANCE = 8500;
 
 // The four faces of a pyramid with its base's middle at (x, base, z), in
 // horizontal bands one course tall: positions, colours and the terrain
@@ -126,5 +131,39 @@ if (portals && ChillFlightLogic.SHOW_OBJECTS !== false) {
     lod.rotation.y = portal.yaw;
     lod.updateMatrixWorld(true);
     scene.add(lod);
+  }
+}
+
+const ferrisSite = ChillFlightLogic.ferrisWheelSite(simplex, {WATER_LEVEL});
+let ferrisNear = null;
+let ferrisFar = null;
+if (ferrisSite && ChillFlightLogic.SHOW_OBJECTS !== false) {
+  ferrisNear = ferrisWheelGroup('sandtray', {withGondolas: true});
+  ferrisFar = ferrisWheelGroup('sandtray', {withGondolas: false});
+  const lod = new THREE.LOD();
+  lod.name = 'ferris-wheel';
+  lod.addLevel(ferrisNear, 0);
+  lod.addLevel(ferrisFar, FERRIS_GONDOLA_DISTANCE);
+  lod.addLevel(new THREE.Group(), FERRIS_DRAW_DISTANCE);
+  lod.position.set(ferrisSite.x, ferrisSite.base, ferrisSite.z);
+  lod.rotation.y = ferrisSite.yaw;
+  lod.updateMatrixWorld(true);
+  scene.add(lod);
+}
+
+const _camPos = new THREE.Vector3();
+export function updateFerrisWheel(timeSec, windStrength = 0.7) {
+  if (!ferrisSite || !ferrisNear) return;
+  getCameraWorldPosition(_camPos);
+  const dx = _camPos.x - ferrisSite.x;
+  const dz = _camPos.z - ferrisSite.z;
+  const d2 = dx * dx + dz * dz;
+  if (d2 >= FERRIS_DRAW_DISTANCE * FERRIS_DRAW_DISTANCE) return;
+  const angle =
+    ((timeSec % FERRIS_PERIOD_SEC) / FERRIS_PERIOD_SEC) * Math.PI * 2;
+  if (d2 < FERRIS_GONDOLA_DISTANCE * FERRIS_GONDOLA_DISTANCE) {
+    ferrisNear.userData.animateFerris(angle, windStrength, timeSec);
+  } else {
+    ferrisFar.userData.animateFerris(angle, windStrength, timeSec);
   }
 }

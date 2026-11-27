@@ -812,6 +812,12 @@ export default {
   'Christmas village': 'Desa Natal',
   'East portal': 'Portal timur',
   'West portal': 'Portal barat',
+  Crossroads: 'Persimpangan',
+  Millbrook: 'Kali Penggilingan',
+  Oakridge: 'Punggung Ek',
+  Clearwater: 'Air Jernih',
+  Westgate: 'Gerbang Barat',
+  Redstone: 'Batu Merah',
   'If something comes up, just clear the waypoint on the map.':
     'Jika ada urusan lain, cukup hapus titik arah di peta.',
   'ACHIEVEMENT UNLOCKED': 'PENCAPAIAN TERBUKA',

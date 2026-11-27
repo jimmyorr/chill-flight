@@ -784,6 +784,12 @@ export default {
   'Christmas village': '크리스마스 마을',
   'East portal': '동쪽 포털',
   'West portal': '서쪽 포털',
+  Crossroads: '크로스로드',
+  Millbrook: '밀브룩',
+  Oakridge: '오크리지',
+  Clearwater: '클리어워터',
+  Westgate: '웨스트게이트',
+  Redstone: '레드스톤',
   'If something comes up, just clear the waypoint on the map.':
     '무슨 일이 생기면 지도에서 웨이포인트를 지우면 돼.',
   'ACHIEVEMENT UNLOCKED': '업적 달성',

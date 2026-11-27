@@ -20,6 +20,7 @@ const {
   APPROACH_SPEED,
   LANDMARK_COLOR,
   LANDMARKS,
+  TOWN_COLOR,
   VIEW_CLEARANCE,
   VIEW_DISTANCE,
   WARP_HEIGHT,
@@ -74,12 +75,23 @@ check(
   LANDMARKS.every((l) => nearestLandmark(l.x + 10, l.z - 10, 1e9) === l)
 );
 const airportNames = new Set(ChillFlightLogic.AIRPORTS.map((a) => a.name));
+const townNames = new Set(ChillFlightLogic.TOWN_NAMES);
 check(
-  'airports share one pin color and landmarks share another',
+  'airports, crossroads towns, and landmarks each have their own distinct pin color',
   AIRPORT_COLOR !== LANDMARK_COLOR &&
+    TOWN_COLOR !== LANDMARK_COLOR &&
+    TOWN_COLOR !== AIRPORT_COLOR &&
     LANDMARKS.every(
       (l) =>
-        l.color === (airportNames.has(l.name) ? AIRPORT_COLOR : LANDMARK_COLOR)
+        l.color ===
+        (airportNames.has(l.name)
+          ? AIRPORT_COLOR
+          : townNames.has(l.name)
+            ? TOWN_COLOR
+            : LANDMARK_COLOR)
+    ) &&
+    LANDMARKS.filter((l) => townNames.has(l.name)).every(
+      (l) => l.symbol === '⌂' && l.town === true
     )
 );
 
@@ -463,6 +475,97 @@ check(
     'every scenic spawn has safe vertical clearance along its flight corridor',
     clearanceProblems.length === 0,
     clearanceProblems.join('; ')
+  );
+}
+
+// Crossroads market towns (#195) and Crossroads' Ferris wheel: named from east
+// to west, kept out of alien lands and open lakes, with the Ferris wheel level
+// and clear of highways and slip roads inside Crossroads
+{
+  const {simplex} = await import('../noise.js');
+  const constants = {WATER_LEVEL: 40, MOUNTAIN_LEVEL: 180};
+  const crossroadsPin = LANDMARKS.find((l) => l.name === 'Crossroads');
+  check(
+    'Crossroads is on the map with the town pin color and symbol',
+    Boolean(crossroadsPin) &&
+      crossroadsPin.color === TOWN_COLOR &&
+      crossroadsPin.symbol === '⌂' &&
+      BUGGY_VIEW.Crossroads === 480
+  );
+
+  const townProblems = [];
+  const ferrisProblems = [];
+  for (const seed of [20260101, 20260410, 20260715, 20261126, 42, 7]) {
+    ChillFlightLogic.WORLD_SEED = seed;
+    simplex.seed(seed);
+    ChillFlightLogic.setRoadNoise(simplex);
+    const towns = ChillFlightLogic.townSites(simplex, constants);
+    const first = ChillFlightLogic.townAt(0, simplex, constants);
+    if (!first || first.name !== 'Crossroads' || towns[0] !== first) {
+      townProblems.push(`${seed}: missing Crossroads at n=0`);
+      continue;
+    }
+    for (const t of towns) {
+      if (ChillFlightLogic.alienAt(t.x, t.z, simplex) > 0.35) {
+        townProblems.push(`${seed}/${t.name}: inside alien territory`);
+      }
+      const c = ChillFlightLogic.highwayCrossing(t.n);
+      if (!near(t.x, c.x, 1e-3) || !near(t.z, c.z, 1e-3)) {
+        townProblems.push(`${seed}/${t.name}: off highway crossing`);
+      }
+    }
+
+    const ferris = ChillFlightLogic.ferrisWheelSite(simplex, constants);
+    if (!ferris) {
+      ferrisProblems.push(`${seed}: no Ferris wheel site`);
+      continue;
+    }
+    const distFromCenter = Math.hypot(ferris.x - first.x, ferris.z - first.z);
+    if (distFromCenter < 200 || distFromCenter > first.radius) {
+      ferrisProblems.push(
+        `${seed}: dist ${distFromCenter.toFixed(0)} outside Crossroads`
+      );
+    }
+    const hCenter = ChillFlightLogic.getElevation(
+      ferris.x,
+      ferris.z,
+      simplex,
+      constants
+    );
+    if (ferris.base < 44 || Math.abs(hCenter - ferris.base) > 1.5) {
+      ferrisProblems.push(
+        `${seed}: base ${ferris.base.toFixed(1)} vs ground ${hCenter.toFixed(1)}`
+      );
+    }
+    if (
+      Math.abs(ferris.x - ChillFlightLogic.getRoadCenterX(ferris.z, 0)) < 110 ||
+      Math.abs(ferris.z - ChillFlightLogic.getRoadCenterZ(ferris.x)) < 110 ||
+      ChillFlightLogic.isOnSlipRoad(ferris.x, ferris.z, 75, simplex, constants)
+    ) {
+      ferrisProblems.push(`${seed}: too close to highway or slip road`);
+    }
+    // Front boarding steps (+z -> sin(yaw), cos(yaw)) face toward Crossroads
+    const toTownX = first.x - ferris.x;
+    const toTownZ = first.z - ferris.z;
+    const dot =
+      (Math.sin(ferris.yaw) * toTownX + Math.cos(ferris.yaw) * toTownZ) /
+      Math.hypot(toTownX, toTownZ);
+    if (!near(dot, 1, 1e-6)) {
+      ferrisProblems.push(`${seed}: front steps not facing Crossroads`);
+    }
+  }
+  ChillFlightLogic.WORLD_SEED = 20260101;
+  simplex.seed(20260101);
+  ChillFlightLogic.setRoadNoise(simplex);
+  check(
+    'crossroads towns sit at dry, non-alien highway crossings across seeds',
+    townProblems.length === 0,
+    townProblems.join('; ')
+  );
+  check(
+    'Crossroads Ferris wheel sits on a level town green clear of highways and slip roads',
+    ferrisProblems.length === 0,
+    ferrisProblems.join('; ')
   );
 }
 
