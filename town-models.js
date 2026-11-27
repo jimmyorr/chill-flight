@@ -505,14 +505,16 @@ export function millbrookPlazaGroup(
 
   group.userData.animatePlaza = ({
     timeSec,
+    windTimeSec = timeSec,
     windStrength = 0.7,
     windYaw = 0,
     parentYaw = 0,
   }) => {
-    const vaneSway =
-      Math.sin(timeSec * 0.38) * 0.08 * (0.5 + windStrength * 0.5);
+    const t = timeSec % 3600;
+    const vaneSway = Math.sin(t * 0.28) * 0.06 * (0.5 + windStrength * 0.5);
     turret.rotation.y = windYaw + Math.PI - parentYaw + vaneSway;
-    rotorNode.rotation.z = timeSec * (0.58 + windStrength * 0.48);
+    // ~26 s per full revolution in a fair breeze (~4.6 units/s rim speed)
+    rotorNode.rotation.z = (windTimeSec * 0.24) % TAU;
   };
   return group;
 }
@@ -851,14 +853,15 @@ export function clearwaterPlazaGroup(
 
   group.userData.animatePlaza = ({timeSec}) => {
     if (!detail) return;
+    const t = timeSec % 3600;
     for (let i = 0; i < flowNodes.length; i++) {
       const dir = i % 2 === 0 ? 1 : -1;
-      flowNodes[i].rotation.y = timeSec * (1.1 + i * 0.4) * dir;
-      const pulse = 1 + 0.045 * Math.sin(timeSec * 4.2 + i * 1.4);
+      flowNodes[i].rotation.y = (t * (0.8 + i * 0.3) * dir) % TAU;
+      const pulse = 1 + 0.045 * Math.sin(t * 4.2 + i * 1.4);
       flowNodes[i].scale.set(pulse, 1, pulse);
     }
     if (plume) {
-      const s = 0.92 + 0.16 * Math.sin(timeSec * 5.1);
+      const s = 0.92 + 0.16 * Math.sin(t * 5.1);
       plume.scale.set(1, s, 1);
     }
   };
@@ -1107,26 +1110,26 @@ export function westgatePlazaGroup(
 
   group.userData.animatePlaza = ({
     timeSec,
+    windTimeSec = timeSec,
     windStrength = 0.7,
     windYaw = 0,
     parentYaw = 0,
   }) => {
+    const t = timeSec % 3600;
     const wander =
-      (Math.sin(timeSec * 0.44) * 0.15 +
-        Math.sin(timeSec * 0.97 + 1.1) * 0.06) *
+      (Math.sin(t * 0.44) * 0.15 + Math.sin(t * 0.97 + 1.1) * 0.06) *
       (0.6 + windStrength * 0.4);
     mooringSwivel.rotation.y = windYaw + Math.PI - parentYaw + wander;
-    const bobY =
-      Math.sin(timeSec * 0.75) * 2.6 + Math.sin(timeSec * 1.53) * 0.75;
+    const bobY = Math.sin(t * 0.75) * 2.6 + Math.sin(t * 1.53) * 0.75;
     shipRig.position.y = baseShipY + bobY;
     if (detail) {
       shipRig.rotation.z =
-        Math.sin(timeSec * 0.88 + 0.4) * 0.055 * (0.5 + windStrength * 0.5);
-      shipRig.rotation.x = Math.cos(timeSec * 0.75) * 0.035;
-      if (propSpin) propSpin.rotation.z = timeSec * (7.5 + windStrength * 3.0);
-      if (propSwivel) propSwivel.rotation.y = Math.sin(timeSec * 0.65) * 0.22;
-      if (lampNode) lampNode.rotation.x = Math.sin(timeSec * 1.65) * 0.13;
-      if (valveNode) valveNode.rotation.x = timeSec * 0.5;
+        Math.sin(t * 0.88 + 0.4) * 0.055 * (0.5 + windStrength * 0.5);
+      shipRig.rotation.x = Math.cos(t * 0.75) * 0.035;
+      if (propSpin) propSpin.rotation.z = (windTimeSec * 6.5) % TAU;
+      if (propSwivel) propSwivel.rotation.y = Math.sin(t * 0.65) * 0.22;
+      if (lampNode) lampNode.rotation.x = Math.sin(t * 1.65) * 0.13;
+      if (valveNode) valveNode.rotation.x = (t * 0.5) % TAU;
     }
     updateCable(bobY);
   };

@@ -227,12 +227,20 @@ if (ChillFlightLogic.SHOW_OBJECTS !== false) {
 }
 
 const _camPos = new THREE.Vector3();
+let _lastAnimSec = null;
+let _windRunSec = 0;
 export function updateTownPlazas(
   timeSec,
   windStrength = 0.7,
-  dayProgress = 0.5
+  dayProgress = 0.5,
+  animSec = timeSec
 ) {
   if (!_townPlazaEntries.length) return;
+  const rawDt = _lastAnimSec === null ? 0 : animSec - _lastAnimSec;
+  _lastAnimSec = animSec;
+  const dt = rawDt > 0 && rawDt < 0.5 ? rawDt : 0;
+  _windRunSec = (_windRunSec + dt * (0.65 + windStrength * 0.5)) % 86400;
+  const localSec = ((animSec % 86400) + 86400) % 86400;
   getCameraWorldPosition(_camPos);
   for (let i = 0; i < _townPlazaEntries.length; i++) {
     const entry = _townPlazaEntries[i];
@@ -247,10 +255,11 @@ export function updateTownPlazas(
     if (site.kind === 'ferris') {
       const angle =
         ((timeSec % FERRIS_PERIOD_SEC) / FERRIS_PERIOD_SEC) * Math.PI * 2;
-      active.userData.animateFerris(angle, windStrength, timeSec);
+      active.userData.animateFerris(angle, windStrength, localSec);
     } else {
       active.userData.animatePlaza?.({
-        timeSec,
+        timeSec: localSec,
+        windTimeSec: _windRunSec,
         windStrength,
         windYaw: WIND_YAW,
         parentYaw: site.yaw,

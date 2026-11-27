@@ -2951,7 +2951,8 @@ function updateEnvironmentLighting(delta, now) {
     updateTownPlazas(
       (state.worldClockNow || now) * 0.001,
       windUniforms.uWindStrength.value,
-      state.currentWarpedProgress ?? 0.5
+      state.currentWarpedProgress ?? 0.5,
+      now * 0.001
     );
     // Whitecaps on the open sea: none on fair days, some as the clouds
     // thicken, the most in rain (both already eased)
