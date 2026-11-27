@@ -978,7 +978,15 @@ export function updateFlightCamera(delta, nowTime) {
         activeCamTarget.position.lerp(_idealCameraPos, follow);
         _currentLookTarget.lerp(_idealLookTarget, follow);
       }
-      const lock = Math.max(loopLock, seatLock, cinematicDirectLock);
+      // The cinematic rig keeps its follow lag through loops: its offset and
+      // up stay level, so nothing flips, and locking on would shed the lag
+      // (tens of meters at speed) in a quarter second, jerking the view
+      // forward as the loop starts
+      const lock = Math.max(
+        state.cameraMode === 'cinematic' ? 0 : loopLock,
+        seatLock,
+        cinematicDirectLock
+      );
       activeCamTarget.position.lerp(_idealCameraPos, lock);
       _currentLookTarget.lerp(_idealLookTarget, lock);
       _prevIdealCameraPos.copy(_idealCameraPos);
