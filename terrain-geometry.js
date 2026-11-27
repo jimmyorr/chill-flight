@@ -41,6 +41,11 @@ import {
 } from './boat-models.js';
 import {
   buildBarnGeos,
+  buildBuoyGeos,
+  buildCampfireGeos,
+  buildPenguinGeo,
+  buildSealGeo,
+  buildSheepGeos,
   buildSiloGeos,
   buildWindmillGeos,
 } from './farm-models.js';
@@ -1409,6 +1414,7 @@ export var graniteMat = createMaterial({color: 0x9c8b77, flatShading: true});
 // Sonoran saguaro cactus geometries and vertex-colored material (tree-models.js)
 var _cactusGeos = buildCactusGeos();
 export var cactusGeo = _cactusGeos.cactusGeo;
+export var cactusNearGeo = _cactusGeos.cactusNearGeo;
 export var cactusShadowGeo = _cactusGeos.cactusShadowGeo;
 export var cactusFarGeo = _cactusGeos.cactusFarGeo;
 export var cactusMat = createMaterial({
@@ -1441,27 +1447,14 @@ export var fallenLogGeo = (() => {
 export var stumpGeo = buildStumpGeo();
 export var fallenLogMat = createMaterial({color: 0x6e5841, flatShading: true});
 
-// Seal hauled out on an ice floe: a plump body lying along z, its head
-// raised at the front (+z) and its hind flippers splayed behind, about 6.5
-// units long
-export var sealGeo = (() => {
-  const body = new THREE.SphereGeometry(1, 8, 5);
-  body.scale(1.25, 0.95, 2.9);
-  body.translate(0, 0.9, 0);
-  const head = new THREE.SphereGeometry(0.75, 7, 5);
-  head.scale(1, 0.95, 1.15);
-  head.translate(0, 1.75, 2.75);
-  const flippers = new THREE.ConeGeometry(0.9, 1.6, 4);
-  flippers.scale(1.4, 1, 0.35);
-  flippers.rotateX(-Math.PI / 2);
-  flippers.translate(0, 0.55, -3.3);
-  return mergeGeometries([
-    body.toNonIndexed(),
-    head.toNonIndexed(),
-    flippers.toNonIndexed(),
-  ]);
-})();
-export var sealMat = createMaterial({color: 0x878a8d, flatShading: true});
+// Basking harbour seal hauled out on an ice floe (farm-models.js)
+export var sealGeo = buildSealGeo();
+export var sealMat = createMaterial({
+  color: 0xffffff,
+  vertexColors: true,
+  flatShading: true,
+  roughness: 0.62,
+});
 
 // A radio mast on a summit (beacons.js): slim, tapering, in red and white
 // bands, its foot sunk a little into the rock
@@ -1493,20 +1486,8 @@ export function mastGeometry() {
   return g;
 }
 
-// Channel buoy: a round float riding low in the water and a tapering
-// lattice tower on it (tinted per buoy), with a dark lamp cap on top
-export var buoyGeos = (() => {
-  const float = new THREE.CylinderGeometry(1.5, 1.2, 2.2, 8);
-  const tower = new THREE.CylinderGeometry(0.35, 1.05, 3.6, 4);
-  tower.rotateY(Math.PI / 4);
-  tower.translate(0, 2.9, 0);
-  const cap = new THREE.CylinderGeometry(0.4, 0.4, 0.6, 6);
-  cap.translate(0, 5, 0);
-  return {
-    body: mergeGeometries([float.toNonIndexed(), tower.toNonIndexed()]),
-    top: cap,
-  };
-})();
+// Coastal navigation channel buoy with open 4-leg lattice daymark (farm-models.js)
+export var buoyGeos = buildBuoyGeos();
 export var buoyTopMat = createMaterial({color: 0x2d3033, flatShading: true});
 
 // Vertex colour a rubble part (one shade a triangle, a little darker where
@@ -1760,35 +1741,8 @@ export var breakwaterBeaconGeos = (() => {
   };
 })();
 
-// Sheep: a woolly body (tinted per sheep) on four dark legs, with a dark
-// face held low as if grazing, facing +z; about 3.5 units long (drawn 15 to 45% bigger)
-export var sheepGeos = (() => {
-  const wool = new THREE.DodecahedronGeometry(1, 0);
-  wool.scale(1.1, 0.9, 1.55);
-  wool.translate(0, 1.75, 0);
-  const head = new THREE.BoxGeometry(0.62, 0.7, 1.0);
-  head.rotateX(0.5);
-  head.translate(0, 1.45, 1.75);
-  const earL = new THREE.BoxGeometry(0.5, 0.14, 0.22);
-  earL.translate(0.42, 1.75, 1.45);
-  const earR = earL.clone();
-  earR.translate(-0.84, 0, 0);
-  const parts = [head, earL, earR];
-  for (const [x, z] of [
-    [0.5, 0.8],
-    [-0.5, 0.8],
-    [0.5, -0.8],
-    [-0.5, -0.8],
-  ]) {
-    const leg = new THREE.BoxGeometry(0.26, 1.2, 0.26);
-    leg.translate(x, 0.6, z);
-    parts.push(leg);
-  }
-  return {
-    wool,
-    dark: mergeGeometries(parts.map((g) => g.toNonIndexed())),
-  };
-})();
+// Grazing pasture sheep: scalloped fleece (`wool`) and blackface/legs (`dark`)
+export var sheepGeos = buildSheepGeos();
 export var sheepDarkMat = createMaterial({color: 0x2f2a27, flatShading: true});
 
 // Mountain goat and forest deer, built like the sheep: a coat (tinted per
@@ -2150,60 +2104,8 @@ export var icebergMat = createMaterial({
   flatShading: true,
 });
 
-// Penguin geometries & materials
-export var penguinBodyGeo = new THREE.CylinderGeometry(1.05, 1.32, 3.2, 8);
-penguinBodyGeo.translate(0, 1.6, 0);
-
-// Sculpted front chest patch that conforms to the tapered round torso
-export var penguinBellyGeo = new THREE.CylinderGeometry(0.95, 1.18, 2.55, 8);
-penguinBellyGeo.scale(0.82, 1.0, 0.72);
-penguinBellyGeo.translate(0, 1.52, 0.56);
-
-export var penguinHeadGeo = new THREE.SphereGeometry(1.0, 8, 6);
-penguinHeadGeo.translate(0, 3.75, 0.15);
-
-export var penguinBeakGeo = new THREE.ConeGeometry(0.28, 0.95, 4);
-penguinBeakGeo.rotateX(Math.PI / 2);
-penguinBeakGeo.translate(0, 3.72, 1.42);
-
-var penguinWingGeo = new THREE.BoxGeometry(0.22, 2.05, 0.72);
-// Taper flipper tips
-var pwPos = penguinWingGeo.attributes.position;
-for (let i = 0; i < pwPos.count; i++) {
-  if (pwPos.getY(i) < 0) {
-    pwPos.setZ(i, pwPos.getZ(i) * 0.55 - 0.08);
-  }
-}
-penguinWingGeo.computeVertexNormals();
-export var penguinWingLGeo = penguinWingGeo.clone();
-penguinWingLGeo.rotateZ(-0.18);
-penguinWingLGeo.translate(-1.32, 1.82, 0.12);
-
-export var penguinWingRGeo = penguinWingGeo.clone();
-penguinWingRGeo.rotateZ(0.18);
-penguinWingRGeo.translate(1.32, 1.82, 0.12);
-
-var penguinFootGeo = new THREE.BoxGeometry(0.7, 0.2, 1.3);
-export var penguinFootLGeo = penguinFootGeo.clone();
-penguinFootLGeo.translate(-0.6, 0.1, 0.4);
-
-export var penguinFootRGeo = penguinFootGeo.clone();
-penguinFootRGeo.translate(0.6, 0.1, 0.4);
-
-// All of a penguin in one mesh, its parts coloured per vertex: one draw call
-// a tile instead of eight
-export var penguinGeo = mergeBufferGeometries(
-  [
-    [penguinBodyGeo, 0x222222],
-    [penguinBellyGeo, 0xffffff],
-    [penguinHeadGeo, 0x222222],
-    [penguinBeakGeo, 0xffa500],
-    [penguinWingLGeo, 0x222222],
-    [penguinWingRGeo, 0x222222],
-    [penguinFootLGeo, 0xffa500],
-    [penguinFootRGeo, 0xffa500],
-  ].map(([geo, hex]) => paintGeometry(geo.clone().toNonIndexed(), hex))
-);
+// Emperor penguin geometry & vertex-colored material (farm-models.js)
+export var penguinGeo = buildPenguinGeo();
 export var penguinMat = createMaterial({
   color: 0xffffff,
   vertexColors: true,
@@ -3160,44 +3062,22 @@ streetlightDecalMat.onBeforeCompile = (shader) => decalFade(shader, false);
 export var tentGeos = buildTentGeos();
 export var tentMat = buildingMat;
 
-// Campfire geometries (crossed logs + faceted multi-tongue flame cluster)
-export var fireLogGeo = new THREE.CylinderGeometry(0.68, 0.72, 6, 6);
-fireLogGeo.rotateZ(Math.PI / 2);
-
-function createCampfireCoreGeometry() {
-  const flames = [
-    // [radius, height, x, y, z, rx, rz]
-    [1.15, 2.9, 0.0, 0.85, 0.0, 0.06, -0.05],
-    [0.88, 2.2, -0.62, 0.55, 0.38, -0.18, 0.24],
-    [0.85, 2.1, 0.65, 0.52, 0.32, -0.15, -0.25],
-    [0.82, 2.0, 0.05, 0.5, -0.62, 0.24, 0.08],
-  ];
-  const pos = [],
-    norm = [],
-    idx = [];
-  let offset = 0;
-  for (const [r, h, x, y, z, rx, rz] of flames) {
-    const g = new THREE.ConeGeometry(r, h, 5);
-    g.rotateX(rx);
-    g.rotateZ(rz);
-    g.translate(x, y, z);
-    pos.push(...g.attributes.position.array);
-    norm.push(...g.attributes.normal.array);
-    for (let i = 0; i < g.index.array.length; i++)
-      idx.push(g.index.array[i] + offset);
-    offset += g.attributes.position.count;
-  }
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-  geom.setIndex(idx);
-  return geom;
-}
-export var fireCoreGeo = createCampfireCoreGeometry();
+// Stone-ring campfire geometries and materials (farm-models.js)
+var _campfireGeos = buildCampfireGeos();
+export var fireLogGeo = _campfireGeos.fireLogGeo;
+export var fireCoreGeo = _campfireGeos.fireCoreGeo;
+export var fireLogMat = createMaterial({
+  color: 0xffffff,
+  vertexColors: true,
+  flatShading: true,
+  roughness: 0.88,
+});
 export var fireMat = createMaterial({
-  color: 0xff4500,
-  emissive: 0xff4500,
+  color: 0xffffff,
+  vertexColors: true,
+  emissive: 0xff5500,
   emissiveIntensity: 2.0,
+  flatShading: true,
 });
 // At night a campfire throws a warm, flickering pool of light on the ground
 // around it: a soft decal added over the ground (no real light, so it costs
@@ -3995,26 +3875,23 @@ export const ModelAssembler = {
         return [
           {
             geo: fireLogGeo,
-            mat: woodMat,
-            pos: [0, 1, 0],
-            rot: [0, rotY, 0.5],
-            order: 'YXZ',
+            mat: fireLogMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY, 0],
           },
           {
             geo: fireLogGeo,
-            mat: woodMat,
-            pos: [0, 1, 0],
-            rot: [0, rotY + (2 * Math.PI) / 3, 0.5],
-            order: 'YXZ',
+            mat: fireLogMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY + (2 * Math.PI) / 3, 0],
           },
           {
             geo: fireLogGeo,
-            mat: woodMat,
-            pos: [0, 1, 0],
-            rot: [0, rotY + (4 * Math.PI) / 3, 0.5],
-            order: 'YXZ',
+            mat: fireLogMat,
+            pos: [0, 0, 0],
+            rot: [0, rotY + (4 * Math.PI) / 3, 0],
           },
-          {geo: fireCoreGeo, mat: fireMat, pos: [0, 2, 0], rot: [0, rotY, 0]},
+          {geo: fireCoreGeo, mat: fireMat, pos: [0, 1.2, 0], rot: [0, rotY, 0]},
         ];
       case 'hawk':
       case 'seagull':

@@ -131,6 +131,7 @@ import {
   bridgeRailGeo,
   bushGeo,
   cactusGeo,
+  cactusNearGeo,
   cactusFarGeo,
   cactusMat,
   joshuaGeos,
@@ -305,18 +306,18 @@ const THREE_BAND_LOD_TYPES = new Set([
   'mountain_rowan',
   'palm',
   'fruit_trees',
+  'cactus',
+  'joshua_tree',
 ]);
 const TWO_BAND_LOD_TYPES = new Set([
   'pine',
   'deciduous',
   'tall_deciduous',
   'yellow_cortez',
-  'joshua_tree',
   'mushroom',
   'dead_tree',
   'swamp_trees',
   'bush',
-  'cactus',
   'granite',
   'stone_wall',
   'house',
@@ -989,13 +990,18 @@ function viewModel(type, e, colorSeed = 0) {
         const bands =
           lod === 'all'
             ? [
-                ['near', -6],
-                ['far', 6],
+                ['near', -10],
+                ['mid', 0],
+                ['far', 10],
               ]
             : [[lod, 0]];
         bands.forEach(([band, xOffset]) => {
           const m = new THREE.Mesh(
-            band === 'far' ? cactusFarGeo : cactusGeo,
+            band === 'far'
+              ? cactusFarGeo
+              : band === 'near'
+                ? cactusNearGeo
+                : cactusGeo,
             cactusMat
           );
           m.position.x = xOffset;
@@ -1373,21 +1379,26 @@ function viewModel(type, e, colorSeed = 0) {
         const bands =
           lod === 'all'
             ? [
-                ['near', -9],
-                ['far', 9],
+                ['near', -16],
+                ['mid', 0],
+                ['far', 16],
               ]
             : [[lod, 0]];
         bands.forEach(([band, xOffset]) => {
           const trunk = new THREE.Mesh(
             band === 'far'
               ? cachedFar(farTrunk, joshuaGeos.trunk)
-              : joshuaGeos.trunk,
+              : band === 'near'
+                ? joshuaGeos.fullTrunk
+                : joshuaGeos.trunk,
             joshuaTrunkMat
           );
           const leaves = new THREE.Mesh(
             band === 'far'
               ? cachedFar(farCanopy, joshuaGeos.leaves)
-              : joshuaGeos.leaves,
+              : band === 'near'
+                ? joshuaGeos.fullLeaves
+                : joshuaGeos.leaves,
             createMaterial({
               color: JOSHUA_LEAF_COLOR,
               vertexColors: true,

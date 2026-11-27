@@ -634,6 +634,7 @@ function addSaguaroBlossom(B, center, axis, scale = 1) {
 // ankle, three curved 3D arms at natural azimuths, and waxy crown blossoms.
 export function buildCactusGeos() {
   const B = makePlantBuilder(true);
+  const M = makePlantBuilder(true);
   const S = makePlantBuilder(false);
 
   const barkBase = rgbOf(0x6e5e47);
@@ -644,6 +645,8 @@ export function buildCactusGeos() {
   const valleyLow = rgbOf(0x2d5230);
   const valleyMid = rgbOf(0x345e37);
   const valleyHigh = rgbOf(0x3c6b3d);
+  const midSage = mixRgb(crestMid, valleyMid, 0.35);
+  const midCrown = mixRgb(crestCrown, valleyHigh, 0.3);
   const crownFelt = rgbOf(0x6b5f49);
   const jointCallus = rgbOf(0x5e533e);
 
@@ -663,6 +666,16 @@ export function buildCactusGeos() {
     capLift: 0.52,
     capColor: crownFelt,
   });
+  addLoftedTube(
+    M,
+    [
+      [0, -0.2, 0, 1.22, barkBase],
+      [0, 1.6, 0, 1.32, barkCollar],
+      [0, 7.5, 0, 1.54, midSage],
+      [0, 14.4, 0, 1.02, midCrown],
+    ],
+    {vertsPerRing: 6, capLift: 0.55, capColor: rgbOf(0xd9ca86)}
+  );
   addLoftedTube(
     S,
     [
@@ -694,6 +707,17 @@ export function buildCactusGeos() {
       twist: az * 0.5,
       capLift: 0.38,
       capColor: crownFelt,
+    });
+    const midProfile = [
+      [...profile[0].slice(0, 3), jointCallus],
+      [...profile[2].slice(0, 3), midSage],
+      [...profile[profile.length - 1].slice(0, 3), midCrown],
+    ].map(([u, y, r, col]) => [u * ca, y, u * sa, r * 0.98, col]);
+    addLoftedTube(M, midProfile, {
+      vertsPerRing: 4,
+      twist: Math.PI / 4,
+      capLift: 0.35,
+      capColor: midCrown,
     });
     const shadowProfile = [
       profile[0],
@@ -773,7 +797,8 @@ export function buildCactusGeos() {
   );
 
   return {
-    cactusGeo: B.build(),
+    cactusGeo: M.build(),
+    cactusNearGeo: B.build(),
     cactusShadowGeo: S.build(),
     cactusFarGeo: F.build(),
   };
@@ -943,6 +968,56 @@ function addJoshuaRosette(L, center, frame, scale = 1, withPanicle = false) {
   }
 }
 
+// Lightweight 15-triangle mid-LOD spiky rosette for 0.5-3 km Joshua trees
+function addJoshuaMidRosette(
+  LM,
+  center,
+  frame,
+  scale = 1,
+  withPanicle = false
+) {
+  const {t, u, v} = frame;
+  const midTop = rgbOf(0x6d8b3b);
+  const midKeel = rgbOf(0x4c6429);
+  const crownTop = withPanicle ? rgbOf(0xebe3c8) : rgbOf(0x84a34b);
+  const dirAt = (pitch, az) => {
+    const cp = Math.cos(pitch);
+    const sp = Math.sin(pitch);
+    const ca = Math.cos(az);
+    const sa = Math.sin(az);
+    return vNorm([
+      t[0] * sp + cp * (ca * u[0] + sa * v[0]),
+      t[1] * sp + cp * (ca * u[1] + sa * v[1]),
+      t[2] * sp + cp * (ca * u[2] + sa * v[2]),
+    ]);
+  };
+  for (let i = 0; i < 4; i++) {
+    const az = (i / 4) * Math.PI * 2 + 0.25;
+    addYuccaDagger(
+      LM,
+      center,
+      dirAt(i % 2 === 0 ? -0.18 : 0.35, az),
+      t,
+      2.55 * scale,
+      0.56 * scale,
+      0.38 * scale,
+      midTop,
+      midKeel
+    );
+  }
+  addYuccaDagger(
+    LM,
+    center,
+    t,
+    u,
+    (withPanicle ? 2.15 : 2.35) * scale,
+    0.58 * scale,
+    0.42 * scale,
+    crownTop,
+    midTop
+  );
+}
+
 // Mojave Joshua tree (`Yucca brevifolia`): gnarled dichotomous trunk with
 // furrowed corky base, shaggy sun-bleached dead-leaf thatch collars, crooked
 // upswept limbs, a weathered dead snag, spiky V-keeled starburst dagger
@@ -950,6 +1025,8 @@ function addJoshuaRosette(L, center, frame, scale = 1, withPanicle = false) {
 export function buildJoshuaTreeGeos() {
   const T = makePlantBuilder(true);
   const L = makePlantBuilder(true);
+  const TM = makePlantBuilder(true);
+  const LM = makePlantBuilder(true);
 
   const rootBark = rgbOf(0x57483a);
   const lowerBark = rgbOf(0x6e5c49);
@@ -968,6 +1045,14 @@ export function buildJoshuaTreeGeos() {
       [0.14, 6.25, -0.04, 1.3, thatchDark],
     ],
     {vertsPerRing: 6, gnarl: 0.09, capLift: 0.4, capColor: thatchDark}
+  );
+  addLoftedTube(
+    TM,
+    [
+      [-0.08, -0.4, 0.04, 1.72, rootBark],
+      [0.14, 6.25, -0.04, 1.26, thatchDark],
+    ],
+    {vertsPerRing: 4, twist: 0.4, capLift: 0.3, capColor: thatchDark}
   );
 
   function addCrownLimb(pts, crownScale, withPanicle = false) {
@@ -997,19 +1082,41 @@ export function buildJoshuaTreeGeos() {
       crownScale,
       withPanicle
     );
+    const midTipFrame = addLoftedTube(TM, [pts[0], pts[pts.length - 1]], {
+      vertsPerRing: 3,
+      capLift: 0.2,
+      capColor: thatchGold,
+    });
+    addJoshuaMidRosette(
+      LM,
+      [last[0], last[1], last[2]],
+      midTipFrame,
+      crownScale,
+      withPanicle
+    );
+  }
+
+  function addPrimaryBough(pts) {
+    addLoftedTube(T, pts, {
+      vertsPerRing: 5,
+      gnarl: 0.08,
+      capLift: 0.28,
+      capColor: thatchDark,
+    });
+    addLoftedTube(TM, [pts[0], pts[pts.length - 1]], {
+      vertsPerRing: 3,
+      capLift: 0.2,
+      capColor: thatchDark,
+    });
   }
 
   // Primary Bough A (+X/-Z): starts upright inside bole, curves out to fork
-  addLoftedTube(
-    T,
-    [
-      [0.2, 5.45, -0.08, 0.68, midBark],
-      [0.52, 6.55, -0.22, 0.88, midBark],
-      [1.65, 8.35, -0.62, 0.84, midBark],
-      [2.65, 10.65, -0.85, 0.82, thatchDark],
-    ],
-    {vertsPerRing: 5, gnarl: 0.08, capLift: 0.3, capColor: thatchDark}
-  );
+  addPrimaryBough([
+    [0.2, 5.45, -0.08, 0.68, midBark],
+    [0.52, 6.55, -0.22, 0.88, midBark],
+    [1.65, 8.35, -0.62, 0.84, midBark],
+    [2.65, 10.65, -0.85, 0.82, thatchDark],
+  ]);
   // Crown A1: tallest crooked Mojave leader + creamy flower panicle
   addCrownLimb(
     [
@@ -1032,16 +1139,12 @@ export function buildJoshuaTreeGeos() {
   );
 
   // Primary Bough B (-X/-Z): wide gnarled Mojave arm + weathered dead snag
-  addLoftedTube(
-    T,
-    [
-      [0.06, 5.45, -0.08, 0.66, midBark],
-      [-0.45, 6.45, -0.26, 0.86, midBark],
-      [-2.35, 7.85, -0.92, 0.82, midBark],
-      [-4.15, 9.85, -1.48, 0.78, thatchDark],
-    ],
-    {vertsPerRing: 5, gnarl: 0.09, capLift: 0.28, capColor: thatchDark}
-  );
+  addPrimaryBough([
+    [0.06, 5.45, -0.08, 0.66, midBark],
+    [-0.45, 6.45, -0.26, 0.86, midBark],
+    [-2.35, 7.85, -0.92, 0.82, midBark],
+    [-4.15, 9.85, -1.48, 0.78, thatchDark],
+  ]);
   // Sun-bleached dead snag stub jutting off lower Bough B
   addLoftedTube(
     T,
@@ -1074,16 +1177,12 @@ export function buildJoshuaTreeGeos() {
   );
 
   // Primary Bough C (+Z): southern fork into two asymmetrical crowns
-  addLoftedTube(
-    T,
-    [
-      [0.14, 5.45, 0.04, 0.64, midBark],
-      [0.24, 6.5, 0.55, 0.84, midBark],
-      [0.42, 8.1, 2.55, 0.78, midBark],
-      [0.55, 9.95, 4.45, 0.75, thatchDark],
-    ],
-    {vertsPerRing: 5, gnarl: 0.08, capLift: 0.26, capColor: thatchDark}
-  );
+  addPrimaryBough([
+    [0.14, 5.45, 0.04, 0.64, midBark],
+    [0.24, 6.5, 0.55, 0.84, midBark],
+    [0.42, 8.1, 2.55, 0.78, midBark],
+    [0.55, 9.95, 4.45, 0.75, thatchDark],
+  ]);
   // Crown C1: tall southern crown
   addCrownLimb(
     [
@@ -1106,7 +1205,9 @@ export function buildJoshuaTreeGeos() {
   );
 
   return {
-    trunk: T.build(),
-    leaves: L.build(),
+    trunk: TM.build(),
+    leaves: LM.build(),
+    fullTrunk: T.build(),
+    fullLeaves: L.build(),
   };
 }

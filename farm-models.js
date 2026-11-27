@@ -631,3 +631,915 @@ export function buildStoneWallGeos() {
     stoneWallSnowRuinedFar: snowy.ruinedFarGeo,
   };
 }
+
+// --- PROCEDURAL CRITTERS & SMALL COASTAL / CAMP PROPS ---
+
+function cRgb(hex, mul = 1) {
+  const c = new THREE.Color(hex);
+  return [
+    Math.min(1, Math.max(0, c.r * mul)),
+    Math.min(1, Math.max(0, c.g * mul)),
+    Math.min(1, Math.max(0, c.b * mul)),
+  ];
+}
+
+function makeMeshBuilder(colored = true) {
+  const pos = [];
+  const col = [];
+  function push(p, c) {
+    pos.push(p[0], p[1], p[2]);
+    if (colored) col.push(c[0], c[1], c[2]);
+  }
+  function tri(a, b, c, ca, cb = ca, cc = ca) {
+    push(a, ca);
+    push(b, cb);
+    push(c, cc);
+  }
+  function quad(a, b, c, d, ca, cb = ca, cc = cb, cd = ca) {
+    tri(a, b, c, ca, cb, cc);
+    tri(a, c, d, ca, cc, cd);
+  }
+  function build() {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    if (colored) {
+      g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    }
+    g.computeVertexNormals();
+    g.computeBoundingBox();
+    g.computeBoundingSphere();
+    return g;
+  }
+  return {tri, quad, build};
+}
+
+// Vertical Y-axis loft: `a = 0` faces +z, `a = PI/2` faces +x, `a = PI` faces -z.
+function addVerticalLoft(
+  B,
+  stations,
+  {sides = 8, twist = 0, capTop = null, capBot = null} = {}
+) {
+  const rings = [];
+  const cols = [];
+  for (let i = 0; i < stations.length; i++) {
+    const {cx = 0, cy, cz = 0, rx, rz = rx, colorFn} = stations[i];
+    const rPts = [];
+    const rCols = [];
+    for (let k = 0; k < sides; k++) {
+      const a = twist + (k / sides) * Math.PI * 2;
+      rPts.push([cx + rx * Math.sin(a), cy, cz + rz * Math.cos(a)]);
+      rCols.push(colorFn ? colorFn(a, k, i) : [1, 1, 1]);
+    }
+    rings.push(rPts);
+    cols.push(rCols);
+  }
+  for (let i = 0; i < rings.length - 1; i++) {
+    for (let k = 0; k < sides; k++) {
+      const k1 = (k + 1) % sides;
+      const c0 = cols[i][k];
+      const c01 = cols[i][k1];
+      const c11 = cols[i + 1][k1];
+      const c1 = cols[i + 1][k];
+      B.quad(
+        rings[i][k],
+        rings[i][k1],
+        rings[i + 1][k1],
+        rings[i + 1][k],
+        c0,
+        c01,
+        c11,
+        c1
+      );
+    }
+  }
+  if (capBot) {
+    const [bx, by, bz, bCol = [1, 1, 1]] = capBot;
+    for (let k = 0; k < sides; k++) {
+      const k1 = (k + 1) % sides;
+      B.tri(
+        rings[0][k1],
+        rings[0][k],
+        [bx, by, bz],
+        cols[0][k1],
+        cols[0][k],
+        bCol
+      );
+    }
+  }
+  if (capTop) {
+    const last = rings.length - 1;
+    const [tx, ty, tz, tCol = [1, 1, 1]] = capTop;
+    for (let k = 0; k < sides; k++) {
+      const k1 = (k + 1) % sides;
+      B.tri(
+        rings[last][k],
+        rings[last][k1],
+        [tx, ty, tz],
+        cols[last][k],
+        cols[last][k1],
+        tCol
+      );
+    }
+  }
+}
+
+// Elliptical spine loft along 3D stations `{p:[x,y,z], ru, rv, colorFn}`.
+// With ref=[0,1,0], `a = 0` is dorsal (+U/top), `a = PI` is ventral (-U/belly).
+function addSpineLoft(
+  B,
+  stations,
+  {sides = 8, twist = 0, capStart = null, capEnd = null} = {}
+) {
+  const n = stations.length;
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const norm = (a) => {
+    const l = Math.hypot(a[0], a[1], a[2]) || 1;
+    return [a[0] / l, a[1] / l, a[2] / l];
+  };
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const cross = (a, b) => [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0],
+  ];
+
+  const tangents = [];
+  for (let i = 0; i < n; i++) {
+    if (n === 1) {
+      tangents.push(norm(sub(capEnd || [0, 0, 1], stations[0].p)));
+    } else if (i === 0) tangents.push(norm(sub(stations[1].p, stations[0].p)));
+    else if (i === n - 1)
+      tangents.push(norm(sub(stations[n - 1].p, stations[n - 2].p)));
+    else {
+      const t0 = norm(sub(stations[i].p, stations[i - 1].p));
+      const t1 = norm(sub(stations[i + 1].p, stations[i].p));
+      tangents.push(norm([t0[0] + t1[0], t0[1] + t1[1], t0[2] + t1[2]]));
+    }
+  }
+
+  let u = null;
+  const rings = [];
+  const cols = [];
+  for (let i = 0; i < n; i++) {
+    const t = tangents[i];
+    if (i === 0) {
+      const ref = Math.abs(t[1]) < 0.92 ? [0, 1, 0] : [0, 0, 1];
+      const d = dot(ref, t);
+      u = norm([ref[0] - t[0] * d, ref[1] - t[1] * d, ref[2] - t[2] * d]);
+    } else {
+      const d = dot(u, t);
+      const proj = [u[0] - t[0] * d, u[1] - t[1] * d, u[2] - t[2] * d];
+      if (Math.hypot(proj[0], proj[1], proj[2]) > 1e-5) u = norm(proj);
+    }
+    const v = norm(cross(t, u));
+    const {p, ru, rv = ru, scallop = 0, colorFn} = stations[i];
+    const rPts = [];
+    const rCols = [];
+    for (let k = 0; k < sides; k++) {
+      const a = twist + (k / sides) * Math.PI * 2;
+      const mul = 1 + scallop * (k % 2 === 0 ? 1 : -1);
+      const cu = Math.cos(a) * ru * mul;
+      const sv = Math.sin(a) * rv * mul;
+      rPts.push([
+        p[0] + cu * u[0] + sv * v[0],
+        p[1] + cu * u[1] + sv * v[1],
+        p[2] + cu * u[2] + sv * v[2],
+      ]);
+      rCols.push(colorFn ? colorFn(a, k, i) : [1, 1, 1]);
+    }
+    rings.push(rPts);
+    cols.push(rCols);
+  }
+
+  for (let i = 0; i < n - 1; i++) {
+    for (let k = 0; k < sides; k++) {
+      const k1 = (k + 1) % sides;
+      B.quad(
+        rings[i][k],
+        rings[i][k1],
+        rings[i + 1][k1],
+        rings[i + 1][k],
+        cols[i][k],
+        cols[i][k1],
+        cols[i + 1][k1],
+        cols[i + 1][k]
+      );
+    }
+  }
+  if (capStart) {
+    const [sx, sy, sz, sCol = [1, 1, 1]] = capStart;
+    for (let k = 0; k < sides; k++) {
+      const k1 = (k + 1) % sides;
+      B.tri(
+        rings[0][k1],
+        rings[0][k],
+        [sx, sy, sz],
+        cols[0][k1],
+        cols[0][k],
+        sCol
+      );
+    }
+  }
+  if (capEnd) {
+    const last = n - 1;
+    const [ex, ey, ez, eCol = [1, 1, 1]] = capEnd;
+    for (let k = 0; k < sides; k++) {
+      const k1 = (k + 1) % sides;
+      B.tri(
+        rings[last][k],
+        rings[last][k1],
+        [ex, ey, ez],
+        cols[last][k],
+        cols[last][k1],
+        eCol
+      );
+    }
+  }
+}
+
+// Oriented tapered box (hx0/hz0 at bottom -hy, hx1/hz1 at top +hy) rotated by Euler
+function addTaperedBox(
+  B,
+  {
+    cx,
+    cy,
+    cz,
+    hx0,
+    hz0,
+    hx1 = hx0,
+    hz1 = hz0,
+    hy,
+    rx = 0,
+    ry = 0,
+    rz = 0,
+    colTop = [1, 1, 1],
+    colSide = colTop,
+    colPosX = colSide,
+    colNegX = colSide,
+    colBot = colSide,
+    capTop = true,
+    capBot = true,
+  }
+) {
+  const q = new THREE.Quaternion().setFromEuler(
+    new THREE.Euler(rx, ry, rz, 'YXZ')
+  );
+  const v = new THREE.Vector3();
+  const xf = (x, y, z) => {
+    v.set(x, y, z).applyQuaternion(q);
+    return [cx + v.x, cy + v.y, cz + v.z];
+  };
+  const b0 = xf(-hx0, -hy, hz0);
+  const b1 = xf(hx0, -hy, hz0);
+  const b2 = xf(hx0, -hy, -hz0);
+  const b3 = xf(-hx0, -hy, -hz0);
+  const t0 = xf(-hx1, hy, hz1);
+  const t1 = xf(hx1, hy, hz1);
+  const t2 = xf(hx1, hy, -hz1);
+  const t3 = xf(-hx1, hy, -hz1);
+  B.quad(b0, b1, t1, t0, colSide);
+  B.quad(b1, b2, t2, t1, colPosX);
+  B.quad(b2, b3, t3, t2, colSide);
+  B.quad(b3, b0, t0, t3, colNegX);
+  if (capTop) B.quad(t0, t1, t2, t3, colTop);
+  if (capBot) B.quad(b3, b2, b1, b0, colBot);
+}
+
+// Emperor penguin (`Aptenodytes forsteri`): sleek rounded black head with
+// bright eye highlights, sunny-gold collar & ear patches, lemon-cream chest,
+// snow-white belly, curved two-tone bill, hydrofoil flippers, and amber feet.
+export function buildPenguinGeo() {
+  const B = makeMeshBuilder(true);
+  const hoodBlack = cRgb(0x161d26);
+  const dorsalSlate = cRgb(0x233040);
+  const dorsalBack = cRgb(0x2d3c4f);
+  const bellySnow = cRgb(0xf6f8fb);
+  const bellyCream = cRgb(0xfef1be);
+  const collarGold = cRgb(0xf9cb52);
+  const earGold = cRgb(0xf6aa2e);
+  const eyeSparkle = cRgb(0xf2f6fa);
+  const billBlack = cRgb(0x191f28);
+  const billOrange = cRgb(0xf57a24);
+  const footAmber = cRgb(0xeb7f1c);
+  const flipperInner = cRgb(0xe4eaf0);
+
+  // 8-sided solid-facet body: k = 0, 1 span -45..+45 deg across the front (+z);
+  // k = 2, 7 are the shoulder lapels / side-neck golden ear patches.
+  const N = 8;
+  const pStations = [
+    {cy: 0.2, cz: -0.02, rx: 0.96, rz: 0.98},
+    {cy: 1.15, cz: 0.1, rx: 1.28, rz: 1.26},
+    {cy: 2.25, cz: 0.12, rx: 1.18, rz: 1.14},
+    {cy: 2.92, cz: 0.1, rx: 1.0, rz: 0.98},
+    {cy: 3.44, cz: 0.1, rx: 0.88, rz: 0.9},
+    {cy: 4.18, cz: 0.1, rx: 0.8, rz: 0.84},
+    {cy: 4.54, cz: 0.08, rx: 0.48, rz: 0.52},
+  ];
+  const pRings = pStations.map(({cy, cz, rx, rz}) => {
+    const pts = [];
+    for (let k = 0; k < N; k++) {
+      const a = ((k - 1) / N) * Math.PI * 2;
+      pts.push([rx * Math.sin(a), cy, cz + rz * Math.cos(a)]);
+    }
+    return pts;
+  });
+
+  const bandFacetCol = (bandIdx, k) => {
+    if (bandIdx <= 1) {
+      if (k <= 1) return bellySnow;
+      if (k === 2 || k === 7) return hoodBlack;
+      return k === 4 || k === 5 ? dorsalBack : dorsalSlate;
+    }
+    if (bandIdx === 2) {
+      if (k <= 1) return bellyCream;
+      if (k === 2 || k === 7) return hoodBlack;
+      return dorsalSlate;
+    }
+    if (bandIdx === 3) {
+      if (k <= 1) return collarGold;
+      if (k === 2 || k === 7) return earGold;
+      return hoodBlack;
+    }
+    // Head and crown (bandIdx >= 4): 100% sleek black hood (no cheek streaks!)
+    return hoodBlack;
+  };
+
+  for (let i = 0; i < pRings.length - 1; i++) {
+    for (let k = 0; k < N; k++) {
+      const k1 = (k + 1) % N;
+      const col = bandFacetCol(i, k);
+      B.quad(
+        pRings[i][k],
+        pRings[i][k1],
+        pRings[i + 1][k1],
+        pRings[i + 1][k],
+        col
+      );
+    }
+  }
+  for (let k = 0; k < N; k++) {
+    const k1 = (k + 1) % N;
+    const topIdx = pRings.length - 1;
+    B.tri(pRings[topIdx][k], pRings[topIdx][k1], [0, 4.72, 0.06], hoodBlack);
+  }
+
+  // Sleek downward-curving two-tone Emperor bill
+  addSpineLoft(
+    B,
+    [
+      {
+        p: [0, 3.78, 0.84],
+        ru: 0.2,
+        rv: 0.21,
+        colorFn: (a) => (Math.cos(a) > 0.1 ? billBlack : billOrange),
+      },
+      {
+        p: [0, 3.73, 1.36],
+        ru: 0.12,
+        rv: 0.13,
+        colorFn: (a) => (Math.cos(a) > 0.15 ? billBlack : billOrange),
+      },
+    ],
+    {
+      sides: 4,
+      capEnd: [0, 3.6, 1.84, billOrange],
+    }
+  );
+
+  // Stubby counter-balance tail wedge at the rear (-z)
+  addSpineLoft(
+    B,
+    [{p: [0, 0.52, -0.88], ru: 0.22, rv: 0.38, colorFn: () => dorsalSlate}],
+    {
+      sides: 4,
+      // Single 4-tri pyramid wedge
+      capEnd: [0, 0.22, -1.54, hoodBlack],
+    }
+  );
+
+  // Cheerful bright eye highlights, single-box hydrofoil flippers, and amber feet
+  for (const sx of [-1, 1]) {
+    const ex = sx * 0.46;
+    const ey = 3.9;
+    const ez = 0.8;
+    const pInner = [sx * 0.38, ey, ez + 0.033];
+    const pOuter = [sx * 0.54, ey, ez - 0.033];
+    const pLeft = sx > 0 ? pInner : pOuter;
+    const pRight = sx > 0 ? pOuter : pInner;
+    B.quad(
+      [ex, ey - 0.09, ez + 0.01],
+      pRight,
+      [ex, ey + 0.09, ez - 0.01],
+      pLeft,
+      eyeSparkle
+    );
+
+    addTaperedBox(B, {
+      cx: sx * 1.22,
+      cy: 2.02,
+      cz: 0.02,
+      hx0: 0.09,
+      hz0: 0.24,
+      hx1: 0.13,
+      hz1: 0.38,
+      hy: 0.96,
+      rz: sx * 0.22,
+      rx: -0.1,
+      colTop: dorsalSlate,
+      colSide: dorsalSlate,
+      colPosX: sx < 0 ? flipperInner : dorsalSlate,
+      colNegX: sx > 0 ? flipperInner : dorsalSlate,
+      colBot: hoodBlack,
+    });
+
+    addTaperedBox(B, {
+      cx: sx * 0.54,
+      cy: 0.11,
+      cz: 0.58,
+      hx0: 0.38,
+      hz0: 0.56,
+      hx1: 0.28,
+      hz1: 0.46,
+      hy: 0.11,
+      ry: sx * 0.22,
+      colTop: footAmber,
+      colSide: cRgb(0xc96814),
+      capBot: false,
+    });
+  }
+
+  return B.build();
+}
+
+// Basking Arctic harbour seal (`Phoca vitulina`, 128 tris): curved banana
+// haul-out pose with mottled silver-slate coat, cream belly, raised snout with
+// dark eyes and nose, braced fore-flippers, and V-fanned hind flippers.
+export function buildSealGeo() {
+  const B = makeMeshBuilder(true);
+  const coatDark = cRgb(0x57606b);
+  const coatMid = cRgb(0x6d7682);
+  const coatSpot = cRgb(0x7f8894);
+  const bellyCream = cRgb(0xc6cdd2);
+  const bellySide = cRgb(0x9ca5ae);
+  const flipperDark = cRgb(0x434b54);
+  const noseBlack = cRgb(0x181b20);
+
+  const sealCoat = (a, k, i) => {
+    const ca = Math.cos(a);
+    if (ca < -0.35) return bellyCream;
+    if (ca < 0.05) return bellySide;
+    return (k + i) % 2 === 0 ? coatMid : i > 3 ? coatDark : coatSpot;
+  };
+
+  // Lean 6-sided curved fusiform body from rump -> barrel -> neck -> muzzle
+  addSpineLoft(
+    B,
+    [
+      {p: [0, 0.54, -2.55], ru: 0.44, rv: 0.5, colorFn: sealCoat},
+      {p: [0, 0.86, -0.45], ru: 0.96, rv: 1.28, colorFn: sealCoat},
+      {p: [0, 1.08, 1.28], ru: 0.86, rv: 1.08, colorFn: sealCoat},
+      {p: [0, 1.58, 2.18], ru: 0.68, rv: 0.74, colorFn: sealCoat},
+      {p: [0, 1.94, 2.68], ru: 0.62, rv: 0.64, colorFn: sealCoat},
+      {p: [0, 1.84, 3.18], ru: 0.34, rv: 0.38, colorFn: () => coatDark},
+    ],
+    {
+      sides: 6,
+      capStart: [0, 0.56, -2.85, flipperDark],
+      capEnd: [0, 1.8, 3.48, noseBlack],
+    }
+  );
+
+  for (const sx of [-1, 1]) {
+    addTaperedBox(B, {
+      cx: sx * 0.44,
+      cy: 2.06,
+      cz: 2.84,
+      hx0: 0.09,
+      hz0: 0.11,
+      hx1: 0.07,
+      hz1: 0.09,
+      hy: 0.09,
+      ry: sx * 0.35,
+      colTop: noseBlack,
+      capBot: false,
+    });
+
+    // 3-sided fore-flipper and cocked hind-flipper paddles
+    addSpineLoft(
+      B,
+      [
+        {
+          p: [sx * 0.92, 0.42, 1.15],
+          ru: 0.14,
+          rv: 0.34,
+          colorFn: () => coatDark,
+        },
+        {
+          p: [sx * 1.62, 0.14, 0.72],
+          ru: 0.09,
+          rv: 0.42,
+          colorFn: () => flipperDark,
+        },
+      ],
+      {sides: 3, capEnd: [sx * 1.92, 0.06, 0.45, flipperDark]}
+    );
+
+    addSpineLoft(
+      B,
+      [
+        {
+          p: [sx * 0.24, 0.56, -2.55],
+          ru: 0.16,
+          rv: 0.24,
+          colorFn: () => coatDark,
+        },
+        {
+          p: [sx * 0.76, 0.98, -3.38],
+          ru: 0.1,
+          rv: 0.46,
+          colorFn: () => flipperDark,
+        },
+      ],
+      {sides: 3, capEnd: [sx * 1.02, 1.18, -3.78, flipperDark]}
+    );
+  }
+
+  return B.build();
+}
+
+// Grazing pasture sheep (131 tris/sheep):
+// scalloped fleece (`wool`) with poll cap & tail, plus tapered blackface muzzle,
+// outspread ears, and slender legs (`dark`).
+export function buildSheepGeos() {
+  const W = makeMeshBuilder(false);
+  const D = makeMeshBuilder(false);
+
+  addSpineLoft(
+    W,
+    [
+      {p: [0, 1.72, -1.28], ru: 0.78, rv: 0.88, scallop: 0.08},
+      {p: [0, 1.84, -0.2], ru: 1.0, rv: 1.16, scallop: 0.1},
+      {p: [0, 1.74, 0.82], ru: 0.94, rv: 1.06, scallop: 0.08},
+      {p: [0, 1.56, 1.34], ru: 0.62, rv: 0.68, scallop: 0.06},
+    ],
+    {
+      sides: 6,
+      twist: Math.PI / 6,
+      capStart: [0, 1.66, -1.58],
+      capEnd: [0, 1.48, 1.52],
+    }
+  );
+
+  // Fluffy woolly poll cap between the ears
+  addSpineLoft(
+    W,
+    [
+      {p: [0, 1.74, 1.38], ru: 0.26, rv: 0.34},
+      {p: [0, 1.68, 1.72], ru: 0.22, rv: 0.28},
+    ],
+    {sides: 4, capEnd: [0, 1.6, 1.88]}
+  );
+
+  // Short woolly docked tail drooping off the rump
+  addSpineLoft(
+    W,
+    [
+      {p: [0, 1.68, -1.42], ru: 0.22, rv: 0.22},
+      {p: [0, 1.34, -1.66], ru: 0.15, rv: 0.15},
+    ],
+    {sides: 3, capEnd: [0, 1.18, -1.74]}
+  );
+
+  // Tapered grazing blackface head (wider at poll -hy, narrow at grazing muzzle +hy)
+  addTaperedBox(D, {
+    cx: 0,
+    cy: 1.32,
+    cz: 1.76,
+    hx0: 0.3,
+    hz0: 0.28,
+    hx1: 0.17,
+    hz1: 0.16,
+    hy: 0.46,
+    rx: 1.08,
+    capBot: false,
+  });
+
+  // Outspread horizontal lamb ears
+  for (const sx of [-1, 1]) {
+    addTaperedBox(D, {
+      cx: sx * 0.45,
+      cy: 1.56,
+      cz: 1.52,
+      hx0: 0.23,
+      hz0: 0.1,
+      hx1: 0.15,
+      hz1: 0.07,
+      hy: 0.06,
+      rz: -sx * 0.24,
+      ry: -sx * 0.22,
+      capBot: false,
+    });
+  }
+
+  // Four slender tapered legs in a natural grazing stance
+  for (const [lx, lz, leanX] of [
+    [0.46, 0.88, 0.08],
+    [-0.46, 0.72, -0.03],
+    [0.48, -0.82, -0.04],
+    [-0.48, -0.92, 0.04],
+  ]) {
+    addTaperedBox(D, {
+      cx: lx,
+      cy: 0.62,
+      cz: lz,
+      hx0: 0.1,
+      hz0: 0.1,
+      hx1: 0.16,
+      hz1: 0.17,
+      hy: 0.62,
+      rx: leanX,
+      capTop: false,
+      capBot: false,
+    });
+  }
+
+  return {
+    wool: W.build(),
+    dark: D.build(),
+  };
+}
+
+// Coastal navigation channel buoy (133 tris/buoy): stepped steel float with
+// rubbing strake and open 4-legged lattice daymark skeleton (`body`), topped by
+// a dark service gallery, marine solar lantern, and radar topmark (`top`).
+export function buildBuoyGeos() {
+  const Body = makeMeshBuilder(false);
+  const Top = makeMeshBuilder(false);
+
+  addVerticalLoft(
+    Body,
+    [
+      {cy: -1.0, rx: 1.24},
+      {cy: 0.1, rx: 1.64},
+      {cy: 0.95, rx: 1.68},
+      {cy: 1.32, rx: 1.24},
+    ],
+    {
+      sides: 8,
+      capTop: [0, 1.44, 0],
+    }
+  );
+
+  // Four angled 3-sided angle-iron lattice corner struts
+  for (const [sx, sz] of [
+    [1, 1],
+    [-1, 1],
+    [-1, -1],
+    [1, -1],
+  ]) {
+    addSpineLoft(
+      Body,
+      [
+        {p: [sx * 0.82, 1.28, sz * 0.82], ru: 0.11, rv: 0.11},
+        {p: [sx * 0.36, 4.38, sz * 0.36], ru: 0.09, rv: 0.09},
+      ],
+      {sides: 3}
+    );
+  }
+
+  // Horizontal mid-tower daymark girt collar
+  addVerticalLoft(
+    Body,
+    [
+      {cy: 2.72, rx: 0.86},
+      {cy: 3.16, rx: 0.78},
+    ],
+    {sides: 4, twist: Math.PI / 4}
+  );
+
+  // Dark marine iron service gallery + solar beacon + radar finial
+  addVerticalLoft(
+    Top,
+    [
+      {cy: 4.32, rx: 0.74},
+      {cy: 4.58, rx: 0.76},
+    ],
+    {sides: 6, capTop: [0, 4.62, 0]}
+  );
+  addVerticalLoft(
+    Top,
+    [
+      {cy: 4.58, rx: 0.36},
+      {cy: 5.32, rx: 0.34},
+    ],
+    {sides: 5, capTop: [0, 5.46, 0]}
+  );
+  addVerticalLoft(
+    Top,
+    [
+      {cy: 5.44, rx: 0.12},
+      {cy: 5.72, rx: 0.32},
+    ],
+    {sides: 4, capTop: [0, 5.96, 0]}
+  );
+
+  return {
+    body: Body.build(),
+    top: Top.build(),
+  };
+}
+
+// Stone-ring campfire (207 tris total across 3x fireLogGeo + 1x fireCoreGeo):
+// 6 river-cobble stones, glowing charcoal-and-ember bed, 3 split bark-and-pine
+// firewood logs with charred glowing tips, and 5 multi-tone flame spires.
+export function buildCampfireGeos() {
+  const L = makeMeshBuilder(true);
+  const F = makeMeshBuilder(true);
+
+  const ashOuter = cRgb(0x262220);
+  const coalMid = cRgb(0x8c2b14);
+  const coalHot = cRgb(0xf26419);
+  const barkDark = cRgb(0x4a3425);
+  const splitWood = cRgb(0xd8b27c);
+  const charBlack = cRgb(0x1f1b1a);
+  const emberTip = cRgb(0xe85318);
+
+  // 120-degree wedge of charcoal ash rim rising to glowing coals at the center
+  const a0 = 0;
+  const a1 = (Math.PI * 2) / 3;
+  const aMid = Math.PI / 3;
+  const rAsh = 2.75;
+  const rCoal = 1.45;
+  const pCenter = [0, 0.34, 0];
+  const c0 = [rCoal * Math.sin(a0), 0.24, rCoal * Math.cos(a0)];
+  const cM = [rCoal * Math.sin(aMid), 0.24, rCoal * Math.cos(aMid)];
+  const c1 = [rCoal * Math.sin(a1), 0.24, rCoal * Math.cos(a1)];
+  const o0 = [rAsh * Math.sin(a0), -0.08, rAsh * Math.cos(a0)];
+  const oM = [rAsh * Math.sin(aMid), -0.08, rAsh * Math.cos(aMid)];
+  const o1 = [rAsh * Math.sin(a1), -0.08, rAsh * Math.cos(a1)];
+  L.tri(c0, cM, pCenter, coalMid, coalMid, coalHot);
+  L.tri(cM, c1, pCenter, coalMid, coalMid, coalHot);
+  L.quad(o0, oM, cM, c0, ashOuter, ashOuter, coalMid, coalMid);
+  L.quad(oM, o1, c1, cM, ashOuter, ashOuter, coalMid, coalMid);
+
+  // 2 faceted river-cobble stones per 120-deg arc (6 stones total, no underground bottom caps)
+  const stoneSpecs = [
+    [0.42, 2.88, 0.86, 0.48, 0.64, 0x847a6c, 0x665e53],
+    [1.48, 2.9, 0.82, 0.44, 0.6, 0x737670, 0x585b56],
+  ];
+  for (const [ang, rad, w, h, d, topHex, sideHex] of stoneSpecs) {
+    const sx = rad * Math.sin(ang);
+    const sz = rad * Math.cos(ang);
+    addVerticalLoft(
+      L,
+      [
+        {
+          cx: sx,
+          cy: -0.22,
+          cz: sz,
+          rx: w * 1.05,
+          rz: d * 1.05,
+          colorFn: () => ashOuter,
+        },
+        {
+          cx: sx,
+          cy: h * 0.68,
+          cz: sz,
+          rx: w * 0.86,
+          rz: d * 0.86,
+          colorFn: (a) =>
+            Math.cos(a - ang) < -0.15 ? cRgb(0x3a332f) : cRgb(sideHex),
+        },
+      ],
+      {
+        sides: 4,
+        twist: ang + 0.35,
+        capTop: [sx, h, sz, cRgb(topHex)],
+      }
+    );
+  }
+
+  // Split 4-sided firewood log leaning across the stones into the central coals
+  addSpineLoft(
+    L,
+    [
+      {
+        p: [2.75, 0.36, 0.52],
+        ru: 0.44,
+        rv: 0.48,
+        colorFn: (a) => (Math.cos(a) > 0.2 ? splitWood : barkDark),
+      },
+      {
+        p: [1.35, 0.96, 0.16],
+        ru: 0.41,
+        rv: 0.44,
+        colorFn: (a) => (Math.cos(a) > 0.2 ? cRgb(0xc29963) : barkDark),
+      },
+      {
+        p: [0.38, 1.52, -0.14],
+        ru: 0.34,
+        rv: 0.36,
+        colorFn: () => charBlack,
+      },
+    ],
+    {
+      sides: 4,
+      capStart: [2.98, 0.28, 0.58, splitWood],
+      capEnd: [0.14, 1.66, -0.22, emberTip],
+    }
+  );
+
+  // 5 lean 3-sided flickering flame tongues (no hidden bottom caps)
+  const flameWhite = cRgb(0xfff5ad);
+  const flameGold = cRgb(0xffad24);
+  const flameOrange = cRgb(0xff4f0a);
+  const flameCrimson = cRgb(0xd92b04);
+
+  const tongues = [
+    {
+      x: 0,
+      y0: -0.25,
+      z: 0,
+      r: 0.92,
+      h: 3.15,
+      leanX: 0.08,
+      leanZ: -0.06,
+      cBase: flameWhite,
+      cMid: flameGold,
+      cTip: flameOrange,
+    },
+    {
+      x: -0.58,
+      y0: -0.2,
+      z: 0.42,
+      r: 0.72,
+      h: 2.35,
+      leanX: 0.18,
+      leanZ: -0.12,
+      cBase: flameGold,
+      cMid: flameOrange,
+      cTip: flameCrimson,
+    },
+    {
+      x: 0.62,
+      y0: -0.2,
+      z: 0.36,
+      r: 0.68,
+      h: 2.2,
+      leanX: -0.2,
+      leanZ: -0.1,
+      cBase: flameGold,
+      cMid: flameOrange,
+      cTip: flameCrimson,
+    },
+    {
+      x: 0.04,
+      y0: -0.2,
+      z: -0.64,
+      r: 0.7,
+      h: 2.28,
+      leanX: -0.06,
+      leanZ: 0.22,
+      cBase: flameGold,
+      cMid: flameOrange,
+      cTip: flameCrimson,
+    },
+    {
+      x: -0.36,
+      y0: -0.15,
+      z: -0.34,
+      r: 0.54,
+      h: 1.75,
+      leanX: 0.14,
+      leanZ: 0.12,
+      cBase: flameWhite,
+      cMid: flameGold,
+      cTip: flameOrange,
+    },
+  ];
+  for (const t of tongues) {
+    addVerticalLoft(
+      F,
+      [
+        {cx: t.x, cy: t.y0, cz: t.z, rx: t.r, colorFn: () => t.cBase},
+        {
+          cx: t.x + t.leanX * 0.5,
+          cy: t.y0 + t.h * 0.48,
+          cz: t.z + t.leanZ * 0.5,
+          rx: t.r * 0.58,
+          colorFn: () => t.cMid,
+        },
+      ],
+      {
+        sides: 3,
+        twist: t.x * 1.9 + t.z,
+        capTop: [t.x + t.leanX, t.y0 + t.h, t.z + t.leanZ, t.cTip],
+      }
+    );
+  }
+
+  return {
+    fireLogGeo: L.build(),
+    fireCoreGeo: F.build(),
+  };
+}

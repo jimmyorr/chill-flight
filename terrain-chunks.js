@@ -63,6 +63,7 @@ import {
   bushBaseMat,
   bushGeo,
   cactusGeo,
+  cactusNearGeo,
   cactusShadowGeo,
   cactusFarGeo,
   cactusMat,
@@ -108,6 +109,7 @@ import {
   fireCoreGeo,
   fireGlowMat,
   fireLogGeo,
+  fireLogMat,
   fireMat,
   fruitTreeGeos,
   getElevation,
@@ -1214,7 +1216,7 @@ const _NO_BOAT = new THREE.Matrix4().makeScale(0, 0, 0);
 const debrisType = (type, geo, mat) => debrisTypes.set(type, {geo, mat});
 debrisType('pierDeck', pierDeckGeo, pierDeckMat);
 debrisType('pierDeckL', pierDeckLGeo, pierDeckMat);
-debrisType('fireLog', fireLogGeo, woodMat);
+debrisType('fireLog', fireLogGeo, fireLogMat);
 debrisType('fireCore', fireCoreGeo, fireMat);
 debrisType('fireSmoke', smokeGeo, smokeMat);
 debrisType('fireGlow', streetlightDecalGeo, fireGlowMat);
@@ -1400,6 +1402,7 @@ globalInstancer.registerType('snowRock', rockGeo, snowRockMat);
 globalInstancer.registerType('desertRock', rockGeo, desertRockMat);
 globalInstancer.registerType('granite', graniteGeo, graniteMat);
 globalInstancer.registerType('cactus', cactusGeo, cactusMat);
+globalInstancer.setNearGeometry('cactus', cactusNearGeo);
 globalInstancer.registerType('hayBale', hayBaleGeo, hayBaleMat);
 globalInstancer.registerType('fallenLog', fallenLogGeo, fallenLogMat);
 globalInstancer.registerType(
@@ -1548,6 +1551,8 @@ globalInstancer.registerType(
   30000,
   true
 );
+globalInstancer.setNearGeometry('joshuaTrunk', joshuaGeos.fullTrunk);
+globalInstancer.setNearGeometry('joshuaLeaves', joshuaGeos.fullLeaves);
 globalInstancer.registerType('snowman', snowmanGeo, snowmanMat);
 globalInstancer.registerType('iceberg', icebergMainGeo, icebergMat);
 globalInstancer.registerType('iceFloe', iceFloeMainGeo, icebergMat);
@@ -1586,7 +1591,12 @@ globalInstancer.registerType(
   30000,
   true
 );
-globalInstancer.registerType('houseChimney', houseChimneyGeo, houseChimneyMat);
+globalInstancer.registerType(
+  'houseChimney',
+  fitToBounds(new THREE.BoxGeometry(2, 2, 2), houseChimneyGeo),
+  houseChimneyMat
+);
+globalInstancer.setNearGeometry('houseChimney', houseChimneyGeo);
 globalInstancer.registerType(
   'twoStoryBody',
   twoStoryBodyGeo,
@@ -1610,25 +1620,34 @@ globalInstancer.registerType(
 );
 globalInstancer.registerType(
   'twoStoryChimney',
-  twoStoryChimneyGeo,
+  fitToBounds(new THREE.BoxGeometry(2, 2, 2), twoStoryChimneyGeo),
   houseChimneyMat
 );
-globalInstancer.registerType(
-  'houseDoor',
-  houseDoorGeo,
-  houseDoorMat,
-  30000,
-  false,
-  false
-);
+globalInstancer.setNearGeometry('twoStoryChimney', twoStoryChimneyGeo);
+{
+  const midDoorGeo = fillVertexColor(
+    new THREE.PlaneGeometry(1.5, 3.8).translate(0, 0.05, 0.08),
+    ...geometryAverageColor(houseDoorGeo)
+  );
+  globalInstancer.registerType(
+    'houseDoor',
+    midDoorGeo,
+    houseDoorMat,
+    30000,
+    false,
+    false
+  );
+  globalInstancer.setNearGeometry('houseDoor', houseDoorGeo);
+}
 globalInstancer.registerType(
   'houseWindow',
-  houseWindowGeo,
+  farHouseWindowGeo,
   houseWindowMat,
   30000,
   true,
   false
 );
+globalInstancer.setNearGeometry('houseWindow', houseWindowGeo);
 
 for (const [shadowType, unitGeo] of [
   ['shadowBox', new THREE.BoxGeometry(2, 2, 2)],
@@ -4184,7 +4203,7 @@ function generateChunk(chunkX, chunkZ, workerData = null) {
   if (campfirePositions.length > 0) {
     const logInst = getInstancedMesh(
       fireLogGeo,
-      woodMat,
+      fireLogMat,
       campfirePositions.length * 3
     );
     const coreInst = getInstancedMesh(
