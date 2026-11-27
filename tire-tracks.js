@@ -60,7 +60,7 @@ const WHEELS = {
   seaplane: {width: 1.6, half: 5, back: 0},
   // Main wheels where the models put them (biplane.js, twin.js, jet.js;
   // negative back is ahead of the middle)
-  twin: {width: 0.7, half: 5.8, back: -1.4},
+  twin: {width: 0.78, half: 4.65, back: -1.35},
   jet: {width: 0.5, half: 1.85, back: 0.8},
   biplane: {width: 0.6, half: 3.8, back: -4.6},
 };

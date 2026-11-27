@@ -84,7 +84,7 @@ export function speedUnit(planeType = 'seaplane', imperial = IMPERIAL) {
 
 // Each plane's speed and handling, in world units/s (displayed via
 // displaySpeed; README, "Planes"):
-// - topKts: the throttle's top speed (units/s; 140/190/250/550 kts on HUD)
+// - topKts: the throttle's top speed (units/s; 140/190/240/550 kts on HUD)
 // - stallKts: below this it starts to fall out of the sky, fully 20 units/s
 //   lower; levelKts: at and above this it holds its height, sinking more the
 //   slower it flies below it
@@ -130,18 +130,18 @@ export const PLANE_HANDLING = {
     loopAccel: 4.8,
   },
   twin: {
-    topKts: 500,
-    stallKts: 65,
-    levelKts: 115,
-    accelKts: 60,
-    decelKts: 20,
-    diveGain: 0.3,
-    agility: 0.75,
-    rollRate: 2.25,
-    loopRate: 1.55,
-    loopSwing: 0.3,
-    loopDip: 0.28,
-    loopAccel: 3.2,
+    topKts: 480,
+    stallKts: 52,
+    levelKts: 95,
+    accelKts: 70,
+    decelKts: 45,
+    diveGain: 0.35,
+    agility: 1.05,
+    rollRate: 2.95,
+    loopRate: 2.05,
+    loopSwing: 0.36,
+    loopDip: 0.21,
+    loopAccel: 5.0,
   },
   jet: {
     topKts: 1100,

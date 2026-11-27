@@ -969,19 +969,19 @@ export function updateSfx() {
   }
 
   if (planeType === 'twin') {
-    // Twin engine with acoustic beat frequency between props
-    const f = 40 + speed * 26 + throttleFactor * 16;
-    osc1.frequency.setTargetAtTime(f - 1.4, audioCtx.currentTime, 0.05);
-    osc2.frequency.setTargetAtTime(f + 1.8, audioCtx.currentTime, 0.05);
+    // Twin turboprop hum with subtle synchrophaser beat between 4-blade props
+    const f = 48 + speed * 28 + throttleFactor * 18;
+    osc1.frequency.setTargetAtTime(f - 1.1, audioCtx.currentTime, 0.05);
+    osc2.frequency.setTargetAtTime(f + 1.3, audioCtx.currentTime, 0.05);
     oscSub.frequency.setTargetAtTime(f * 0.5, audioCtx.currentTime, 0.05);
-    lfo.frequency.setTargetAtTime(7 + speed * 6, audioCtx.currentTime, 0.05);
+    lfo.frequency.setTargetAtTime(10 + speed * 7, audioCtx.currentTime, 0.05);
 
-    const cutoff = 150 + speed * 160 + throttleFactor * 60;
+    const cutoff = 185 + speed * 185 + throttleFactor * 75;
     engineFilter.frequency.setTargetAtTime(cutoff, audioCtx.currentTime, 0.05);
 
-    raspFilter.frequency.setTargetAtTime(f * 6, audioCtx.currentTime, 0.05);
+    raspFilter.frequency.setTargetAtTime(f * 6.2, audioCtx.currentTime, 0.05);
     engineGain.gain.setTargetAtTime(
-      engineLoudness * 1.05,
+      engineLoudness * 1.02,
       audioCtx.currentTime,
       0.05
     );

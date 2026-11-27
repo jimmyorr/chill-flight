@@ -125,10 +125,10 @@ check(
 // HUD speed readout mapping (KTS for planes, KM/H for buggy) and 1 unit = 1 m
 check('world units to meters is 1:1', UNITS_TO_M === 1);
 check(
-  'plane top speeds map to realistic KTS (140 / 190 / 250 / 550)',
+  'plane top speeds map to realistic KTS (140 / 190 / 240 / 550)',
   displaySpeed(PLANE_HANDLING.biplane.topKts, 'biplane') === 140 &&
     displaySpeed(PLANE_HANDLING.seaplane.topKts, 'seaplane') === 190 &&
-    displaySpeed(PLANE_HANDLING.twin.topKts, 'twin') === 250 &&
+    displaySpeed(PLANE_HANDLING.twin.topKts, 'twin') === 240 &&
     displaySpeed(PLANE_HANDLING.jet.topKts, 'jet') === 550 &&
     speedUnit('seaplane') === 'KTS'
 );

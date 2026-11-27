@@ -930,8 +930,11 @@
           `;
 
           for (const [jobIdx, job] of activePerson.jobs.entries()) {
-            const destList = job.to.map((t) => escapeHtml(t)).join(', ');
-            const sampleDest = job.to[0] || 'Airport';
+            const toList = job.to || [];
+            const destList = toList.length
+              ? toList.map((t) => escapeHtml(t)).join(', ')
+              : `${escapeHtml(activePerson.airport)} (nearby crate)`;
+            const sampleDest = toList[0] || activePerson.airport || 'Airport';
 
             html += `
               <div class="job-card">
@@ -943,7 +946,7 @@
                   </div>
                 </div>
                 <div class="job-meta-row">
-                  <span>Destinations (${job.to.length}): <strong>${destList}</strong></span>
+                  <span>Destinations (${toList.length || 1}): <strong>${destList}</strong></span>
                 </div>
 
                 <h4 style="margin: 14px 0 8px; font-size: 14px; font-weight: 600;">Offer dialogues</h4>
@@ -1030,7 +1033,8 @@
           const jobIdx = parseInt(btn.dataset.job, 10);
           const job = activePerson.jobs[jobIdx];
           const offer = job.offer[index];
-          const sampleAirport = job.to[0] || 'Airport';
+          const sampleAirport =
+            job.to?.[0] || activePerson.airport || 'Airport';
           const resolvedLines = offer.map((l) => resolveLine(l, sampleAirport));
 
           playDialogSequence(resolvedLines, true, (accepted) => {

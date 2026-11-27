@@ -495,7 +495,7 @@ export function updateFlightPhysics(delta, nowTime) {
 
   if (
     (isWater || onLandableGround) &&
-    planeGroup.position.y <= restingHeight + 0.1
+    (planeGroup.position.y <= restingHeight + 0.1 || followingGround)
   ) {
     if (isWater && !state.isFreeCamera) {
       Achievements.unlock('splash_down');

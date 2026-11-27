@@ -293,7 +293,7 @@ function uploadSpawned() {
 // How far apart the left and right wheels or pontoons are (half, units)
 const GEAR_HALF_TRACK = {
   seaplane: 5,
-  twin: 5.8,
+  twin: 4.65,
   jet: 1.85,
   biplane: 3.8,
   buggy: 2.6,
@@ -320,7 +320,7 @@ const SMOKE_LIFE = 18;
 const WINGTIPS = {
   biplane: [14.5, 2.9, -3],
   seaplane: [16, 2.8, -2.5],
-  twin: [16.3, -0.2, 1],
+  twin: [15.8, 0.48, -0.35],
   jet: [10.4, 0.18, 5.8],
 };
 const VAPOUR_SPACING = 1.5;
@@ -335,8 +335,8 @@ const EXHAUSTS = {
     [1.6, -0.8, -9.5],
   ],
   twin: [
-    [-5.8, -0.6, -1.5],
-    [5.8, -0.6, -1.5],
+    [-4.65, -0.56, -4.55],
+    [4.65, -0.56, -4.55],
   ],
   jet: [[0, 0.02, 12.6]],
   buggy: [[-1.6, 1.15, 7.0]],
