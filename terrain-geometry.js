@@ -604,15 +604,15 @@ terrainMaterial.onBeforeCompile = (shader) => {
           // fades in from about 1 m deep so the beach edge stays calm
           float shallow = smoothstep(0.8, 3.0, depth) * (1.0 - smoothstep(6.0, 14.0, depth));
           if (shallow > 0.0) {
-            vec2 p = vWorldPosition.xz / 9.0;
+            vec2 p = vWorldPosition.xz / 13.0;
             float t = uFxTime * 0.35;
             float n1 = terrainNoise(p + vec2(t, 0.6 * t));
             float n2 = terrainNoise(p * 1.37 + vec2(-0.7 * t, 0.9 * t) + 4.1);
             // soft-edged lines, a bit dimmer right under the camera so they
             // don't read as drawn-on strokes up close
-            float caus = smoothstep(0.14, 0.0, abs(n1 - n2));
-            caus *= caus * mix(0.55, 1.0, smoothstep(15.0, 90.0, fxDist));
-            totalEmissiveRadiance += vec3(0.75, 1.0, 0.95) * caus * shallow * fxSun * uCaustics * 0.32 * (1.0 - smoothstep(700.0, 2000.0, fxDist));
+            float caus = smoothstep(0.1, 0.0, abs(n1 - n2));
+            caus *= caus * mix(0.55, 1.0, smoothstep(15.0, 300.0, fxDist));
+            totalEmissiveRadiance += vec3(0.75, 1.0, 0.95) * caus * shallow * fxSun * uCaustics * 0.14 * (1.0 - smoothstep(700.0, 2000.0, fxDist));
           }
         }
       }`
