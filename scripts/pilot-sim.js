@@ -98,6 +98,7 @@ function immelmannExitYaw(pitch, yaw) {
 
 export function simulatePilotTrajectory({
   planeType = 'seaplane',
+  planeSwaps = null,
   x = 0,
   y = 400,
   z = 0,
@@ -110,9 +111,12 @@ export function simulatePilotTrajectory({
   cloudHeight = DEFAULT_CLOUD_HEIGHT,
   weightedRoll = true,
 }) {
-  const handling = PLANE_HANDLING[planeType] || PLANE_HANDLING.seaplane;
-  const agility = handling.agility || 1;
-  const manualRollSpeed = handling.rollRate * BARREL_ROLL_SPEED;
+  const swapLookup = Array.isArray(planeSwaps)
+    ? new Map(planeSwaps.map(([f, p]) => [f, p]))
+    : null;
+  let handling = PLANE_HANDLING[planeType] || PLANE_HANDLING.seaplane;
+  let agility = handling.agility || 1;
+  let manualRollSpeed = handling.rollRate * BARREL_ROLL_SPEED;
   const dt = 1 / fps;
   const prerollSteps = Math.round(prerollSec * fps);
 
@@ -177,6 +181,12 @@ export function simulatePilotTrajectory({
   const totalSteps = prerollSteps + endFrame;
   for (let stepIdx = 1; stepIdx <= totalSteps; stepIdx++) {
     const frame = stepIdx - prerollSteps;
+    if (frame > 0 && swapLookup && swapLookup.has(frame - 1)) {
+      const nextP = swapLookup.get(frame - 1);
+      handling = PLANE_HANDLING[nextP] || handling;
+      agility = handling.agility || 1;
+      manualRollSpeed = handling.rollRate * BARREL_ROLL_SPEED;
+    }
     const t = frame / fps;
     const pilot =
       frame <= 0

@@ -696,9 +696,15 @@ export const ARCHETYPE_IDS = [
   'agility-loop',
 ];
 
-export function buildDailyShortSpec(seed, dayIndex, planSegment) {
+export function buildDailyShortSpec(
+  seed,
+  dayIndex,
+  planSegment,
+  forcedArchetype = null
+) {
   const scout = scoutSeedLandmarks(seed);
-  const archetype = ARCHETYPE_IDS[dayIndex % ARCHETYPE_IDS.length];
+  const archetype =
+    forcedArchetype || ARCHETYPE_IDS[dayIndex % ARCHETYPE_IDS.length];
   const cycle = Math.floor(dayIndex / ARCHETYPE_IDS.length);
   const track = pickTrack(dayIndex);
   const liv = (offset) => LIVERIES[(dayIndex * 3 + offset) % LIVERIES.length];
@@ -707,10 +713,12 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
 
   if (archetype === 'front-evolution') {
     const speedMult = 1.24;
+    // Biplane always anchors Segment 1 (3.0s..6.0s) so its snappy rollRate
+    // completes a full player barrel roll + settle cleanly inside the 3s window.
     const planeOrder =
       cycle % 2 === 0
-        ? ['biplane', 'seaplane', 'twin', 'jet']
-        : ['seaplane', 'biplane', 'jet', 'twin'];
+        ? ['seaplane', 'biplane', 'twin', 'jet']
+        : ['twin', 'biplane', 'seaplane', 'jet'];
     const spotSets = [
       ['falls', 'canyon', 'pyramids', 'arctic-arch'],
       ['falls', 'sea-arch', 'volcano', 'basalt-arch'],
@@ -734,8 +742,7 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
       banner: `Daily ${seed} [Front-Hero 4-Plane Evolution]`,
       seed,
       speedMult,
-      direct: true,
-      camFrame: 'yaw-lock',
+      camFrame: 'yaw',
       cam:
         `plane=${planeOrder[0]}&livery=${liv(0)}&smoke=1&speed=${speedMult}` +
         '&camOffset=-14,9,-68&camLook=3,3,22&fov=58',
@@ -746,21 +753,21 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
         [9.0, 10, 10, -68, -2, 3, 22, 58],
         [12.0, -14, 9, -68, 3, 3, 22, 58],
       ],
-      moves: [
-        [0.0, 0, 0, 0],
-        [1.2, 22, 2, -4],
-        [2.3, -14, -2, -8],
-        [3.0, -54, 2, -8],
-        [4.5, -245, -2, -10],
-        [5.6, -360, 1, -12],
-        [6.3, -384, 2, -14],
-        [7.6, -334, -2, -12],
-        [8.6, -372, 2, -14],
-        [9.3, -348, -1, -14],
-        [10.5, -366, 0, -14],
-        [11.4, -360, 0, -14],
-        [12.0, -360, 0, -14],
-      ],
+      pilotMoves: {
+        stick: [
+          [0.0, 0.0, 0.0, speedMult],
+          [1.3, 0.34, 0.05, speedMult],
+          [2.7, 0.0, 0.02, speedMult],
+          [6.1, 0.0, 0.02, speedMult],
+          [7.4, -0.36, 0.05, speedMult],
+          [8.75, 0.0, 0.02, speedMult],
+          [9.2, 0.0, 0.06, 1.65],
+          [10.5, 0.32, 0.06, 1.7],
+          [11.8, 0.0, 0.0, 1.7],
+          [12.0, 0.0, 0.0, 1.7],
+        ],
+        stunts: [[3.1, 4.95, 'roll-left']],
+      },
       facing: 'front',
       slots: spots.map((spot, i) => ({
         spot,
@@ -776,7 +783,7 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
   } else if (archetype === 'dolly-zoom') {
     const planes = ['twin', 'seaplane', 'jet'];
     const plane = planes[cycle % planes.length];
-    const speedMult = plane === 'jet' ? 1.42 : 1.2;
+    const speedMult = plane === 'jet' ? 1.48 : 1.22;
     const spotSets = [
       ['volcano', 'gorge-arch', 'pyramids', 'basalt-arch'],
       ['swamp-oak', 'sea-arch', 'volcano', 'lighthouse'],
@@ -800,8 +807,7 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
       banner: `Daily ${seed} [Vertigo Dolly-Zoom (${plane})]`,
       seed,
       speedMult,
-      direct: true,
-      camFrame: 'yaw-lock',
+      camFrame: 'yaw',
       cam:
         `plane=${plane}&livery=${liv(1)}&smoke=1&speed=${speedMult}` +
         '&camOffset=10,7,54&camLook=-2,3,-76&fov=66',
@@ -816,18 +822,19 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
         [11.4, 11, 16, 102, -2, -8, -82, 42],
         [12.0, 10, 7, 54, -2, 3, -76, 66],
       ],
-      moves: [
-        [0.0, 0, 0, 0],
-        [1.5, -18, 2, -4],
-        [3.0, 22, -2, -8],
-        [4.8, -24, 2, -10],
-        [6.0, 18, -1, -12],
-        [7.8, -22, 2, -12],
-        [9.0, 20, -2, -12],
-        [10.8, -10, 1, -12],
-        [11.5, 0, 0, -12],
-        [12.0, 0, 0, -12],
-      ],
+      pilotMoves: {
+        stick: [
+          [0.0, 0.0, 0.0, speedMult],
+          [1.5, -0.3, 0.05, speedMult],
+          [3.0, 0.0, 0.02, speedMult],
+          [4.5, 0.32, 0.05, speedMult],
+          [6.0, 0.0, 0.02, speedMult],
+          [7.5, -0.3, 0.05, speedMult],
+          [9.0, 0.0, 0.02, speedMult],
+          [10.5, 0.26, 0.04, speedMult],
+          [12.0, 0.0, 0.0, speedMult],
+        ],
+      },
       facing: 'rear',
       slots: spots.map((spot, i) => ({
         spot,
@@ -841,7 +848,7 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
   } else if (archetype === 'wingtip-inverted') {
     const planes = ['biplane', 'jet', 'seaplane'];
     const plane = planes[cycle % planes.length];
-    const speedMult = plane === 'jet' ? 1.4 : 1.22;
+    const speedMult = plane === 'jet' ? 1.45 : 1.22;
     const spotSets = [
       ['canyon', 'sea-arch', 'dragon', 'lighthouse'],
       ['gorge-arch', 'arctic-arch', 'swamp-oak', 'basalt-arch'],
@@ -877,22 +884,18 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
         [5.8, 0, 8.5, 32, 0, 0.5, -36, 66],
         [7.2, -21, 6.2, 16, 2, 0.5, -24, 66],
         [9.2, -21, 6.2, 16, 2, 0.5, -24, 66],
-        [10.25, 0, 10.5, 24, 0, 0.5, -30, 66],
-        [11.3, 21, 6.2, 16, -2, 0.5, -24, 66],
+        [10.8, 21, 6.2, 16, -2, 0.5, -24, 66],
         [12.0, 21, 6.2, 16, -2, 0.5, -24, 66],
       ],
+      // Clean 6-knot monotone cubic spline: one unbroken roll onto its back (0 -> 180),
+      // steady inverted pass through the arch, and one unbroken roll upright (180 -> 360).
       moves: [
         [0.0, 0, 0, 0],
-        [1.35, 76, -2, -6],
-        [2.5, 110, 2, -10],
-        [3.6, 180, 0, -10],
-        [5.4, 180, 0, -10],
-        [6.8, 338, -2, -8],
-        [8.3, 342, 2, -4],
-        [9.0, 340, 0, -4],
-        [10.3, 372, 0, -4],
-        [11.4, 360, 0, -4],
-        [12.0, 360, 0, -4],
+        [3.1, 180, 2, -6],
+        [5.7, 180, 0, -10],
+        [8.5, 360, 2, -14],
+        [10.6, 344, 0, -12],
+        [12.0, 360, 0, -12],
       ],
       facing: 'rear',
       slots: spots.map((spot, i) => ({
@@ -907,7 +910,7 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
   } else if (archetype === 'orbit-2ship') {
     const planes = ['jet', 'biplane', 'twin'];
     const plane = planes[cycle % planes.length];
-    const speedMult = plane === 'jet' ? 1.42 : 1.2;
+    const speedMult = plane === 'jet' ? 1.48 : 1.22;
     const spotSets = [
       ['portal', 'falls', 'sea-arch', 'xmas'],
       ['portal', 'volcano', 'gorge-arch', 'pyramids'],
@@ -931,8 +934,7 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
       banner: `Daily ${seed} [2-Ship 360 Orbit + Wormhole (${plane})]`,
       seed,
       speedMult,
-      direct: true,
-      camFrame: 'yaw-lock',
+      camFrame: 'yaw',
       cam:
         `plane=${plane}&livery=${liv(0)}&smoke=1&speed=${speedMult}` +
         '&camOffset=0,18,86&camLook=0,-1,11&fov=54',
@@ -950,28 +952,24 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
           offsetMoves: [
             [0.0, -11, 4, 24, 0, 0, 0],
             [1.6, -10, 5, 23, 2, 0.5, 0],
-            [3.45, -15, 1, 27, 26, 2, -2],
-            [5.1, -8, -3, 24, 14, 1, -3],
-            [6.55, 12, -4, 23, -24, -1, 2],
-            [8.1, 15, 3, 26, -18, 2, 2],
-            [9.5, 5, 5, 25, 24, 2, -2],
-            [11.3, -11, 4, 24, 0, 0, 0],
+            [3.6, -15, 1, 27, 22, 2, -2],
+            [6.4, 12, -3, 24, -22, -1, 2],
+            [9.2, 6, 5, 25, 18, 2, -2],
             [12.0, -11, 4, 24, 0, 0, 0],
           ],
         },
       ],
-      moves: [
-        [0.0, 0, 0, 0],
-        [1.4, 0, 0, 0],
-        [3.0, 24, 1, -6],
-        [4.6, 18, -1, -10],
-        [6.0, -20, 0, -8],
-        [7.6, -24, 1, -6],
-        [9.0, 22, -1, -8],
-        [10.6, -12, 0, -10],
-        [11.5, 0, 0, -10],
-        [12.0, 0, 0, -10],
-      ],
+      pilotMoves: {
+        stick: [
+          [0.0, 0.0, 0.0, speedMult],
+          [1.5, 0.0, 0.0, speedMult],
+          [3.5, -0.34, 0.05, speedMult],
+          [6.2, 0.36, 0.04, speedMult],
+          [9.0, -0.32, 0.05, speedMult],
+          [11.4, 0.0, 0.0, speedMult],
+          [12.0, 0.0, 0.0, speedMult],
+        ],
+      },
       facing: 'rear',
       slots: spots.map((spot, i) => ({
         spot,
@@ -985,7 +983,7 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
   } else if (archetype === 'ghibli-anime') {
     const planes = ['biplane', 'seaplane', 'twin'];
     const plane = planes[cycle % planes.length];
-    const speedMult = 1.18;
+    const speedMult = 1.2;
     const spotSets = [
       ['falls', 'falls', 'pyramids', 'lighthouse'],
       ['volcano', 'volcano', 'sea-arch', 'basalt-arch'],
@@ -1010,20 +1008,20 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
       banner: `Daily ${seed} [Ghibli Side-Profile Anime Swap (${plane})]`,
       seed,
       speedMult,
-      direct: true,
-      camFrame: 'yaw-lock',
+      camFrame: 'yaw',
       cam:
         `plane=${plane}&livery=${liv(3)}&smoke=1&speed=${speedMult}` +
         '&camOffset=80,-8,6&camLook=0,2,-4&fov=50',
-      moves: [
-        [0.0, 0, 0, 0],
-        [2.0, -8, 4, 0],
-        [4.5, 10, -4, 0],
-        [7.0, -10, 4, 0],
-        [9.5, 8, -4, 0],
-        [11.3, 0, 0, 0],
-        [12.0, 0, 0, 0],
-      ],
+      pilotMoves: {
+        stick: [
+          [0.0, 0.0, 0.02, speedMult],
+          [2.4, 0.12, 0.08, speedMult],
+          [5.2, -0.12, -0.05, speedMult],
+          [8.0, 0.12, 0.07, speedMult],
+          [10.5, -0.08, -0.03, speedMult],
+          [12.0, 0.0, 0.0, speedMult],
+        ],
+      },
       facing: 'side-left',
       slots: spots.map((spot, i) => ({
         spot,
@@ -1038,7 +1036,9 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
   } else if (archetype === 'aerobatic-loop') {
     const planes = ['biplane', 'jet', 'seaplane'];
     const plane = planes[cycle % planes.length];
-    const speedMult = plane === 'jet' ? 1.38 : 1.18;
+    const speedMult = plane === 'jet' ? 1.85 : 1.24;
+    const loopEnd = plane === 'seaplane' ? 2.05 : 1.85;
+    const rollEnd = plane === 'seaplane' ? 8.65 : plane === 'jet' ? 8.4 : 8.1;
     const spotSets = [
       ['falls', 'sea-arch', 'dragon', 'pyramids'],
       ['swamp-oak', 'canyon', 'volcano', 'basalt-arch'],
@@ -1056,33 +1056,34 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
       'Loop, climbing roll, and dive ✈️',
       'One aerobatic loop through 4 skies ✈️',
     ];
-    // Climbing roll (3.8s -> 7.4s) gains ~340u, so segments 1-3 use altBoost
-    // to keep back-solved approach corridors well clear of terrain/water.
-    const altBoosts = [0, 260, 420, 280];
+    const altBoosts = [90, 280, 420, 320];
     spec = {
       id: `daily-${seed}`,
       archetype,
       banner: `Daily ${seed} [Aerobatic Vertical Loop (${plane})]`,
       seed,
       speedMult,
-      loopDip: true,
-      camFrame: 'yaw-lock',
+      camFrame: 'yaw',
       cam:
         `plane=${plane}&livery=${liv(5)}&smoke=1&speed=${speedMult}` +
-        '&camOffset=12,8,62&camLook=-2,1,-64&fov=64',
-      moves: [
-        [0.0, 0, 0, 0],
-        [0.55, 0, 0, 0],
-        [3.65, 0, null, 0],
-        [3.8, null, 405, 0],
-        [6.5, 360, 405, 0],
-        [7.4, 360, 360, 0],
-        [7.8, 360, 360, 0],
-        [9.1, 360, 316, 0],
-        [9.6, 360, 316, 0],
-        [11.15, 360, 360, 0],
-        [12.0, 360, 360, 0],
-      ],
+        '&camOffset=34,12,56&camLook=-4,2,-58&fov=64',
+      pilotMoves: {
+        stick: [
+          [0.0, 0.0, 0.0, speedMult],
+          [3.6, 0.0, 0.0, speedMult],
+          [4.6, -0.45, 0.08, speedMult],
+          [5.9, 0.0, 0.02, speedMult],
+          [9.0, 0.36, -0.06, speedMult],
+          [11.2, 0.0, 0.0, speedMult],
+          [12.0, 0.0, 0.0, speedMult],
+        ],
+        stunts: [
+          [0.25, loopEnd, 'loop'],
+          [3.8, 5.5, 'climb'],
+          [6.1, rollEnd, 'roll-right'],
+          [9.2, 10.6, 'dive'],
+        ],
+      },
       facing: 'rear',
       slots: spots.map((spot, i) => ({
         spot,
@@ -1097,7 +1098,9 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
   } else if (archetype === 'weather-moods') {
     const planes = ['seaplane', 'twin', 'biplane'];
     const plane = planes[cycle % planes.length];
-    const speedMult = 1.2;
+    const speedMult = plane === 'twin' ? 1.35 : 1.22;
+    const rollHold =
+      plane === 'biplane' ? 1.95 : plane === 'seaplane' ? 2.55 : 2.95;
     const spotSets = [
       ['falls', 'sea-arch', 'lighthouse', 'dragon'],
       ['swamp-oak', 'gorge-arch', 'lighthouse', 'arctic-arch'],
@@ -1115,26 +1118,25 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
       banner: `Daily ${seed} [4 Weather Moods (${plane})]`,
       seed,
       speedMult,
-      direct: true,
-      camFrame: 'yaw-lock',
+      camFrame: 'yaw',
       cam:
         `plane=${plane}&livery=${liv(1)}&smoke=1&speed=${speedMult}` +
         '&camOffset=-10,7,62&camLook=1,2,-70&fov=64',
-      moves: [
-        [0.0, 0, 0, 0],
-        [1.2, -24, 2, 6],
-        [2.3, 16, -2, 10],
-        [3.0, 66, 2, 10],
-        [4.5, 250, -2, 12],
-        [5.6, 360, 1, 14],
-        [6.3, 382, 2, 14],
-        [7.6, 334, -2, 14],
-        [8.6, 372, 1, 14],
-        [9.3, 348, -1, 14],
-        [10.5, 366, 0, 14],
-        [11.4, 360, 0, 14],
-        [12.0, 360, 0, 14],
-      ],
+      pilotMoves: {
+        stick: [
+          [0.0, 0.0, 0.0, speedMult],
+          [1.3, 0.44, 0.06, speedMult],
+          [2.8, 0.0, 0.02, speedMult],
+          [6.3, -0.35, 0.04, speedMult],
+          [9.6, 0.4, 0.05, speedMult],
+          [11.5, 0.0, 0.0, speedMult],
+          [12.0, 0.0, 0.0, speedMult],
+        ],
+        stunts: [
+          [3.05, 3.05 + rollHold, 'roll-right'],
+          [6.5, 8.3, 'sharp-left'],
+        ],
+      },
       facing: 'rear',
       slots: [
         {
@@ -1171,7 +1173,7 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
   } else if (archetype === 'overhead-shadow') {
     const planes = ['seaplane', 'biplane', 'jet'];
     const plane = planes[cycle % planes.length];
-    const speedMult = plane === 'jet' ? 1.4 : 1.2;
+    const speedMult = plane === 'jet' ? 1.48 : 1.22;
     const spotSets = [
       ['sea-arch', 'canyon', 'dragon', 'falls'],
       ['swamp-oak', 'pyramids', 'arctic-arch', 'basalt-arch'],
@@ -1195,23 +1197,22 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
       banner: `Daily ${seed} [Overhead Shadow-Chase (${plane})]`,
       seed,
       speedMult,
-      direct: true,
-      camFrame: 'yaw-lock',
+      camFrame: 'yaw',
       cam:
         `plane=${plane}&livery=${liv(0)}&smoke=1&speed=${speedMult}` +
         (cycle % 2 === 0 ? '&trip=1' : '') +
         '&camOffset=0,70,26&camLook=0,-12,-24&fov=58',
-      moves: [
-        [0.0, 0, 0, 0],
-        [1.8, -28, 0, 12],
-        [3.6, 28, 0, -10],
-        [5.4, -26, 0, 10],
-        [7.2, 26, 0, -12],
-        [9.0, -24, 0, 8],
-        [10.8, 16, 0, 0],
-        [11.5, 0, 0, 0],
-        [12.0, 0, 0, 0],
-      ],
+      pilotMoves: {
+        stick: [
+          [0.0, 0.0, 0.0, speedMult],
+          [1.8, 0.56, 0.05, speedMult],
+          [4.2, -0.58, 0.05, speedMult],
+          [6.8, 0.54, 0.05, speedMult],
+          [9.4, -0.48, 0.04, speedMult],
+          [11.5, 0.0, 0.0, speedMult],
+          [12.0, 0.0, 0.0, speedMult],
+        ],
+      },
       facing: 'rear',
       slots: spots.map((spot, i) => ({
         spot,
@@ -1225,7 +1226,8 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
   } else if (archetype === 'telephoto-giants') {
     const planes = ['twin', 'jet', 'biplane'];
     const plane = planes[cycle % planes.length];
-    const speedMult = plane === 'jet' ? 1.45 : 1.22;
+    const speedMult = plane === 'jet' ? 1.52 : plane === 'twin' ? 1.32 : 1.22;
+    const rollHold = plane === 'biplane' ? 1.95 : plane === 'jet' ? 2.3 : 2.95;
     const spotSets = [
       ['volcano', 'pyramids', 'gorge-arch', 'basalt-arch'],
       ['falls', 'swamp-oak', 'pyramids', 'lighthouse'],
@@ -1249,23 +1251,22 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
       banner: `Daily ${seed} [Telephoto Giants (${plane})]`,
       seed,
       speedMult,
-      direct: true,
-      camFrame: 'yaw-lock',
+      camFrame: 'yaw',
       cam:
         `plane=${plane}&livery=${liv(6)}&smoke=1&speed=${speedMult}` +
         '&camOffset=-10,10,118&camLook=1,-4,-95&fov=36',
-      moves: [
-        [0.0, 0, 0, 0],
-        [1.5, 22, 2, -4],
-        [3.0, -24, -2, -8],
-        [4.5, -240, 2, -10],
-        [5.8, -360, -1, -12],
-        [7.5, -336, 2, -12],
-        [9.0, -378, -2, -12],
-        [10.8, -352, 1, -12],
-        [11.5, -360, 0, -12],
-        [12.0, -360, 0, -12],
-      ],
+      pilotMoves: {
+        stick: [
+          [0.0, 0.0, 0.0, speedMult],
+          [1.5, -0.22, 0.04, speedMult],
+          [2.9, 0.0, 0.02, speedMult],
+          [7.4, 0.24, 0.04, speedMult],
+          [10.2, -0.2, 0.03, speedMult],
+          [11.6, 0.0, 0.0, speedMult],
+          [12.0, 0.0, 0.0, speedMult],
+        ],
+        stunts: [[3.1, 3.1 + rollHold, 'roll-left']],
+      },
       facing: 'rear',
       slots: spots.map((spot, i) => ({
         spot,
@@ -1289,28 +1290,27 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
       archetype,
       banner: `Daily ${seed} [Single-Take 4-Plane Agility Loop (${style})]`,
       seed,
-      speedMult: 0.95,
-      direct: true,
-      loopDip: true,
-      camFrame: 'yaw-lock',
+      durationSec: 15,
+      speedMult: 1.0,
+      camFrame: 'yaw',
       cam:
-        `plane=biplane&livery=${liv(0)}&smoke=1&style=${style}&speed=0.95` +
+        `plane=biplane&livery=${liv(0)}&smoke=1&style=${style}&speed=1.0` +
         '&camOffset=235,20,24&camLook=0,14,-10&fov=62',
-      moves: [
-        [0.0, 0, 0, 0, 0.95],
-        [0.25, 0, 0, 0, 0.95],
-        [2.35, 0, 360, 0, 0.95],
-        [2.85, 0, 360, 0, 0.95],
-        [3.15, 0, 360, 0, 1.05],
-        [5.6, 0, 720, 0, 1.05],
-        [5.85, 0, 720, 0, 1.05],
-        [6.15, 0, 720, 0, 1.18],
-        [8.8, 0, 1080, 0, 1.18],
-        [8.95, 0, 1080, 0, 1.25],
-        [9.25, 0, 1080, 0, 1.65],
-        [11.55, 0, 1440, 0, 1.65],
-        [12.0, 0, 1440, 0, 1.65],
-      ],
+      pilotMoves: {
+        stick: [
+          [0.0, 0.0, 0.0, 1.0],
+          [3.5, 0.0, 0.0, 1.2],
+          [7.2, 0.0, 0.0, 1.45],
+          [11.5, 0.0, 0.0, 2.15],
+          [15.0, 0.0, 0.0, 2.15],
+        ],
+        stunts: [
+          [0.2, 1.75, 'loop'],
+          [3.65, 5.45, 'loop'],
+          [7.25, 9.55, 'loop'],
+          [11.65, 13.2, 'loop'],
+        ],
+      },
       prebuiltSegments: [
         {
           label: 'Biplane · Tight Loop',
@@ -1321,18 +1321,18 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
           z: 18600,
           heading: -135,
           planeSwaps: [
-            [90, 'seaplane', liv(2)],
-            [180, 'twin', liv(4)],
-            [270, 'jet', liv(6)],
+            [105, 'seaplane', liv(2)],
+            [216, 'twin', liv(4)],
+            [345, 'jet', liv(6)],
           ],
           badges: [
-            [90, 'Seaplane · Cruise Loop'],
-            [180, 'Twin-Prop · Wide Loop'],
-            [270, 'Swept-Wing Jet · High-G Loop'],
+            [105, 'Seaplane · Cruise Loop'],
+            [216, 'Twin-Prop · Wide Loop'],
+            [345, 'Swept-Wing Jet · High-G Loop'],
           ],
           extra: `tod=${tod}&weather=none&cloudMood=fair`,
           startFrame: 0,
-          endFrame: 360,
+          endFrame: 450,
         },
       ],
       slots: [],
@@ -1343,7 +1343,8 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
     // 'portal-clover'
     const planes = ['biplane', 'jet', 'seaplane'];
     const plane = planes[cycle % planes.length];
-    const speedMult = plane === 'jet' ? 1.4 : 1.22;
+    const speedMult = plane === 'jet' ? 1.48 : 1.22;
+    const rollHold = plane === 'biplane' ? 1.95 : plane === 'jet' ? 2.3 : 2.55;
     const spotSets = [
       ['portal', 'gorge-arch', 'dragon', 'pyramids'],
       ['portal', 'sea-arch', 'volcano', 'xmas'],
@@ -1367,23 +1368,26 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
       banner: `Daily ${seed} [Tail-Fin Portal & Rainbow Smoke (${plane})]`,
       seed,
       speedMult,
-      direct: true,
       camFrame: 'plane',
       cam:
         `plane=${plane}&livery=${liv(4)}&smoke=1&trip=1&speed=${speedMult}` +
         '&camOffset=0,7.2,15.0&camLook=0,0.4,-28&fov=68',
-      moves: [
-        [0.0, 0, 0, 0],
-        [1.5, 0, 0, 0],
-        [2.8, 36, 4, -6],
-        [4.5, 225, -2, -10],
-        [5.8, 360, 2, -12],
-        [7.4, 336, -2, -10],
-        [9.0, 378, 2, -12],
-        [10.6, 352, -1, -12],
-        [11.5, 360, 0, -12],
-        [12.0, 360, 0, -12],
-      ],
+      pilotMoves: {
+        stick: [
+          [0.0, 0.0, 0.0, speedMult],
+          [1.5, 0.0, 0.0, speedMult],
+          [2.5, -0.45, 0.16, speedMult],
+          [3.15, 0.0, 0.02, speedMult],
+          [6.5, 0.35, 0.05, speedMult],
+          [9.5, -0.32, 0.04, speedMult],
+          [11.5, 0.0, 0.0, speedMult],
+          [12.0, 0.0, 0.0, speedMult],
+        ],
+        stunts: [
+          [3.25, 3.25 + rollHold, 'roll-left'],
+          [6.6, 8.4, 'sharp-right'],
+        ],
+      },
       facing: 'rear',
       slots: spots.map((spot, i) => ({
         spot,
@@ -1453,6 +1457,7 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
     archetype: spec.archetype,
     banner: spec.banner,
     seed,
+    ...(spec.durationSec ? {durationSec: spec.durationSec} : {}),
     speedMult: spec.speedMult,
     direct: spec.direct,
     loopDip: spec.loopDip,
@@ -1461,6 +1466,7 @@ export function buildDailyShortSpec(seed, dayIndex, planSegment) {
     camMoves: spec.camMoves,
     wingmen: spec.wingmen,
     moves: spec.moves,
+    pilotMoves: spec.pilotMoves,
     segments,
     outBaseName: `short-${seed}-${spec.archetype}`,
     trackSlug: track.slug,

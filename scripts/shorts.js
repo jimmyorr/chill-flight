@@ -620,6 +620,7 @@ export function verifySegmentCorridor({
   seed,
   label = 'segment',
   planeType = 'seaplane',
+  planeSwaps = null,
   x,
   y,
   z,
@@ -645,6 +646,7 @@ export function verifySegmentCorridor({
   const rawSamples = pilotMoves
     ? simulatePilotTrajectory({
         planeType,
+        planeSwaps,
         x,
         y,
         z,
@@ -818,7 +820,7 @@ export function startCoordsForFrame(
   });
 }
 
-function planSegment(clipSpec, seg) {
+export function planSegment(clipSpec, seg) {
   const segSeed = seg.seed ?? clipSpec.seed;
   const segMoves = seg.moves ?? clipSpec.moves ?? [[0, 0, 0, 0]];
   const pilotMoves = seg.pilotMoves ?? clipSpec.pilotMoves ?? null;
@@ -919,6 +921,7 @@ function planSegment(clipSpec, seg) {
           seed: segSeed,
           label: `${clipSpec.id}:${seg.label}`,
           planeType,
+          planeSwaps: seg.planeSwaps ?? null,
           x: start.x,
           y: start.y,
           z: start.z,
@@ -962,7 +965,7 @@ function planSegment(clipSpec, seg) {
   };
 }
 
-async function renderMatchCutClip(browser, clipSpec) {
+export async function renderMatchCutClip(browser, clipSpec) {
   const {
     id,
     banner,
@@ -1086,7 +1089,17 @@ async function renderMatchCutClip(browser, clipSpec) {
       ? new Map(seg.planeSwaps.map(([f, p, l]) => [f, [p, l]]))
       : null;
     const midFrame = Math.floor((seg.startFrame + seg.endFrame) / 2);
-    const previewFrames = new Set([seg.startFrame, midFrame, seg.endFrame - 1]);
+    const previewFrames =
+      plans.length === 1 && seg.endFrame > 120
+        ? new Set(
+            Array.from({length: 12}, (_, k) =>
+              Math.min(
+                seg.endFrame - 1,
+                Math.round((k * (seg.endFrame - 1)) / 11)
+              )
+            )
+          )
+        : new Set([seg.startFrame, midFrame, seg.endFrame - 1]);
     let prevPos = plan.portalCross
       ? await page.evaluate(async () => {
           const {planeGroup} = await window.gameModule('airplane.js');
@@ -2804,30 +2817,27 @@ async function renderAgilityLoopShort(browser, seed = 20261126) {
     id: 'agility-loop',
     banner: `Single-Take 4-Plane Agility Loop (Seed ${seed}: Anime Dawn)`,
     seed,
-    speedMult: 0.95,
-    direct: true,
-    loopDip: true,
-    camFrame: 'yaw-lock',
+    durationSec: 15,
+    speedMult: 1.0,
+    camFrame: 'yaw',
     cam:
-      'plane=biplane&livery=coral&smoke=1&style=anime&speed=0.95' +
-      '&camOffset=235,20,24&camLook=0,14,-10&fov=62',
-    // One continuous 12s flight with smooth 5th-channel speed ramps and 4 loops
-    // showcasing each plane's agility & smoke-ring size in a single unbroken take:
-    moves: [
-      [0.0, 0, 0, 0, 0.95],
-      [0.25, 0, 0, 0, 0.95],
-      [2.35, 0, 360, 0, 0.95],
-      [2.85, 0, 360, 0, 0.95],
-      [3.15, 0, 360, 0, 1.05],
-      [5.6, 0, 720, 0, 1.05],
-      [5.85, 0, 720, 0, 1.05],
-      [6.15, 0, 720, 0, 1.18],
-      [8.8, 0, 1080, 0, 1.18],
-      [8.95, 0, 1080, 0, 1.25],
-      [9.25, 0, 1080, 0, 1.65],
-      [11.55, 0, 1440, 0, 1.65],
-      [12.0, 0, 1440, 0, 1.65],
-    ],
+      'plane=biplane&livery=coral&smoke=1&style=anime&speed=1.0' +
+      '&camOffset=245,20,24&camLook=0,14,-10&fov=62',
+    pilotMoves: {
+      stick: [
+        [0.0, 0.0, 0.0, 1.0],
+        [3.5, 0.0, 0.0, 1.2],
+        [7.2, 0.0, 0.0, 1.45],
+        [11.5, 0.0, 0.0, 2.15],
+        [15.0, 0.0, 0.0, 2.15],
+      ],
+      stunts: [
+        [0.2, 1.75, 'loop'],
+        [3.65, 5.45, 'loop'],
+        [7.25, 9.55, 'loop'],
+        [11.65, 13.2, 'loop'],
+      ],
+    },
     segments: [
       {
         label: 'Biplane · Tight Loop',
@@ -2838,18 +2848,18 @@ async function renderAgilityLoopShort(browser, seed = 20261126) {
         z: 18600,
         heading: -135,
         planeSwaps: [
-          [90, 'seaplane', 'teal'],
-          [180, 'twin', 'sand'],
-          [270, 'jet', 'slate'],
+          [105, 'seaplane', 'teal'],
+          [216, 'twin', 'sand'],
+          [345, 'jet', 'slate'],
         ],
         badges: [
-          [90, 'Seaplane · Cruise Loop'],
-          [180, 'Twin-Prop · Wide Loop'],
-          [270, 'Swept-Wing Jet · High-G Loop'],
+          [105, 'Seaplane · Cruise Loop'],
+          [216, 'Twin-Prop · Wide Loop'],
+          [345, 'Swept-Wing Jet · High-G Loop'],
         ],
         extra: 'tod=0.268&weather=none&cloudMood=fair',
         startFrame: 0,
-        endFrame: 360,
+        endFrame: 450,
       },
     ],
     outBaseName: `short-${seed}-agility-loop`,
@@ -2861,8 +2871,8 @@ async function renderAgilityLoopShort(browser, seed = 20261126) {
       stops: [
         '0:00 Biplane - Tight Loop (3.7°S, 0.1°E)',
         '0:03 Seaplane - Cruise Loop (3.8°S, 0.2°E)',
-        '0:06 Twin-Prop - Wide Loop (3.9°S, 0.3°E)',
-        '0:09 Swept-Wing Jet - High-G Loop (4.0°S, 0.4°E)',
+        '0:07 Twin-Prop - Wide Loop (3.9°S, 0.3°E)',
+        '0:11 Swept-Wing Jet - High-G Loop (4.0°S, 0.4°E)',
       ],
       trackTitle: 'Equinox',
     },
@@ -2877,53 +2887,53 @@ async function renderAgilityRollShort(browser, seed = 20261127) {
     id: 'agility-roll',
     banner: `Single-Take 4-Plane Barrel Roll (Seed ${seed}: Golden Pyramids)`,
     seed,
-    speedMult: 0.95,
-    direct: true,
-    camFrame: 'yaw-lock',
+    durationSec: 15,
+    speedMult: 1.05,
+    camFrame: 'yaw',
     cam:
-      'plane=biplane&livery=coral&smoke=1&style=lowpoly&speed=0.95' +
-      '&camOffset=-16,8,68&camLook=4,-2,-60&fov=58',
-    moves: [
-      [0.0, 0, 0, 0, 0.95],
-      [0.3, 0, 4, 0, 0.95],
-      [1.25, 180, 8, 0, 0.95],
-      [2.15, 360, 0, 0, 0.95],
-      [2.85, 360, 0, 0, 0.95],
-      [3.15, 360, 0, 0, 1.05],
-      [4.4, 540, 6, 0, 1.05],
-      [5.55, 720, 0, 0, 1.05],
-      [5.85, 720, 0, 0, 1.05],
-      [6.15, 720, 0, 0, 1.18],
-      [7.45, 900, 5, 0, 1.18],
-      [8.75, 1080, 0, 0, 1.18],
-      [8.95, 1080, 0, 0, 1.25],
-      [9.2, 1080, 0, 0, 1.65],
-      [10.3, 1440, 4, 0, 1.65],
-      [11.45, 1800, 0, 0, 1.65],
-      [12.0, 1800, 0, 0, 1.65],
-    ],
+      'plane=biplane&livery=coral&smoke=1&style=lowpoly&speed=1.05' +
+      '&camOffset=-16,8,64&camLook=3,-1,-60&fov=58',
+    pilotMoves: {
+      stick: [
+        [0.0, 0.0, 0.0, 1.05],
+        [2.9, 0.24, 0.03, 1.12],
+        [3.5, 0.0, 0.0, 1.22],
+        [6.6, -0.24, 0.03, 1.32],
+        [7.2, 0.0, 0.0, 1.45],
+        [10.9, 0.22, 0.03, 1.65],
+        [11.5, 0.0, 0.0, 2.05],
+        [14.4, -0.2, 0.02, 2.05],
+        [15.0, 0.0, 0.0, 2.05],
+      ],
+      stunts: [
+        [0.25, 2.1, 'roll-left'],
+        [3.6, 5.9, 'roll-right'],
+        [7.35, 10.25, 'roll-left'],
+        [11.6, 13.75, 'roll-right'],
+      ],
+    },
     segments: [
       {
         label: 'Biplane · Snappy Roll',
         plane: 'biplane',
         livery: 'coral',
         x: -8650,
-        y: 620,
+        y: 660,
         z: 21750,
         heading: 38,
         planeSwaps: [
-          [90, 'seaplane', 'teal'],
-          [180, 'twin', 'sand'],
-          [270, 'jet', 'slate'],
+          [105, 'seaplane', 'teal'],
+          [216, 'twin', 'sand'],
+          [345, 'jet', 'slate'],
         ],
         badges: [
-          [90, 'Seaplane · Smooth Roll'],
-          [180, 'Twin-Prop · Heavy Roll'],
-          [270, 'Swept-Wing Jet · Double Roll'],
+          [105, 'Seaplane · Cruise Roll'],
+          [216, 'Twin-Prop · Heavy Roll'],
+          [345, 'Swept-Wing Jet · High-Speed Roll'],
         ],
         extra: 'tod=0.715&weather=none&cloudMood=fair',
         startFrame: 0,
-        endFrame: 360,
+        endFrame: 450,
       },
     ],
     outBaseName: `short-${seed}-agility-roll`,
@@ -2933,10 +2943,10 @@ async function renderAgilityRollShort(browser, seed = 20261127) {
       title: '4 planes, 4 very different barrel rolls ✈️',
       tiktokQuestion: 'Which plane has the cleanest barrel roll?',
       stops: [
-        '0:00 Biplane - Snappy Roll (4.25°S, 1.81°W)',
-        '0:03 Seaplane - Smooth Roll (4.18°S, 1.86°W)',
-        '0:06 Twin-Prop - Heavy Roll (4.10°S, 1.92°W)',
-        '0:09 Swept-Wing Jet - Double Roll (4.00°S, 2.00°W)',
+        '0:00 Biplane - Snappy Roll (4.35°S, 1.73°W)',
+        '0:03 Seaplane - Cruise Roll (4.26°S, 1.80°W)',
+        '0:07 Twin-Prop - Heavy Roll (4.16°S, 1.88°W)',
+        '0:11 Swept-Wing Jet - High-Speed Roll (4.03°S, 1.98°W)',
       ],
       trackTitle: 'Golden Hour',
     },
@@ -2951,54 +2961,56 @@ async function renderAgilityImmelmannShort(browser, seed = 20261128) {
     id: 'agility-immelmann',
     banner: `Single-Take 4-Plane Immelmann Turn (Seed ${seed}: Dawn Twin Falls)`,
     seed,
-    speedMult: 0.95,
-    direct: true,
-    loopDip: true,
-    camFrame: 'yaw-lock',
+    durationSec: 15,
+    speedMult: 1.05,
+    camFrame: 'world-track',
     cam:
-      'plane=biplane&livery=coral&smoke=1&style=lowpoly&speed=0.95' +
-      '&camOffset=-185,22,28&camLook=0,24,-10&fov=60',
-    moves: [
-      [0.0, 0, 0, 0, 0.95],
-      [0.25, 0, 0, 0, 0.95],
-      [1.75, 0, 180, 0, 0.95],
-      [2.45, 180, 180, 0, 0.95],
-      [2.9, 180, 180, 0, 0.95],
-      [3.15, 180, 180, 0, 1.05],
-      [4.75, 180, 0, 0, 1.05],
-      [5.55, 360, 0, 0, 1.05],
-      [5.9, 360, 0, 0, 1.05],
-      [6.15, 360, 0, 0, 1.18],
-      [7.85, 360, 180, 0, 1.18],
-      [8.7, 540, 180, 0, 1.18],
-      [8.95, 540, 180, 0, 1.28],
-      [9.2, 540, 180, 0, 1.65],
-      [10.75, 540, 0, 0, 1.65],
-      [11.5, 720, 0, 0, 1.65],
-      [12.0, 720, 0, 0, 1.65],
+      'plane=biplane&livery=coral&smoke=1&style=lowpoly&speed=1.05' +
+      '&camX=-40&camY=560&camZ=-3900&camLook=0,0,-8&fov=58',
+    camMoves: [
+      [0.0, -40, 560, -3900, 0, 0, -8, 58],
+      [3.5, -90, 660, -3900, 0, 0, -8, 58],
+      [7.2, -30, 820, -3900, 0, 0, -8, 58],
+      [11.5, -110, 1060, -3900, 0, 0, -8, 58],
+      [15.0, -40, 1260, -3900, 0, 0, -8, 58],
     ],
+    pilotMoves: {
+      stick: [
+        [0.0, 0.0, 0.0, 1.05],
+        [3.5, 0.0, 0.0, 1.25],
+        [7.2, 0.0, 0.0, 1.5],
+        [11.5, 0.0, 0.0, 2.15],
+        [15.0, 0.0, 0.0, 2.15],
+      ],
+      stunts: [
+        [0.3, 0.6, 'immelmann'],
+        [3.8, 4.1, 'immelmann'],
+        [7.5, 7.8, 'immelmann'],
+        [11.8, 12.1, 'immelmann'],
+      ],
+    },
     segments: [
       {
         label: 'Biplane · Tight Immelmann',
         plane: 'biplane',
         livery: 'coral',
-        x: 120,
+        x: 160,
         y: 520,
         z: -4150,
         heading: 90,
         planeSwaps: [
-          [90, 'seaplane', 'teal'],
-          [180, 'twin', 'sand'],
-          [270, 'jet', 'slate'],
+          [105, 'seaplane', 'teal'],
+          [216, 'twin', 'sand'],
+          [345, 'jet', 'slate'],
         ],
         badges: [
-          [90, 'Seaplane · Cruise Immelmann'],
-          [180, 'Twin-Prop · Wide Immelmann'],
-          [270, 'Swept-Wing Jet · High-G Immelmann'],
+          [105, 'Seaplane · Cruise Immelmann'],
+          [216, 'Twin-Prop · Wide Immelmann'],
+          [345, 'Swept-Wing Jet · High-G Immelmann'],
         ],
         extra: 'tod=0.28&weather=none&cloudMood=fair',
         startFrame: 0,
-        endFrame: 360,
+        endFrame: 450,
       },
     ],
     outBaseName: `short-${seed}-agility-immelmann`,
@@ -3008,10 +3020,10 @@ async function renderAgilityImmelmannShort(browser, seed = 20261128) {
       title: '4 planes, 4 Immelmann turns in 1 take ✈️',
       tiktokQuestion: 'Which plane flips heading cleanest?',
       stops: [
-        '0:00 Biplane - Tight Immelmann (0.83°N, 0.02°E)',
-        '0:03 Seaplane - Cruise Immelmann (0.83°N, 0.01°E)',
-        '0:06 Twin-Prop - Wide Immelmann (0.83°N, 0.02°E)',
-        '0:09 Swept-Wing Jet - High-G Immelmann (0.83°N, 0.01°E)',
+        '0:00 Biplane - Tight Immelmann (0.83°N, 0.03°E)',
+        '0:03 Seaplane - Cruise Immelmann (0.83°N, 0.01°W)',
+        '0:07 Twin-Prop - Wide Immelmann (0.83°N, 0.04°E)',
+        '0:11 Swept-Wing Jet - High-G Immelmann (0.83°N, 0.02°W)',
       ],
       trackTitle: 'Morning Dew',
     },
@@ -3026,56 +3038,57 @@ async function renderAgilityCloverShort(browser, seed = 20261129) {
     id: 'agility-clover',
     banner: `Single-Take 4-Plane Clover Loop (Seed ${seed}: Snowy Dragon)`,
     seed,
-    speedMult: 0.95,
-    direct: true,
-    camFrame: 'yaw-lock',
+    durationSec: 15,
+    speedMult: 1.05,
+    camFrame: 'yaw',
     cam:
-      'plane=biplane&livery=coral&smoke=1&headlight=1&style=lowpoly&speed=0.95' +
+      'plane=biplane&livery=coral&smoke=1&headlight=1&style=lowpoly&speed=1.05' +
       '&camOffset=105,95,85&camLook=0,-18,-15&fov=62',
-    moves: [
-      [0.0, 0, 0, 0, 0.95],
-      [0.75, -78, 56, 22, 0.95],
-      [1.65, -82, 12, 58, 0.95],
-      [2.45, -45, -34, 84, 0.95],
-      [2.95, 0, 0, 90, 0.95],
-      [3.15, 0, 0, 90, 1.05],
-      [3.95, -66, 48, 114, 1.05],
-      [4.8, -70, 8, 148, 1.05],
-      [5.55, -38, -28, 174, 1.05],
-      [5.95, 0, 0, 180, 1.05],
-      [6.15, 0, 0, 180, 1.18],
-      [6.95, -58, 44, 204, 1.18],
-      [7.85, -62, 6, 238, 1.18],
-      [8.55, -34, -26, 264, 1.18],
-      [8.95, 0, 0, 270, 1.25],
-      [9.2, 0, 0, 270, 1.65],
-      [9.95, -86, 62, 296, 1.65],
-      [10.8, -88, 10, 332, 1.65],
-      [11.55, -48, -36, 355, 1.65],
-      [12.0, 0, 0, 360, 1.65],
-    ],
+    pilotMoves: {
+      stick: [
+        [0.0, 0.0, 0.0, 1.05],
+        [0.9, -0.78, 0.0, 1.05],
+        [2.1, 0.0, 0.0, 1.05],
+        [3.5, 0.0, 0.0, 1.25],
+        [4.6, -0.85, 0.0, 1.25],
+        [6.0, 0.0, 0.0, 1.25],
+        [7.2, 0.0, 0.0, 1.5],
+        [8.6, -0.95, 0.0, 1.5],
+        [10.4, 0.0, 0.0, 1.5],
+        [11.5, 0.0, 0.0, 2.1],
+        [12.5, -0.88, 0.0, 2.1],
+        [13.9, 0.0, 0.0, 2.1],
+        [15.0, 0.0, 0.0, 2.1],
+      ],
+      stunts: [
+        [0.2, 1.75, 'loop'],
+        [3.65, 5.45, 'loop'],
+        [7.25, 9.55, 'loop'],
+        [11.65, 13.2, 'loop'],
+      ],
+    },
     segments: [
       {
         label: 'Biplane · Tight Clover Petal',
         plane: 'biplane',
         livery: 'coral',
         x: -13380,
-        y: 440,
+        y: 520,
         z: -18620,
         heading: 45,
         planeSwaps: [
-          [90, 'seaplane', 'teal'],
-          [180, 'twin', 'sand'],
-          [270, 'jet', 'slate'],
+          [105, 'seaplane', 'teal'],
+          [216, 'twin', 'sand'],
+          [345, 'jet', 'slate'],
         ],
         badges: [
-          [90, 'Seaplane · Cruise Clover Petal'],
-          [180, 'Twin-Prop · Wide Clover Petal'],
-          [270, 'Swept-Wing Jet · High-G Petal'],
+          [105, 'Seaplane · Cruise Clover Petal'],
+          [216, 'Twin-Prop · Wide Clover Petal'],
+          [345, 'Swept-Wing Jet · High-G Petal'],
         ],
         extra: 'tod=0.75&weather=snow&cloudMood=fair',
         startFrame: 0,
-        endFrame: 360,
+        endFrame: 450,
       },
     ],
     outBaseName: `short-${seed}-agility-clover`,
@@ -3087,8 +3100,8 @@ async function renderAgilityCloverShort(browser, seed = 20261129) {
       stops: [
         '0:00 Biplane - Tight Clover Petal (3.72°N, 2.68°W)',
         '0:03 Seaplane - Cruise Clover Petal (3.74°N, 2.70°W)',
-        '0:06 Twin-Prop - Wide Clover Petal (3.75°N, 2.71°W)',
-        '0:09 Swept-Wing Jet - High-G Petal (3.73°N, 2.69°W)',
+        '0:07 Twin-Prop - Wide Clover Petal (3.75°N, 2.71°W)',
+        '0:11 Swept-Wing Jet - High-G Petal (3.73°N, 2.69°W)',
       ],
       trackTitle: 'Aurora',
     },
@@ -3103,32 +3116,30 @@ async function renderAgilityCuban8Short(browser, seed = 20261130) {
     id: 'agility-cuban8',
     banner: `Single-Take 4-Plane Half-Cuban 8 (Seed ${seed}: Sunset Lighthouse)`,
     seed,
-    speedMult: 0.95,
+    durationSec: 15,
+    speedMult: 1.0,
     direct: true,
     loopDip: true,
     camFrame: 'yaw-lock',
     cam:
-      'plane=biplane&livery=coral&smoke=1&style=anime&speed=0.95' +
-      '&camOffset=-225,22,26&camLook=0,12,-12&fov=58',
+      'plane=biplane&livery=coral&smoke=1&style=anime&speed=1.0' +
+      '&camOffset=-235,24,26&camLook=0,14,-12&fov=58',
+    // Continuous Fritsch-Carlson monotone cubic spline with authentic per-plane
+    // durations (Biplane 3.5s, Seaplane 3.7s, Twin 4.3s, Jet 3.5s) and zero stops.
     moves: [
-      [0.0, 0, 0, 0, 0.95],
-      [0.2, 0, 0, 0, 0.95],
-      [1.85, 0, 225, 0, 0.95],
-      [2.4, 180, 210, 0, 0.95],
-      [2.9, 180, 180, 0, 0.95],
-      [3.15, 180, 180, 0, 1.05],
-      [4.85, 180, -45, 0, 1.05],
-      [5.45, 360, -30, 0, 1.05],
-      [5.9, 360, 0, 0, 1.05],
-      [6.15, 360, 0, 0, 1.18],
-      [7.85, 360, 225, 0, 1.18],
-      [8.45, 540, 210, 0, 1.18],
-      [8.95, 540, 180, 0, 1.28],
-      [9.2, 540, 180, 0, 1.65],
-      [10.8, 540, -45, 0, 1.65],
-      [11.4, 720, -30, 0, 1.65],
-      [11.9, 720, 0, 0, 1.65],
-      [12.0, 720, 0, 0, 1.65],
+      [0.0, 0, 0, 0, 1.0],
+      [1.9, 0, 225, 0, 1.0],
+      [2.85, 180, 180, 0, 1.0],
+      [3.5, 180, 180, 0, 1.2],
+      [5.75, 180, -45, 0, 1.2],
+      [6.75, 360, 0, 0, 1.2],
+      [7.2, 360, 0, 0, 1.45],
+      [9.85, 360, 225, 0, 1.45],
+      [11.0, 540, 180, 0, 1.45],
+      [11.5, 540, 180, 0, 2.05],
+      [13.65, 540, -45, 0, 2.05],
+      [14.55, 720, 0, 0, 2.05],
+      [15.0, 720, 0, 0, 2.05],
     ],
     segments: [
       {
@@ -3136,22 +3147,22 @@ async function renderAgilityCuban8Short(browser, seed = 20261130) {
         plane: 'biplane',
         livery: 'coral',
         x: 7850,
-        y: 380,
+        y: 440,
         z: 3000,
         heading: 180,
         planeSwaps: [
-          [90, 'seaplane', 'teal'],
-          [180, 'twin', 'sand'],
-          [270, 'jet', 'slate'],
+          [105, 'seaplane', 'teal'],
+          [216, 'twin', 'sand'],
+          [345, 'jet', 'slate'],
         ],
         badges: [
-          [90, 'Seaplane · Cruise Half-Cuban 8'],
-          [180, 'Twin-Prop · Wide Half-Cuban 8'],
-          [270, 'Swept-Wing Jet · High-G Cuban 8'],
+          [105, 'Seaplane · Cruise Half-Cuban 8'],
+          [216, 'Twin-Prop · Wide Half-Cuban 8'],
+          [345, 'Swept-Wing Jet · High-G Cuban 8'],
         ],
         extra: 'tod=0.735&weather=none&cloudMood=fair',
         startFrame: 0,
-        endFrame: 360,
+        endFrame: 450,
       },
     ],
     outBaseName: `short-${seed}-agility-cuban8`,
@@ -3161,10 +3172,10 @@ async function renderAgilityCuban8Short(browser, seed = 20261130) {
       title: '4 planes carve a giant figure-8 at sunset ✈️',
       tiktokQuestion: 'Which plane nails the Half-Cuban 8?',
       stops: [
-        '0:00 Biplane - Tight Half-Cuban 8 (0.60°S, 1.56°E)',
-        '0:03 Seaplane - Cruise Half-Cuban 8 (0.60°S, 1.56°E)',
-        '0:06 Twin-Prop - Wide Half-Cuban 8 (0.60°S, 1.56°E)',
-        '0:09 Swept-Wing Jet - High-G Cuban 8 (0.60°S, 1.56°E)',
+        '0:00 Biplane - Tight Half-Cuban 8 (0.60°S, 1.57°E)',
+        '0:03 Seaplane - Cruise Half-Cuban 8 (0.60°S, 1.57°E)',
+        '0:07 Twin-Prop - Wide Half-Cuban 8 (0.60°S, 1.57°E)',
+        '0:11 Swept-Wing Jet - High-G Cuban 8 (0.60°S, 1.57°E)',
       ],
       trackTitle: 'Lighthouse',
     },
