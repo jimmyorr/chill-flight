@@ -415,10 +415,10 @@ export const ChillFlightLogic = {};
   };
   const CAMERA_MODES = ['follow', 'first-person', 'birds-eye', 'cinematic'];
   // The bird's eye view used to come in two heights; their old names still
-  // start it, zoomed in or out (CAMERA_ZOOM)
+  // start it at those heights, 500 and 2000 above the plane (CAMERA_ZOOM)
   const OLD_CAMERA_MODES = {
-    'birds-eye-close': {mode: 'birds-eye', zoom: 0.5},
-    'birds-eye-far': {mode: 'birds-eye', zoom: 2},
+    'birds-eye-close': {mode: 'birds-eye', zoom: 1.25},
+    'birds-eye-far': {mode: 'birds-eye', zoom: 5},
   };
   const _cameraArg = (getParam('camera', '') || '').trim().toLowerCase();
   const _cameraParam = OLD_CAMERA_MODES[_cameraArg]?.mode || _cameraArg;
@@ -8058,20 +8058,25 @@ export const ChillFlightLogic = {};
 
   // How far a pinch (or a trackpad pinch) can zoom each camera: the camera's
   // distance from the plane times this, 1 as it starts. The bird's eye view
-  // is BIRDS_EYE_HEIGHT above the plane at 1. The first-person view doesn't
-  // zoom.
+  // is BIRDS_EYE_HEIGHT above the plane at 1 (times the vehicle's
+  // birdsEyeScale: the buggy's is lower), so on a phone the plane starts big
+  // enough to see which way it points, 50 to 2000 up as it zooms (past that
+  // the fog hides the ground). A vehicle can stop closer in further out
+  // (birdsEyeZoomMin). The first-person view doesn't zoom.
   const CAMERA_ZOOM = {
     follow: {min: 0.6, max: 2.5},
-    'birds-eye': {min: 0.35, max: 2},
+    'birds-eye': {min: 0.125, max: 5},
     cinematic: {min: 0.4, max: 3},
   };
-  const BIRDS_EYE_HEIGHT = 1000;
+  const BIRDS_EYE_HEIGHT = 400;
   // A camera's zoom after a pinch that spread the fingers by `spread` (the
-  // fingers' distance apart now over before: above 1 zooms in, closer)
-  function zoomCamera(mode, zoom, spread) {
+  // fingers' distance apart now over before: above 1 zooms in, closer),
+  // stopping at `min` where the vehicle sets one further out
+  function zoomCamera(mode, zoom, spread, min = 0) {
     const range = CAMERA_ZOOM[mode];
     if (!range || !(spread > 0)) return zoom;
-    return Math.min(range.max, Math.max(range.min, zoom / spread));
+    const lo = Math.max(range.min, min);
+    return Math.min(range.max, Math.max(lo, Math.max(lo, zoom) / spread));
   }
   exports.CAMERA_ZOOM = CAMERA_ZOOM;
   exports.BIRDS_EYE_HEIGHT = BIRDS_EYE_HEIGHT;

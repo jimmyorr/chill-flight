@@ -282,9 +282,14 @@ export function updateFlightCamera(delta, nowTime) {
       );
     }
 
-    // Smoothly follow the bird's eye view's pinch zoom
+    // Smoothly follow the bird's eye view's pinch zoom (and a vehicle swap)
     const targetBirdEyeHeight =
-      ChillFlightLogic.BIRDS_EYE_HEIGHT * state.cameraZoom['birds-eye'];
+      ChillFlightLogic.BIRDS_EYE_HEIGHT *
+      Math.max(
+        state.cameraZoom['birds-eye'],
+        state.airplaneModel?.birdsEyeZoomMin ?? 0
+      ) *
+      (state.airplaneModel?.birdsEyeScale ?? 1);
 
     state.currentBirdEyeHeight = THREE.MathUtils.lerp(
       state.currentBirdEyeHeight,

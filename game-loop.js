@@ -368,7 +368,10 @@ function performFrame(timestamp) {
     state.cameraZoom[state.cameraMode] = ChillFlightLogic.zoomCamera(
       state.cameraMode,
       state.cameraZoom[state.cameraMode],
-      pinch
+      pinch,
+      state.cameraMode === 'birds-eye'
+        ? state.airplaneModel?.birdsEyeZoomMin
+        : 0
     );
   }
   if (state.currentControlScheme !== 'gyro') {

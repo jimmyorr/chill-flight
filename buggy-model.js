@@ -828,6 +828,10 @@ export function createBuggyModel(opts = {}) {
   if (isPolice) root.policeStrobeMats = collectPoliceStrobeMaterials(root);
   // Follow camera framing and bonnet/windshield first-person camera
   root.cameraScale = 0.5;
+  // Bird's eye view lower over it (120 up, not the planes' 400), and no
+  // closer than 45 (the planes go down to 50)
+  root.birdsEyeScale = 0.3;
+  root.birdsEyeZoomMin = 0.375;
   root.chaseLift = 1.55;
   root.chaseFrame = 0.45;
   root.firstPersonEye = new THREE.Vector3(0, 4.35, -2.35);
