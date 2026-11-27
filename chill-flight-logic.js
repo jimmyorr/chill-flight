@@ -5168,9 +5168,9 @@ export const ChillFlightLogic = {};
       n = _lerp(n, _portal.base, _portal.bed);
     }
 
-    // The Crossroads fairground green under the Ferris wheel
+    // The market towns' level civic plazas and Crossroads fairground green
     if (!options.forRoad && !options.ignoreRoads && !options.ignoreAirports) {
-      n = applyFerrisBed(n, origX, origZ, simplex, constants, _lerp);
+      n = applyTownPlazaBed(n, origX, origZ, simplex, constants, _lerp);
     }
 
     return n;
@@ -7231,21 +7231,89 @@ export const ChillFlightLogic = {};
     return _townSites.get(simplex)?.byRoad.get(n) || null;
   }
 
-  // The Ferris wheel in Crossroads (town 0): a level grassy fairground green
-  // inside the easternmost town, clear of both highways and the crossing's
-  // four slip roads, with its front boarding steps (+z) facing the crossing.
+  // Shared civic plaza / town green placement across the six market towns:
+  // - 0 Crossroads: fairground green & Ferris wheel
+  // - 1 Millbrook: giant 10-blade folk-art wind-spinner & pinwheel plaza
+  // - 2 Oakridge: live 4-faced civic clock tower & promenade bandstand green
+  // - 3 Clearwater: three-tier turquoise fountain & 3-storey glass conservatory
+  // - 4 Westgate: copper mooring dome & wind-tethered patchwork airship
+  // - 5 Redstone: 3-lift braced timber mine headframe & shaft collar square
   const FERRIS_BED = 84;
   const FERRIS_BED_EDGE = 135;
-  const FERRIS_PROBE_RADIUS = 52;
   const FERRIS_CLEAR_RADIUS = 58;
-  const FERRIS_MAX_SPREAD = 26;
-  const FERRIS_PROBES = [[0, 0]];
+  const TOWN_PLAZA_SPECS = [
+    {
+      kind: 'ferris',
+      bed: FERRIS_BED,
+      bedEdge: FERRIS_BED_EDGE,
+      probeRadius: 52,
+      clearRadius: FERRIS_CLEAR_RADIUS,
+      streetStop: 46,
+      grassClear: 0,
+      sideBiasU: 1,
+      elevWeight: 0.22,
+    },
+    {
+      kind: 'millbrook',
+      bed: 78,
+      bedEdge: 126,
+      probeRadius: 48,
+      clearRadius: 54,
+      streetStop: 44,
+      grassClear: 45,
+      sideBiasU: -1,
+      elevWeight: 0.06,
+    },
+    {
+      kind: 'oakridge',
+      bed: 82,
+      bedEdge: 130,
+      probeRadius: 50,
+      clearRadius: 56,
+      streetStop: 46,
+      grassClear: 47,
+      sideBiasU: 1,
+      elevWeight: 0.05,
+    },
+    {
+      kind: 'clearwater',
+      bed: 80,
+      bedEdge: 128,
+      probeRadius: 50,
+      clearRadius: 56,
+      streetStop: 46,
+      grassClear: 47,
+      sideBiasU: -1,
+      elevWeight: 0.06,
+    },
+    {
+      kind: 'westgate',
+      bed: 80,
+      bedEdge: 128,
+      probeRadius: 48,
+      clearRadius: 55,
+      streetStop: 45,
+      grassClear: 46,
+      sideBiasU: -1,
+      elevWeight: 0.05,
+    },
+    {
+      kind: 'redstone',
+      bed: 78,
+      bedEdge: 126,
+      probeRadius: 48,
+      clearRadius: 54,
+      streetStop: 44,
+      grassClear: 45,
+      sideBiasU: 1,
+      elevWeight: 0.03,
+    },
+  ];
+  const TOWN_PLAZA_MAX_SPREAD = 26;
+  const TOWN_PLAZA_DIRS = [[0, 0]];
   for (let k = 0; k < 8; k++) {
     const a = (k * Math.PI) / 4;
-    FERRIS_PROBES.push([
-      Math.cos(a) * FERRIS_PROBE_RADIUS,
-      Math.sin(a) * FERRIS_PROBE_RADIUS,
-    ]);
+    TOWN_PLAZA_DIRS.push([Math.cos(a), Math.sin(a)]);
   }
   const FERRIS_CANDIDATES = [];
   for (let u = -520; u <= 560; u += 80) {
@@ -7255,159 +7323,303 @@ export const ChillFlightLogic = {};
       FERRIS_CANDIDATES.push([u, v, r]);
     }
   }
-  const _ferrisSites = new WeakMap();
-  const _ferris = {bed: 0, base: 0, r: Infinity};
-  let _findingFerris = false;
-
-  function ferrisWheelSite(simplex, constants, lerp) {
-    if (!simplex || exports.customMap) return null;
-    const signature = `${exports.WORLD_SEED}:${exports.CONTINENT}:${simplex.noise2D(0.123, 0.456)}`;
-    const cached = _ferrisSites.get(simplex);
-    if (cached && cached.signature === signature) return cached.site;
-    const town = townAt(0, simplex, constants);
-    if (!town) {
-      _ferrisSites.set(simplex, {signature, site: null});
-      return null;
+  const TOWN_PLAZA_GRID = [];
+  for (let u = -520; u <= 520; u += 80) {
+    for (let v = -520; v <= 520; v += 80) {
+      const r = Math.hypot(u, v);
+      if (r < 185 || r > 560) continue;
+      TOWN_PLAZA_GRID.push([u, v, r]);
     }
-    const consts = constants || {WATER_LEVEL: 40, MOUNTAIN_LEVEL: 180};
+  }
+  const _townPlazaCache = new WeakMap();
+  const _plazaHit = {bed: 0, base: 0, r: Infinity, clear: Infinity};
+  let _findingTownPlazas = false;
+
+  function findSingleTownPlaza(town, spec, simplex, consts, water, lerp) {
+    const townSlips = [];
+    for (const sa of [-1, 1]) {
+      for (const sb of [-1, 1]) {
+        const pts = buildSlipRoad(
+          town.n,
+          {x: town.x, z: town.z},
+          sa,
+          sb,
+          simplex,
+          consts
+        );
+        if (!pts) continue;
+        const xs = pts.map((p) => p.x);
+        const zs = pts.map((p) => p.z);
+        townSlips.push({
+          pts,
+          minX: Math.min(...xs),
+          maxX: Math.max(...xs),
+          minZ: Math.min(...zs),
+          maxZ: Math.max(...zs),
+        });
+      }
+    }
+    const slipReach = SLIP.HALF + spec.bedEdge;
+    const roadClearMin = town.n === 0 ? 145 : 132;
+    const maxAlien = town.n === 0 ? 0.2 : 0.3;
+    const minAboveWater = town.n === 0 ? 4 : 3;
+    const cos = Math.cos(town.angle);
+    const sin = Math.sin(town.angle);
+    const candidates = town.n === 0 ? FERRIS_CANDIDATES : TOWN_PLAZA_GRID;
+    const innerLimit =
+      town.n === 0 ? 560 : Math.max(255, Math.min(355, town.radius * 0.66));
+    const targetR = town.n === 0 ? 290 : Math.min(240, town.radius * 0.48);
+    const outerSlope = town.n === 0 ? 0.45 : 0.95;
+    const radialWeight = town.n === 0 ? 0.08 : 0.25;
+    let bestCost = Infinity;
+    let site = null;
+    let fallback = null;
+    let bestFallbackSpread = Infinity;
+
+    for (const [u, v, r] of candidates) {
+      const cx = town.x + u * cos + v * sin;
+      const cz = town.z - u * sin + v * cos;
+      if (
+        Math.abs(cx - getRoadCenterX(cz, town.n)) < roadClearMin ||
+        Math.abs(cz - getRoadCenterZ(cx)) < roadClearMin ||
+        isOnAirport(cx, cz, 160) ||
+        townSlips.some(
+          (s) => slipRoadDistance(s, cx, cz, slipReach) <= slipReach
+        )
+      ) {
+        continue;
+      }
+      let ok = true;
+      let minH = Infinity;
+      let maxH = -Infinity;
+      let sum = 0;
+      for (const [ux, uz] of TOWN_PLAZA_DIRS) {
+        const px = cx + ux * spec.probeRadius;
+        const pz = cz + uz * spec.probeRadius;
+        if (
+          alienAt(px, pz, simplex) > maxAlien ||
+          swampFactorAt(px, pz, simplex) > 0.18
+        ) {
+          ok = false;
+          break;
+        }
+        const h = getElevation(px, pz, simplex, consts, lerp, {
+          ignoreSlipRoads: true,
+        });
+        if (h < water + minAboveWater || h > 520) {
+          ok = false;
+          break;
+        }
+        minH = Math.min(minH, h);
+        maxH = Math.max(maxH, h);
+        sum += h;
+      }
+      if (!ok) continue;
+      const spread = maxH - minH;
+      const avgH = sum / TOWN_PLAZA_DIRS.length;
+      const cand = {
+        n: town.n,
+        name: town.name,
+        kind: spec.kind,
+        x: cx,
+        z: cz,
+        base: avgH,
+        yaw: Math.atan2(town.x - cx, town.z - cz),
+        bed: spec.bed,
+        bedEdge: spec.bedEdge,
+        clearRadius: spec.clearRadius,
+        streetStop: spec.streetStop,
+        grassClear: spec.grassClear,
+      };
+      const outerPenalty = r > innerLimit ? (r - innerLimit) * outerSlope : 0;
+      if (spread + outerPenalty * 0.25 < bestFallbackSpread) {
+        bestFallbackSpread = spread + outerPenalty * 0.25;
+        fallback = cand;
+      }
+      if (spread > TOWN_PLAZA_MAX_SPREAD) continue;
+
+      let framingBonus = 0;
+      if (town.n > 0) {
+        for (const [fu, fv] of [
+          [-96, 0],
+          [96, 0],
+          [0, -80],
+          [0, 80],
+        ]) {
+          const nx = cx + fu * cos + fv * sin;
+          const nz = cz - fu * sin + fv * cos;
+          if (
+            Math.abs(nx - getRoadCenterX(nz, town.n)) > 55 &&
+            Math.abs(nz - getRoadCenterZ(nx)) > 55
+          ) {
+            const nh = getElevation(nx, nz, simplex, consts, lerp, {
+              ignoreSlipRoads: true,
+            });
+            if (nh >= water + 3 && Math.abs(nh - avgH) < 18) framingBonus += 5;
+          }
+        }
+      }
+
+      const sidePenalty =
+        town.n === 0 ? (u > 0 ? 0 : 35) : u * spec.sideBiasU > 0 ? 0 : 18;
+      const cost =
+        spread * 2.8 +
+        (avgH - water) * spec.elevWeight +
+        Math.abs(r - targetR) * radialWeight +
+        outerPenalty +
+        sidePenalty -
+        framingBonus;
+      if (cost < bestCost) {
+        bestCost = cost;
+        site = cand;
+      }
+    }
+    return site ?? fallback;
+  }
+
+  function townPlazaSites(simplex, constants, lerp) {
+    if (!simplex || exports.customMap) return [];
+    const signature = `${exports.WORLD_SEED}:${exports.CONTINENT}:${simplex.noise2D(0.123, 0.456)}`;
+    const cached = _townPlazaCache.get(simplex);
+    if (cached && cached.signature === signature) return cached.list;
+    const consts =
+      constants && constants.WATER_LEVEL !== undefined
+        ? constants
+        : {WATER_LEVEL: 40, MOUNTAIN_LEVEL: 180};
+    const lerpFn = lerp || ((a, b, t) => a + (b - a) * t);
+    const towns = townSites(simplex, consts);
+    if (!towns.length) {
+      const empty = {
+        signature,
+        list: [],
+        byTown: new Map(),
+        minX: 0,
+        maxX: -1,
+        minZ: 0,
+        maxZ: -1,
+      };
+      _townPlazaCache.set(simplex, empty);
+      return empty.list;
+    }
     const water = consts.WATER_LEVEL || 40;
     const hadRoadNoise = roadNoise;
     if (!roadNoise) roadNoise = simplex;
-    _findingFerris = true;
+    _findingTownPlazas = true;
     coastRoadsOff++;
-    let site = null;
+    const list = [];
+    const byTown = new Map();
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minZ = Infinity;
+    let maxZ = -Infinity;
     try {
-      const townSlips = [];
-      for (const sa of [-1, 1]) {
-        for (const sb of [-1, 1]) {
-          const pts = buildSlipRoad(
-            0,
-            {x: town.x, z: town.z},
-            sa,
-            sb,
-            simplex,
-            consts
-          );
-          if (!pts) continue;
-          const xs = pts.map((p) => p.x);
-          const zs = pts.map((p) => p.z);
-          townSlips.push({
-            pts,
-            minX: Math.min(...xs),
-            maxX: Math.max(...xs),
-            minZ: Math.min(...zs),
-            maxZ: Math.max(...zs),
-          });
-        }
+      for (const town of towns) {
+        const spec = TOWN_PLAZA_SPECS[town.n];
+        if (!spec) continue;
+        const site = findSingleTownPlaza(
+          town,
+          spec,
+          simplex,
+          consts,
+          water,
+          lerpFn
+        );
+        if (!site) continue;
+        list.push(site);
+        byTown.set(town.n, site);
+        minX = Math.min(minX, site.x - site.bedEdge);
+        maxX = Math.max(maxX, site.x + site.bedEdge);
+        minZ = Math.min(minZ, site.z - site.bedEdge);
+        maxZ = Math.max(maxZ, site.z + site.bedEdge);
       }
-      const slipReach = SLIP.HALF + FERRIS_BED_EDGE;
-      const cos = Math.cos(town.angle);
-      const sin = Math.sin(town.angle);
-      let bestCost = Infinity;
-      let fallback = null;
-      let bestFallbackSpread = Infinity;
-      for (const [u, v, r] of FERRIS_CANDIDATES) {
-        const cx = town.x + u * cos + v * sin;
-        const cz = town.z - u * sin + v * cos;
-        if (
-          Math.abs(cx - getRoadCenterX(cz, 0)) < 145 ||
-          Math.abs(cz - getRoadCenterZ(cx)) < 145 ||
-          isOnAirport(cx, cz, 160) ||
-          townSlips.some(
-            (s) => slipRoadDistance(s, cx, cz, slipReach) <= slipReach
-          )
-        ) {
-          continue;
-        }
-        let ok = true;
-        let minH = Infinity;
-        let maxH = -Infinity;
-        let sum = 0;
-        for (const [dx, dz] of FERRIS_PROBES) {
-          const px = cx + dx;
-          const pz = cz + dz;
-          if (
-            alienAt(px, pz, simplex) > 0.2 ||
-            swampFactorAt(px, pz, simplex) > 0.15
-          ) {
-            ok = false;
-            break;
-          }
-          const h = getElevation(px, pz, simplex, consts, lerp, {
-            ignoreSlipRoads: true,
-          });
-          if (h < water + 4 || h > 460) {
-            ok = false;
-            break;
-          }
-          minH = Math.min(minH, h);
-          maxH = Math.max(maxH, h);
-          sum += h;
-        }
-        if (!ok) continue;
-        const spread = maxH - minH;
-        const avgH = sum / FERRIS_PROBES.length;
-        const cand = {
-          x: cx,
-          z: cz,
-          base: avgH,
-          yaw: Math.atan2(town.x - cx, town.z - cz),
-        };
-        if (spread < bestFallbackSpread) {
-          bestFallbackSpread = spread;
-          fallback = cand;
-        }
-        if (spread > FERRIS_MAX_SPREAD) continue;
-        // Prefer flat, low valley-floor terraces near the town's inner blocks,
-        // with a gentle tie-breaker toward the eastern side
-        const cost =
-          spread * 2.8 +
-          (avgH - water) * 0.22 +
-          Math.abs(r - 290) * 0.08 +
-          (u > 0 ? 0 : 35);
-        if (cost < bestCost) {
-          bestCost = cost;
-          site = cand;
-        }
-      }
-      site ??= fallback;
     } finally {
-      _findingFerris = false;
+      _findingTownPlazas = false;
       coastRoadsOff--;
       if (!hadRoadNoise) roadNoise = null;
     }
-    _ferrisSites.set(simplex, {signature, site});
-    return site;
+    _townPlazaCache.set(simplex, {
+      signature,
+      list,
+      byTown,
+      minX,
+      maxX,
+      minZ,
+      maxZ,
+    });
+    return list;
   }
 
-  function ferrisAt(x, z, simplex, constants, lerp) {
-    _ferris.bed = 0;
-    _ferris.r = Infinity;
-    if (_findingFerris || _findingTowns) return false;
-    if (x < -9500 || x > -500 || z < -3000 || z > 6000) return false;
-    const site = ferrisWheelSite(simplex, constants || {}, lerp);
-    if (!site) return false;
-    const dx = x - site.x;
-    const dz = z - site.z;
-    if (Math.abs(dx) > FERRIS_BED_EDGE || Math.abs(dz) > FERRIS_BED_EDGE) {
+  function townPlazaSite(n, simplex, constants, lerp) {
+    if (
+      !simplex ||
+      exports.customMap ||
+      n < 0 ||
+      n >= TOWN_PLAZA_SPECS.length
+    ) {
+      return null;
+    }
+    townPlazaSites(simplex, constants, lerp);
+    return _townPlazaCache.get(simplex)?.byTown.get(n) || null;
+  }
+
+  function ferrisWheelSite(simplex, constants, lerp) {
+    return townPlazaSite(0, simplex, constants, lerp);
+  }
+
+  function townPlazaAt(x, z, simplex, constants, lerp) {
+    _plazaHit.bed = 0;
+    _plazaHit.r = Infinity;
+    _plazaHit.clear = Infinity;
+    if (_findingTownPlazas || _findingTowns) return false;
+    if (x < -62000 || x > -500 || z < -4500 || z > 6500) return false;
+    const list = townPlazaSites(simplex, constants, lerp);
+    const cached = _townPlazaCache.get(simplex);
+    if (
+      !list.length ||
+      x < cached.minX ||
+      x > cached.maxX ||
+      z < cached.minZ ||
+      z > cached.maxZ
+    ) {
       return false;
     }
-    const r = Math.hypot(dx, dz);
-    if (r >= FERRIS_BED_EDGE) return false;
-    _ferris.bed = 1 - smoothRamp(r, FERRIS_BED, FERRIS_BED_EDGE);
-    _ferris.base = site.base;
-    _ferris.r = r;
-    return true;
+    for (let i = 0; i < list.length; i++) {
+      const site = list[i];
+      const dx = x - site.x;
+      if (Math.abs(dx) > site.bedEdge) continue;
+      const dz = z - site.z;
+      if (Math.abs(dz) > site.bedEdge) continue;
+      const r = Math.hypot(dx, dz);
+      if (r >= site.bedEdge) continue;
+      _plazaHit.bed = 1 - smoothRamp(r, site.bed, site.bedEdge);
+      _plazaHit.base = site.base;
+      _plazaHit.r = r;
+      _plazaHit.clear = r - site.clearRadius;
+      return true;
+    }
+    return false;
   }
 
-  function applyFerrisBed(n, x, z, simplex, constants, lerp) {
-    return ferrisAt(x, z, simplex, constants, lerp)
-      ? lerp(n, _ferris.base, _ferris.bed)
+  function applyTownPlazaBed(n, x, z, simplex, constants, lerp) {
+    return townPlazaAt(x, z, simplex, constants, lerp)
+      ? lerp(n, _plazaHit.base, _plazaHit.bed)
       : n;
   }
 
+  function townPlazaClearance(x, z, simplex, constants) {
+    return townPlazaAt(x, z, simplex, constants) ? _plazaHit.clear : Infinity;
+  }
+
   function ferrisWheelDistance(x, z, simplex, constants) {
-    return ferrisAt(x, z, simplex, constants) ? _ferris.r : Infinity;
+    const site = ferrisWheelSite(simplex, constants);
+    if (!site) return Infinity;
+    const dx = x - site.x;
+    const dz = z - site.z;
+    if (Math.abs(dx) > site.bedEdge || Math.abs(dz) > site.bedEdge) {
+      return Infinity;
+    }
+    const r = Math.hypot(dx, dz);
+    return r < site.bedEdge ? r : Infinity;
   }
 
   function sampleRoadSegment(
@@ -7626,6 +7838,10 @@ export const ChillFlightLogic = {};
   exports.townAt = townAt;
   exports.FERRIS_BED = FERRIS_BED;
   exports.FERRIS_CLEAR_RADIUS = FERRIS_CLEAR_RADIUS;
+  exports.TOWN_PLAZA_SPECS = TOWN_PLAZA_SPECS;
+  exports.townPlazaSites = townPlazaSites;
+  exports.townPlazaSite = townPlazaSite;
+  exports.townPlazaClearance = townPlazaClearance;
   exports.ferrisWheelSite = ferrisWheelSite;
   exports.ferrisWheelDistance = ferrisWheelDistance;
   exports.ROAD_BASE_X = ROAD_BASE_X;

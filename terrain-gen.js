@@ -1467,8 +1467,8 @@ const TOWN_STREET_STEP = 15;
 const TOWN_STREET_HALF_WIDTH = 7;
 const _townHouses = new Map();
 function townHouses(t) {
-  const ferris = t.n === 0 ? ChillFlightLogic.ferrisWheelSite(simplex) : null;
-  const key = `${t.seed}:${t.x}:${ferris ? ferris.x.toFixed(0) : ''}`;
+  const plaza = ChillFlightLogic.townPlazaSite(t.n, simplex);
+  const key = `${t.seed}:${t.x}:${plaza ? plaza.x.toFixed(0) : ''}`;
   if (_townHouses.has(key)) return _townHouses.get(key);
   // Each street's reach along u, from the houses facing it
   const streetReach = new Map();
@@ -1481,6 +1481,21 @@ function townHouses(t) {
     x: t.x + u * cos + v * sin,
     z: t.z - u * sin + v * cos,
   });
+  // Ensure the town street passing through a civic plaza reaches its entrance
+  let plazaStreet = null;
+  let plazaUReach = 0;
+  if (plaza && t.n > 0) {
+    const dx = plaza.x - t.x;
+    const dz = plaza.z - t.z;
+    const uPlaza = dx * cos - dz * sin;
+    const vPlaza = dx * sin + dz * cos;
+    plazaStreet = Math.round(vPlaza / TOWN_BLOCK + 0.5);
+    plazaUReach = Math.abs(uPlaza) + plaza.streetStop + 16;
+    streetReach.set(plazaStreet, {
+      u0: Math.min(0, uPlaza - plaza.streetStop - 14),
+      u1: Math.max(0, uPlaza + plaza.streetStop + 14),
+    });
+  }
   // Where the cross streets run, in u
   const crossU = [];
   for (
@@ -1521,11 +1536,11 @@ function townHouses(t) {
         const gap = rand() < 0.08 ? 14 + rand() * 8 : 2 + rand() * 4;
         if (keep && !onCrossStreet(u, halfW)) {
           const p = toWorld(u, v + (jitter - 0.5) * 3);
-          const clearFerris =
-            !ferris ||
-            Math.hypot(p.x - ferris.x, p.z - ferris.z) >=
-              ChillFlightLogic.FERRIS_CLEAR_RADIUS + halfW;
-          if (townRoadDistance(t, p.x, p.z) > TOWN_ROAD_CLEAR && clearFerris) {
+          const clearPlaza =
+            !plaza ||
+            Math.hypot(p.x - plaza.x, p.z - plaza.z) >=
+              plaza.clearRadius + halfW;
+          if (townRoadDistance(t, p.x, p.z) > TOWN_ROAD_CLEAR && clearPlaza) {
             const street = row + (facing > 0 ? 1 : 0);
             const reach = streetReach.get(street) || {u0: u, u1: u};
             reach.u0 = Math.min(reach.u0, u - halfW);
@@ -1575,7 +1590,8 @@ function townHouses(t) {
       const mid = {x: (a.x + b.x) / 2, z: (a.z + b.z) / 2};
       if (
         townRoadDistance(t, mid.x, mid.z) < 34 ||
-        (ferris && Math.hypot(mid.x - ferris.x, mid.z - ferris.z) < 46)
+        (plaza &&
+          Math.hypot(mid.x - plaza.x, mid.z - plaza.z) < plaza.streetStop)
       ) {
         run = null;
         continue;
@@ -1593,7 +1609,9 @@ function townHouses(t) {
   const spans = [];
   for (const [street, reach] of streetReach) {
     const v = (street - 0.5) * TOWN_BLOCK;
-    const limit = Math.sqrt(Math.max(0, end * end - v * v));
+    const baseLimit = Math.sqrt(Math.max(0, end * end - v * v));
+    const limit =
+      street === plazaStreet ? Math.max(baseLimit, plazaUReach) : baseLimit;
     const u0 = Math.max(reach.u0, -limit);
     const u1 = Math.min(reach.u1, limit);
     if (u1 - u0 < 60) continue;
@@ -7606,7 +7624,7 @@ export function generateChunkData({
     }
 
     // Nothing grows or stands on the pyramids, the dragon skeleton, the
-    // Crossroads Ferris wheel green or (in the season) the Christmas village
+    // market towns' civic plazas or (in the season) the Christmas village
     const keepOffPyramids = (arr) => {
       let kept = 0;
       for (const p of arr) {
@@ -7619,8 +7637,8 @@ export function generateChunkData({
             PYRAMID_PROP_CLEAR &&
           ChillFlightLogic.portalFootAt(wx, wz, simplex, elevParams) >=
             PYRAMID_PROP_CLEAR &&
-          ChillFlightLogic.ferrisWheelDistance(wx, wz, simplex, elevParams) >=
-            ChillFlightLogic.FERRIS_CLEAR_RADIUS &&
+          ChillFlightLogic.townPlazaClearance(wx, wz, simplex, elevParams) >=
+            0 &&
           ChillFlightLogic.xmasVillageDistance(wx, wz, simplex, elevParams) >=
             XMAS_CLEAR
         ) {

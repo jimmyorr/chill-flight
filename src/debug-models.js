@@ -74,6 +74,19 @@ import {
   LANDMARK_SMALL,
   buildTentGeos,
 } from '../building-models.js';
+import {
+  CLEARWATER_COLORWAYS,
+  MILLBROOK_COLORWAYS,
+  OAKRIDGE_COLORWAYS,
+  REDSTONE_COLORWAYS,
+  WESTGATE_COLORWAYS,
+  clearwaterPlazaGroup,
+  conservatoryGlassMat,
+  millbrookPlazaGroup,
+  oakridgePlazaGroup,
+  redstonePlazaGroup,
+  westgatePlazaGroup,
+} from '../town-models.js';
 import {createTwinModel, setGearExtension} from '../twin.js';
 import {createBuggyModel, setBuggyHoverFold} from '../buggy-model.js';
 import {
@@ -460,6 +473,11 @@ function viewModel(type, e, colorSeed = 0) {
     'dragon_skeleton',
     'portal',
     'ferris_wheel',
+    'millbrook_plaza',
+    'oakridge_plaza',
+    'clearwater_plaza',
+    'westgate_plaza',
+    'redstone_plaza',
     'dinosaur_skull',
     'birch',
     'broadleaf_oak',
@@ -1611,6 +1629,42 @@ function viewModel(type, e, colorSeed = 0) {
         previewGroup.add(ferrisWheelGroup(colorway));
         break;
       }
+      case 'millbrook_plaza': {
+        const colorway =
+          MILLBROOK_COLORWAYS[colorSeed % MILLBROOK_COLORWAYS.length];
+        ferrisGlowMat.emissiveIntensity = 0.85;
+        previewGroup.add(millbrookPlazaGroup(colorway));
+        break;
+      }
+      case 'oakridge_plaza': {
+        const colorway =
+          OAKRIDGE_COLORWAYS[colorSeed % OAKRIDGE_COLORWAYS.length];
+        ferrisGlowMat.emissiveIntensity = 0.85;
+        previewGroup.add(oakridgePlazaGroup(colorway));
+        break;
+      }
+      case 'clearwater_plaza': {
+        const colorway =
+          CLEARWATER_COLORWAYS[colorSeed % CLEARWATER_COLORWAYS.length];
+        ferrisGlowMat.emissiveIntensity = 0.85;
+        conservatoryGlassMat.emissiveIntensity = 0.55;
+        previewGroup.add(clearwaterPlazaGroup(colorway));
+        break;
+      }
+      case 'westgate_plaza': {
+        const colorway =
+          WESTGATE_COLORWAYS[colorSeed % WESTGATE_COLORWAYS.length];
+        ferrisGlowMat.emissiveIntensity = 0.85;
+        previewGroup.add(westgatePlazaGroup(colorway));
+        break;
+      }
+      case 'redstone_plaza': {
+        const colorway =
+          REDSTONE_COLORWAYS[colorSeed % REDSTONE_COLORWAYS.length];
+        ferrisGlowMat.emissiveIntensity = 0.85;
+        previewGroup.add(redstonePlazaGroup(colorway));
+        break;
+      }
       case 'pier':
         previewGroup.add(new THREE.Mesh(pierDeckGeo, pierDeckMat));
         break;
@@ -1841,6 +1895,15 @@ function animate() {
           0.7,
           time
         );
+      }
+      if (o.userData?.animatePlaza) {
+        o.userData.animatePlaza({
+          timeSec: time,
+          windStrength: 0.75,
+          windYaw: 0.5,
+          parentYaw: 0,
+          dayProgress: (time / 120) % 1,
+        });
       }
     });
   }

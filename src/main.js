@@ -42,6 +42,7 @@ import '../plane-models.js';
 import '../boat-models.js';
 import '../farm-models.js';
 import '../building-models.js';
+import '../town-models.js';
 import '../xmas-models.js';
 import '../low-poly.js';
 import '../tree-models.js';

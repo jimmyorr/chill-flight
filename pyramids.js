@@ -20,8 +20,9 @@ import {WATER_LEVEL} from './constants.js';
 import {simplex} from './noise.js';
 import {scene} from './scene.js';
 import {getCameraWorldPosition} from './sky.js';
-import {BREAKABLE} from './terrain-gen.js';
+import {BREAKABLE, WIND_DIR_X, WIND_DIR_Z} from './terrain-gen.js';
 import {terrainMaterial} from './terrain-geometry.js';
+import {createTownPlazaGroup} from './town-models.js';
 
 // Each course of stone is this tall (units), every other one a shade
 // darker; the great one's cap is pale limestone above this height
@@ -30,8 +31,9 @@ const CAP_HEIGHT = 690;
 const STONE = new THREE.Color(0xd8b07a);
 const CAP = new THREE.Color(0xf0e6cc);
 const DRAGON_DRAW_DISTANCE = 12000;
-const FERRIS_GONDOLA_DISTANCE = 3500;
-const FERRIS_DRAW_DISTANCE = 8500;
+const TOWN_PLAZA_DETAIL_DISTANCE = 3500;
+const TOWN_PLAZA_DRAW_DISTANCE = 8500;
+const WIND_YAW = Math.atan2(WIND_DIR_X, WIND_DIR_Z);
 
 // The four faces of a pyramid with its base's middle at (x, base, z), in
 // horizontal bands one course tall: positions, colours and the terrain
@@ -137,85 +139,127 @@ if (portals && ChillFlightLogic.SHOW_OBJECTS !== false) {
   }
 }
 
-const ferrisSite = ChillFlightLogic.ferrisWheelSite(simplex, {WATER_LEVEL});
-let ferrisNear = null;
-let ferrisFar = null;
-let ferrisBroken = false;
-if (ferrisSite && ChillFlightLogic.SHOW_OBJECTS !== false) {
-  ferrisNear = ferrisWheelGroup('sandtray', {withGondolas: true});
-  ferrisFar = ferrisWheelGroup('sandtray', {withGondolas: false});
-  const lod = new THREE.LOD();
-  lod.name = 'ferris-wheel';
-  lod.addLevel(ferrisNear, 0);
-  lod.addLevel(ferrisFar, FERRIS_GONDOLA_DISTANCE);
-  lod.addLevel(new THREE.Group(), FERRIS_DRAW_DISTANCE);
-  lod.position.set(ferrisSite.x, ferrisSite.base, ferrisSite.z);
-  lod.rotation.y = ferrisSite.yaw;
-  ferrisNear.userData.animateFerris(0, 0.7, 0);
-  lod.updateMatrixWorld(true);
-  scene.add(lod);
+const _townPlazaEntries = [];
+if (ChillFlightLogic.SHOW_OBJECTS !== false) {
+  for (const plaza of ChillFlightLogic.townPlazaSites(simplex, {WATER_LEVEL})) {
+    const near =
+      plaza.kind === 'ferris'
+        ? ferrisWheelGroup('sandtray', {withGondolas: true})
+        : createTownPlazaGroup(plaza.kind, {detail: true});
+    const far =
+      plaza.kind === 'ferris'
+        ? ferrisWheelGroup('sandtray', {withGondolas: false})
+        : createTownPlazaGroup(plaza.kind, {detail: false});
+    if (!near || !far) continue;
+    const lod = new THREE.LOD();
+    lod.name =
+      plaza.kind === 'ferris' ? 'ferris-wheel' : `town-plaza-${plaza.kind}`;
+    lod.addLevel(near, 0);
+    lod.addLevel(far, TOWN_PLAZA_DETAIL_DISTANCE);
+    lod.addLevel(new THREE.Group(), TOWN_PLAZA_DRAW_DISTANCE);
+    lod.position.set(plaza.x, plaza.base, plaza.z);
+    lod.rotation.y = plaza.yaw;
+    if (plaza.kind === 'ferris') {
+      near.userData.animateFerris(0, 0.7, 0);
+    } else {
+      near.userData.animatePlaza?.({
+        timeSec: 0,
+        windStrength: 0.7,
+        windYaw: WIND_YAW,
+        parentYaw: plaza.yaw,
+        dayProgress: 0.5,
+      });
+    }
+    lod.updateMatrixWorld(true);
+    scene.add(lod);
+    const entry = {site: plaza, near, far, broken: false};
+    _townPlazaEntries.push(entry);
 
-  const nearParts = ferrisNear.userData.parts;
-  const farParts = ferrisFar.userData.parts;
-  standaloneProps.push({
-    userData: {
-      breakables: {kinds: []},
-      instanceData: {},
-      meshProps: [
-        {
-          kind: BREAKABLE.HOUSE,
-          radius: 45,
-          rubble: BREAK.RUBBLE.ferris_wheel,
-          parts: [
+    if (plaza.kind === 'ferris') {
+      const nearParts = near.userData.parts;
+      const farParts = far.userData.parts;
+      standaloneProps.push({
+        userData: {
+          breakables: {kinds: []},
+          instanceData: {},
+          meshProps: [
             {
-              type: 'obj',
-              object: nearParts.frameStructure,
-              role: 'fold',
-              rubbleColor: [0.38, 0.61, 0.68],
+              kind: BREAKABLE.HOUSE,
+              radius: 45,
+              rubble: BREAK.RUBBLE.ferris_wheel,
+              parts: [
+                {
+                  type: 'obj',
+                  object: nearParts.frameStructure,
+                  role: 'fold',
+                  rubbleColor: [0.38, 0.61, 0.68],
+                },
+                {
+                  type: 'obj',
+                  object: nearParts.wheelRim,
+                  role: 'fling',
+                  discYaw: plaza.yaw,
+                  rubbleColor: [0.92, 0.9, 0.86],
+                },
+                ...nearParts.gondolas.map((g) => ({
+                  type: 'obj',
+                  object: g,
+                  role: 'fling',
+                  radial: true,
+                })),
+              ],
+              hit: (b, r, a = b, wing = null) =>
+                sweptFerrisHit(a, b, r, plaza, wing),
+              onBreak: () => {
+                entry.broken = true;
+                farParts.frameStructure.visible = false;
+                farParts.wheelRim.visible = false;
+              },
             },
-            {
-              type: 'obj',
-              object: nearParts.wheelRim,
-              role: 'fling',
-              discYaw: ferrisSite.yaw,
-              rubbleColor: [0.92, 0.9, 0.86],
-            },
-            ...nearParts.gondolas.map((g) => ({
-              type: 'obj',
-              object: g,
-              role: 'fling',
-              radial: true,
-            })),
           ],
-          hit: (b, r, a = b, wing = null) =>
-            sweptFerrisHit(a, b, r, ferrisSite, wing),
-          onBreak: () => {
-            ferrisBroken = true;
-            farParts.frameStructure.visible = false;
-            farParts.wheelRim.visible = false;
-          },
+          chunkX: 'ferris',
+          chunkZ: 0,
+          standalone: true,
         },
-      ],
-      chunkX: 'ferris',
-      chunkZ: 0,
-      standalone: true,
-    },
-  });
+      });
+    }
+  }
 }
 
 const _camPos = new THREE.Vector3();
-export function updateFerrisWheel(timeSec, windStrength = 0.7) {
-  if (!ferrisSite || !ferrisNear || ferrisBroken) return;
+export function updateTownPlazas(
+  timeSec,
+  windStrength = 0.7,
+  dayProgress = 0.5
+) {
+  if (!_townPlazaEntries.length) return;
   getCameraWorldPosition(_camPos);
-  const dx = _camPos.x - ferrisSite.x;
-  const dz = _camPos.z - ferrisSite.z;
-  const d2 = dx * dx + dz * dz;
-  if (d2 >= FERRIS_DRAW_DISTANCE * FERRIS_DRAW_DISTANCE) return;
-  const angle =
-    ((timeSec % FERRIS_PERIOD_SEC) / FERRIS_PERIOD_SEC) * Math.PI * 2;
-  if (d2 < FERRIS_GONDOLA_DISTANCE * FERRIS_GONDOLA_DISTANCE) {
-    ferrisNear.userData.animateFerris(angle, windStrength, timeSec);
-  } else {
-    ferrisFar.userData.animateFerris(angle, windStrength, timeSec);
+  for (let i = 0; i < _townPlazaEntries.length; i++) {
+    const entry = _townPlazaEntries[i];
+    if (entry.broken) continue;
+    const {site, near, far} = entry;
+    const dx = _camPos.x - site.x;
+    const dz = _camPos.z - site.z;
+    const d2 = dx * dx + dz * dz;
+    if (d2 >= TOWN_PLAZA_DRAW_DISTANCE * TOWN_PLAZA_DRAW_DISTANCE) continue;
+    const active =
+      d2 < TOWN_PLAZA_DETAIL_DISTANCE * TOWN_PLAZA_DETAIL_DISTANCE ? near : far;
+    if (site.kind === 'ferris') {
+      const angle =
+        ((timeSec % FERRIS_PERIOD_SEC) / FERRIS_PERIOD_SEC) * Math.PI * 2;
+      active.userData.animateFerris(angle, windStrength, timeSec);
+    } else {
+      active.userData.animatePlaza?.({
+        timeSec,
+        windStrength,
+        windYaw: WIND_YAW,
+        parentYaw: site.yaw,
+        dayProgress,
+      });
+    }
   }
+}
+
+export function updateFerrisWheel(timeSec, windStrength = 0.7) {
+  updateTownPlazas(timeSec, windStrength);
 }

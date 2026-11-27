@@ -478,9 +478,12 @@ check(
   );
 }
 
-// Crossroads market towns (#195) and Crossroads' Ferris wheel: named from east
-// to west, kept out of alien lands and open lakes, with the Ferris wheel level
-// and clear of highways and slip roads inside Crossroads
+// Crossroads market towns (#195) and their civic plazas: named from east to
+// west, kept out of alien lands and open lakes, with every active town's plaza
+// (Crossroads' Ferris wheel, Millbrook's folk-art wind-spinner, Oakridge's
+// clock tower and bandstand, Clearwater's fountain and conservatory, Westgate's
+// moored airship, and Redstone's mine headframe) level, facing the crossing,
+// and clear of highways and slip roads
 {
   const {simplex} = await import('../noise.js');
   const constants = {WATER_LEVEL: 40, MOUNTAIN_LEVEL: 180};
@@ -495,15 +498,22 @@ check(
 
   const townProblems = [];
   const ferrisProblems = [];
+  const plazaProblems = [];
   for (const seed of [20260101, 20260410, 20260715, 20261126, 42, 7]) {
     ChillFlightLogic.WORLD_SEED = seed;
     simplex.seed(seed);
     ChillFlightLogic.setRoadNoise(simplex);
     const towns = ChillFlightLogic.townSites(simplex, constants);
+    const plazas = ChillFlightLogic.townPlazaSites(simplex, constants);
     const first = ChillFlightLogic.townAt(0, simplex, constants);
     if (!first || first.name !== 'Crossroads' || towns[0] !== first) {
       townProblems.push(`${seed}: missing Crossroads at n=0`);
       continue;
+    }
+    if (plazas.length !== towns.length) {
+      plazaProblems.push(
+        `${seed}: plazas ${plazas.length} vs towns ${towns.length}`
+      );
     }
     for (const t of towns) {
       if (ChillFlightLogic.alienAt(t.x, t.z, simplex) > 0.35) {
@@ -512,6 +522,44 @@ check(
       const c = ChillFlightLogic.highwayCrossing(t.n);
       if (!near(t.x, c.x, 1e-3) || !near(t.z, c.z, 1e-3)) {
         townProblems.push(`${seed}/${t.name}: off highway crossing`);
+      }
+      const plaza = ChillFlightLogic.townPlazaSite(t.n, simplex, constants);
+      if (!plaza) {
+        plazaProblems.push(`${seed}/${t.name}: missing plaza site`);
+        continue;
+      }
+      const dist = Math.hypot(plaza.x - t.x, plaza.z - t.z);
+      if (dist < 180 || dist > Math.max(570, t.radius + 90)) {
+        plazaProblems.push(
+          `${seed}/${t.name}: dist ${dist.toFixed(0)} outside town`
+        );
+      }
+      const hPlaza = ChillFlightLogic.getElevation(
+        plaza.x,
+        plaza.z,
+        simplex,
+        constants
+      );
+      if (plaza.base < 43 || Math.abs(hPlaza - plaza.base) > 1.5) {
+        plazaProblems.push(
+          `${seed}/${t.name}: base ${plaza.base.toFixed(1)} vs ground ${hPlaza.toFixed(1)}`
+        );
+      }
+      if (
+        Math.abs(plaza.x - ChillFlightLogic.getRoadCenterX(plaza.z, t.n)) <
+          105 ||
+        Math.abs(plaza.z - ChillFlightLogic.getRoadCenterZ(plaza.x)) < 105 ||
+        ChillFlightLogic.isOnSlipRoad(plaza.x, plaza.z, 70, simplex, constants)
+      ) {
+        plazaProblems.push(`${seed}/${t.name}: too close to highway or slip`);
+      }
+      const toCenterX = t.x - plaza.x;
+      const toCenterZ = t.z - plaza.z;
+      const facingDot =
+        (Math.sin(plaza.yaw) * toCenterX + Math.cos(plaza.yaw) * toCenterZ) /
+        Math.hypot(toCenterX, toCenterZ);
+      if (!near(facingDot, 1, 1e-6)) {
+        plazaProblems.push(`${seed}/${t.name}: entrance not facing crossing`);
       }
     }
 
@@ -566,6 +614,11 @@ check(
     'Crossroads Ferris wheel sits on a level town green clear of highways and slip roads',
     ferrisProblems.length === 0,
     ferrisProblems.join('; ')
+  );
+  check(
+    'every market town receives a level civic plaza facing its crossing clear of highways and slip roads',
+    plazaProblems.length === 0,
+    plazaProblems.join('; ')
   );
 }
 

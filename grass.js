@@ -652,15 +652,25 @@ function updateRoads(cx, cz) {
     if (!ends?.built) continue;
     consider(r.minX, r.z, r.maxX, r.z, ChillFlightLogic.ACCESS_ROAD_WIDTH + 2);
   }
-  // Town streets, between the blocks of houses, and Crossroads' Ferris pad
+  // Town streets, between the blocks of houses, and the towns' civic plazas
   forEachTownStreetNear(cx, cz, reach, _elevParams, (x0, z0, x1, z1, hw) =>
     consider(x0, z0, x1, z1, hw + 2)
   );
-  const ferris = ChillFlightLogic.ferrisWheelSite(simplex, _elevParams);
-  if (ferris && Math.hypot(ferris.x - cx, ferris.z - cz) < reach + 60) {
-    const dx = Math.cos(ferris.yaw) * 34;
-    const dz = -Math.sin(ferris.yaw) * 34;
-    consider(ferris.x - dx, ferris.z - dz, ferris.x + dx, ferris.z + dz, 21);
+  for (const plaza of ChillFlightLogic.townPlazaSites(simplex, _elevParams)) {
+    if (Math.hypot(plaza.x - cx, plaza.z - cz) >= reach + 65) continue;
+    if (plaza.grassClear > 0) {
+      consider(
+        plaza.x - 0.1,
+        plaza.z,
+        plaza.x + 0.1,
+        plaza.z,
+        plaza.grassClear
+      );
+    } else {
+      const dx = Math.cos(plaza.yaw) * 34;
+      const dz = -Math.sin(plaza.yaw) * 34;
+      consider(plaza.x - dx, plaza.z - dz, plaza.x + dx, plaza.z + dz, 21);
+    }
   }
   _roadPick.sort((a, b) => a.d - b.d);
   for (let i = 0; i < MAX_ROADS; i++) {
