@@ -1018,7 +1018,7 @@ waterMaterial.onBeforeCompile = function (shader) {
         vec3 glitterColor = uSunColor * mix(vec3(1.0), vec3(1.0, 0.72, 0.38), lowSun);
         // Under a cloud the water is duller and the sun's path goes out
         float waterCloudShade = cloudShadowAt(vWorldPosition);
-        gl_FragColor.rgb *= mix(1.0, waterCloudShade, 0.6);
+        gl_FragColor.rgb *= mix(1.0, waterCloudShade, 0.35);
         gl_FragColor.rgb += glitterColor * min(glitter, 3.0) * waterCloudShade * waterCloudShade;
 
         // Whitecaps (after NeuralSpecOcean's offshore foam): when the

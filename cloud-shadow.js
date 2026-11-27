@@ -19,8 +19,9 @@ const enabled = ChillFlightLogic.urlParams?.get('cloudShadows') !== '0';
 // ring's edge in every direction
 const SIZE = 256;
 const SPAN = 40000;
-// How much of the direct sunlight a thick cloud blocks
-const STRENGTH = 1;
+// How much of the direct sunlight a thick cloud blocks: not all of it, as
+// a real cloud lets some through and full shade read as near-black patches
+const STRENGTH = 0.6;
 
 const target = new THREE.WebGLRenderTarget(SIZE, SIZE, {
   depthBuffer: false,
