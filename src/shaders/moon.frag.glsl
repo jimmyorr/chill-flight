@@ -3,42 +3,30 @@
     uniform float dayFactor;
     uniform vec3 uSunDirectionWorld;
     uniform mat3 uMoonRotMat;
-    uniform sampler2D uNoiseTex;
     uniform float uCloudDensity;
+    uniform float uCloudHeight;
     uniform vec3 uMoonSkyDir;
     uniform vec3 uCameraPos;
     uniform sampler2D uMoonMap;
     uniform float uHasMoonMap;
     uniform bool uShowClouds;
-    #ifdef ANIME_TOWERS
     uniform float offset;
     uniform float uSkyTime;
-    #endif
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vViewPosition;
     varying vec3 vObjectNormal;
 
+    const float CIRRUS_HEIGHT = 3.0;
+    const float MACKEREL_HEIGHT = 2.0;
+
+    vec2 highCloudUV(vec3 dir, float h, float H) {
+        float t = max(H - uCameraPos.y, 1.0) / h;
+        return (uCameraPos.xz + dir.xz * t) / H;
+    }
+
     vec2 random2(vec2 p) {
         return fract(sin(vec2(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3))))*43758.5453);
-    }
-
-    float noise(vec2 st) {
-        vec2 i = floor(st);
-        vec2 f = fract(st);
-        vec2 u = f * f * (3.0 - 2.0 * f);
-        return texture2D(uNoiseTex, (i + u + 0.5) / 256.0).r;
-    }
-
-    float fbm(vec2 st) {
-        float value = 0.0;
-        float amplitude = 0.5;
-        for (int i = 0; i < 4; i++) {
-            value += amplitude * noise(st);
-            st *= 2.0;
-            amplitude *= 0.5;
-        }
-        return value;
     }
 
     float voronoi(vec2 x) {
@@ -63,37 +51,94 @@
         return vec2(u, v);
     }
 
-    // Approximate cloud coverage at the moon's sky position
-    // Uses the same noise texture and drift as the sky shader's volumetric clouds
-    float getCloudCoverage() {
-        float h = uMoonSkyDir.y;
-        if (h < 0.01) return 0.0; // Below horizon - no overhead clouds visible
-
-        float cloudHeight = 3000.0;
+    // Exact per-pixel cloud coverage matching sky.frag.glsl (cirrus, mackerel,
+    // cumulus, and horizon clouds) so clouds drift seamlessly across both the
+    // sunlit crescent and dark limb even when the moon swells 5-10x on a trip
+    float getCloudCoverage(vec3 dir) {
+        float h = dir.y;
+        float cloudHeight = uCloudHeight > 0.0 ? uCloudHeight : 3000.0;
         float distToPlane = cloudHeight - uCameraPos.y;
-        // Only occlude when camera is below the cloud plane looking up
-        if (distToPlane <= 0.0) return 0.0;
+        bool seesDeck = (distToPlane * h) > 0.0 && distToPlane > 0.0;
+        float cover = 0.0;
 
-        float t = distToPlane / h;
-        vec2 cloudUV = (uCameraPos.xz + uMoonSkyDir.xz * t) / cloudHeight;
+        if (seesDeck || h > 0.0) {
+            float densityOffset = (uCloudDensity - 0.5) * 0.6;
+            float horizonFade = smoothstep(0.0, 0.15, abs(h));
 
-        float densityOffset = (uCloudDensity - 0.5) * 0.6;
+            if (uCloudTypes.y > 0.0 && h > 0.0) {
+                vec2 uvCirrus = (highCloudUV(dir, h, cloudHeight * CIRRUS_HEIGHT)
+                                 + CLOUD_WIND * uSkyTime * 0.012) * 2.0;
+                #ifdef ANIME_SKY
+                float aCirrus = animeCirrusShape(uvCirrus).x * horizonFade
+                              * smoothstep(0.0, 0.35, uCloudTypes.y) * cirrusViewFade(dir) * 0.95;
+                #else
+                float aCirrus = smoothstep(0.3, 0.55, cirrusShape(uvCirrus)) * horizonFade
+                              * uCloudTypes.y * cirrusViewFade(dir) * 0.6;
+                #endif
+                cover = 1.0 - (1.0 - cover) * (1.0 - aCirrus);
+            }
 
-        // Sample both cloud layers with matching drift
-        vec2 driftHigh = vec2(uTime * 0.015, uTime * 0.0075);
-        float nHigh = fbm((cloudUV + driftHigh) * 3.5);
-        float alphaHigh = smoothstep(0.45 - densityOffset, 0.8 - densityOffset, nHigh);
+            if (uCloudTypes.z > 0.0 && h > 0.0) {
+                vec2 uvMackerel = (highCloudUV(dir, h, cloudHeight * MACKEREL_HEIGHT)
+                                   + CLOUD_WIND * uSkyTime * 0.02) * 4.5;
+                float shapeMackerel = mackerelShape(uvMackerel);
+                #ifdef ANIME_SKY
+                float aaMackerel = max(0.04, fwidth(shapeMackerel));
+                float aMackerel = smoothstep(0.42 - aaMackerel, 0.42 + aaMackerel, shapeMackerel)
+                                * smoothstep(0.08, 0.35, abs(h)) * uCloudTypes.z * 0.95;
+                #else
+                float aMackerel = smoothstep(0.2, 0.6, shapeMackerel)
+                                * smoothstep(0.08, 0.35, abs(h)) * uCloudTypes.z * 0.85;
+                #endif
+                cover = 1.0 - (1.0 - cover) * (1.0 - aMackerel);
+            }
 
-        vec2 driftLow = vec2(uTime * 0.03, uTime * 0.015);
-        float nLow = fbm((cloudUV + driftLow) * 2.0);
-        float alphaLow = smoothstep(0.4 - densityOffset, 0.75 - densityOffset, nLow);
+            if (seesDeck && uCloudTypes.x > 0.0) {
+                float t = distToPlane / h;
+                vec2 cloudUV = (uCameraPos.xz + dir.xz * t) / cloudHeight;
+                vec2 uvLow = (cloudUV + CLOUD_WIND * uSkyTime * 0.034) * 2.0;
+                vec2 q;
+                float detail = smoothstep(0.05, 0.3, abs(h));
+                float nLow = cumulusShape(uvLow, detail, q);
+                float closeness = 1.0 - smoothstep(1200.0, 4000.0, t);
+                float edgeStart = 0.42 - densityOffset - uCloudCover;
+                float edgeWidth = mix(0.16, 0.32, closeness);
+                #ifdef ANIME_SKY
+                edgeWidth *= 0.5;
+                #endif
+                float aLow = smoothstep(edgeStart, edgeStart + edgeWidth, nLow)
+                           * horizonFade * uCloudTypes.x * 0.92;
+                cover = 1.0 - (1.0 - cover) * (1.0 - aLow);
+            }
+        }
 
-        // Combine layers (same weights as sky shader)
-        return min(1.0, alphaHigh * 0.7 + alphaLow * 0.9);
+        if (h > -0.05 && h < 0.30) {
+            float driftTime = uSkyTime * 0.001;
+            float angle = atan(dir.x, dir.z);
+            float w = smoothstep(3.14159 - 0.05, 3.14159, abs(angle));
+            vec2 uvScale = vec2(5.0, 15.0);
+            vec2 horizonUV1 = vec2(angle, h) * uvScale + vec2(driftTime, driftTime * 0.2);
+            float nHorizon = fbm(horizonUV1);
+            if (w > 0.0) {
+                float angle2 = angle > 0.0 ? angle - 3.14159 : angle + 3.14159;
+                nHorizon = mix(nHorizon, fbm(vec2(angle2, h) * uvScale + vec2(driftTime, driftTime * 0.2)), w);
+            }
+            float vFade = (1.0 - smoothstep(0.15, 0.30, h)) * smoothstep(-0.02, 0.04, h);
+            float shapeThreshold = 0.30 - (uCloudDensity - 0.5) * 0.4 + max(0.0, h) * 1.5;
+            #ifdef ANIME_SKY
+            float horizonEdge = 0.07;
+            #else
+            float horizonEdge = 0.25;
+            #endif
+            float aHorizon = smoothstep(shapeThreshold, shapeThreshold + horizonEdge, nHorizon) * vFade
+                           * (1.0 - smoothstep(0.0, 300.0, -distToPlane));
+            cover = 1.0 - (1.0 - cover) * (1.0 - aHorizon);
+        }
+
+        return clamp(cover, 0.0, 1.0);
     }
 
     void main() {
-        vec3 normal = normalize(vNormal);
         vec3 objNormal = normalize(vObjectNormal);
         vec3 worldNormal = normalize(uMoonRotMat * objNormal);
 
@@ -123,26 +168,22 @@
         float illum = dot(worldNormal, normalize(uSunDirectionWorld));
         float phaseMask = smoothstep(-0.12, 0.12, illum);
 
-        // Earthshine: faint glow on the dark side
-        float baseAlpha = mix(0.02, 1.0, phaseMask);
+        // Earthshine: subtle glow on the dark side so maria faintly read inside the crescent
+        float earthshine = mix(0.06, 0.02, dayFactor);
+        float baseAlpha = mix(earthshine, 1.0, phaseMask);
 
-        // Fresnel rim glow only on the lit portion
-        vec3 viewDir = normalize(vViewPosition);
-        float fresnel = 1.0 - max(dot(viewDir, normal), 0.0);
+        // Fresnel rim glow on the lit portion (from unscaled billboard sphere Z)
+        float fresnel = 1.0 - max(objNormal.z, 0.0);
         fresnel = pow(fresnel, 3.0);
-        color += vec3(0.95, 0.95, 1.0) * fresnel * 0.15 * phaseMask;
+        color += vec3(0.95, 0.95, 1.0) * fresnel * 0.18 * phaseMask;
 
-        // Cloud occlusion - moon fades behind clouds (none when the sky draws
-        // no clouds: on Low or with ?clouds=none the moon faded in and out
-        // behind clouds nobody could see)
-        float cloudCover = uShowClouds ? getCloudCoverage() : 0.0;
+        // Cloud occlusion - moon fades behind every cloud layer pixel by pixel
+        vec3 viewDirWorld = normalize((vec4(-vViewPosition, 0.0) * viewMatrix).xyz);
+        vec3 skyDir = normalize(viewDirWorld * 25000.0 + vec3(0.0, offset, 0.0));
+        float cloudCover = uShowClouds ? getCloudCoverage(skyDir) : 0.0;
         #ifdef ANIME_TOWERS
-        // ...and behind the anime style's towering horizon clouds, pixel by
-        // pixel, in the sky dome's own direction for this pixel (the dome is
-        // 25000 units across, lifted by offset at the horizon)
+        // ...and behind the anime style's towering horizon clouds
         if (uShowClouds) {
-            vec3 viewDirWorld = normalize((vec4(-vViewPosition, 0.0) * viewMatrix).xyz);
-            vec3 skyDir = normalize(viewDirWorld * 25000.0 + vec3(0.0, offset, 0.0));
             float towerDist = towerDistance(skyDir, uSkyTime, vec2(0.0));
             cloudCover = max(cloudCover, towerAlphaAt(towerDist, skyDir.y, uCloudDensity) * 0.96);
         }

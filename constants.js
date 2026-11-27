@@ -456,6 +456,7 @@ vec3 farSeaColor(vec3 viewDirW, vec3 topCol, vec3 bottomCol, vec3 sunDir) {
 export const moonlightUniforms = {
   uMoonDir: {value: new THREE.Vector3(0, 0.2, -1).normalize()},
   uMoonBright: {value: 0},
+  uMoonCos: {value: 0.9995},
 };
 
 // GLSL: the cloud layers' noise and lighting, shared by the sky dome and the

@@ -334,6 +334,8 @@ const LOAD_TIME_PARAMS = [
   'horizon',
   'day',
   'dayBlue',
+  'trip',
+  'tripMoon',
 ];
 
 export function canReuseTab(prevQuery, nextQuery) {

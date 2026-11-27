@@ -497,6 +497,12 @@ export const moonUniforms = {
   uMoonRotMat: {value: new THREE.Matrix3()},
   uNoiseTex: {value: skyNoiseTexture},
   uCloudDensity: {value: 0.5},
+  uCloudHeight: skyUniforms.uCloudHeight,
+  uCloudTypes: skyUniforms.uCloudTypes,
+  uCloudCover: skyUniforms.uCloudCover,
+  uSnowDeck: skyUniforms.uSnowDeck,
+  uMoonDir: moonlightUniforms.uMoonDir,
+  uMoonBright: moonlightUniforms.uMoonBright,
   uMoonSkyDir: {value: new THREE.Vector3(0, 0.2, -1)},
   uCameraPos: {value: new THREE.Vector3()},
   // For hiding behind the anime style's horizon towers (TOWER_GLSL)
@@ -519,11 +525,12 @@ new THREE.TextureLoader().load(moonMapUrl, (tex) => {
 });
 
 // Moon (paired with moonOrbitRadius = 27500 in flight-camera.js so it sits
-// beyond the 27 km far-terrain ring at the same apparent size)
-const moonGeo = new THREE.SphereGeometry(440, 32, 32);
+// beyond the 27 km far-terrain ring at the same apparent size; 64x48 keeps
+// the limb smooth when mushroom-trip.js swells it 5-10x)
+const moonGeo = new THREE.SphereGeometry(440, 64, 48);
 const moonMat = new THREE.ShaderMaterial({
   vertexShader: moonVertShader,
-  fragmentShader: TOWER_GLSL + moonFragShader,
+  fragmentShader: CLOUD_GLSL + TOWER_GLSL + moonFragShader,
   uniforms: moonUniforms,
   transparent: true,
   // In the art styles the post pass inks breaks in the depth buffer, so
@@ -617,11 +624,13 @@ export const starsMat = new THREE.ShaderMaterial({
     uTime: {value: 0},
     uMoonDir: moonlightUniforms.uMoonDir,
     uMoonBright: moonlightUniforms.uMoonBright,
+    uMoonCos: moonlightUniforms.uMoonCos,
   },
   vertexShader: `
     uniform float uTime;
     uniform vec3 uMoonDir;
     uniform float uMoonBright;
+    uniform float uMoonCos;
     attribute float size;
     attribute vec3 color;
     attribute float phase;
@@ -642,9 +651,12 @@ export const starsMat = new THREE.ShaderMaterial({
                 + 0.2 * sin(uTime * (5.0 + 3.0 * fract(s * 3.70)) + s * 7.0);
         c *= 1.0 - mix(0.22, 0.5, air) * (0.5 + 0.5 * n);
       }
-      // The moon's glare hides the faint stars around it
-      float glare = smoothstep(0.94, 0.995, dot(d, uMoonDir)) * uMoonBright;
-      c *= 1.0 - min(glare * 1.2, 0.9);
+      // The moon's glare hides faint stars near it, and its solid disc hides
+      // all stars behind its dark limb (even when swollen 5-10x on a trip)
+      float moonDot = dot(d, uMoonDir);
+      float glare = smoothstep(min(0.94, uMoonCos - 0.04), uMoonCos, moonDot) * uMoonBright;
+      c *= (1.0 - min(glare * 1.2, 0.9))
+         * (1.0 - smoothstep(uMoonCos - 0.002, uMoonCos, moonDot));
       vColor = c;
       vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
       gl_PointSize = size;
