@@ -24,8 +24,10 @@ import {
   buildCastleRuinsGeo,
   buildChapelGeos,
   buildHouseGeos,
+  buildIceHutGeos,
   buildPierGeo,
   buildSailboatGeos,
+  buildStrawHutGeos,
   buildTentGeos,
   buildingMat,
 } from './building-models.js';
@@ -2024,22 +2026,15 @@ export var deerGeos = (() => {
   return {coat, dark};
 })();
 
-// Ice fishing hut (the far north's frozen lakes): a little painted shed with
-// a pitched roof and a stovepipe, its walls tinted per hut
-function createIceHutGeometries() {
-  const body = new THREE.BoxGeometry(6, 4.5, 8);
-  body.translate(0, 2.25, 0);
-  const roof = new THREE.CylinderGeometry(4.2, 4.2, 8.6, 3, 1);
-  // A triangular prism along the hut, ridge up, eaves overhanging
-  roof.rotateX(-Math.PI / 2);
-  roof.scale(1, 0.55, 1);
-  roof.translate(0, 4.5 + 4.2 * 0.55 * 0.5, 0);
-  const pipe = new THREE.CylinderGeometry(0.35, 0.35, 3, 5);
-  pipe.translate(1.6, 6.8, -2.2);
-  return {body, roof: mergeGeometries([roof, pipe])};
-}
-export var iceHutGeos = createIceHutGeometries();
-export var iceHutRoofMat = createMaterial({color: 0xe4ebf0, flatShading: true});
+// Ice fishing hut (the far north's frozen lakes): painted Nordic shanty on
+// wooden sled runners with snow-drifted roof, stovepipe, firewood & auger hole
+export var iceHutGeos = buildIceHutGeos();
+export var iceHutRoofMat = createMaterial({
+  color: 0xffffff,
+  vertexColors: true,
+  flatShading: true,
+  roughness: 0.86,
+});
 export var joshuaGeos = createJoshuaTreeGeometry();
 export var joshuaTrunkMat = createMaterial({
   color: 0x9c8669,
@@ -2273,79 +2268,14 @@ export var houseChimneyMat = createMaterial({
   roughness: 0.88,
 });
 
-// Straw hut geometries (vertex-colored adobe walls + doorway + tiered thatch roof)
-function buildVertexColoredGeo(parts) {
-  const pos = [],
-    norm = [],
-    col = [],
-    idx = [];
-  let offset = 0;
-  for (const {geo, color} of parts) {
-    const c = new THREE.Color(color);
-    pos.push(...geo.attributes.position.array);
-    if (geo.attributes.normal) norm.push(...geo.attributes.normal.array);
-    const count = geo.attributes.position.count;
-    for (let i = 0; i < count; i++) col.push(c.r, c.g, c.b);
-    if (geo.index) {
-      for (let i = 0; i < geo.index.array.length; i++)
-        idx.push(geo.index.array[i] + offset);
-    } else {
-      for (let i = 0; i < count; i++) idx.push(i + offset);
-    }
-    offset += count;
-  }
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  if (norm.length === pos.length)
-    geom.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
-  else geom.computeVertexNormals();
-  geom.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-  geom.setIndex(idx);
-  return geom;
-}
-
-function createStrawHutBodyGeometry() {
-  const wall = new THREE.CylinderGeometry(3.85, 4.1, 6.0, 8);
-  wall.translate(0, 3.0, 0);
-  const plinth = new THREE.CylinderGeometry(4.25, 4.35, 0.7, 8);
-  plinth.translate(0, 0.35, 0);
-  const door = new THREE.BoxGeometry(1.7, 3.6, 0.4);
-  door.translate(0, 1.8, 3.78);
-  const postL = new THREE.BoxGeometry(0.32, 3.8, 0.55);
-  postL.translate(-0.95, 1.9, 3.82);
-  const postR = new THREE.BoxGeometry(0.32, 3.8, 0.55);
-  postR.translate(0.95, 1.9, 3.82);
-  const lintel = new THREE.BoxGeometry(2.4, 0.38, 0.62);
-  lintel.translate(0, 3.75, 3.85);
-  return buildVertexColoredGeo([
-    {geo: plinth, color: 0x7d6b57},
-    {geo: wall, color: 0xc99e67},
-    {geo: door, color: 0x1e140d},
-    {geo: postL, color: 0x5c3d24},
-    {geo: postR, color: 0x5c3d24},
-    {geo: lintel, color: 0x5c3d24},
-  ]);
-}
-
-function createStrawHutRoofGeometry() {
-  const lowerEave = new THREE.CylinderGeometry(3.3, 5.7, 2.2, 8);
-  lowerEave.translate(0, 6.9, 0);
-  const upperCone = new THREE.ConeGeometry(3.55, 3.2, 8);
-  upperCone.translate(0, 9.4, 0);
-  const finial = new THREE.CylinderGeometry(0.28, 0.55, 1.1, 6);
-  finial.translate(0, 11.1, 0);
-  return buildVertexColoredGeo([
-    {geo: lowerEave, color: 0xd9b36c},
-    {geo: upperCone, color: 0xe6c280},
-    {geo: finial, color: 0x5c3d24},
-  ]);
-}
-
-export var strawHutBodyGeo = createStrawHutBodyGeometry();
-export var strawHutRoofGeo = createStrawHutRoofGeometry();
+// Straw hut geometries (tropical island wattle-and-bamboo hut + 3-tier palm thatch roof)
+var _strawHutGeos = buildStrawHutGeos();
+export var strawHutBodyGeo = _strawHutGeos.body;
+export var strawHutRoofGeo = _strawHutGeos.roof;
 export var strawHutMat = createMaterial({
   vertexColors: true,
   flatShading: true,
+  roughness: 0.88,
 });
 
 // Iceberg & Ice floe geometries & materials

@@ -1006,10 +1006,19 @@ function viewModel(type, e, colorSeed = 0) {
       }
       case 'ice_hut':
         ICE_HUT_COLORS.forEach((color, i) => {
-          const body = new THREE.Mesh(iceHutGeos.body, createMaterial({color}));
+          const body = new THREE.Mesh(
+            iceHutGeos.body,
+            createMaterial({
+              color,
+              vertexColors: true,
+              flatShading: true,
+              roughness: 0.88,
+            })
+          );
           const roof = new THREE.Mesh(iceHutGeos.roof, iceHutRoofMat);
-          body.position.x = roof.position.x = (i - 2) * 10;
-          previewGroup.add(body, roof);
+          const trim = new THREE.Mesh(iceHutGeos.trim, iceHutRoofMat);
+          body.position.x = roof.position.x = trim.position.x = (i - 2) * 11;
+          previewGroup.add(body, roof, trim);
         });
         break;
       case 'sheep':

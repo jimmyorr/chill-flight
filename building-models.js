@@ -4226,3 +4226,870 @@ export function buildSailboatGeos() {
     sail: SL.build(),
   };
 }
+
+// --- TROPICAL STRAW HUT & NORDIC ICE FISHING SHANTY ---
+
+export function buildStrawHutGeos() {
+  const B = createColoredBuilder();
+  const R = createColoredBuilder();
+  const N = 12;
+  const ang = (k) => ((k - 0.5) / N) * Math.PI * 2;
+
+  const basaltA = hexRgb(0x5d5850);
+  const coralStone = hexRgb(0x7e715f);
+  const deckWood = hexRgb(0x8e643c);
+  const wattleA = hexRgb(0xd4aa6e);
+  const wattleB = hexRgb(0xc5985c);
+  const bambooBand = hexRgb(0xa97d45);
+  const darkPalm = hexRgb(0x4c311c);
+  const medPalm = hexRgb(0x694528);
+  const recessDark = hexRgb(0x1b130d);
+  const reedCurtain = hexRgb(0xb6894e);
+
+  const thatchEave = hexRgb(0xc3964d);
+  const thatchMidA = hexRgb(0xd8ae62);
+  const thatchMidB = hexRgb(0xcda055);
+  const thatchCrownA = hexRgb(0xe6c278);
+  const thatchCrownB = hexRgb(0xdab46a);
+  const thatchSoffit = hexRgb(0x593d23);
+
+  // 1. 12-sided stone & coral footing ring + raised timber veranda rim
+  for (let k = 0; k < N; k++) {
+    const a0 = ang(k);
+    const a1 = ang(k + 1);
+    const c0 = Math.cos(a0);
+    const s0 = Math.sin(a0);
+    const c1 = Math.cos(a1);
+    const s1 = Math.sin(a1);
+    const rBot = 4.72;
+    const rTop = 4.42;
+    const rWall0 = 4.02;
+    const rWall1 = 3.84;
+
+    // Grounded stone plinth (y = -1.2..0.82)
+    B.quad(
+      [c1 * rBot, -1.2, s1 * rBot],
+      [c0 * rBot, -1.2, s0 * rBot],
+      [c0 * rTop, 0.82, s0 * rTop],
+      [c1 * rTop, 0.82, s1 * rTop],
+      k % 2 === 0 ? basaltA : coralStone
+    );
+    // Raised veranda walkway lip (rWall0..rTop at y = 0.82)
+    B.quad(
+      [c0 * rWall0, 0.82, s0 * rWall0],
+      [c1 * rWall0, 0.82, s1 * rWall0],
+      [c1 * rTop, 0.82, s1 * rTop],
+      [c0 * rTop, 0.82, s0 * rTop],
+      deckWood
+    );
+
+    // Sector k === 3 is centered on +Z (90 deg): leave doorway cutout (y = 0.82..4.25)
+    const wallCol = k % 2 === 0 ? wattleA : wattleB;
+    if (k === 3) {
+      const rUpper0 =
+        rWall0 + (rWall1 - rWall0) * ((4.25 - 0.82) / (6.15 - 0.82));
+      B.quad(
+        [c1 * rUpper0, 4.25, s1 * rUpper0],
+        [c0 * rUpper0, 4.25, s0 * rUpper0],
+        [c0 * rWall1, 6.15, s0 * rWall1],
+        [c1 * rWall1, 6.15, s1 * rWall1],
+        wallCol
+      );
+    } else {
+      // Lower, mid, and upper woven wattle wall bands with lashed bamboo rings
+      const rMidA = rWall0 + (rWall1 - rWall0) * 0.34;
+      const rMidB = rWall0 + (rWall1 - rWall0) * 0.68;
+      B.quad(
+        [c1 * rWall0, 0.82, s1 * rWall0],
+        [c0 * rWall0, 0.82, s0 * rWall0],
+        [c0 * rMidA, 2.62, s0 * rMidA],
+        [c1 * rMidA, 2.62, s1 * rMidA],
+        wallCol
+      );
+      B.quad(
+        [c1 * (rMidA + 0.06), 2.62, s1 * (rMidA + 0.06)],
+        [c0 * (rMidA + 0.06), 2.62, s0 * (rMidA + 0.06)],
+        [c0 * (rMidA + 0.06), 2.8, s0 * (rMidA + 0.06)],
+        [c1 * (rMidA + 0.06), 2.8, s1 * (rMidA + 0.06)],
+        bambooBand
+      );
+      B.quad(
+        [c1 * rMidA, 2.8, s1 * rMidA],
+        [c0 * rMidA, 2.8, s0 * rMidA],
+        [c0 * rMidB, 4.45, s0 * rMidB],
+        [c1 * rMidB, 4.45, s1 * rMidB],
+        scaleRgb(wallCol, 0.96)
+      );
+      B.quad(
+        [c1 * (rMidB + 0.06), 4.45, s1 * (rMidB + 0.06)],
+        [c0 * (rMidB + 0.06), 4.45, s0 * (rMidB + 0.06)],
+        [c0 * (rMidB + 0.06), 4.63, s0 * (rMidB + 0.06)],
+        [c1 * (rMidB + 0.06), 4.63, s1 * (rMidB + 0.06)],
+        bambooBand
+      );
+      B.quad(
+        [c1 * rMidB, 4.63, s1 * rMidB],
+        [c0 * rMidB, 4.63, s0 * rMidB],
+        [c0 * rWall1, 6.15, s0 * rWall1],
+        [c1 * rWall1, 6.15, s1 * rWall1],
+        wallCol
+      );
+    }
+
+    // Exterior dark palm-wood structural corner post at vertex `a0`
+    const px = c0 * (rWall0 + 0.08);
+    const pz = s0 * (rWall0 + 0.08);
+    const pxT = c0 * (rWall1 + 0.08);
+    const pzT = s0 * (rWall1 + 0.08);
+    const tx = -s0 * 0.13;
+    const tz = c0 * 0.13;
+    const nx = c0 * 0.12;
+    const nz = s0 * 0.12;
+    B.quad(
+      [px + nx + tx, 0.82, pz + nz + tz],
+      [px + nx - tx, 0.82, pz + nz - tz],
+      [pxT + nx - tx, 6.1, pzT + nz - tz],
+      [pxT + nx + tx, 6.1, pzT + nz + tz],
+      darkPalm
+    );
+  }
+
+  // 2. Front (+Z) recessed doorway, bamboo porch posts, split-log steps & thatch awning
+  const zDoorFace = 4.02 * Math.cos(Math.PI / N); // ~3.883
+  const zDoorBack = 3.25;
+  // Shadowed doorway recess + half-drawn reed curtain
+  B.quad(
+    [-0.92, 0.82, zDoorBack],
+    [0.92, 0.82, zDoorBack],
+    [0.92, 4.25, zDoorBack],
+    [-0.92, 4.25, zDoorBack],
+    recessDark
+  );
+  B.quad(
+    [-0.92, 0.82, zDoorFace],
+    [-0.92, 0.82, zDoorBack],
+    [-0.92, 4.25, zDoorBack],
+    [-0.92, 4.25, zDoorFace],
+    darkPalm
+  );
+  B.quad(
+    [0.92, 0.82, zDoorBack],
+    [0.92, 0.82, zDoorFace],
+    [0.92, 4.25, zDoorFace],
+    [0.92, 4.25, zDoorBack],
+    darkPalm
+  );
+  B.quad(
+    [-0.88, 1.35, zDoorBack + 0.08],
+    [-0.08, 1.35, zDoorBack + 0.08],
+    [-0.28, 4.2, zDoorBack + 0.08],
+    [-0.88, 4.2, zDoorBack + 0.08],
+    reedCurtain
+  );
+  // Carved door jambs, lintel, entry steps & porch posts
+  B.box(
+    -1.14,
+    -0.86,
+    0.82,
+    4.35,
+    zDoorFace - 0.06,
+    zDoorFace + 0.34,
+    darkPalm,
+    {bottom: false}
+  );
+  B.box(0.86, 1.14, 0.82, 4.35, zDoorFace - 0.06, zDoorFace + 0.34, darkPalm, {
+    bottom: false,
+  });
+  B.box(-1.38, 1.38, 4.22, 4.56, zDoorFace - 0.06, zDoorFace + 0.44, medPalm);
+  B.box(-1.35, 1.35, -0.4, 0.42, 4.25, 4.95, coralStone);
+  B.box(-1.18, 1.18, 0.42, 0.82, 4.05, 4.65, deckWood);
+  // Propped front doorway thatch hood + twin bamboo support posts
+  B.box(-1.36, -1.16, 0.42, 4.35, 4.72, 4.92, medPalm);
+  B.box(1.16, 1.36, 0.42, 4.35, 4.72, 4.92, medPalm);
+  B.quad(
+    [-1.58, 4.28, 5.12],
+    [1.58, 4.28, 5.12],
+    [1.42, 4.98, zDoorFace + 0.04],
+    [-1.42, 4.98, zDoorFace + 0.04],
+    thatchMidA
+  );
+  B.quad(
+    [-1.58, 4.14, 5.12],
+    [1.58, 4.14, 5.12],
+    [1.58, 4.28, 5.12],
+    [-1.58, 4.28, 5.12],
+    thatchEave
+  );
+
+  // 3. Side breeze-windows at -X and +X with propped-open woven shutters
+  for (const sx of [-1, 1]) {
+    const xFace = sx * 3.82;
+    const xOut = sx * 4.02;
+    const xShut = sx * 4.68;
+    B.box(
+      Math.min(xFace, xOut),
+      Math.max(xFace, xOut),
+      2.82,
+      3.02,
+      -0.88,
+      0.88,
+      medPalm
+    );
+    if (sx > 0) {
+      B.quad(
+        [xOut, 3.02, 0.72],
+        [xOut, 3.02, -0.72],
+        [xOut, 4.32, -0.72],
+        [xOut, 4.32, 0.72],
+        recessDark
+      );
+      // Propped shutter awning
+      B.quad(
+        [xShut, 3.85, 0.86],
+        [xShut, 3.85, -0.86],
+        [xOut - 0.05, 4.44, -0.82],
+        [xOut - 0.05, 4.44, 0.82],
+        bambooBand
+      );
+    } else {
+      B.quad(
+        [xOut, 3.02, -0.72],
+        [xOut, 3.02, 0.72],
+        [xOut, 4.32, 0.72],
+        [xOut, 4.32, -0.72],
+        recessDark
+      );
+      B.quad(
+        [xShut, 3.85, -0.86],
+        [xShut, 3.85, 0.86],
+        [xOut + 0.05, 4.44, 0.82],
+        [xOut + 0.05, 4.44, -0.82],
+        bambooBand
+      );
+    }
+  }
+
+  // 4. Roof (`strawHutRoofGeo`): 3-tiered scalloped palm-thatch bell cone + bamboo rafter tails + finial
+  const tiers = [
+    // [rBot, yBot, rTop, yTop, skirtDrop, colA, colB]
+    [6.05, 5.62, 4.18, 7.52, 0.28, thatchMidB, thatchEave],
+    [4.46, 7.28, 2.48, 9.42, 0.24, thatchMidA, thatchMidB],
+    [2.72, 9.18, 0.36, 11.62, 0.2, thatchCrownA, thatchCrownB],
+  ];
+  for (let tIdx = 0; tIdx < tiers.length; tIdx++) {
+    const [r0, y0, r1, y1, drop, colA, colB] = tiers[tIdx];
+    const rSoffitIn = tIdx === 0 ? 3.72 : r0 - 0.42;
+    for (let k = 0; k < N; k++) {
+      const a0 = ang(k);
+      const a1 = ang(k + 1);
+      const c0 = Math.cos(a0);
+      const s0 = Math.sin(a0);
+      const c1 = Math.cos(a1);
+      const s1 = Math.sin(a1);
+      const col = k % 2 === 0 ? colA : colB;
+
+      // Upper sloped thatch sector
+      R.quad(
+        [c1 * r0, y0, s1 * r0],
+        [c0 * r0, y0, s0 * r0],
+        [c0 * r1, y1, s0 * r1],
+        [c1 * r1, y1, s1 * r1],
+        col
+      );
+      // Thick thatch eave fascia band
+      R.quad(
+        [c1 * (r0 + 0.04), y0 - drop, s1 * (r0 + 0.04)],
+        [c0 * (r0 + 0.04), y0 - drop, s0 * (r0 + 0.04)],
+        [c0 * r0, y0, s0 * r0],
+        [c1 * r0, y0, s1 * r0],
+        scaleRgb(col, 0.88)
+      );
+      // Downward-facing soffit ring (-Y normal)
+      R.quad(
+        [c1 * rSoffitIn, y0 - drop * 0.4, s1 * rSoffitIn],
+        [c0 * rSoffitIn, y0 - drop * 0.4, s0 * rSoffitIn],
+        [c0 * (r0 + 0.04), y0 - drop, s0 * (r0 + 0.04)],
+        [c1 * (r0 + 0.04), y0 - drop, s1 * (r0 + 0.04)],
+        thatchSoffit
+      );
+
+      // Projecting bamboo rafter tails under the main lower eave
+      if (tIdx === 0) {
+        const am = (a0 + a1) * 0.5;
+        const cm = Math.cos(am);
+        const sm = Math.sin(am);
+        const tx = -sm * 0.11;
+        const tz = cm * 0.11;
+        const rIn = 3.85;
+        const rTail = 6.22;
+        const yIn = 6.08;
+        const yTail = 5.3;
+        R.quad(
+          [cm * rTail - tx, yTail, sm * rTail - tz],
+          [cm * rTail + tx, yTail, sm * rTail + tz],
+          [cm * rIn + tx, yIn, sm * rIn + tz],
+          [cm * rIn - tx, yIn, sm * rIn - tz],
+          medPalm
+        );
+        R.quad(
+          [cm * rTail + tx, yTail, sm * rTail + tz],
+          [cm * rTail - tx, yTail, sm * rTail - tz],
+          [cm * rTail - tx, yTail + 0.16, sm * rTail - tz],
+          [cm * rTail + tx, yTail + 0.16, sm * rTail + tz],
+          bambooBand
+        );
+      }
+    }
+  }
+
+  // Lashed dark-hardwood crown finial + rattan collar
+  addCylinderBand(R, 0, 0, 0.52, 11.42, 0.42, 11.82, 6, () => bambooBand);
+  addCylinderBand(
+    R,
+    0,
+    0,
+    0.34,
+    11.82,
+    0.12,
+    12.75,
+    6,
+    () => darkPalm,
+    darkPalm
+  );
+
+  return {
+    body: B.build(),
+    roof: R.build(),
+  };
+}
+
+export function buildIceHutGeos() {
+  const B = createColoredBuilder();
+  const R = createColoredBuilder();
+  const T = createColoredBuilder();
+
+  // 1. Body (`iceHutGeos.body`, grayscale vertex shading tinted by vibrant ICE_HUT_COLORS)
+  const hx = 3.0;
+  const hz = 4.0;
+  const yFloor = 0.52;
+  const yEave = 4.62;
+  const yPeak = 6.82;
+
+  const trimShade = [1.06, 1.06, 1.06];
+  const plankA = [0.97, 0.97, 0.97];
+  const plankB = [0.9, 0.9, 0.9];
+  const gableShade = [0.94, 0.94, 0.94];
+  const cw = 0.34;
+  const cp = 0.06;
+
+  // Underside floor slab resting on sled bunks
+  B.quad(
+    [-hx, yFloor, -hz],
+    [hx, yFloor, -hz],
+    [hx, yFloor, hz],
+    [-hx, yFloor, hz],
+    [0.6, 0.6, 0.6]
+  );
+
+  // 4 proud corner trim posts (non-overlapping with recessed plank panels)
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const xOut = sx * (hx + cp);
+      const xIn = sx * (hx - cw);
+      const zOut = sz * (hz + cp);
+      const zIn = sz * (hz - cw);
+      if (sz > 0) {
+        B.quad(
+          [Math.min(xIn, xOut), yFloor, zOut],
+          [Math.max(xIn, xOut), yFloor, zOut],
+          [Math.max(xIn, xOut), yEave, zOut],
+          [Math.min(xIn, xOut), yEave, zOut],
+          trimShade
+        );
+      } else {
+        B.quad(
+          [Math.max(xIn, xOut), yFloor, zOut],
+          [Math.min(xIn, xOut), yFloor, zOut],
+          [Math.min(xIn, xOut), yEave, zOut],
+          [Math.max(xIn, xOut), yEave, zOut],
+          trimShade
+        );
+      }
+      if (sx > 0) {
+        B.quad(
+          [xOut, yFloor, Math.max(zIn, zOut)],
+          [xOut, yFloor, Math.min(zIn, zOut)],
+          [xOut, yEave, Math.min(zIn, zOut)],
+          [xOut, yEave, Math.max(zIn, zOut)],
+          scaleRgb(trimShade, 0.95)
+        );
+      } else {
+        B.quad(
+          [xOut, yFloor, Math.min(zIn, zOut)],
+          [xOut, yFloor, Math.max(zIn, zOut)],
+          [xOut, yEave, Math.max(zIn, zOut)],
+          [xOut, yEave, Math.min(zIn, zOut)],
+          scaleRgb(trimShade, 0.95)
+        );
+      }
+    }
+  }
+
+  // Front (+Z) & rear (-Z) vertical board-and-batten wall panels + gable triangles
+  const xSpan = hx - cw;
+  const fPanels = 3;
+  for (let i = 0; i < fPanels; i++) {
+    const xa = -xSpan + (2 * xSpan * i) / fPanels;
+    const xb = -xSpan + (2 * xSpan * (i + 1)) / fPanels;
+    const col = i % 2 === 0 ? plankA : plankB;
+    B.quad(
+      [xa, yFloor, hz],
+      [xb, yFloor, hz],
+      [xb, yEave, hz],
+      [xa, yEave, hz],
+      col
+    );
+    B.quad(
+      [xb, yFloor, -hz],
+      [xa, yFloor, -hz],
+      [xa, yEave, -hz],
+      [xb, yEave, -hz],
+      scaleRgb(col, 0.92)
+    );
+  }
+  // Gable triangles on +Z and -Z
+  B.tri([-hx, yEave, hz], [hx, yEave, hz], [0, yPeak, hz], gableShade);
+  B.tri(
+    [hx, yEave, -hz],
+    [-hx, yEave, -hz],
+    [0, yPeak, -hz],
+    scaleRgb(gableShade, 0.92)
+  );
+
+  // Left (-X) & right (+X) 4-bay vertical plank walls
+  const zSpan = hz - cw;
+  const sPanels = 4;
+  for (let i = 0; i < sPanels; i++) {
+    const za = -zSpan + (2 * zSpan * i) / sPanels;
+    const zb = -zSpan + (2 * zSpan * (i + 1)) / sPanels;
+    const col = i % 2 === 0 ? plankA : plankB;
+    B.quad(
+      [hx, yFloor, zb],
+      [hx, yFloor, za],
+      [hx, yEave, za],
+      [hx, yEave, zb],
+      scaleRgb(col, 0.95)
+    );
+    B.quad(
+      [-hx, yFloor, za],
+      [-hx, yFloor, zb],
+      [-hx, yEave, zb],
+      [-hx, yEave, za],
+      scaleRgb(col, 0.95)
+    );
+  }
+
+  // 2. Roof (`iceHutGeos.roof`, y >= 4.36 so shadowGable fits roof cleanly; FLINGS on smash)
+  const woodBarge = hexRgb(0x4e3725);
+  const snowBright = hexRgb(0xf2f6fa);
+  const snowShade = hexRgb(0xdbe6f0);
+  const snowEdge = hexRgb(0xc8d7e5);
+  const pipeIron = hexRgb(0x272b30);
+  const pipeCollar = hexRgb(0x5d656e);
+
+  const rx = 3.58;
+  const rz = 4.54;
+  const ryEave = 4.38;
+  const ryDeck = 4.58;
+  const ryRidge = 6.96;
+  const syRidge = 7.28;
+
+  // Timber eave fascia, gable bargeboards & underside soffits
+  R.quad(
+    [rx, ryEave, rz],
+    [rx, ryEave, -rz],
+    [rx, ryDeck, -rz],
+    [rx, ryDeck, rz],
+    woodBarge
+  );
+  R.quad(
+    [-rx, ryEave, -rz],
+    [-rx, ryEave, rz],
+    [-rx, ryDeck, rz],
+    [-rx, ryDeck, -rz],
+    woodBarge
+  );
+  R.quad(
+    [hx, ryEave, -rz],
+    [hx, ryEave, rz],
+    [rx, ryEave, rz],
+    [rx, ryEave, -rz],
+    scaleRgb(woodBarge, 0.78)
+  );
+  R.quad(
+    [-hx, ryEave, rz],
+    [-hx, ryEave, -rz],
+    [-rx, ryEave, -rz],
+    [-rx, ryEave, rz],
+    scaleRgb(woodBarge, 0.78)
+  );
+  // Front & back timber bargeboards under snow cap
+  for (const sz of [-1, 1]) {
+    const zB = sz * rz;
+    if (sz > 0) {
+      R.quad(
+        [0, ryRidge - 0.22, zB],
+        [rx, ryEave, zB],
+        [rx, ryDeck, zB],
+        [0, ryRidge, zB],
+        woodBarge
+      );
+      R.quad(
+        [-rx, ryEave, zB],
+        [0, ryRidge - 0.22, zB],
+        [0, ryRidge, zB],
+        [-rx, ryDeck, zB],
+        woodBarge
+      );
+    } else {
+      R.quad(
+        [rx, ryEave, zB],
+        [0, ryRidge - 0.22, zB],
+        [0, ryRidge, zB],
+        [rx, ryDeck, zB],
+        woodBarge
+      );
+      R.quad(
+        [0, ryRidge - 0.22, zB],
+        [-rx, ryEave, zB],
+        [-rx, ryDeck, zB],
+        [0, ryRidge, zB],
+        woodBarge
+      );
+    }
+  }
+
+  // Thick pillowy snow-drift blanket overhanging the timber roof
+  const sxSnow = 3.68;
+  const szSnow = 4.64;
+  R.quad(
+    [sxSnow, ryDeck + 0.24, szSnow],
+    [sxSnow, ryDeck + 0.24, -szSnow],
+    [0, syRidge, -szSnow],
+    [0, syRidge, szSnow],
+    snowBright
+  );
+  R.quad(
+    [-sxSnow, ryDeck + 0.24, -szSnow],
+    [-sxSnow, ryDeck + 0.24, szSnow],
+    [0, syRidge, szSnow],
+    [0, syRidge, -szSnow],
+    snowShade
+  );
+  // Rounded snow cornice edges
+  R.quad(
+    [rx, ryDeck, szSnow],
+    [rx, ryDeck, -szSnow],
+    [sxSnow, ryDeck + 0.24, -szSnow],
+    [sxSnow, ryDeck + 0.24, szSnow],
+    snowEdge
+  );
+  R.quad(
+    [-rx, ryDeck, -szSnow],
+    [-rx, ryDeck, szSnow],
+    [-sxSnow, ryDeck + 0.24, szSnow],
+    [-sxSnow, ryDeck + 0.24, -szSnow],
+    snowEdge
+  );
+  R.quad(
+    [0, ryRidge, szSnow],
+    [sxSnow, ryDeck + 0.24, szSnow],
+    [0, syRidge, szSnow],
+    [-sxSnow, ryDeck + 0.24, szSnow],
+    snowEdge
+  );
+  R.quad(
+    [0, ryRidge, -szSnow],
+    [-sxSnow, ryDeck + 0.24, -szSnow],
+    [0, syRidge, -szSnow],
+    [sxSnow, ryDeck + 0.24, -szSnow],
+    snowEdge
+  );
+
+  // Cast-iron stovepipe + roof flashing collar + conical spark cap
+  const px = 1.55;
+  const pz = -2.05;
+  addCylinderBand(
+    R,
+    px,
+    pz,
+    0.44,
+    5.75,
+    0.34,
+    6.45,
+    6,
+    () => pipeCollar,
+    pipeCollar
+  );
+  addCylinderBand(
+    R,
+    px,
+    pz,
+    0.24,
+    6.35,
+    0.22,
+    8.85,
+    6,
+    () => pipeIron,
+    pipeIron
+  );
+  // Support struts + conical rain cap
+  R.box(px - 0.04, px + 0.04, 8.85, 9.08, pz - 0.16, pz + 0.16, pipeIron);
+  addCylinderBand(R, px, pz, 0.46, 9.05, 0.04, 9.36, 6, () => pipeCollar);
+
+  // 3. Trim (`iceHutGeos.trim`: sled runners, door, windows, firewood & ice-fishing hole)
+  const skidWood = hexRgb(0x463120);
+  const runnerSteel = hexRgb(0x4f5861);
+  const nordicWhite = hexRgb(0xf2efe8);
+  const pineDoor = hexRgb(0x7c4f2b);
+  const frostyGlass = hexRgb(0x6d9cb9);
+  const birchBark = hexRgb(0xdcd7cd);
+  const splitWood = hexRgb(0xc79d6e);
+  const darkWater = hexRgb(0x13283b);
+  const flagRed = hexRgb(0xd63229);
+
+  // Heavy wooden sled runners with upturned front & rear tips
+  for (const sx of [-2.22, 2.22]) {
+    T.box(sx - 0.2, sx + 0.2, -0.16, 0.36, -4.65, 4.85, skidWood, {
+      bottom: true,
+    });
+    T.box(sx - 0.16, sx + 0.16, -0.22, -0.14, -4.65, 4.85, runnerSteel, {
+      bottom: true,
+    });
+    // Upturned front (+Z) sled toe
+    T.quad(
+      [sx - 0.2, -0.16, 4.85],
+      [sx + 0.2, -0.16, 4.85],
+      [sx + 0.18, 0.78, 5.58],
+      [sx - 0.18, 0.78, 5.58],
+      runnerSteel
+    );
+    T.quad(
+      [sx + 0.18, 0.96, 5.48],
+      [sx - 0.18, 0.96, 5.48],
+      [sx - 0.2, 0.36, 4.85],
+      [sx + 0.2, 0.36, 4.85],
+      skidWood
+    );
+    T.quad(
+      [sx + 0.2, -0.16, 4.85],
+      [sx + 0.2, 0.36, 4.85],
+      [sx + 0.18, 0.96, 5.48],
+      [sx + 0.18, 0.78, 5.58],
+      skidWood
+    );
+    T.quad(
+      [sx - 0.2, 0.36, 4.85],
+      [sx - 0.2, -0.16, 4.85],
+      [sx - 0.18, 0.78, 5.58],
+      [sx - 0.18, 0.96, 5.48],
+      skidWood
+    );
+    // Upturned rear (-Z) sled heel
+    T.quad(
+      [sx + 0.2, -0.16, -4.65],
+      [sx - 0.2, -0.16, -4.65],
+      [sx - 0.18, 0.65, -5.25],
+      [sx + 0.18, 0.65, -5.25],
+      runnerSteel
+    );
+    T.quad(
+      [sx - 0.18, 0.82, -5.15],
+      [sx + 0.18, 0.82, -5.15],
+      [sx + 0.2, 0.36, -4.65],
+      [sx - 0.2, 0.36, -4.65],
+      skidWood
+    );
+  }
+  // 3 cross-bunk beams joining the sled runners under the floor
+  for (const bz of [-3.1, 0, 3.1]) {
+    T.box(-2.55, 2.55, 0.28, 0.54, bz - 0.18, bz + 0.18, skidWood);
+  }
+
+  // Front plank door (+Z) with crisp white Nordic trim, Z-brace, latch & step
+  T.box(-1.02, -0.82, 0.65, 4.08, hz, hz + 0.18, nordicWhite, {back: false});
+  T.box(0.82, 1.02, 0.65, 4.08, hz, hz + 0.18, nordicWhite, {back: false});
+  T.box(-1.08, 1.08, 3.88, 4.12, hz, hz + 0.22, nordicWhite, {back: false});
+  T.quad(
+    [-0.82, 0.68, hz + 0.08],
+    [0.82, 0.68, hz + 0.08],
+    [0.82, 3.88, hz + 0.08],
+    [-0.82, 3.88, hz + 0.08],
+    pineDoor
+  );
+  // Horizontal door battens + iron latch + timber step
+  T.box(
+    -0.76,
+    0.76,
+    1.35,
+    1.52,
+    hz + 0.08,
+    hz + 0.15,
+    scaleRgb(pineDoor, 0.82),
+    {back: false}
+  );
+  T.box(
+    -0.76,
+    0.76,
+    3.15,
+    3.32,
+    hz + 0.08,
+    hz + 0.15,
+    scaleRgb(pineDoor, 0.82),
+    {back: false}
+  );
+  T.box(0.48, 0.66, 2.15, 2.42, hz + 0.09, hz + 0.2, pipeIron, {back: false});
+  T.box(-1.05, 1.05, 0.16, 0.5, hz + 0.02, hz + 0.76, skidWood, {
+    topRgb: snowShade,
+  });
+
+  // Frosty 4-pane side windows on -X and +X
+  for (const side of [-1, 1]) {
+    const xW = side * (hx + 0.01);
+    const xOut = side * (hx + 0.14);
+    const xMin = Math.min(xW, xOut);
+    const xMax = Math.max(xW, xOut);
+    T.box(xMin, xMax, 2.08, 2.24, -0.88, 0.88, nordicWhite);
+    T.box(xMin, xMax, 3.52, 3.68, -0.84, 0.84, nordicWhite);
+    T.box(xMin, xMax, 2.24, 3.52, -0.82, -0.66, nordicWhite, {
+      top: false,
+      bottom: false,
+    });
+    T.box(xMin, xMax, 2.24, 3.52, 0.66, 0.82, nordicWhite, {
+      top: false,
+      bottom: false,
+    });
+    // Cross-mullions + frosted glass
+    const gx = side * (hx + 0.06);
+    if (side > 0) {
+      T.quad(
+        [gx, 2.24, 0.66],
+        [gx, 2.24, -0.66],
+        [gx, 3.52, -0.66],
+        [gx, 3.52, 0.66],
+        frostyGlass
+      );
+    } else {
+      T.quad(
+        [gx, 2.24, -0.66],
+        [gx, 2.24, 0.66],
+        [gx, 3.52, 0.66],
+        [gx, 3.52, -0.66],
+        frostyGlass
+      );
+    }
+    T.box(xMin, xMax, 2.24, 3.52, -0.05, 0.05, nordicWhite, {
+      top: false,
+      bottom: false,
+    });
+    T.box(xMin, xMax, 2.83, 2.93, -0.66, 0.66, nordicWhite, {
+      front: false,
+      back: false,
+    });
+  }
+
+  // Stacked split birch firewood rack against +X wall
+  T.box(hx + 0.02, hx + 0.68, -0.1, 1.32, -2.85, -1.05, birchBark, {
+    front: false,
+    back: false,
+    topRgb: snowBright,
+  });
+  T.quad(
+    [hx + 0.02, -0.1, -1.05],
+    [hx + 0.68, -0.1, -1.05],
+    [hx + 0.68, 1.32, -1.05],
+    [hx + 0.02, 1.32, -1.05],
+    splitWood
+  );
+  T.quad(
+    [hx + 0.68, -0.1, -2.85],
+    [hx + 0.02, -0.1, -2.85],
+    [hx + 0.02, 1.32, -2.85],
+    [hx + 0.68, 1.32, -2.85],
+    splitWood
+  );
+
+  // Chipped ice-fishing auger hole in a snow berm + wooden tip-up flag beside front runner
+  const hxHole = -1.65;
+  const hzHole = 5.55;
+  addCylinderBand(
+    T,
+    hxHole,
+    hzHole,
+    0.92,
+    -0.12,
+    0.64,
+    0.24,
+    6,
+    () => snowBright
+  );
+  for (let k = 0; k < 6; k++) {
+    const a0 = (k / 6) * Math.PI * 2;
+    const a1 = ((k + 1) / 6) * Math.PI * 2;
+    const c0 = Math.cos(a0);
+    const s0 = Math.sin(a0);
+    const c1 = Math.cos(a1);
+    const s1 = Math.sin(a1);
+    // Snow rim top + dark water disc inside
+    T.quad(
+      [hxHole + c0 * 0.46, 0.08, hzHole + s0 * 0.46],
+      [hxHole + c1 * 0.46, 0.08, hzHole + s1 * 0.46],
+      [hxHole + c1 * 0.64, 0.24, hzHole + s1 * 0.64],
+      [hxHole + c0 * 0.64, 0.24, hzHole + s0 * 0.64],
+      snowEdge
+    );
+    T.tri(
+      [hxHole, 0.06, hzHole],
+      [hxHole + c1 * 0.46, 0.06, hzHole + s1 * 0.46],
+      [hxHole + c0 * 0.46, 0.06, hzHole + s0 * 0.46],
+      darkWater
+    );
+  }
+  // Wooden cross-stick tip-up & red strike flag over the fishing hole
+  T.box(
+    hxHole - 0.68,
+    hxHole + 0.68,
+    0.22,
+    0.3,
+    hzHole - 0.06,
+    hzHole + 0.06,
+    pineDoor
+  );
+  T.box(
+    hxHole + 0.28,
+    hxHole + 0.34,
+    0.28,
+    1.22,
+    hzHole - 0.03,
+    hzHole + 0.03,
+    pipeIron
+  );
+  T.quad(
+    [hxHole + 0.34, 0.92, hzHole],
+    [hxHole + 0.72, 1.02, hzHole],
+    [hxHole + 0.72, 1.22, hzHole],
+    [hxHole + 0.34, 1.22, hzHole],
+    flagRed
+  );
+
+  // Far (>3 km) 10-triangle painted shanty box proxy
+  const FB = createColoredBuilder();
+  FB.box(-hx, hx, 0, yEave, -hz, hz, [1, 1, 1], {bottom: false});
+
+  return {
+    body: B.build(),
+    roof: R.build(),
+    trim: T.build(),
+    farBody: FB.build(),
+  };
+}

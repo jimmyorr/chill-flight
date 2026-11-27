@@ -102,6 +102,7 @@ const RUBBLE = {
   twoStoryBody: BREAK.RUBBLE.two_story_house,
   twoStoryAdobeBody: BREAK.RUBBLE.two_story_house,
   strawHutBody: BREAK.RUBBLE.straw_hut,
+  iceHutBody: 5,
   barnBody: BREAK.RUBBLE.barn,
   timberBarnBody: BREAK.RUBBLE.barn,
   hayBarnBody: BREAK.RUBBLE.barn,

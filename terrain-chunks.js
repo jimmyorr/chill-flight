@@ -1524,11 +1524,21 @@ for (const [kind, geos] of [
 globalInstancer.registerType(
   'iceHutBody',
   iceHutGeos.body,
-  houseTintMat,
+  houseVertexTintMat,
   30000,
   true
 );
 globalInstancer.registerType('iceHutRoof', iceHutGeos.roof, iceHutRoofMat);
+globalInstancer.registerType(
+  'iceHutTrim',
+  iceHutGeos.trim,
+  iceHutRoofMat,
+  30000,
+  false,
+  false
+);
+globalInstancer.setFarGeometry('iceHutBody', iceHutGeos.farBody);
+globalInstancer.setFarGeometry('iceHutTrim', null);
 globalInstancer.registerType('joshuaTrunk', joshuaGeos.trunk, joshuaTrunkMat);
 globalInstancer.registerType(
   'joshuaLeaves',
@@ -1694,6 +1704,7 @@ for (const [type, geo] of [
 ]) {
   globalInstancer.setShadowGeometry(type, shadowGable(geo));
 }
+shareFarProxy('iceHutRoof', iceHutGeos.roof, shadowGable(iceHutGeos.roof));
 
 const TOWER_FAR_CHUNK_RADIUS = 3;
 

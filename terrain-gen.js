@@ -8525,6 +8525,7 @@ export function generateChunkData({
     collector.beginProp(BREAKABLE.HOUSE);
     collector.add('iceHutBody', _matBuffer, _iceHutColor);
     collector.add('iceHutRoof', _matBuffer);
+    collector.add('iceHutTrim', _matBuffer);
     collector.endProp();
   }
 
