@@ -786,6 +786,10 @@ function runRace(course, plane, ctxFor, limit) {
     cruise.company === 100 && cruise.meanGap < 150,
     `(${cruise.company}% within ${COMPANY}, mean ${cruise.meanGap})`
   );
+  check(
+    'wingman bots keep up through gentle turns',
+    rows.find((r) => r.id === 's-turns').company >= 70
+  );
 }
 
 if (failed) {

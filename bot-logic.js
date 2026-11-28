@@ -71,6 +71,8 @@ const SCAN_INTERVAL = 0.2;
 // Handling: turn rates (rad/s) a little under a player's (about 1 rad/s in
 // a firm bank), so a player can always out-turn a bot
 const WING_TURN = 0.9;
+// Flying with you (out of games) it can turn this hard, to keep up
+const COMPANY_TURN = 1.4;
 // Seconds the wing spot lags the leader's heading by
 const FORM_LAG = 0.6;
 // Up to this much higher (units) while the leader turns toward its side
@@ -557,14 +559,20 @@ function stepWingman(bot, dt, ctx) {
   const lead = Math.max(250, leader.speed * 1.5);
   const aimX = spot.x + f.x * lead;
   const aimZ = spot.z + f.z * lead;
-  steer(bot, ctx, dt, headingToward(bot.x, bot.z, aimX, aimZ), WING_TURN);
+  steer(bot, ctx, dt, headingToward(bot.x, bot.z, aimX, aimZ), COMPANY_TURN);
   // Behind the spot (along the leader's heading): faster; ahead: slower
   const behind = (spot.x - bot.x) * f.x + (spot.z - bot.z) * f.z;
   const far = distance2d(bot, spot) > 1500;
   const speed = far
     ? ctx.topSpeed
     : clamp(leader.speed + behind * 0.4, MIN_SPEED, ctx.topSpeed);
-  move(bot, dt, ctx, spot.y, speed, WING_CLEARANCE);
+  // Climbing and diving with the leader, as steeply as half its speed
+  const steep = Math.max(MAX_CLIMB, bot.speed * 0.55);
+  fly(bot, dt, ctx, spot.y, speed, floorFor(bot, ctx, WING_CLEARANCE), {
+    climb: steep,
+    sink: steep,
+    gain: 1.2,
+  });
 }
 
 // Out of games in buggies: drives alongside the leader, and parks beside
