@@ -82,6 +82,7 @@ import '../debug-ui.js';
 import '../game.js';
 import '../crash-logic.js';
 import '../crystal-rush.js';
+import '../mushroom-trip-logic.js';
 import '../mushroom-trip.js';
 import '../flight-physics-logic.js';
 import '../cloud-deck.js';

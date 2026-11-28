@@ -10,7 +10,8 @@
 // iridescent breeze washes drift across the ground, and the moon swells
 // glacially over ~42 s to ~6x-8.5x its normal size while its sunlit phase
 // creeps slowly across its craters (~2.5 min per lunar cycle), before
-// melting gently back to normal.
+// melting gently back to normal (or ending at once on touching the water;
+// envelope maths in mushroom-trip-logic.js).
 //
 // It costs nothing on phones: no extra pass, shader or allocations, just
 // existing sky, light, terrain and moon uniforms nudged before the frame is
@@ -29,35 +30,28 @@ import {
   skyUniforms,
   starsMat,
 } from './sky.js';
+import {planeGroup} from './airplane.js';
+import {checkWaterfallContact} from './haptics.js';
+import {
+  TRIP,
+  createTripState,
+  endTripState,
+  isTripIdle,
+  isTripTrailActive,
+  startTripState,
+  stepTripState,
+} from './mushroom-trip-logic.js';
 
-// Decoupled, unhurried timelines (s): the sky deepens over ~22 s so the moon
-// is clearly visible while it is still modest in size, and the moon itself
-// takes ~42 s to swell to full scale, holds, and eases back over ~30 s
-// (~98 s total for a small mushroom up to ~135 s for a giant)
-const SKY_RAMP_IN = 22;
-const MOON_RAMP_IN = 42;
-const ACTIVE_SMALL = 68;
-const ACTIVE_GIANT = 105;
-const SKY_FADE_OUT = 24;
-const MOON_FADE_OUT = 30;
-// Peak strength for a single small mushroom (0) up to a giant (1); knocking
-// more mushrooms while tripping stacks +STACK_GAIN smoothly toward 1
-const PEAK_SMALL = 0.68;
-const STACK_GAIN = 0.24;
 // Default moon scale multiplier at full trip (a = 1): ~6x on a single small
 // mushroom (a ~ 0.68) up to 8.5x on a giant or stacked grove; ?tripMoon=N
 // lets you experiment with 5x, 10x, etc. directly from the URL
 const DEFAULT_MOON_GROW = 8.5;
-// Extra cloud/aurora flow speed at full trip (~3.4x normal 1x cloudTime,
-// integrated smoothly so starting or ending never jumps the clouds)
-const CLOUD_DRIFT_GAIN = 2.4;
 const CLOUD_MORPH_X = 0.14;
 const CLOUD_MORPH_Y = 0.11;
 const CLOUD_MORPH_Z = 0.09;
 const MOON_PHASE_RATE = 0.042; // ~150 s (2.5 min) per full lunar cycle (~2.4 deg/s)
 const MOON_TILT_RATE = 0.05; // ~126 s glacial libration breath
 const MOON_BASE_ANG_RAD = (440 * 1.827) / 27500; // ~1.68 deg normal radius
-const PHASE_CYCLE_MS = 29.5 * 360000;
 
 const _urlParams =
   typeof location !== 'undefined' ? new URLSearchParams(location.search) : null;
@@ -111,71 +105,7 @@ const GROUND_MODES = {
 };
 const HAS_GROUND_FX = GROUND_MODES.breathe + GROUND_MODES.sheen > 0;
 
-function makeChannel() {
-  return {val: 0, from: 0, target: 0, age: 0, dur: 1, mode: 'idle'};
-}
-
-function rampChannel(ch, target, fullDur) {
-  if (target > ch.val + 0.005) {
-    ch.from = ch.val;
-    ch.target = target;
-    ch.dur = fullDur * (0.45 + 0.55 * (target - ch.val));
-    ch.age = 0;
-    ch.mode = 'ramp';
-  } else {
-    ch.target = Math.max(ch.target, target);
-    if (ch.mode === 'fade') {
-      ch.from = ch.val;
-      ch.dur = fullDur * 0.5;
-      ch.age = 0;
-      ch.mode = 'ramp';
-    } else if (ch.mode === 'idle') {
-      ch.val = target;
-      ch.mode = 'hold';
-    }
-  }
-}
-
-function beginFadeChannel(ch, fadeDur) {
-  if (ch.mode === 'idle' || ch.mode === 'fade') return;
-  ch.from = ch.val;
-  ch.dur = fadeDur;
-  ch.age = 0;
-  ch.mode = 'fade';
-}
-
-function stepChannel(ch, delta) {
-  if (ch.mode === 'ramp') {
-    ch.age += delta;
-    const u = THREE.MathUtils.clamp(ch.age / ch.dur, 0, 1);
-    // Cubic smoothstep (max slope 1.5x linear, gentler than smootherstep's
-    // 2.19x) so the middle of the moon's 42 s swell stays slow and steady
-    const s = u * u * (3 - 2 * u);
-    ch.val = THREE.MathUtils.lerp(ch.from, ch.target, s);
-    if (ch.age >= ch.dur) {
-      ch.val = ch.target;
-      ch.mode = 'hold';
-    }
-  } else if (ch.mode === 'fade') {
-    ch.age += delta;
-    const u = THREE.MathUtils.clamp(ch.age / ch.dur, 0, 1);
-    const s = u * u * (3 - 2 * u);
-    ch.val = ch.from * (1 - s);
-    if (ch.age >= ch.dur || ch.val <= 0.0005) {
-      ch.val = 0;
-      ch.target = 0;
-      ch.mode = 'idle';
-    }
-  }
-}
-
-const skyCh = makeChannel();
-const moonCh = makeChannel();
-let peak = 0;
-let activeLeft = 0;
-// Continuous phase clock (s) and initial lunar phase anchor
-let clock = 0;
-let phaseStartAngle = 0;
+const trip = createTripState();
 // Cap colour of the most recently hit mushroom, streamed off the plane's tail
 // while the trip stays active (particles.js, like rushTrail in crystal-rush.js)
 const _capColor = new THREE.Color(0x9c27b0);
@@ -185,20 +115,18 @@ const _smokeForcedOff = _urlParams?.get('smoke') === '0';
 
 /** 0-1 how strong the sky trip is now (0 when not tripping). */
 export function tripAmount() {
-  return FOREVER_STRENGTH > 0 ? FOREVER_STRENGTH : skyCh.val;
+  return FOREVER_STRENGTH > 0 ? FOREVER_STRENGTH : trip.sky.val;
 }
 
 /** 0-1 how far the moon swell has progressed (ramps slower than the sky). */
 export function tripMoonAmount() {
-  return FOREVER_STRENGTH > 0 ? FOREVER_STRENGTH : moonCh.val;
+  return FOREVER_STRENGTH > 0 ? FOREVER_STRENGTH : trip.moon.val;
 }
 
 /** The plane's smoke trail colour while the trip stays active, or null. */
 export function tripTrail() {
   const active =
-    (FOREVER_STRENGTH > 0 && !_smokeForcedOff) ||
-    (skyCh.mode !== 'idle' &&
-      (activeLeft > 0 || Math.max(skyCh.val, moonCh.val) > 0.06));
+    (FOREVER_STRENGTH > 0 && !_smokeForcedOff) || isTripTrailActive(trip);
   if (!active) return null;
   return _trail.copy(_capColor).lerp(WHITE, 0.2);
 }
@@ -210,63 +138,29 @@ export function startTrip(size, capColor) {
     if (Array.isArray(capColor)) _capColor.fromArray(capColor);
     else _capColor.copy(capColor);
   }
-  const s = THREE.MathUtils.clamp(size, 0, 1);
-  const hitPeak = THREE.MathUtils.lerp(PEAK_SMALL, 1, Math.pow(s, 0.6));
-  const nextActive = THREE.MathUtils.lerp(ACTIVE_SMALL, ACTIVE_GIANT, s);
-  const idle = skyCh.val <= 0.001 && moonCh.val <= 0.001;
-
-  if (idle) {
-    const worldNow = state.worldClockNow || 0;
-    phaseStartAngle =
-      ((worldNow % PHASE_CYCLE_MS) / PHASE_CYCLE_MS) * Math.PI * 2;
-    clock = 0;
-    peak = hitPeak;
-    activeLeft = nextActive;
-    skyCh.val = 0;
-    moonCh.val = 0;
-    rampChannel(skyCh, peak, SKY_RAMP_IN);
-    rampChannel(moonCh, peak, MOON_RAMP_IN);
-  } else {
-    const liveBase = Math.max(skyCh.val, moonCh.val);
-    peak = Math.min(
-      1,
-      Math.max(peak, liveBase + STACK_GAIN * (0.55 + 0.45 * s), hitPeak)
-    );
-    activeLeft = Math.max(activeLeft, nextActive);
-    rampChannel(skyCh, peak, SKY_RAMP_IN);
-    rampChannel(moonCh, peak, MOON_RAMP_IN);
-  }
+  startTripState(trip, size, state.worldClockNow || 0);
 }
 
-/** Per frame: advances the sky and moon envelopes and cloud/aurora drift. */
+/** Per frame: advances the sky and moon envelopes, or ends the trip on water. */
 export function updateTrip(delta) {
   if (state.isPaused || delta <= 0) return;
 
   if (FOREVER_STRENGTH > 0) {
-    clock += delta;
+    trip.clock += delta;
     if (typeof state.cloudTime === 'number') {
-      state.cloudTime += delta * CLOUD_DRIFT_GAIN * FOREVER_STRENGTH;
+      state.cloudTime += delta * TRIP.CLOUD_DRIFT_GAIN * FOREVER_STRENGTH;
     }
     return;
   }
 
-  if (skyCh.mode === 'idle' && moonCh.mode === 'idle') return;
+  if (isTripIdle(trip)) return;
 
-  clock += delta;
-  if (activeLeft > 0) {
-    activeLeft -= delta;
-    if (activeLeft <= 0) {
-      activeLeft = 0;
-      beginFadeChannel(skyCh, SKY_FADE_OUT);
-      beginFadeChannel(moonCh, MOON_FADE_OUT);
-    }
-  }
-
-  stepChannel(skyCh, delta);
-  stepChannel(moonCh, delta);
-
-  if (skyCh.val > 0 && typeof state.cloudTime === 'number') {
-    state.cloudTime += delta * CLOUD_DRIFT_GAIN * skyCh.val;
+  const touchingWater =
+    state.isOnWater ||
+    (!state.isFreeCamera && checkWaterfallContact(planeGroup.position));
+  const cloudDrift = stepTripState(trip, delta, touchingWater);
+  if (cloudDrift > 0 && typeof state.cloudTime === 'number') {
+    state.cloudTime += cloudDrift;
   }
 }
 
@@ -358,9 +252,9 @@ export function applyTrip() {
   // 2. Slow cloud curl between cumulus, cirrus streaks and mackerel rows
   _savedCloudTypes.copy(skyUniforms.uCloudTypes.value);
   _targetClouds.set(
-    0.72 + 0.45 * Math.cos(clock * CLOUD_MORPH_X),
-    0.85 + 0.45 * Math.sin(clock * CLOUD_MORPH_Y),
-    0.95 + 0.5 * Math.sin(clock * CLOUD_MORPH_Z - 0.8)
+    0.72 + 0.45 * Math.cos(trip.clock * CLOUD_MORPH_X),
+    0.85 + 0.45 * Math.sin(trip.clock * CLOUD_MORPH_Y),
+    0.95 + 0.5 * Math.sin(trip.clock * CLOUD_MORPH_Z - 0.8)
   );
   skyUniforms.uCloudTypes.value.lerp(_targetClouds, 0.85 * aSky);
 
@@ -446,7 +340,7 @@ export function applyTrip() {
     _vX.normalize();
     _vY.crossVectors(_vZ, _vX).normalize();
 
-    const tilt = Math.sin(clock * MOON_TILT_RATE) * 0.14 * aMoon;
+    const tilt = Math.sin(trip.clock * MOON_TILT_RATE) * 0.14 * aMoon;
     const c = Math.cos(tilt);
     const s = Math.sin(tilt);
     _rX.copy(_vX).multiplyScalar(c).addScaledVector(_vY, s);
@@ -455,7 +349,7 @@ export function applyTrip() {
     moonMesh.quaternion.setFromRotationMatrix(_mRot);
     moonUniforms.uMoonRotMat.value.setFromMatrix4(_mRot);
 
-    const phase = phaseStartAngle + clock * MOON_PHASE_RATE;
+    const phase = trip.phaseStartAngle + trip.clock * MOON_PHASE_RATE;
     _driftedSun
       .copy(_moonDir)
       .multiplyScalar(Math.cos(phase))
@@ -476,11 +370,11 @@ export function applyTrip() {
     terrainUniforms.uTripGround.value.set(
       GROUND_MODES.breathe * aMoon,
       GROUND_MODES.sheen * aMoon,
-      clock
+      trip.clock
     );
     _savedWindStrength = windUniforms.uWindStrength.value;
     if (GROUND_MODES.sheen > 0) {
-      const gentleBreeze = 1.42 + 0.48 * Math.sin(clock * 0.22);
+      const gentleBreeze = 1.42 + 0.48 * Math.sin(trip.clock * 0.22);
       windUniforms.uWindStrength.value = THREE.MathUtils.lerp(
         _savedWindStrength,
         Math.max(_savedWindStrength, gentleBreeze),
@@ -525,4 +419,10 @@ export function restoreTrip() {
     terrainUniforms.uTripGround.value.set(0, 0, 0);
     windUniforms.uWindStrength.value = _savedWindStrength;
   }
+}
+
+/** Immediately ends any active mushroom trip (e.g. on touching or splashing into water). */
+export function endTrip() {
+  endTripState(trip);
+  if (applied) restoreTrip();
 }

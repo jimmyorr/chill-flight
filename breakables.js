@@ -1283,7 +1283,9 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
           Math.min(120, Math.round(40 + height * 0.4)),
           Math.max(3, height * 0.07)
         );
-        if (mine) startTrip((height - 10) / 180, LEAF_PUFF);
+        if (mine && !state.isOnWater) {
+          startTrip((height - 10) / 180, LEAF_PUFF);
+        }
       }
     }
     propPuffs(x, base, z, 2, 2, dust, 6, 4, 2);

@@ -31,6 +31,7 @@ import {hooks} from './hooks.js';
 import {archTop} from './arches-logic.js';
 import {breakwaterTop} from './terrain-chunks.js';
 import {arches} from './arches.js';
+import {endTrip} from './mushroom-trip.js';
 import {
   CRASH,
   addPropHitStrain,
@@ -328,6 +329,7 @@ function triggerCrash() {
   state.verticalVelocity = 0;
   state.isOnGround = false;
   state.isOnWater = false;
+  if (overWater) endTrip();
   state.isLooping = false;
   state.isDoingImmelmann = false;
   state.isBarrelRolling = false;

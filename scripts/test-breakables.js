@@ -27,6 +27,15 @@ import {
   toppleSpin,
   wingSweptHit,
 } from '../breakables-logic.js';
+import {
+  TRIP,
+  createTripState,
+  endTripState,
+  isTripIdle,
+  isTripTrailActive,
+  startTripState,
+  stepTripState,
+} from '../mushroom-trip-logic.js';
 
 console.log('Testing breakable props...');
 
@@ -494,6 +503,109 @@ check(
         BREAK.BUGGY_RADIUS,
         ferris
       )
+  );
+}
+
+// --- Eastern alien mushroom trip & immediate water reset ---
+{
+  const t = createTripState();
+  check(
+    'mushroom trip starts idle with no trail',
+    isTripIdle(t) && !isTripTrailActive(t)
+  );
+
+  // Small mushroom: ramps sky faster than moon, holds, and eventually fades out
+  startTripState(t, 0, 50000);
+  check(
+    'knocking a mushroom starts sky and moon ramp-in and lights smoke trail',
+    !isTripIdle(t) &&
+      isTripTrailActive(t) &&
+      Math.abs(t.peak - TRIP.PEAK_SMALL) < 1e-9 &&
+      Math.abs(t.activeLeft - TRIP.ACTIVE_SMALL) < 1e-9
+  );
+  for (let i = 0; i < 20 * 60; i++) stepTripState(t, 1 / 60, false);
+  check(
+    'after 20 s on dry land/air, sky is near peak while moon is still swelling',
+    t.sky.val > 0.6 &&
+      t.moon.val > 0.25 &&
+      t.moon.val < t.sky.val &&
+      isTripTrailActive(t)
+  );
+
+  // Stacking another mushroom mid-trip raises peak smoothly toward 1
+  const beforePeak = t.peak;
+  startTripState(t, 0.5, 70000);
+  check(
+    'hitting another mushroom stacks peak and refreshes active timer',
+    t.peak > beforePeak && t.peak <= 1 && t.activeLeft > TRIP.ACTIVE_SMALL
+  );
+
+  // Touching the water during ramp/hold immediately ends the trip in one frame
+  const driftOnWater = stepTripState(t, 1 / 60, true);
+  check(
+    'touching the water immediately ends an active mushroom trip',
+    driftOnWater === 0 &&
+      isTripIdle(t) &&
+      !isTripTrailActive(t) &&
+      t.sky.val === 0 &&
+      t.moon.val === 0 &&
+      t.peak === 0 &&
+      t.activeLeft === 0
+  );
+
+  // Hitting a giant mushroom after water reset starts a clean fresh trip from 0
+  startTripState(t, 1, 120000);
+  check(
+    'after water ends a trip, knocking a giant mushroom starts cleanly from zero',
+    !isTripIdle(t) &&
+      t.sky.val === 0 &&
+      t.moon.val === 0 &&
+      t.peak === 1 &&
+      t.activeLeft === TRIP.ACTIVE_GIANT &&
+      t.clock === 0
+  );
+
+  // Advance past active hold into the slow fade-out, then touch water mid-fade
+  for (let i = 0; i < (TRIP.ACTIVE_GIANT + 5) * 10; i++) {
+    stepTripState(t, 0.1, false);
+  }
+  check(
+    'past active window without water, channels enter gradual fade-out',
+    t.sky.mode === 'fade' &&
+      t.moon.mode === 'fade' &&
+      t.sky.val > 0.5 &&
+      t.moon.val > 0.5
+  );
+  stepTripState(t, 1 / 60, true);
+  check(
+    'touching the water mid-fade-out also ends the trip immediately',
+    isTripIdle(t) &&
+      !isTripTrailActive(t) &&
+      t.sky.val === 0 &&
+      t.moon.val === 0
+  );
+
+  // Direct endTripState (e.g. splashing into water on a steep dive crash)
+  startTripState(t, 0.8, 0);
+  for (let i = 0; i < 60; i++) stepTripState(t, 0.5, false);
+  endTripState(t);
+  check(
+    'endTripState immediately clears sky, moon, peak, and trail',
+    isTripIdle(t) &&
+      !isTripTrailActive(t) &&
+      t.sky.val === 0 &&
+      t.moon.val === 0
+  );
+
+  // Without touching water, a full trip fades naturally all the way back to idle
+  startTripState(t, 0, 0);
+  for (let i = 0; i < 1200; i++) stepTripState(t, 0.1, false);
+  check(
+    'without touching water, trip fades gently back to idle after ~100 s',
+    isTripIdle(t) &&
+      !isTripTrailActive(t) &&
+      t.sky.val === 0 &&
+      t.moon.val === 0
   );
 }
 
