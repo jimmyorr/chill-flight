@@ -1470,6 +1470,9 @@
               <button id="splash-stuck-btn" class="btn" type="button">
                 Retry on low graphics
               </button>
+              <button id="splash-stuck-reload" class="btn" type="button" hidden>
+                Reload
+              </button>
             </div>
           </div>
           <div id="splash-btn-container" class="splash-fade-item hidden">
@@ -1515,7 +1518,8 @@
         <script>
           // Loading watchdog: if loading hasn't finished after 40 seconds on
           // screen (a stuck load, or a phone that ran out of memory and
-          // reloaded), offer a reload on low graphics unless already on low.
+          // reloaded), offer a reload on low graphics (a plain reload when
+          // already on low).
           // Plain script so it still works if the game's modules fail to load.
           (() => {
             const LIMIT_MS = 40000;
@@ -1562,10 +1566,21 @@
               shownFor += STEP_MS;
               if (shownFor < LIMIT_MS) return;
               clearInterval(timer);
-              if (isLowGraphics()) return;
               const stuck = document.getElementById('splash-stuck');
-              if (stuck) stuck.hidden = false;
+              if (!stuck) return;
+              // Already on low: a plain reload instead of "retry on low"
+              if (isLowGraphics()) {
+                const retry = document.getElementById('splash-stuck-btn');
+                const reload = document.getElementById('splash-stuck-reload');
+                if (!retry || !reload) return;
+                retry.hidden = true;
+                reload.hidden = false;
+              }
+              stuck.hidden = false;
             }, STEP_MS);
+            document
+              .getElementById('splash-stuck-reload')
+              ?.addEventListener('click', () => location.reload());
             document
               .getElementById('splash-stuck-btn')
               ?.addEventListener('click', () => {

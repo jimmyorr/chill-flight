@@ -119,6 +119,7 @@ for (const htmlFile of htmlFiles) {
     let reloaded = false;
     let replacedUrl = null;
     let clickCb = null;
+    let reloadCb = null;
     const elements = {
       'loading-overlay': {style: {display: 'flex'}},
       'splash-progress-container': {
@@ -126,8 +127,15 @@ for (const htmlFile of htmlFiles) {
       },
       'splash-stuck': {hidden: true},
       'splash-stuck-btn': {
+        hidden: false,
         addEventListener: (ev, cb) => {
           if (ev === 'click') clickCb = cb;
+        },
+      },
+      'splash-stuck-reload': {
+        hidden: true,
+        addEventListener: (ev, cb) => {
+          if (ev === 'click') reloadCb = cb;
         },
       },
     };
@@ -175,7 +183,10 @@ for (const htmlFile of htmlFiles) {
         for (let i = 0; i < seconds && !cleared; i++) intervalCb();
       },
       stuck: elements['splash-stuck'],
+      retryBtn: elements['splash-stuck-btn'],
+      reloadBtn: elements['splash-stuck-reload'],
       clickRetry: () => clickCb?.(),
+      clickReload: () => reloadCb?.(),
       store,
       didReload: () => reloaded,
       getReplacedUrl: () => replacedUrl,
@@ -194,7 +205,8 @@ for (const htmlFile of htmlFiles) {
   assert.equal(mid.didReload(), true);
   assert.equal(mid.getReplacedUrl(), null);
 
-  // Stays hidden at 40s when already on low graphics (storage, URL, legacy quality)
+  // Already on low graphics (storage, URL, legacy quality): at 40s it offers a
+  // plain reload instead of retrying on low
   for (const opts of [
     {storage: {chill_flight_graphics_preset: 'low'}},
     {href: 'https://chillflight.app/?preset=low'},
@@ -205,8 +217,18 @@ for (const htmlFile of htmlFiles) {
     {storage: {chill_flight_quality: '20'}},
   ]) {
     const low = runWatchdog(opts);
-    low.tick(45);
-    assert.equal(low.stuck.hidden, true, 'Watchdog should skip low graphics');
+    low.tick(39);
+    assert.equal(low.stuck.hidden, true, 'Watchdog should stay hidden at 39s');
+    low.tick(1);
+    assert.equal(low.stuck.hidden, false, 'Watchdog should appear on low too');
+    assert.equal(low.retryBtn.hidden, true, 'No retry on low when on low');
+    assert.equal(low.reloadBtn.hidden, false, 'A plain reload on low');
+    low.clickReload();
+    assert.equal(low.didReload(), true);
+    assert.equal(
+      low.store.get('chill_flight_graphics_preset_manual'),
+      undefined
+    );
   }
 
   // Explicit high URL preset overrides low storage, and retry rewrites URL to preset=low
