@@ -242,11 +242,13 @@ if (ChillFlightLogic.SHOW_OBJECTS !== false) {
           meshProps: nearBreak.map((bp, i) => ({
             kind: BREAKABLE.HOUSE,
             rubble: bp.rubble,
-            parts: bp.parts.map(([object, role]) => ({
+            parts: bp.parts.map(([object, role, opts]) => ({
               type: 'obj',
               object,
               role,
+              ...opts,
             })),
+            alsoBreaks: bp.alsoBreaks,
             onBreak: () => {
               const farPart = farBreak?.[i];
               for (const [object] of farPart?.parts || []) {

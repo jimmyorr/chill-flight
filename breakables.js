@@ -846,7 +846,12 @@ function collapse(group, parts, x, base, z, top, radius, dx, dz, kts, spec) {
             ? axis
             : new THREE.Vector3(rand(-1, 1), 0, rand(-1, 1)).normalize(),
           tumble ? rand(0.6, 1.2) : rand(3, 6),
-          base + (roof ? Math.max(2.5, (box.max.y - box.min.y) * 0.25) : 1)
+          // Something up in the air (a moored airship) comes down to the
+          // ground under it, not to the height it was hit at
+          part.restOnGround
+            ? Math.max(getElevation(cx, cz), WATER_LEVEL) +
+                (box.max.y - box.min.y) * 0.3
+            : base + (roof ? Math.max(2.5, (box.max.y - box.min.y) * 0.25) : 1)
         );
       }
     } else if (role === 'rubble') {
@@ -1317,6 +1322,12 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
       else if (stoneWall) playStoneWallSound(gain);
       else playSmashSound(house, gain, fallTime);
     }
+  }
+  // Props that come down with this one (an airship's mooring mast and the
+  // airship), as if knocked over by someone else so the plane isn't slowed
+  // twice
+  for (const j of propSpec(group.userData, i)?.alsoBreaks || []) {
+    if (!index.broken.has(j)) breakProp(group, index, j, dx, dz, kts, false);
   }
 }
 

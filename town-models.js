@@ -1110,10 +1110,20 @@ export function westgatePlazaGroup(
   mooringSwivel.add(cableMesh);
   group.add(mooringSwivel);
   // The dome and its mast fold; the airship is a prop of its own, thrown
-  // off when hit. Either one going cuts the mooring cable (alsoHide)
+  // off when hit and falls to the ground. Knocking the mast down brings the
+  // airship down with it (alsoBreaks); either one cuts the cable (alsoHide)
   group.userData.breakParts = [
-    {parts: [[domeGroup, 'fold']], rubble: 14, alsoHide: [cableMesh]},
-    {parts: [[shipRig, 'fling']], rubble: 8, alsoHide: [cableMesh]},
+    {
+      parts: [[domeGroup, 'fold']],
+      rubble: 14,
+      alsoHide: [cableMesh],
+      alsoBreaks: [1],
+    },
+    {
+      parts: [[shipRig, 'fling', {restOnGround: true}]],
+      rubble: 8,
+      alsoHide: [cableMesh],
+    },
   ];
 
   // Nose cone attachment in shipRig local space (~2.35m up, +2.15m forward)
