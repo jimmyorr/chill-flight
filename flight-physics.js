@@ -640,7 +640,8 @@ export function updateFlightPhysics(delta, nowTime) {
     state.gearWanted = ChillFlightLogic.START_GEAR;
   } else {
     // Pontoons come down approaching water or land; retractable wheels come
-    // down over land only and stay stowed for belly landings on water.
+    // down over land and fold once afloat, for belly landings on water (not
+    // on the way down, so an approach over water to a runway keeps them down)
     const waterLevelHere = WATER_LEVEL + (isWater ? _swell.height : 0);
     const surfaceAlt =
       planeGroup.position.y - (isWater ? waterLevelHere : terrainHeight);
@@ -654,7 +655,7 @@ export function updateFlightPhysics(delta, nowTime) {
         ) {
           state.gearWanted = true;
         }
-      } else if (state.isOnWater || (isDescending && surfaceAlt < 20)) {
+      } else if (state.isOnWater) {
         state.gearWanted = false;
       }
     } else if (
