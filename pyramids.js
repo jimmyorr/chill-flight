@@ -12,6 +12,7 @@ import {
   FERRIS_PERIOD_SEC,
   buildingMesh,
   dragonSkeletonGeo,
+  ferrisGlowMat,
   ferrisWheelGroup,
   portalGroup,
 } from './building-models.js';
@@ -218,6 +219,48 @@ if (ChillFlightLogic.SHOW_OBJECTS !== false) {
             },
           ],
           chunkX: 'ferris',
+          chunkZ: 0,
+          standalone: true,
+        },
+      });
+    }
+
+    // The other plazas' landmarks (clock tower, bandstand, conservatory,
+    // fountain, wind spinner, airship and its mast, mine headframe) each
+    // knock over on their own; the paved plaza stays
+    const nearBreak = near.userData.breakParts;
+    const farBreak = far.userData.breakParts;
+    if (plaza.kind !== 'ferris' && nearBreak?.length) {
+      // Thrown-off pieces go dark rather than keep glowing (breakables.js)
+      near.traverse((o) => {
+        if (o.material === ferrisGlowMat) o.userData.goesDark = true;
+      });
+      standaloneProps.push({
+        userData: {
+          breakables: {kinds: []},
+          instanceData: {},
+          meshProps: nearBreak.map((bp, i) => ({
+            kind: BREAKABLE.HOUSE,
+            rubble: bp.rubble,
+            parts: bp.parts.map(([object, role]) => ({
+              type: 'obj',
+              object,
+              role,
+            })),
+            onBreak: () => {
+              const farPart = farBreak?.[i];
+              for (const [object] of farPart?.parts || []) {
+                object.visible = false;
+              }
+              for (const o of [
+                ...(bp.alsoHide || []),
+                ...(farPart?.alsoHide || []),
+              ]) {
+                o.visible = false;
+              }
+            },
+          })),
+          chunkX: `plaza-${plaza.kind}`,
           chunkZ: 0,
           standalone: true,
         },

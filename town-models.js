@@ -502,6 +502,8 @@ export function millbrookPlazaGroup(
   }
   turret.add(rotorNode);
   group.add(turret);
+  // What can be knocked over (pyramids.js hands these to breakables.js)
+  group.userData.breakParts = [{parts: [[turret, 'fold']], rubble: 10}];
 
   group.userData.animatePlaza = ({
     timeSec,
@@ -665,6 +667,10 @@ export function oakridgePlazaGroup(
   bandGroup.add(buildingMesh(geos.bandBody));
   bandGroup.add(new THREE.Mesh(geos.bandGlow, ferrisGlowMat));
   group.add(bandGroup);
+  group.userData.breakParts = [
+    {parts: [[towerGroup, 'fold']], rubble: 16},
+    {parts: [[bandGroup, 'fold']], rubble: 10},
+  ];
 
   group.userData.animatePlaza = ({dayProgress = 0.5}) => {
     if (!detail) return;
@@ -852,6 +858,10 @@ export function clearwaterPlazaGroup(
   glassMesh.receiveShadow = true;
   consGroup.add(glassMesh);
   group.add(consGroup);
+  group.userData.breakParts = [
+    {parts: [[ftnGroup, 'fold']], rubble: 8},
+    {parts: [[consGroup, 'fold']], rubble: 16},
+  ];
 
   group.userData.animatePlaza = ({timeSec}) => {
     if (!detail) return;
@@ -1099,6 +1109,12 @@ export function westgatePlazaGroup(
   cableMesh.castShadow = false;
   mooringSwivel.add(cableMesh);
   group.add(mooringSwivel);
+  // The dome and its mast fold; the airship is a prop of its own, thrown
+  // off when hit. Either one going cuts the mooring cable (alsoHide)
+  group.userData.breakParts = [
+    {parts: [[domeGroup, 'fold']], rubble: 14, alsoHide: [cableMesh]},
+    {parts: [[shipRig, 'fling']], rubble: 8, alsoHide: [cableMesh]},
+  ];
 
   // Nose cone attachment in shipRig local space (~2.35m up, +2.15m forward)
   const noseLocalY = 2.35 * AIRSHIP_SCALE;
@@ -1277,6 +1293,7 @@ export function redstonePlazaGroup(
     hfGroup.add(ropeMesh);
   }
   group.add(hfGroup);
+  group.userData.breakParts = [{parts: [[hfGroup, 'fold']], rubble: 16}];
 
   group.userData.animatePlaza = ({timeSec}) => {
     const u = (timeSec % 16) / 16;
