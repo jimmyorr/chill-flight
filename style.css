@@ -657,6 +657,7 @@ select.customization-input {
   gap: 9px;
   min-width: 0;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 2px;
@@ -2978,7 +2979,7 @@ input[type='number'].customization-input {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
 }
 
@@ -2986,6 +2987,7 @@ input[type='number'].customization-input {
   display: flex;
   align-items: baseline;
   gap: 8px;
+  min-width: 0;
 }
 
 .fly-room-head .fly-or,
@@ -2997,7 +2999,7 @@ input[type='number'].customization-input {
 
 .fly-room-head .fly-btn {
   height: 32px;
-  padding: 0 14px;
+  padding: 0 11px;
   font-size: 13px;
 }
 
