@@ -1,5 +1,11 @@
 # Release notes
 
+## [1.3.1](https://v1-3-1.chill-flight.pages.dev)
+
+- **Towns:** Named crossroads market towns with civic plazas and landmarks.
+- **Sky & sea:** Starry Milky Way nights, drifting cloud shadows, valley mist, sea-floor light ripples, and alien mushroom effects.
+- **Jobs & models:** Package retrieval jobs, a redesigned twin-engine plane, and upgraded 3D models for buildings, desert plants, and wildlife.
+
 ## [1.3.0](https://v1-3-0.chill-flight.pages.dev)
 
 - **Birds:** 8 species that dive for fish, roost in flocks, and scatter when you fly close.
