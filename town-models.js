@@ -510,7 +510,9 @@ export function millbrookPlazaGroup(
     windYaw = 0,
     parentYaw = 0,
   }) => {
-    const t = timeSec % 3600;
+    // (timeSec is already wrapped to a day: wrapping it again here made the
+    // sways jump once an hour)
+    const t = timeSec;
     const vaneSway = Math.sin(t * 0.28) * 0.06 * (0.5 + windStrength * 0.5);
     turret.rotation.y = windYaw + Math.PI - parentYaw + vaneSway;
     // ~26 s per full revolution in a fair breeze (~4.6 units/s rim speed)
@@ -853,7 +855,9 @@ export function clearwaterPlazaGroup(
 
   group.userData.animatePlaza = ({timeSec}) => {
     if (!detail) return;
-    const t = timeSec % 3600;
+    // (timeSec is already wrapped to a day: wrapping it again here made the
+    // sways jump once an hour)
+    const t = timeSec;
     for (let i = 0; i < flowNodes.length; i++) {
       const dir = i % 2 === 0 ? 1 : -1;
       flowNodes[i].rotation.y = (t * (0.8 + i * 0.3) * dir) % TAU;
@@ -1115,7 +1119,9 @@ export function westgatePlazaGroup(
     windYaw = 0,
     parentYaw = 0,
   }) => {
-    const t = timeSec % 3600;
+    // (timeSec is already wrapped to a day: wrapping it again here made the
+    // sways jump once an hour)
+    const t = timeSec;
     const wander =
       (Math.sin(t * 0.44) * 0.15 + Math.sin(t * 0.97 + 1.1) * 0.06) *
       (0.6 + windStrength * 0.4);
