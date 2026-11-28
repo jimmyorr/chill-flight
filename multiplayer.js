@@ -108,6 +108,7 @@ import {
   pursuitSpot,
   rejoin as rejoinBot,
   stepBot,
+  wrapAngle,
 } from './bot-logic.js';
 import {
   CLOSE,
@@ -1653,8 +1654,33 @@ function leaderNow() {
     y: p.y,
     z: p.z,
     heading: _botEuler.y,
+    pitch: _botEuler.x,
     speed: (state.flightSpeedMultiplier || 0) * BASE_FLIGHT_SPEED * 60,
+    turn: leaderTurn.rate,
   };
+}
+
+// How fast this player is turning (rad/s, + to the left), smoothed over
+// about 0.15 s, for the bots flying with them (bot-logic.js)
+const leaderTurn = {heading: null, rate: 0};
+function trackLeaderTurn(delta) {
+  planeGroup.getWorldQuaternion(_botQuat);
+  _botEuler.setFromQuaternion(_botQuat, 'YXZ');
+  const h = _botEuler.y;
+  // Pointing nearly straight up or down, heading means little (a loop
+  // flips it): hold the last rate
+  if (Math.abs(_botEuler.x) > 1.15) {
+    leaderTurn.heading = h;
+    return;
+  }
+  if (leaderTurn.heading !== null && delta > 0) {
+    const rate = Math.max(
+      -4,
+      Math.min(4, wrapAngle(h - leaderTurn.heading) / delta)
+    );
+    leaderTurn.rate += (rate - leaderTurn.rate) * Math.min(1, delta / 0.15);
+  }
+  leaderTurn.heading = h;
 }
 
 // Everyone in the room where they are now, for the bots' games of tag:
@@ -1860,6 +1886,7 @@ function botsWaveBack(id) {
 // Flies this player's bots a frame
 function stepMyBots(delta, rawNow) {
   if (!room || !myBots.size) return;
+  trackLeaderTurn(delta);
   const leader = leaderNow();
   const spots = tag.it || race.course ? playerSpots(rawNow) : [];
   const sinceGo = rawNow - raceGoAt;
@@ -2032,7 +2059,9 @@ function bodiesAround() {
       y,
       z,
       vx: _botFwd.x * speed,
+      vy: _botFwd.y * speed,
       vz: _botFwd.z * speed,
+      turn: leaderTurn.rate,
     });
   }
   for (const peer of peers.values()) {
@@ -2045,7 +2074,9 @@ function bodiesAround() {
         y: bot.y,
         z: bot.z,
         vx: f.x * bot.speed,
+        vy: bot.vs || 0,
         vz: f.z * bot.speed,
+        turn: bot.turn || 0,
       });
     } else if (peer.group?.visible && !peer.crashed && peer.track.latest) {
       _botFwd.set(0, 0, -1).applyQuaternion(peer.group.quaternion);
@@ -2057,6 +2088,7 @@ function bodiesAround() {
         y,
         z,
         vx: _botFwd.x * speed,
+        vy: _botFwd.y * speed,
         vz: _botFwd.z * speed,
       });
     }

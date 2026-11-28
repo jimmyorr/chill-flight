@@ -161,3 +161,124 @@ export function avoidStep(me, others) {
   const k = Math.min(1, s) / s;
   return {x: sx * k, z: sz * k};
 }
+
+// Flying bots look further ahead, in 3D, and along the arc anyone turning
+// is on: within KEEP.AHEAD seconds, someone coming within KEEP.RANGE
+// (centre to centre; two planes touch at 16) is steered clear of, mostly
+// by climbing or dropping away (KEEP.LIFT units off the bot's height),
+// bending away (up to KEEP.BEND rad) and easing off if they're ahead.
+// Only inside KEEP.SHOVE does it also sidestep straight away
+export const KEEP = {
+  RANGE: 55,
+  AHEAD: 2.5,
+  STEP: 0.1,
+  LIFT: 55,
+  BEND: 0.6,
+  SHOVE: 28,
+  SHOVE_SPEED: 60,
+};
+
+// Where something at p ({x, y, z}) heading along v ({x, y, z}, units/s)
+// and turning at `turn` (rad/s, + is to the left, as heading grows) is
+// `t` seconds on
+function along(p, v, turn, t, out) {
+  if (!turn || Math.abs(turn) < 1e-3) {
+    out.x = p.x + v.x * t;
+    out.z = p.z + v.z * t;
+  } else {
+    // Rotating the flat velocity by turn * s, integrated over 0..t
+    const a = turn * t;
+    const s = Math.sin(a) / turn;
+    const c = (1 - Math.cos(a)) / turn;
+    // Heading grows to the left: forwardOf(h) = (-sin h, -cos h), so
+    // d/dh of the velocity is (v.z, -v.x)
+    out.x = p.x + v.x * s + v.z * c;
+    out.z = p.z + v.z * s - v.x * c;
+  }
+  out.y = p.y + (v.y || 0) * t;
+  return out;
+}
+
+/**
+ * How a flying bot `me` ({x, y, z, vx, vy, vz, turn?}) should keep clear
+ * of `others` (the same, vy and turn optional) over the next KEEP.AHEAD
+ * seconds: {x, z} a unit way off sideways, y -1 (drop) or 1 (climb), and
+ * urgency 0..1 (1 at touching, now); null when nothing comes within
+ * KEEP.RANGE. `ahead` is how far in front (units, along my heading) the
+ * worst one is then.
+ */
+export function keepClear(me, others) {
+  const mv = {x: me.vx || 0, y: me.vy || 0, z: me.vz || 0};
+  const a = {x: 0, y: 0, z: 0};
+  const b = {x: 0, y: 0, z: 0};
+  let worst = null;
+  let sx = 0;
+  let sz = 0;
+  let sy = 0;
+  for (const o of others) {
+    if (Math.abs(o.x - me.x) > 1500 || Math.abs(o.z - me.z) > 1500) continue;
+    if (Math.abs(o.y - me.y) > 600) continue;
+    const ov = {x: o.vx || 0, y: o.vy || 0, z: o.vz || 0};
+    let best = Infinity;
+    let bestT = 0;
+    let dx = 0;
+    let dy = 0;
+    let dz = 0;
+    for (let t = 0; t <= KEEP.AHEAD + 1e-6; t += KEEP.STEP) {
+      along(me, mv, me.turn, t, a);
+      along(o, ov, o.turn, t, b);
+      const ex = a.x - b.x;
+      const ey = a.y - b.y;
+      const ez = a.z - b.z;
+      const d = ex * ex + ey * ey + ez * ez;
+      if (d < best) {
+        best = d;
+        bestT = t;
+        dx = ex;
+        dy = ey;
+        dz = ez;
+      }
+    }
+    const d = Math.sqrt(best);
+    if (d >= KEEP.RANGE) continue;
+    // Nearer and sooner is more urgent
+    const urgency = (1 - d / KEEP.RANGE) * (1 - (0.6 * bestT) / KEEP.AHEAD);
+    // Sideways away from where they'll be; dead on, off to my right
+    let flat = Math.hypot(dx, dz);
+    if (flat < 0.5) {
+      dx = -mv.z;
+      dz = mv.x;
+      flat = Math.hypot(dx, dz) || 1;
+      if (flat === 1 && !dx && !dz) dx = 1;
+    }
+    sx += (dx / flat) * urgency;
+    sz += (dz / flat) * urgency;
+    // Up or down away from them: whichever side I'm on, else against
+    // the way they're going up or down, else up
+    const side = Math.abs(dy) > 4 ? Math.sign(dy) : ov.y ? -Math.sign(ov.y) : 1;
+    sy += side * urgency;
+    if (!worst || urgency > worst.urgency) {
+      const ml = Math.hypot(mv.x, mv.z) || 1;
+      worst = {
+        urgency,
+        gap: Math.sqrt(
+          (me.x - o.x) ** 2 + (me.y - o.y) ** 2 + (me.z - o.z) ** 2
+        ),
+        ahead: (-(dx * mv.x) - dz * mv.z) / ml,
+      };
+    }
+  }
+  if (!worst) return null;
+  const flat = Math.hypot(sx, sz) || 1;
+  return {
+    x: sx / flat,
+    z: sz / flat,
+    y: Math.sign(sy) || 1,
+    urgency: Math.min(
+      1,
+      worst.urgency + 0.25 * (Math.hypot(sx, sz) - worst.urgency)
+    ),
+    gap: worst.gap,
+    ahead: worst.ahead,
+  };
+}

@@ -37,6 +37,7 @@ import {
   wrapAngle,
 } from '../bot-logic.js';
 import {ChillFlightLogic} from '../chill-flight-logic.js';
+import {COMPANY, IN_THE_WAY, flyAll} from './bot-company.js';
 import {simplex} from '../noise.js';
 import {
   RACE_SECONDS,
@@ -761,6 +762,29 @@ function runRace(course, plane, ctxFor, limit) {
     'a runner bot in a buggy pursuit keeps to the highway',
     on / count > 0.75,
     `(on it ${Math.round((100 * on) / count)}% of the time)`
+  );
+}
+
+// Flying with a player through turns, rolls, loops and jinks
+// (scripts/bot-company.js): bots keep out of the way and close by
+{
+  const rows = flyAll();
+  const sum = (c) => rows.reduce((t, r) => t + r[c], 0);
+  check(
+    'wingman bots never bump the player or each other',
+    sum('touchesPlayer') + sum('touchesBots') === 0,
+    `(${sum('touchesPlayer')} with the player, ${sum('touchesBots')} between bots)`
+  );
+  check(
+    'wingman bots are almost never in the way',
+    sum('inTheWay') < 1,
+    `(${sum('inTheWay').toFixed(1)} s within ${IN_THE_WAY} units)`
+  );
+  const cruise = rows.find((r) => r.id === 'cruise');
+  check(
+    'wingman bots stay close while the player cruises',
+    cruise.company === 100 && cruise.meanGap < 150,
+    `(${cruise.company}% within ${COMPANY}, mean ${cruise.meanGap})`
   );
 }
 

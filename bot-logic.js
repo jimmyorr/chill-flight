@@ -10,7 +10,7 @@
 // order, like the traffic planes.
 import {forwardOf, headingToward} from './traffic-logic.js';
 import {nearestRoad, roadAim, roadAlong, roadSpot} from './race-logic.js';
-import {AVOID, avoidStep, fadePush} from './bumps-logic.js';
+import {AVOID, KEEP, avoidStep, fadePush, keepClear} from './bumps-logic.js';
 
 export const BOT_PLANES = ['biplane', 'seaplane', 'twin', 'jet'];
 
@@ -18,9 +18,9 @@ export const BOT_PLANES = ['biplane', 'seaplane', 'twin', 'jet'];
 // and above
 // (close enough to show in the chase camera's view)
 export const WING_SLOTS = [
-  {side: -70, back: 15, up: 6},
-  {side: 70, back: 15, up: 6},
-  {side: -140, back: 45, up: 15},
+  {side: -70, back: 15, up: 8},
+  {side: 70, back: 15, up: 8},
+  {side: -140, back: 45, up: 34},
 ];
 // Further than this from the leader, a bot is put back on their wing (a
 // warp, a reconnect); within it, it catches up at full speed
@@ -71,11 +71,20 @@ const SCAN_INTERVAL = 0.2;
 // Handling: turn rates (rad/s) a little under a player's (about 1 rad/s in
 // a firm bank), so a player can always out-turn a bot
 const WING_TURN = 0.9;
+// Seconds the wing spot lags the leader's heading by
+const FORM_LAG = 0.6;
+// Up to this much higher (units) while the leader turns toward its side
+const STACK_UP = 45;
+// The leader pitched further than this (rad) is looping
+const LOOPING_PITCH = 1.15;
+// ...and as hard as this bending clear of someone (bot.keep)
+const KEEP_TURN = 1.6;
 export const CHASE_TURN = 0.5;
 const RUN_TURN = 0.6;
 // The chaser reacts to where its target is going with this much lag (s)
 const CHASE_REACTION = 0.7;
 const MAX_BANK = 0.75;
+const ROLL_IN = 0.3;
 const MAX_CLIMB = 60;
 const MAX_SINK = 45;
 const ACCEL = 45; // units/s²
@@ -243,6 +252,11 @@ export function rejoin(bot, leader, driving = false) {
     escapeFor: 0,
     needsRescue: false,
     window: null,
+    form: null,
+    formY: null,
+    stack: 0,
+    turn: 0,
+    keep: null,
   });
 }
 
@@ -285,9 +299,26 @@ function steer(bot, ctx, dt, heading, maxTurn) {
     // In pursuit, no tighter than a player's buggy turns at this speed
     if (ctx.tag?.pursuit) maxTurn = Math.min(maxTurn, driveYawLimit(bot.speed));
   }
+  // Bending away from anyone about to come too close (bot.keep)
+  const k = bot.keep;
+  if (k && !ctx.driving) {
+    const away = headingToward(0, 0, k.x, k.z);
+    const off = wrapAngle(away - heading);
+    heading = wrapAngle(
+      heading + clamp(off, -KEEP.BEND, KEEP.BEND) * k.urgency
+    );
+    maxTurn = Math.max(maxTurn, KEEP_TURN * k.urgency);
+  }
   const err = wrapAngle(heading - bot.heading);
-  const rate = clamp(err * 1.5, -maxTurn, maxTurn);
+  let rate = clamp(err * 1.5, -maxTurn, maxTurn);
+  // Flying, it rolls into and out of a turn over ROLL_IN seconds rather
+  // than snapping to a new turn rate
+  if (!ctx.driving) {
+    rate =
+      (bot.turn || 0) + (rate - (bot.turn || 0)) * Math.min(1, dt / ROLL_IN);
+  }
   bot.heading = wrapAngle(bot.heading + rate * dt);
+  bot.turn = rate;
   const bank = ctx.driving
     ? clamp(rate * 0.08, -0.1, 0.1)
     : clamp(rate * 0.9, -MAX_BANK, MAX_BANK);
@@ -312,7 +343,20 @@ function move(bot, dt, ctx, y, speed, clearance) {
 // Climbing or diving toward height `y` at `gain` of the gap a second, but
 // no faster than `climb` and `sink` (units/s)
 function fly(bot, dt, ctx, y, speed, floor, steep = null) {
-  const {climb = MAX_CLIMB, sink = MAX_SINK, gain = 0.8} = steep || {};
+  let {climb = MAX_CLIMB, sink = MAX_SINK, gain = 0.8} = steep || {};
+  // Keeping clear (bot.keep): up or down away, and easing off behind
+  // someone close ahead (or pressing on ahead of someone close behind)
+  const k = bot.keep;
+  if (k) {
+    y =
+      (k.y > 0 ? Math.max(y, bot.y) : Math.min(y, bot.y)) +
+      k.y * KEEP.LIFT * k.urgency;
+    gain = Math.max(gain, 0.8 + 1.7 * k.urgency);
+    climb = Math.max(climb, MAX_CLIMB + 40 * k.urgency);
+    sink = Math.max(sink, MAX_SINK + 40 * k.urgency);
+    const ease = k.ahead > 0 ? 1 - 0.3 * k.urgency : 1 + 0.12 * k.urgency;
+    speed = Math.max(MIN_SPEED * 0.8, speed * ease);
+  }
   bot.speed += clamp(speed - bot.speed, -ACCEL * dt, ACCEL * dt);
   const f = forwardOf(bot.heading);
   bot.x += f.x * bot.speed * dt;
@@ -480,8 +524,34 @@ function stepWingman(bot, dt, ctx) {
     move(bot, dt, ctx, ground + ORBIT_HEIGHT + bot.slot * 25, 110, 80);
     return;
   }
-  const spot = wingSpot(leader, bot.slot);
-  const f = forwardOf(leader.heading);
+  // The leader's heading, smoothed, so a quick jink doesn't swing the
+  // spot across their path. Through a loop (pointing nearly straight up
+  // or down) it holds the heading and height it had, and flies on level
+  // rather than following them over the top
+  const looping = Math.abs(leader.pitch || 0) > LOOPING_PITCH;
+  bot.form ??= leader.heading;
+  if (!looping) {
+    bot.form = wrapAngle(
+      bot.form +
+        wrapAngle(leader.heading - bot.form) * Math.min(1, dt / FORM_LAG)
+    );
+    bot.formY = leader.y;
+  }
+  const spot = wingSpot(
+    {...leader, heading: bot.form, y: bot.formY ?? leader.y},
+    bot.slot
+  );
+  // Stepped up while the leader turns toward this side, so a turn into
+  // the bot passes under it
+  const s = WING_SLOTS[bot.slot % WING_SLOTS.length];
+  const toward = (leader.turn || 0) * (s.side < 0 ? 1 : -1);
+  const stack = STACK_UP * clamp((toward - 0.25) / 0.9, 0, 1);
+  bot.stack ??= 0;
+  // Up quickly, back down slowly
+  const ease = stack > bot.stack ? 0.25 : 1.5;
+  bot.stack += (stack - bot.stack) * Math.min(1, dt / ease);
+  spot.y += bot.stack;
+  const f = forwardOf(bot.form);
   // Aim at a point ahead of the spot, so the bot settles in alongside
   // rather than circling it
   const lead = Math.max(250, leader.speed * 1.5);
@@ -832,8 +902,34 @@ function shove(bot, dt, ctx) {
     p.z = fadePush(p.z, dt);
     if (Math.hypot(p.x, p.y, p.z) < 1) bot.push = null;
   }
+  bot.keep = null;
   if (!ctx.others?.length) return;
   const f = forwardOf(bot.heading);
+  if (!ctx.driving) {
+    // Lined up on a race grid: stay put
+    if (ctx.race?.hold) return;
+    const k = keepClear(
+      {
+        x: bot.x,
+        y: bot.y,
+        z: bot.z,
+        vx: f.x * bot.speed,
+        vy: bot.vs,
+        vz: f.z * bot.speed,
+        turn: bot.turn || 0,
+      },
+      ctx.others
+    );
+    bot.keep = k;
+    // Right on top of someone: also straight off sideways and up or down
+    if (k && k.gap < KEEP.SHOVE) {
+      const s = KEEP.SHOVE_SPEED * (1 - k.gap / KEEP.SHOVE) * dt;
+      bot.x += k.x * s;
+      bot.z += k.z * s;
+      bot.y += k.y * s * 0.6;
+    }
+    return;
+  }
   const step = avoidStep(
     {
       x: bot.x,
