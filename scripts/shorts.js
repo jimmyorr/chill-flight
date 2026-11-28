@@ -576,6 +576,9 @@ export function buildSegmentQuery(
     ['camZ', seg.camZ],
     ['forza', seg.forza === true ? 1 : seg.forza],
     ['trip', seg.trip === true ? 1 : seg.trip],
+    ['tripMoon', seg.tripMoon ?? clipSpec.tripMoon],
+    ['tripGround', seg.tripGround ?? clipSpec.tripGround],
+    ['tripGroundAmt', seg.tripGroundAmt ?? clipSpec.tripGroundAmt],
     ['xmas', seg.xmas],
   ];
   for (const [key, val] of overrides) {
@@ -3351,6 +3354,67 @@ async function renderAgilityCuban8Short(browser, seed = 20261130) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Prototype 21: Default Mushroom Trip Chill Ground Breath & Breeze Sheen
+// ---------------------------------------------------------------------------
+async function renderTripChillShort(browser, seed = 20260101) {
+  await renderMatchCutClip(browser, {
+    id: 'trip-chill',
+    banner: `Mushroom Trip Chill Breath & Sheen (Seed ${seed})`,
+    seed,
+    durationSec: 12,
+    speedMult: 1.05,
+    camFrame: 'yaw-lock',
+    cam:
+      'plane=seaplane&livery=teal&smoke=0&style=lowpoly&speed=1.05&trip=1' +
+      '&camOffset=-5,14,62&camLook=0,-8,-72&fov=58',
+    pilotMoves: {
+      stick: [
+        [0.0, 0.0, 0.0, 1.05],
+        [2.8, -0.18, 0.01, 1.05],
+        [5.0, 0.0, 0.0, 1.05],
+        [8.8, 0.2, 0.01, 1.05],
+        [12.0, 0.0, 0.0, 1.05],
+      ],
+      stunts: [[5.1, 7.1, 'roll-left']],
+    },
+    segments: [
+      {
+        label: 'Mushroom Coast · 0.1°S, 12.3°E',
+        x: 61600,
+        y: 590,
+        z: 400,
+        heading: 36,
+        extra: 'tod=0.5&weather=none&clouds=0.2',
+        startFrame: 0,
+        endFrame: 180,
+      },
+      {
+        label: 'Twin Falls Hills · 0.5°N, 0.2°E',
+        x: 1150,
+        y: 380,
+        z: -1400,
+        heading: 28,
+        extra: 'tod=0.52&weather=none&clouds=0.2',
+        startFrame: 180,
+        endFrame: 360,
+      },
+    ],
+    outBaseName: 'short-trip-chill',
+    trackSlug: 'purrple-cat-dream-state',
+    musicStart: 12,
+    meta: {
+      title: 'Slow breathing hills & pastel lofi breezes 🍄',
+      tiktokQuestion: 'Alien mushroom coast or Twin Falls forest?',
+      stops: [
+        '0:00 Alien Mushroom Coast (0.1°S, 12.3°E)',
+        '0:06 Twin Falls Hills (0.5°N, 0.2°E)',
+      ],
+      trackTitle: 'Dream State',
+    },
+  });
+}
+
 async function main() {
   const cliArgs = process.argv.slice(2).filter((a) => !a.startsWith('--'));
   const isCheck = CHECK_ONLY || cliArgs[0] === 'check';
@@ -3648,6 +3712,9 @@ async function main() {
       }
       if (!filter || filter === 'landmark-cut') {
         await renderLandmarkCutShort(browser);
+      }
+      if (filter === 'trip-chill') {
+        await renderTripChillShort(browser);
       }
     }
   } finally {

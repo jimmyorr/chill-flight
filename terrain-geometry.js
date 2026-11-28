@@ -83,6 +83,7 @@ import {
   FOG_SKY_FRAGMENT_GLSL,
   FOG_SKY_VERTEX_GLSL,
   SKY_COLOR_GLSL,
+  TRIP_GROUND_VERTEX_GLSL,
   WATER_LEVEL,
   addHeadlightPool,
   addRoadSnow,
@@ -295,6 +296,7 @@ terrainMaterial.onBeforeCompile = (shader) => {
   shader.uniforms.uTopColor = terrainUniforms.uTopColor;
   shader.uniforms.uBottomColor = terrainUniforms.uBottomColor;
   shader.uniforms.uSnowExposure = terrainUniforms.uSnowExposure;
+  shader.uniforms.uTripGround = terrainUniforms.uTripGround;
   addAtmosphereUniforms(shader);
 
   shader.vertexShader =
@@ -309,6 +311,7 @@ terrainMaterial.onBeforeCompile = (shader) => {
     varying float vDistanceXZ;
     varying vec3 vWorldPosition;
   ` +
+    TRIP_GROUND_VERTEX_GLSL +
     SKY_COLOR_GLSL +
     FOG_SKY_VERTEX_GLSL +
     shader.vertexShader;
@@ -332,8 +335,12 @@ terrainMaterial.onBeforeCompile = (shader) => {
      vec4 customWorldPosition = modelMatrix * vec4( transformed, 1.0 );
      vDistanceXZ = length(customWorldPosition.xz - uCameraPosXZ);
      vWorldPosition = customWorldPosition.xyz;
+     float tripLift = tripGroundLiftAt(vWorldPosition.xz, vDistanceXZ);
+     if (tripLift != 0.0) {
+       gl_Position += projectionMatrix * (viewMatrix * vec4(0.0, tripLift, 0.0, 0.0));
+     }
      #ifdef USE_FOG
-       fogSkyVertex(vWorldPosition);
+       fogSkyVertex(vWorldPosition + vec3(0.0, tripLift, 0.0));
      #endif`
   );
 
@@ -355,6 +362,7 @@ terrainMaterial.onBeforeCompile = (shader) => {
     uniform vec3 uTopColor;
     uniform vec3 uBottomColor;
     uniform vec3 uSnowExposure;
+    uniform vec3 uTripGround;
     varying vec3 vWorldPosition;
   ` +
     SKY_COLOR_GLSL +
@@ -621,6 +629,29 @@ terrainMaterial.onBeforeCompile = (shader) => {
   shader.fragmentShader = shader.fragmentShader.replace(
     `#include <fog_fragment>`,
     `
+     // Mushroom-trip iridescent breeze sheen (mushroom-trip.js): lazy, soft
+     // seafoam / orchid / warm-gold gusts drifting slowly across dry land
+     if (uTripGround.y > 0.001 && vDistanceXZ < 8500.0) {
+       float dryLand = smoothstep(${(WATER_LEVEL + 0.2).toFixed(1)}, ${(WATER_LEVEL + 3.2).toFixed(1)}, vWorldPosition.y);
+       if (dryLand > 0.005) {
+         float sFade = (1.0 - smoothstep(4500.0, 8500.0, vDistanceXZ)) * dryLand * min(uTripGround.y, 2.5);
+         vec2 wp = vWorldPosition.xz;
+         float t = uTripGround.z;
+         float gust = sin(dot(wp, vec2(0.0026, 0.0015)) - t * 0.28
+                        + terrainFbm2(wp * 0.0015 + t * 0.015) * 4.0);
+         float palT = 0.5 + 0.5 * sin(dot(wp, vec2(-0.0014, 0.0023)) + t * 0.14);
+         vec3 sheenA = vec3(0.18, 1.30, 1.20);
+         vec3 sheenB = vec3(1.30, 0.58, 1.36);
+         vec3 sheenC = vec3(1.28, 1.20, 0.44);
+         vec3 tint = palT < 0.5
+           ? mix(sheenA, sheenB, palT * 2.0)
+           : mix(sheenB, sheenC, (palT - 0.5) * 2.0);
+         float luma = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
+         vec3 vivid = clamp(vec3(luma) * tint * 1.14, 0.0, 1.0);
+         float amt = (0.28 + 0.72 * smoothstep(-0.85, 0.85, gust)) * sFade;
+         gl_FragColor.rgb = mix(gl_FragColor.rgb, vivid, clamp(amt * 0.64, 0.0, 0.9));
+       }
+     }
      #ifdef USE_FOG
        vec3 fogSkyColor = fogSkyColorAt(vWorldPosition);
        
@@ -704,6 +735,7 @@ waterMaterial.onBeforeCompile = function (shader) {
   shader.uniforms.uSunColor = waterUniforms.uSunColor;
   shader.uniforms.uTopColor = terrainUniforms.uTopColor;
   shader.uniforms.uBottomColor = terrainUniforms.uBottomColor;
+  shader.uniforms.uTripGround = terrainUniforms.uTripGround;
   addAtmosphereUniforms(shader);
 
   // Add time uniform declaration to the top of the vertex shader
@@ -730,6 +762,7 @@ waterMaterial.onBeforeCompile = function (shader) {
 
         ${WATER_SWELL_GLSL}
     ` +
+    TRIP_GROUND_VERTEX_GLSL +
     SKY_COLOR_GLSL +
     FOG_SKY_VERTEX_GLSL +
     shader.vertexShader;
@@ -772,10 +805,21 @@ waterMaterial.onBeforeCompile = function (shader) {
         vDistanceXZ = length(vWorldPosition.xz - uCameraPosXZ);
         vFlow = flow.xy;
         vSwamp = flow.z;
+        float tripWaterLift = tripGroundLiftAt(vWorldPosition.xz, vDistanceXZ);
         #ifdef USE_FOG
-          fogSkyVertex(vWorldPosition);
+          fogSkyVertex(vWorldPosition + vec3(0.0, tripWaterLift, 0.0));
         #endif
         `
+  );
+  shader.vertexShader = shader.vertexShader.replace(
+    `#include <worldpos_vertex>`,
+    `#include <worldpos_vertex>
+     {
+       float tripWLift = tripGroundLiftAt(vWorldPosition.xz, vDistanceXZ);
+       if (tripWLift != 0.0) {
+         gl_Position += projectionMatrix * (viewMatrix * vec4(0.0, tripWLift, 0.0, 0.0));
+       }
+     }`
   );
 
   shader.fragmentShader =
@@ -1100,7 +1144,8 @@ waterMaterial.onBeforeCompile = function (shader) {
           float foamEdge = 1.0 - smoothstep(3.0, 8.0, shoreDist); // solid at the waterline
           float foam = (1.0 - smoothstep(12.0, 28.0, shoreDist)) * smoothstep(0.0, 0.05, vWaterDepth)
                      * max(foamRings * 0.8, foamEdge) * (1.0 - swampWater);
-          gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.95, 0.97, 1.0) * lightLevel, foam * 0.9);
+          vec3 foamCol = vec3(0.95, 0.97, 1.0) * lightLevel;
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, foamCol, foam * 0.9);
           gl_FragColor.a = max(gl_FragColor.a, foam * 0.9);
         }
 

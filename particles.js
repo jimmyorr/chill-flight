@@ -39,6 +39,7 @@ import {ChillFlightLogic} from './chill-flight-logic.js';
 import {manualCloudHeight, precipitation} from './weather-manager.js';
 import {underCloudsCeiling} from './flight-physics-logic.js';
 import {rushTrail} from './crystal-rush.js';
+import {tripTrail} from './mushroom-trip.js';
 
 // Room for four or more planes' smoke trails (~1,000 each), water spray, and
 // environment effects
@@ -1518,12 +1519,14 @@ export function updateParticles(delta) {
   // Ignore the spawn and teleports settling
   settleTime += delta;
   if (!state.isFreeCamera && !state.isCrashed) {
-    const trail = isSmokeOn() || rushTrail();
-    if (isSmokeOn()) {
+    const specialSmoke =
+      activePlaneType === 'buggy' ? null : rushTrail() || tripTrail();
+    const trail = isSmokeOn() || specialSmoke;
+    if (specialSmoke) {
+      // (a shattered crystal's rush or knocked mushroom's trip)
+      smokeTrail(planeGroup, smokeLast, speed, specialSmoke);
+    } else if (isSmokeOn()) {
       smokeTrail(planeGroup, smokeLast, speed, tinted ? smokeTint : SMOKE);
-    } else if (rushTrail()) {
-      // (a shattered crystal's rush, crystal-rush.js)
-      smokeTrail(planeGroup, smokeLast, speed, rushTrail());
     } else {
       smokeLast.valid = false;
     }

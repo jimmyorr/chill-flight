@@ -813,7 +813,29 @@ export const terrainUniforms = {
   // Dims near-white terrain (snow, ice) so full daylight doesn't clip it to
   // flat white; 1 when the light is weak enough (see game-loop.js).
   uSnowExposure: {value: new THREE.Vector3(1, 1, 1)},
+  // Mushroom-trip ground uniforms (mushroom-trip.js):
+  // x = breathe, y = sheen, z = continuous trip clock (s)
+  uTripGround: {value: new THREE.Vector3(0, 0, 0)},
 };
+
+// Shared vertex-space vertical breath for mushroom trips (mushroom-trip.js).
+// Fades in smoothly from 240 m to 1200 m so runways, wheels, grass, and prop
+// hits near the camera stay locked to getElevation(), while distant hills,
+// islands, water, props, and the 27 km horizon ring inhale and exhale slowly
+// together (~26-34 s per breath) with no floating props.
+export const TRIP_GROUND_VERTEX_GLSL = `
+uniform vec3 uTripGround;
+float tripGroundLiftAt(vec2 wpXZ, float distXZ) {
+  float breathe = uTripGround.x;
+  if (breathe <= 0.001) return 0.0;
+  float farMask = smoothstep(200.0, 950.0, distXZ)
+                * (1.0 - smoothstep(18000.0, 26000.0, distXZ));
+  float t = uTripGround.z;
+  float w1 = sin(wpXZ.x * 0.0018 + t * 0.21) * cos(wpXZ.y * 0.0017 - t * 0.16);
+  float w2 = sin((wpXZ.x * 0.8 - wpXZ.y * 0.6) * 0.0036 - t * 0.27);
+  return (w1 * 0.65 + w2 * 0.35) * 98.0 * breathe * farMask;
+}
+`;
 
 export function createMaterial(params) {
   // Make a copy of params to avoid mutating the original
@@ -870,6 +892,7 @@ export function createMaterial(params) {
     shader.uniforms.uSunDirection = terrainUniforms.uSunDirection;
     shader.uniforms.uTopColor = terrainUniforms.uTopColor;
     shader.uniforms.uBottomColor = terrainUniforms.uBottomColor;
+    shader.uniforms.uTripGround = terrainUniforms.uTripGround;
 
     shader.vertexShader =
       `
@@ -877,6 +900,7 @@ export function createMaterial(params) {
       uniform float uRenderRadius;
       varying float vDistanceXZ;
       varying vec3 vWorldPosition;
+      ${TRIP_GROUND_VERTEX_GLSL}
     ` + shader.vertexShader;
 
     shader.vertexShader = shader.vertexShader.replace(
@@ -888,7 +912,13 @@ export function createMaterial(params) {
        #endif
        customWorldPosition = modelMatrix * customWorldPosition;
        vDistanceXZ = length(customWorldPosition.xz - uCameraPosXZ);
-       vWorldPosition = customWorldPosition.xyz;`
+       vWorldPosition = customWorldPosition.xyz;
+       {
+         float tripLift = tripGroundLiftAt(vWorldPosition.xz, vDistanceXZ);
+         if (tripLift != 0.0) {
+           gl_Position += projectionMatrix * (viewMatrix * vec4(0.0, tripLift, 0.0, 0.0));
+         }
+       }`
     );
 
     shader.fragmentShader =

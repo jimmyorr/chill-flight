@@ -1,23 +1,26 @@
 // --- KNOCKED MUSHROOMS SLOWLY TURN THE SKY COSMIC AND SWELL THE MOON ---
 // Knocking over one of the eastern alien mushrooms (breakables.js) throws
 // out a cloud of glowing spores at its stump, and when it's the player who
-// hit it, a slow, uncanny transition unfolds over the next minute and a half
+// hit it, a slow, chill transition unfolds over the next minute and a half
 // to two minutes (stronger and longer for the giants, and stacking smoothly
 // across a grove): the upper sky gradually deepens over ~22 s into cosmic
 // indigo-violet over a twilight haze as aurora curtains, stars and the Milky
-// Way materialize even by day, the cloud layers curl across each other, and
-// the moon swells glacially over ~42 s to ~6x-8.5x its normal size while its
-// sunlit phase creeps slowly across its craters (~2.5 min per lunar cycle),
-// before melting gently back to normal.
+// Way materialize even by day, the cloud layers curl across each other,
+// distant hills and islands begin a slow ~30 s inhale-exhale breath as soft
+// iridescent breeze washes drift across the ground, and the moon swells
+// glacially over ~42 s to ~6x-8.5x its normal size while its sunlit phase
+// creeps slowly across its craters (~2.5 min per lunar cycle), before
+// melting gently back to normal.
 //
 // It costs nothing on phones: no extra pass, shader or allocations, just
-// existing sky, light and moon uniforms nudged before the frame is drawn
-// (applyTrip) and restored straight after (restoreTrip), so the day/night
-// code underneath never sees them and a longer trip has zero runtime cost.
+// existing sky, light, terrain and moon uniforms nudged before the frame is
+// drawn (applyTrip) and restored straight after (restoreTrip), so the
+// day/night code underneath never sees them.
 import * as THREE from 'three';
 import {scene} from './scene.js';
 import {state} from './state.js';
 import {moonlightUniforms, terrainUniforms} from './constants.js';
+import {windUniforms} from './terrain-geometry.js';
 import {
   dirLight,
   hemiLight,
@@ -72,6 +75,41 @@ const _rawTripMoon = parseFloat(_urlParams?.get('tripMoon') ?? '');
 const MOON_GROW = Number.isFinite(_rawTripMoon)
   ? THREE.MathUtils.clamp(_rawTripMoon, 1, 15)
   : DEFAULT_MOON_GROW;
+
+// Built-in chill ground effects (breathe + sheen) are on by default and ease
+// in over the same slow ~42 s envelope as the moon; ?tripGround=0 (off/none)
+// disables them, ?tripGround=breathe or sheen isolates one, and
+// ?tripGroundAmt=0..3 tunes their strength.
+const _rawTripGround = (_urlParams?.get('tripGround') ?? '')
+  .trim()
+  .toLowerCase();
+const _groundOff =
+  _rawTripGround === '0' ||
+  _rawTripGround === 'false' ||
+  _rawTripGround === 'off' ||
+  _rawTripGround === 'none';
+const _groundTokens = new Set(_rawTripGround.split(/[,+\s]+/).filter(Boolean));
+const _groundDefaultOrAll =
+  !_groundOff &&
+  (_groundTokens.size === 0 ||
+    _groundTokens.has('all') ||
+    _groundTokens.has('1') ||
+    _groundTokens.has('true'));
+const _rawGroundAmt = parseFloat(_urlParams?.get('tripGroundAmt') ?? '');
+const GROUND_AMT = Number.isFinite(_rawGroundAmt)
+  ? THREE.MathUtils.clamp(_rawGroundAmt, 0, 3)
+  : 1;
+const GROUND_MODES = {
+  breathe:
+    !_groundOff && (_groundDefaultOrAll || _groundTokens.has('breathe'))
+      ? GROUND_AMT
+      : 0,
+  sheen:
+    !_groundOff && (_groundDefaultOrAll || _groundTokens.has('sheen'))
+      ? GROUND_AMT
+      : 0,
+};
+const HAS_GROUND_FX = GROUND_MODES.breathe + GROUND_MODES.sheen > 0;
 
 function makeChannel() {
   return {val: 0, from: 0, target: 0, age: 0, dur: 1, mode: 'idle'};
@@ -138,6 +176,12 @@ let activeLeft = 0;
 // Continuous phase clock (s) and initial lunar phase anchor
 let clock = 0;
 let phaseStartAngle = 0;
+// Cap colour of the most recently hit mushroom, streamed off the plane's tail
+// while the trip stays active (particles.js, like rushTrail in crystal-rush.js)
+const _capColor = new THREE.Color(0x9c27b0);
+const _trail = new THREE.Color();
+const WHITE = new THREE.Color(1, 1, 1);
+const _smokeForcedOff = _urlParams?.get('smoke') === '0';
 
 /** 0-1 how strong the sky trip is now (0 when not tripping). */
 export function tripAmount() {
@@ -149,8 +193,23 @@ export function tripMoonAmount() {
   return FOREVER_STRENGTH > 0 ? FOREVER_STRENGTH : moonCh.val;
 }
 
-/** Starts (or stacks smoothly onto) a trip: `size` 0-1 from small to giant. */
-export function startTrip(size) {
+/** The plane's smoke trail colour while the trip stays active, or null. */
+export function tripTrail() {
+  const active =
+    (FOREVER_STRENGTH > 0 && !_smokeForcedOff) ||
+    (skyCh.mode !== 'idle' &&
+      (activeLeft > 0 || Math.max(skyCh.val, moonCh.val) > 0.06));
+  if (!active) return null;
+  return _trail.copy(_capColor).lerp(WHITE, 0.2);
+}
+
+/** Starts (or stacks smoothly onto) a trip: `size` 0-1 from small to giant,
+ * `capColor` the mushroom cap's colour (THREE.Color or [r, g, b]). */
+export function startTrip(size, capColor) {
+  if (capColor) {
+    if (Array.isArray(capColor)) _capColor.fromArray(capColor);
+    else _capColor.copy(capColor);
+  }
   const s = THREE.MathUtils.clamp(size, 0, 1);
   const hitPeak = THREE.MathUtils.lerp(PEAK_SMALL, 1, Math.pow(s, 0.6));
   const nextActive = THREE.MathUtils.lerp(ACTIVE_SMALL, ACTIVE_GIANT, s);
@@ -248,6 +307,7 @@ const _driftedSun = new THREE.Vector3();
 
 let applied = false;
 let appliedMoon = false;
+let appliedGround = false;
 let _savedAurora = 0;
 let _savedMilkyWay = 0;
 let _savedStarsOpacity = 0;
@@ -255,6 +315,7 @@ let _savedStarsVisible = false;
 let _savedMoonDayFactor = 1;
 let _savedMoonBright = 0;
 let _savedMoonCos = 0.9995;
+let _savedWindStrength = 1;
 
 /** Before the frame is drawn: nudges sky, clouds, aurora, stars, lights, and moon. */
 export function applyTrip() {
@@ -264,6 +325,7 @@ export function applyTrip() {
   if (aAny <= 0.001 || !skyUniforms) return;
   applied = true;
   appliedMoon = false;
+  appliedGround = false;
 
   const overcast = skyUniforms.uCloudDensity?.value ?? 0;
   const clearSky = Math.max(0.15, 1 - overcast * 0.7);
@@ -405,6 +467,27 @@ export function applyTrip() {
       .lerp(_driftedSun, aAny)
       .normalize();
   }
+
+  // 5. Slow, chill ground breathing and pastel breeze sheen: rides the ~42 s
+  // moon envelope (`aMoon`) so nothing shifts abruptly right on impact, and
+  // eases back over ~30 s at the end of the trip
+  if (HAS_GROUND_FX && aMoon > 0.001) {
+    appliedGround = true;
+    terrainUniforms.uTripGround.value.set(
+      GROUND_MODES.breathe * aMoon,
+      GROUND_MODES.sheen * aMoon,
+      clock
+    );
+    _savedWindStrength = windUniforms.uWindStrength.value;
+    if (GROUND_MODES.sheen > 0) {
+      const gentleBreeze = 1.42 + 0.48 * Math.sin(clock * 0.22);
+      windUniforms.uWindStrength.value = THREE.MathUtils.lerp(
+        _savedWindStrength,
+        Math.max(_savedWindStrength, gentleBreeze),
+        Math.min(1, GROUND_MODES.sheen * aMoon)
+      );
+    }
+  }
 }
 
 /** After the frame is drawn: puts everything applyTrip changed back. */
@@ -436,5 +519,10 @@ export function restoreTrip() {
     moonUniforms.dayFactor.value = _savedMoonDayFactor;
     moonlightUniforms.uMoonBright.value = _savedMoonBright;
     moonlightUniforms.uMoonCos.value = _savedMoonCos;
+  }
+  if (appliedGround) {
+    appliedGround = false;
+    terrainUniforms.uTripGround.value.set(0, 0, 0);
+    windUniforms.uWindStrength.value = _savedWindStrength;
   }
 }

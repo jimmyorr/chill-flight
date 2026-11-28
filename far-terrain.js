@@ -22,6 +22,7 @@ import {
   FOG_SKY_FRAGMENT_GLSL,
   FOG_SKY_VERTEX_GLSL,
   SKY_COLOR_GLSL,
+  TRIP_GROUND_VERTEX_GLSL,
   WATER_LEVEL,
   terrainUniforms,
   CLOUD_SHADOW_GLSL,
@@ -62,6 +63,7 @@ farMaterial.onBeforeCompile = (shader) => {
   shader.uniforms.uBottomColor = terrainUniforms.uBottomColor;
   shader.uniforms.uFarRadius = farUniforms.uFarRadius;
   shader.uniforms.uFarWaterY = farUniforms.uFarWaterY;
+  shader.uniforms.uTripGround = terrainUniforms.uTripGround;
   addAtmosphereUniforms(shader);
 
   shader.vertexShader =
@@ -74,6 +76,7 @@ farMaterial.onBeforeCompile = (shader) => {
     varying float vDistanceXZ;
     varying vec3 vFarWorldPos;
   ` +
+    TRIP_GROUND_VERTEX_GLSL +
     SKY_COLOR_GLSL +
     FOG_SKY_VERTEX_GLSL +
     shader.vertexShader;
@@ -92,8 +95,12 @@ farMaterial.onBeforeCompile = (shader) => {
     `#include <worldpos_vertex>
      vFarWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
      vDistanceXZ = length(vFarWorldPos.xz - uCameraPosXZ);
+     float tripFarLift = tripGroundLiftAt(vFarWorldPos.xz, vDistanceXZ);
+     if (tripFarLift != 0.0) {
+       gl_Position += projectionMatrix * (viewMatrix * vec4(0.0, tripFarLift, 0.0, 0.0));
+     }
      #ifdef USE_FOG
-       fogSkyVertex(vFarWorldPos);
+       fogSkyVertex(vFarWorldPos + vec3(0.0, tripFarLift, 0.0));
      #endif`
   );
 

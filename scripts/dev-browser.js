@@ -336,6 +336,8 @@ const LOAD_TIME_PARAMS = [
   'dayBlue',
   'trip',
   'tripMoon',
+  'tripGround',
+  'tripGroundAmt',
 ];
 
 export function canReuseTab(prevQuery, nextQuery) {
