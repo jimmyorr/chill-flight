@@ -3125,15 +3125,16 @@ function renderPanel() {
   shareBtn.disabled = busy;
   if (botsRow) botsRow.hidden = !!room.local;
   const gameOn = !!tag.it || !!race.course;
-  // The games sit under the list whenever there's someone to play with;
+  // The games always sit under the list (greyed out until there's someone
+  // to play with, so the tab isn't half empty while you wait for friends);
   // in one, a single Stop button takes the tiles' place
   const canPlay = peers.size > 0;
-  if (gamesBlock) gamesBlock.hidden = !canPlay && !gameOn;
+  if (gamesBlock) gamesBlock.hidden = false;
   if (gamesPicker) gamesPicker.hidden = gameOn;
-  // Nobody to play with while the connection is down
+  // Nobody to play with alone, or while the connection is down
   const offline = !socket && !room.local;
   for (const btn of [gameTagBtn, gamePursuitBtn, gameRaceBtn]) {
-    if (btn) btn.disabled = offline;
+    if (btn) btn.disabled = offline || !canPlay;
   }
   if (tagBtn) {
     tagBtn.hidden = !gameOn;

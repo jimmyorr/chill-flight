@@ -3087,6 +3087,14 @@ input[type='number'].customization-input {
   transform: scale(0.98);
 }
 
+/* Alone in a room: the games wait for a friend or bots */
+.fly-game:disabled {
+  opacity: 0.5;
+  cursor: default;
+  transform: none;
+  pointer-events: none;
+}
+
 .fly-game-name {
   font-size: 15px;
   font-weight: 700;
