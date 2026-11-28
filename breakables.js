@@ -1323,12 +1323,6 @@ function breakProp(group, index, i, dx, dz, kts, mine, buggy) {
       else playSmashSound(house, gain, fallTime);
     }
   }
-  // Props that come down with this one (an airship's mooring mast and the
-  // airship), as if knocked over by someone else so the plane isn't slowed
-  // twice
-  for (const j of propSpec(group.userData, i)?.alsoBreaks || []) {
-    if (!index.broken.has(j)) breakProp(group, index, j, dx, dz, kts, false);
-  }
 }
 
 function playSmashSound(house, loud, fallTime) {

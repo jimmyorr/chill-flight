@@ -885,6 +885,11 @@ export function clearwaterPlazaGroup(
 // --- 4. WESTGATE: COPPER MOORING DOME & WIND-TETHERED AIRSHIP ---
 const DOME_SCALE = 5.5;
 const AIRSHIP_SCALE = 10.2;
+// Cut loose from its mast: top speed downwind and climb (units/s), and how
+// long until it has drifted out of sight (~1.1 km out, ~300 up)
+const ADRIFT_SPEED = 6.5;
+const ADRIFT_CLIMB = 1.8;
+const ADRIFT_GONE_SEC = 180;
 const DOME_GLOW_HEXES = new Set([
   new THREE.Color('#ffc878').getHexString(),
   new THREE.Color('#ffb454').getHexString(),
@@ -1109,20 +1114,22 @@ export function westgatePlazaGroup(
   cableMesh.castShadow = false;
   mooringSwivel.add(cableMesh);
   group.add(mooringSwivel);
-  // The dome and its mast fold; the airship is a prop of its own, thrown
-  // off when hit and falls to the ground. Knocking the mast down brings the
-  // airship down with it (alsoBreaks); either one cuts the cable (alsoHide)
+  // The dome and its mast fold, and the airship breaks loose and drifts away
+  // downwind (cutsLoose: pyramids.js passes adriftSec). Hit on its own, the
+  // airship is thrown off and falls to the ground, unless it's already adrift
+  // (freeWhenAdrift). Either one cuts the cable (alsoHide)
   group.userData.breakParts = [
     {
       parts: [[domeGroup, 'fold']],
       rubble: 14,
       alsoHide: [cableMesh],
-      alsoBreaks: [1],
+      cutsLoose: true,
     },
     {
       parts: [[shipRig, 'fling', {restOnGround: true}]],
       rubble: 8,
       alsoHide: [cableMesh],
+      freeWhenAdrift: true,
     },
   ];
 
@@ -1144,20 +1151,36 @@ export function westgatePlazaGroup(
     windStrength = 0.7,
     windYaw = 0,
     parentYaw = 0,
+    adriftSec = null,
   }) => {
     // (timeSec is already wrapped to a day: wrapping it again here made the
     // sways jump once an hour)
     const t = timeSec;
-    const wander =
-      (Math.sin(t * 0.44) * 0.15 + Math.sin(t * 0.97 + 1.1) * 0.06) *
-      (0.6 + windStrength * 0.4);
-    mooringSwivel.rotation.y = windYaw + Math.PI - parentYaw + wander;
     const bobY = Math.sin(t * 0.75) * 2.6 + Math.sin(t * 1.53) * 0.75;
-    shipRig.position.y = baseShipY + bobY;
+    if (adriftSec === null) {
+      const wander =
+        (Math.sin(t * 0.44) * 0.15 + Math.sin(t * 0.97 + 1.1) * 0.06) *
+        (0.6 + windStrength * 0.4);
+      mooringSwivel.rotation.y = windYaw + Math.PI - parentYaw + wander;
+      shipRig.position.y = baseShipY + bobY;
+    } else {
+      // Cut loose: the swivel holds the heading it had (downwind is -z), and
+      // the airship picks up speed downwind and climbs away, slowly turning,
+      // until it's gone
+      const d = adriftSec;
+      const away = ADRIFT_SPEED * (d - 6 * (1 - Math.exp(-d / 6)));
+      const climb = ADRIFT_CLIMB * (d - 4 * (1 - Math.exp(-d / 4)));
+      shipRig.position.set(0, baseShipY + bobY + climb, baseShipZ - away);
+      shipRig.rotation.y = d * 0.03;
+      if (d > ADRIFT_GONE_SEC) shipRig.visible = false;
+    }
     if (detail) {
       shipRig.rotation.z =
         Math.sin(t * 0.88 + 0.4) * 0.055 * (0.5 + windStrength * 0.5);
-      shipRig.rotation.x = Math.cos(t * 0.75) * 0.035;
+      // (nose up a little once adrift)
+      shipRig.rotation.x =
+        Math.cos(t * 0.75) * 0.035 -
+        (adriftSec === null ? 0 : 0.07 * Math.min(1, adriftSec / 10));
       if (propSpin) propSpin.rotation.z = (windTimeSec * 6.5) % TAU;
       if (propSwivel) propSwivel.rotation.y = Math.sin(t * 0.65) * 0.22;
       if (lampNode) lampNode.rotation.x = Math.sin(t * 1.65) * 0.13;

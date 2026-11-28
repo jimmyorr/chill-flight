@@ -173,7 +173,7 @@ if (ChillFlightLogic.SHOW_OBJECTS !== false) {
     }
     lod.updateMatrixWorld(true);
     scene.add(lod);
-    const entry = {site: plaza, near, far, broken: false};
+    const entry = {site: plaza, near, far, broken: false, adriftAt: null};
     _townPlazaEntries.push(entry);
 
     if (plaza.kind === 'ferris') {
@@ -248,8 +248,12 @@ if (ChillFlightLogic.SHOW_OBJECTS !== false) {
               role,
               ...opts,
             })),
-            alsoBreaks: bp.alsoBreaks,
+            // (An airship adrift has left where it was moored)
+            hit: bp.freeWhenAdrift ? () => entry.adriftAt === null : undefined,
             onBreak: () => {
+              if (bp.cutsLoose && entry.adriftAt === null) {
+                entry.adriftAt = _lastAnimSec ?? 0;
+              }
               const farPart = farBreak?.[i];
               for (const [object] of farPart?.parts || []) {
                 object.visible = false;
@@ -309,6 +313,10 @@ export function updateTownPlazas(
         windYaw: WIND_YAW,
         parentYaw: site.yaw,
         dayProgress,
+        adriftSec:
+          entry.adriftAt === null
+            ? null
+            : (((animSec - entry.adriftAt) % 86400) + 86400) % 86400,
       });
     }
   }
